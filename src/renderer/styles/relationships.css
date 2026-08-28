@@ -1051,31 +1051,6 @@
   box-shadow: 0 0 0 2px var(--accent-bg);
 }
 
-.relationship-coolify-safety {
-  display: grid;
-  gap: 4px;
-  padding: 10px 11px;
-  border: 1px solid color-mix(in srgb, var(--status-clean) 38%, var(--border-color));
-  border-radius: 8px;
-  color: var(--text-secondary);
-  background: color-mix(in srgb, var(--status-clean) 8%, var(--bg-secondary));
-  font-size: 10px;
-  line-height: 1.45;
-}
-
-.relationship-coolify-safety strong {
-  color: var(--status-clean);
-  font-size: 11px;
-}
-
-.relationship-coolify-safety code {
-  padding: 1px 4px;
-  border-radius: 4px;
-  color: var(--text-primary);
-  background: var(--bg-hover);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-}
-
 .relationship-dialog-body p {
   color: var(--text-tertiary);
   font-size: 10px;

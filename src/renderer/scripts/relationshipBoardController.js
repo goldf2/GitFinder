@@ -670,7 +670,6 @@
                 <button type="button" role="menuitem" data-add-node-type="endpoint"><span>↗</span><span>访问端点</span><small>仅显示标签</small></button>
                 <button type="button" role="menuitem" data-add-node-type="group"><span>▢</span><span>分组</span><small>视觉整理</small></button>
                 <div class="relationship-menu-separator" role="separator"></div>
-                <button type="button" role="menuitem" data-relationship-action="connect-coolify"><span>◎</span><span>连接 Coolify…</span><small>只读发现，确认后合并</small></button>
                 <button type="button" role="menuitem" data-relationship-action="import-json"><span>⇩</span><span>导入 JSON…</span><small>先预览差异再合并</small></button>
               </div>
             </div>
@@ -783,11 +782,6 @@
       if (action === 'import-json') {
         this._closeAddMenu();
         this._importRelationshipJson();
-        return;
-      }
-      if (action === 'connect-coolify') {
-        this._closeAddMenu();
-        this._connectCoolify();
         return;
       }
       if (action === 'close-inspector') {
@@ -2342,109 +2336,6 @@
       } finally {
         this.importInFlight = false;
       }
-    }
-
-    async _connectCoolify() {
-      if (this.importInFlight || !this.bridge?.relationshipBoards?.previewCoolify) return false;
-      const rootAtStart = this.root;
-      const credentials = await this._openCoolifyCredentialsDialog();
-      if (!credentials || this.root !== rootAtStart) return false;
-      this.importInFlight = true;
-      let accessToken = credentials.accessToken;
-      try {
-        await this._persistNow();
-        const preview = await this.bridge.relationshipBoards.previewCoolify({
-          baseUrl: credentials.baseUrl,
-          accessToken
-        });
-        accessToken = '';
-        credentials.accessToken = '';
-        if (!preview || preview.cancelled || this.root !== rootAtStart) return false;
-        if (!preview.hasChanges) {
-          this.notify('Coolify 当前快照与关系白板没有可合并差异', 'info');
-          return false;
-        }
-        const confirmed = await this._openImportPreviewDialog(preview);
-        if (!confirmed || this.root !== rootAtStart) return false;
-        const result = await this.bridge.relationshipBoards.applyCoolify({
-          operationId: preview.operationId,
-          previewToken: preview.previewToken
-        });
-        const normalized = Model.assertValidStore(result.store);
-        if (JSON.stringify(normalized) !== JSON.stringify(this.store)) {
-          this._recordMutation();
-          this.store = normalized;
-        }
-        this._clearEntitySelection();
-        this.selectedRelationshipId = '';
-        this.keyboardConnectSourceId = '';
-        this._setSaveState('saved');
-        this.render();
-        const backup = result.backupFileName ? `；同步前备份：${result.backupFileName}` : '';
-        this.notify(`已合并 ${result.totalChanges} 项 Coolify 只读观测${backup}`, 'success');
-        this._setCanvasAnnouncement(`已从 ${preview.sourceLabel || 'Coolify'} 合并 ${result.totalChanges} 项观测差异`);
-        return true;
-      } catch (error) {
-        this.notify(`Coolify 只读发现失败：${error?.message || String(error)}`, 'error');
-        return false;
-      } finally {
-        accessToken = '';
-        credentials.accessToken = '';
-        this.importInFlight = false;
-      }
-    }
-
-    _openCoolifyCredentialsDialog() {
-      return new Promise(resolve => {
-        const overlay = document.createElement('div');
-        overlay.className = 'relationship-dialog-overlay';
-        overlay.innerHTML = `
-          <form class="relationship-dialog relationship-coolify-dialog" role="dialog" aria-modal="true" aria-labelledby="relationship-coolify-title" aria-describedby="relationship-coolify-boundary">
-            <header><div><h3 id="relationship-coolify-title">连接 Coolify（只读）</h3><small>发现服务器、部署、公开域名和已匹配仓库</small></div><button type="button" data-dialog-cancel aria-label="关闭">×</button></header>
-            <div class="relationship-dialog-body">
-              <label class="relationship-dialog-field">
-                <span>实例地址</span>
-                <input name="baseUrl" type="url" placeholder="https://coolify.example.com" maxlength="2048" required autocomplete="off" spellcheck="false">
-              </label>
-              <label class="relationship-dialog-field">
-                <span>Access Token</span>
-                <input name="accessToken" type="password" placeholder="仅使用 read 权限令牌" maxlength="4096" required autocomplete="off" spellcheck="false">
-              </label>
-              <div class="relationship-coolify-safety">
-                <strong>最小权限边界</strong>
-                <span>请创建只含 <code>read</code> 权限的团队令牌，不要使用 <code>read:sensitive</code>、<code>write</code>、<code>deploy</code> 或 <code>root</code>。</span>
-              </div>
-              <p id="relationship-coolify-boundary">令牌仅用于本次主进程读取，响应返回后立即从界面状态丢弃；不会写入设置、关系白板或日志。读取本身不会触发部署、重启或修改。</p>
-            </div>
-            <footer><button class="btn" type="button" data-dialog-cancel>取消</button><button class="btn btn-primary" type="submit">读取并预览</button></footer>
-          </form>`;
-        const tokenInput = overlay.querySelector('[name="accessToken"]');
-        const finish = value => {
-          document.removeEventListener('keydown', escapeListener, true);
-          if (tokenInput) tokenInput.value = '';
-          overlay.remove();
-          resolve(value);
-        };
-        const escapeListener = event => {
-          if (event.key !== 'Escape') return;
-          event.preventDefault();
-          event.stopPropagation();
-          finish(null);
-        };
-        overlay.addEventListener('click', event => {
-          if (event.target.closest('[data-dialog-cancel]')) finish(null);
-        });
-        overlay.querySelector('form').addEventListener('submit', event => {
-          event.preventDefault();
-          const baseUrl = String(event.currentTarget.elements.namedItem('baseUrl').value || '').trim();
-          const accessToken = String(tokenInput?.value || '').trim();
-          if (!baseUrl || !accessToken) return;
-          finish({ baseUrl, accessToken });
-        });
-        document.body.appendChild(overlay);
-        document.addEventListener('keydown', escapeListener, true);
-        requestAnimationFrame(() => overlay.querySelector('[name="baseUrl"]')?.focus());
-      });
     }
 
     _openImportPreviewDialog(preview) {

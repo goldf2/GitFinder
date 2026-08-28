@@ -64,4 +64,5 @@ GitFinder 2.0 直接复用 1.x 已验证的布局与交互结构。Panel 提供�
 - 已在普通项目文件夹与 Git 项目详情中增加独立部署区块，支持未配置、未关联、加载、失败和正常状态。
 - 已支持从 Catalog 明确选择一个资源，并将稳定 ID 写入 `.gitfinder/deployments.json`；不触发 Git 或部署写操作。
 - 已支持刷新快照及用户点击后打开允许列表中的 Panel/Coolify 链接。
+- 已移除 1.x 遗留的白板直连 Coolify、Token 输入和对应 IPC；部署数据统一由 Panel Provider 提供。
 - 尚未实现侧栏故障摘要、项目内独立部署标签、白板部署投影、事件摘要与系统通知。

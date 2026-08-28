@@ -12,7 +12,6 @@ const selectionDetailSource = read('src/renderer/scripts/fileSelectionDetailCont
 const relationshipCss = read('src/renderer/styles/relationships.css');
 const serviceSource = read('src/main/services/relationshipBoardService.js');
 const importServiceSource = read('src/main/services/relationshipBoardImportService.js');
-const coolifyConnectorSource = read('src/main/services/coolifyReadOnlyConnectorService.js');
 const relationshipIpcSource = read('src/main/ipc/relationshipBoards.js');
 const userDataVerifierSource = read('scripts/verify-relationship-user-data.js');
 const preloadSource = read('preload.js');
@@ -133,98 +132,14 @@ test('确认 JSON 差异后控制器载入主进程结果并保留一次撤销�
   assert.equal(notifications[0].type, 'success');
 });
 
-test('Coolify 连接只传递会话令牌，预览确认后才合并白名单化关系', async () => {
+test('GitFinder 2 白板不暴露直连 Coolify 或输入 Coolify Token 的入口', () => {
   const relationshipPreloadBlock = preloadSource.match(/relationshipBoards:\s*\{[\s\S]*?\n\s*\},/)?.[0] || '';
-  assert.match(controllerSource, /data-relationship-action="connect-coolify"/);
-  assert.match(controllerSource, /type="password"[\s\S]*?autocomplete="off"/);
-  assert.match(controllerSource, /只含 <code>read<\/code> 权限/);
-  assert.match(controllerSource, /credentials\.accessToken = ''/);
-  assert.match(relationshipPreloadBlock, /previewCoolify:\s*\(request\)\s*=>\s*ipcRenderer\.invoke\('relationshipBoards:previewCoolify', request\)/);
-  assert.match(relationshipPreloadBlock, /applyCoolify:\s*\(request\)\s*=>\s*ipcRenderer\.invoke\('relationshipBoards:applyCoolify', request\)/);
-  assert.match(relationshipIpcSource, /coolifyReadOnlyConnectorService\.preview\(request\)/);
-  assert.match(coolifyConnectorSource, /method:\s*'GET'/);
-  assert.match(coolifyConnectorSource, /preserveSource:\s*true/);
-  assert.doesNotMatch(coolifyConnectorSource, /method:\s*['"](?:POST|PUT|PATCH|DELETE)['"]/i);
-  assert.doesNotMatch(coolifyConnectorSource, /\/(?:deploy|restart|start|stop)(?:[/'"`])/i);
-
-  const initialStore = {
-    schemaVersion: 1,
-    activeBoardId: 'board_coolify01',
-    entities: [],
-    relationships: [],
-    boards: [{
-      id: 'board_coolify01',
-      name: 'Coolify',
-      viewport: { x: 0, y: 0, zoom: 1 },
-      placements: []
-    }]
-  };
-  const syncedStore = structuredClone(initialStore);
-  syncedStore.entities.push({
-    id: 'entity_servercoolify',
-    type: 'server',
-    name: 'Con01',
-    details: { hostLabel: 'coolify.example.com' },
-    source: 'observed',
-    verifiedAt: '2026-08-27T12:00:00.000Z'
-  });
-  syncedStore.boards[0].placements.push({ entityId: 'entity_servercoolify', x: 100, y: 100 });
-  let previewRequest = null;
-  let applyRequest = null;
-  const notifications = [];
-  const credentials = { baseUrl: 'https://coolify.example.com', accessToken: '42|temporary-token' };
-  const controller = new Controller({
-    bridge: {
-      relationshipBoards: {
-        previewCoolify: async request => {
-          previewRequest = structuredClone(request);
-          return {
-            sourceKind: 'coolify',
-            sourceLabel: 'Coolify · coolify.example.com',
-            hasChanges: true,
-            operationId: 'relationship_import_00000000000000000000000000000000',
-            previewToken: 'b'.repeat(64),
-            totalChanges: 2,
-            counts: { addedEntities: 1, updatedBoards: 1 },
-            changes: [],
-            boundary: '只读快照'
-          };
-        },
-        applyCoolify: async request => {
-          applyRequest = request;
-          return {
-            applied: true,
-            store: RelationshipGraphModel.assertValidStore(syncedStore),
-            totalChanges: 2,
-            backupFileName: 'relationship-boards.import-backup-coolify.json'
-          };
-        }
-      }
-    },
-    notify: (message, type) => notifications.push({ message, type })
-  });
-  controller.store = RelationshipGraphModel.assertValidStore(initialStore);
-  controller.root = { querySelector: () => null };
-  controller._openCoolifyCredentialsDialog = async () => credentials;
-  controller._openImportPreviewDialog = async () => true;
-  controller._persistNow = async () => {};
-  controller.render = () => {};
-  controller._setCanvasAnnouncement = () => {};
-
-  assert.equal(await controller._connectCoolify(), true);
-  assert.deepEqual(previewRequest, {
-    baseUrl: 'https://coolify.example.com',
-    accessToken: '42|temporary-token'
-  });
-  assert.equal(credentials.accessToken, '');
-  assert.deepEqual(applyRequest, {
-    operationId: 'relationship_import_00000000000000000000000000000000',
-    previewToken: 'b'.repeat(64)
-  });
-  assert.equal(controller.store.entities.length, 1);
-  assert.equal(controller.undoStack.length, 1);
-  assert.match(notifications[0].message, /Coolify 只读观测/);
-  assert.equal(notifications[0].type, 'success');
+  assert.equal(fs.existsSync(path.join(projectRoot, 'src/main/services/coolifyReadOnlyConnectorService.js')), false);
+  assert.doesNotMatch(controllerSource, /data-relationship-action="connect-coolify"/);
+  assert.doesNotMatch(controllerSource, /连接 Coolify（只读）/);
+  assert.doesNotMatch(controllerSource, /name="accessToken"/);
+  assert.doesNotMatch(relationshipPreloadBlock, /previewCoolify|applyCoolify/);
+  assert.doesNotMatch(relationshipIpcSource, /previewCoolify|applyCoolify|coolifyReadOnlyConnectorService/);
 });
 
 test('白板使用稳定项目仓库身份并提供指针、键盘和降低动效交互', () => {

@@ -108,9 +108,7 @@ contextBridge.exposeInMainWorld('gitFinder', {
     get: () => ipcRenderer.invoke('relationshipBoards:get'),
     save: (store) => ipcRenderer.invoke('relationshipBoards:save', store),
     previewImport: () => ipcRenderer.invoke('relationshipBoards:previewImport'),
-    applyImport: (request) => ipcRenderer.invoke('relationshipBoards:applyImport', request),
-    previewCoolify: (request) => ipcRenderer.invoke('relationshipBoards:previewCoolify', request),
-    applyCoolify: (request) => ipcRenderer.invoke('relationshipBoards:applyCoolify', request)
+    applyImport: (request) => ipcRenderer.invoke('relationshipBoards:applyImport', request)
   },
 
   panel: {
