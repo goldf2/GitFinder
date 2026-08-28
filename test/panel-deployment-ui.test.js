@@ -1,0 +1,67 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const test = require('node:test');
+
+const { Controller } = require('../src/renderer/scripts/panelDeploymentController');
+
+const projectRoot = path.resolve(__dirname, '..');
+const read = relativePath => fs.readFileSync(path.join(projectRoot, relativePath), 'utf8');
+
+function createController() {
+  return new Controller({
+    app: {
+      escapeHtml: value => String(value ?? '')
+        .replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;')
+    },
+    bridge: { panel: {} },
+    document: null
+  });
+}
+
+test('部署面板区分未配置、未关联和已就绪状态', () => {
+  const controller = createController();
+  assert.match(controller._resultMarkup({ state: 'unconfigured' }, {}), /尚未连接 Xiangshu Panel/);
+  assert.match(controller._resultMarkup({ state: 'unlinked', provider: { label: 'Panel' } }, { name: 'MES' }), /管理关联/);
+  const ready = controller._resultMarkup({
+    state: 'ready',
+    provider: { label: 'Panel' },
+    resources: [{
+      resourceUuid: 'resource_1', name: '<MES>', type: 'application', status: 'running',
+      environmentName: 'production', serverName: 'Con01', domains: ['https://mes.example.com'],
+      observedAt: '2026-08-28T06:00:00.000Z', panelUrl: '', coolifyUrl: ''
+    }]
+  }, {});
+  assert.match(ready, /panel-status-badge healthy/);
+  assert.match(ready, /&lt;MES&gt;/);
+  assert.match(ready, /production/);
+  assert.match(ready, /Con01/);
+});
+
+test('部署关联对话框只能通过关闭按钮或 Escape 关闭', () => {
+  const source = read('src/renderer/scripts/panelDeploymentController.js');
+  assert.match(source, /panel-binding-close/);
+  assert.match(source, /event\.key === 'Escape'/);
+  assert.doesNotMatch(source, /overlay\.addEventListener\(['"]click/);
+});
+
+test('1.x 界面骨架包含部署详情区、Panel 设置和可信 IPC', () => {
+  const html = read('src/renderer/index.html');
+  const app = read('src/renderer/scripts/app.js');
+  const preload = read('preload.js');
+  const main = read('main.js');
+  assert.match(html, /data-section-id="deployments"/);
+  assert.match(html, /class="empty-state" id="empty-state"/);
+  assert.match(html, /scripts\/panelDeploymentController\.js/);
+  assert.match(app, /settingsMarkup\(panelConnection\)/);
+  assert.match(preload, /panel:getProjectDeployments/);
+  assert.match(preload, /panel:saveProjectBinding/);
+  assert.match(main, /registerPanelIPC\(\)/);
+});
+
+test('Panel 数据加载不进入仓库详情主 Promise.all', () => {
+  const source = read('src/renderer/scripts/repositoryDetailController.js');
+  const selectBody = source.slice(source.indexOf('async select(repoPath)'), source.indexOf('showError('));
+  assert.doesNotMatch(selectBody, /getProjectDeployments/);
+  assert.match(source, /panelDeploymentController\?\.showRepository\(repo\)/);
+});

@@ -1,0 +1,85 @@
+name: GitFinder 2 Alpha verification
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gitfinder-2-alpha-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  macos:
+    name: Verify macOS Alpha
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Test source
+        run: npm run check
+      - name: Build ad-hoc Alpha
+        run: npm run pack
+      - name: Upload verified macOS Alpha artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: GitFinder-2-macOS-arm64-alpha
+          if-no-files-found: error
+          path: |
+            dist/GitFinder-2-*-arm64-mac.zip
+            dist/release-verification.json
+
+  windows:
+    name: Verify Windows x64 Alpha
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Test source
+        run: npm run check
+      - name: Build NSIS and ZIP on Windows
+        run: npm run pack:win
+      - name: Verify project model, Git, file operations, and Recycle Bin
+        run: npm run verify:windows-runtime
+      - name: Verify default startup, NSIS install, startup, and uninstall
+        shell: pwsh
+        run: |
+          $version = node -p "require('./package.json').version"
+          ./scripts/verify-windows-package.ps1 -Version $version
+      - name: Confirm unsigned Alpha warning metadata
+        shell: pwsh
+        run: |
+          $metadata = Get-Content ./dist/windows-release-metadata.json -Raw | ConvertFrom-Json
+          if ($metadata.unsignedTestBuild -and -not $metadata.smartScreenWarning) {
+            throw 'Unsigned Windows Alpha must include a SmartScreen warning.'
+          }
+          if ($metadata.version -ne (node -p "require('./package.json').version")) {
+            throw 'Windows metadata version does not match package.json.'
+          }
+      - name: Upload verified Windows Alpha artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: GitFinder-2-Windows-x64-alpha
+          if-no-files-found: error
+          path: |
+            dist/GitFinder-2-*-x64-win-setup.exe
+            dist/GitFinder-2-*-x64-win.zip
+            dist/SHA256SUMS-windows.txt
+            dist/windows-release-metadata.json
+            dist/windows-runtime-verification.json
+            dist/windows-install-verification.json

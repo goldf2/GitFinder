@@ -10,10 +10,11 @@ GitFinder 2.0 的定位是“本地开发与部署管理中心”。它是与 Gi
 | --- | --- |
 | 已记录 | 产品定位、1.x/2.0 边界、Panel 集成边界和 Alpha 闭环 |
 | 已设计 | 复用分类、凭据与便携配置边界、最小垂直切片及验收标准 |
-| 已实现 | 无。当前目录仅包含产品与架构文档 |
-| 已验证 | 只验证了 GitFinder 1.x 的可复用候选模块和本地仓库状态；2.0 无运行时验证 |
+| 已实现 | 1.x v1.30.13 Finder 式界面基线、只读 Panel Provider、系统安全凭据、显式项目关联和原生部署详情 |
+| 已验证 | 643 项测试、macOS arm64 构建与实际 App 启动；本地假 Panel 的连接、关联和详情显示端到端通过 |
+| 尚未验证 | 真实 Xiangshu Panel API、真实 Windows x64 runner/虚拟机、白板部署投影、事件与系统通知 |
 
-首个开发版本目标为 `2.0.0-alpha.1`。在最小垂直切片通过前，不将该版本描述为可发布产物。
+当前开发版本为 `2.0.0-alpha.1`。它是本地可运行的开发 Alpha，不是稳定发布版；完整 MVS-01 仍需真实 Panel、真实 Windows、白板和通知验收。
 
 ## 产品边界
 
@@ -36,3 +37,4 @@ GitFinder 2.0 的定位是“本地开发与部署管理中心”。它是与 Gi
 - [ADR-0001：2.0 独立架构与复用边界](./docs/adr/0001-independent-architecture.md)
 - [Alpha 1 最小垂直切片与验收](./docs/product/alpha-1-vertical-slice.md)
 - [Panel 原生界面整合方案](./docs/product/panel-ui-integration.md)
+- [2.0.0-alpha.1 MVS-01 阶段验证记录](./docs/verification/2.0.0-alpha.1-mvs-01.md)

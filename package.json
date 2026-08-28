@@ -1,0 +1,120 @@
+{
+  "name": "gitfinder-2",
+  "version": "2.0.0-alpha.1",
+  "description": "GitFinder 2 - 本地开发与部署管理中心",
+  "main": "main.js",
+  "productName": "GitFinder 2 Alpha",
+  "bin": {
+    "git-monitor": "./cli.js"
+  },
+  "scripts": {
+    "test": "node --test",
+    "check": "npm test && node test/check-syntax.js",
+    "start": "node server.js",
+    "dev": "node server.js",
+    "dev:panel-mock": "node scripts/mock-panel-server.js",
+    "cli": "node cli.js",
+    "scan": "node cli.js scan",
+    "status": "node cli.js status",
+    "verify:git-batch": "node scripts/verify-git-batch-performance.js",
+    "verify:icons": "node scripts/verify-icon-assets.js",
+    "verify:release-source": "node scripts/verify-release.js --phase source --mode development",
+    "verify:release": "node scripts/verify-release.js --phase artifact --mode development --report dist/release-verification.json",
+    "verify:windows-runtime": "electron scripts/verify-windows-runtime.js",
+    "electron": "electron .",
+    "pack": "bash scripts/build-mac.sh",
+    "dist": "bash scripts/build-mac.sh",
+    "pack:win": "node scripts/build-win.js"
+  },
+  "build": {
+    "appId": "com.gitfinder.app.v2",
+    "productName": "GitFinder 2 Alpha",
+    "directories": {
+      "output": "dist",
+      "app": "."
+    },
+    "asar": true,
+    "asarUnpack": [
+      "public/**/*"
+    ],
+    "electronFuses": {
+      "runAsNode": false,
+      "enableCookieEncryption": true,
+      "enableNodeOptionsEnvironmentVariable": false,
+      "enableNodeCliInspectArguments": false,
+      "enableEmbeddedAsarIntegrityValidation": true,
+      "onlyLoadAppFromAsar": true,
+      "loadBrowserProcessSpecificV8Snapshot": false,
+      "grantFileProtocolExtraPrivileges": true
+    },
+    "files": [
+      "main.js",
+      "server.js",
+      "cli.js",
+      "preload.js",
+      "public/**/*",
+      "src/**/*",
+      "node_modules/**/*"
+    ],
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "icon": "public/icon.icns",
+      "category": "public.app-category.developer-tools"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "public/icon.ico",
+      "artifactName": "GitFinder-2-${version}-${arch}-win.${ext}"
+    },
+    "nsis": {
+      "artifactName": "GitFinder-2-${version}-${arch}-win-setup.${ext}",
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "GitFinder 2 Alpha",
+      "uninstallDisplayName": "GitFinder 2 Alpha ${version}"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "icon": "public/icon.png"
+    }
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.9",
+    "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "@electron/packager": "^20.3.0",
+    "electron": "^42.10.1",
+    "electron-builder": "^26.15.3"
+  },
+  "keywords": [
+    "git",
+    "monitor",
+    "status",
+    "dashboard"
+  ],
+  "author": "goldf2",
+  "license": "MIT"
+}
