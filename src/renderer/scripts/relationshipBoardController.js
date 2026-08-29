@@ -150,19 +150,23 @@
       this.panelRefreshTimer = null;
       this.panelRefreshInFlight = false;
       this.panelLastError = '';
+      this.openRequestId = 0;
       this.now = options.now || (() => new Date());
       this._boundKeydown = event => this._handleKeydown(event);
     }
 
-    async open(container) {
+    async open(container, options = {}) {
       if (!container) return;
       if (this.container === container && this.root?.isConnected) return;
+      const isCurrent = typeof options.isCurrent === 'function' ? options.isCurrent : () => true;
       const wasLoaded = this.loaded;
       this.close({ preserveContainer: true });
+      const openRequestId = ++this.openRequestId;
       this.container = container;
       container.innerHTML = '<div class="relationship-loading"><div class="loading-spinner"></div><span>正在载入关系白板…</span></div>';
       try {
         await this._load();
+        if (openRequestId !== this.openRequestId || this.container !== container || !isCurrent()) return;
         if (!this.store.boards.length) {
           const boardId = makeId('board');
           this.store.boards.push({
@@ -174,12 +178,14 @@
           });
           this.store.activeBoardId = boardId;
           await this._persistNow();
+          if (openRequestId !== this.openRequestId || this.container !== container || !isCurrent()) return;
         }
         this.render();
         if (wasLoaded && this.bridge?.panel?.getTopology) this._refreshPanelTopology();
         else this._schedulePanelRefresh();
         document.addEventListener('keydown', this._boundKeydown, true);
       } catch (error) {
+        if (openRequestId !== this.openRequestId || this.container !== container || !isCurrent()) return;
         container.innerHTML = `
           <div class="relationship-error" role="alert">
             <strong>关系白板无法载入</strong>
@@ -195,6 +201,7 @@
     }
 
     close(options = {}) {
+      this.openRequestId += 1;
       document.removeEventListener('keydown', this._boundKeydown, true);
       this._cancelPointerAction(true);
       if (this.saveTimer) {

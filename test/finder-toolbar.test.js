@@ -34,6 +34,13 @@ test('视图、新建、文件操作和显示选项使用可访问下拉菜单',
   assert.match(html, /显示隐藏项目<\/span><kbd>⌘⇧\.<\/kbd>/);
 });
 
+test('工作区视图在主指针按下时立即切换，并统一使用文件浏览语义入口', () => {
+  assert.match(appSource, /document\.querySelectorAll\('\.view-btn'\)[\s\S]*?addEventListener\('pointerdown'/);
+  assert.match(appSource, /const activate = \(\) => \{[\s\S]*?this\.switchMode\(btn\.dataset\.view\)/);
+  assert.match(appSource, /addEventListener\('pointerdown'[\s\S]*?pointerActivatedViews\.add\(btn\)[\s\S]*?activate\(\)/);
+  assert.doesNotMatch(appSource, /document\.querySelectorAll\('\.view-btn'\)[\s\S]{0,260}?this\.switchView\(view\)/);
+});
+
 test('顶层工作区只保留结构不同的页面，项目与仓库筛选明确标注范围', () => {
   const viewMenu = html.match(/<div class="finder-menu" id="view-menu"[\s\S]*?<\/div>\s*<\/div>/)?.[0] || '';
   assert.match(viewMenu, /data-view="tree"[\s\S]*?>文件浏览</);

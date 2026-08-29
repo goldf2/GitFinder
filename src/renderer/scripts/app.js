@@ -44,6 +44,7 @@ const AppState = {
   fileDrag: null,
   workspaceTabDrag: null,
   workspaceSession: null,
+  windowContext: { kind: 'primary' },
   directoryWatchId: null,
   directoryWatchPath: '',
   items: [],
@@ -165,7 +166,17 @@ const App = {
 
   async init() {
     try {
-      const savedPath = await window.gitFinder.config.get('lastPath');
+      AppState.windowContext = await window.gitFinder.app.getWindowContext() || { kind: 'primary' };
+    } catch (_) {
+      AppState.windowContext = { kind: 'primary' };
+    }
+    const detachedTab = AppState.windowContext.kind === 'detached-tab'
+      ? AppState.windowContext.workspaceSession?.tabs?.[0]
+      : null;
+    try {
+      const savedPath = detachedTab
+        ? String(detachedTab.path || '')
+        : await window.gitFinder.config.get('lastPath');
       if (savedPath) {
         AppState.currentPath = savedPath;
       } else {
@@ -542,6 +553,7 @@ const App = {
 
   setupEventListeners() {
     this.setupToolbarMenus();
+    this.setupWorkspaceTabContextMenu();
     this.applyPlatformConventions();
     document.getElementById('btn-back').addEventListener('click', () => this.goBack());
     document.getElementById('btn-forward').addEventListener('click', () => this.goForward());
@@ -551,10 +563,26 @@ const App = {
     // 三栏宽度调整
     this.setupColumnResize();
 
+    const pointerActivatedViews = new WeakSet();
     document.querySelectorAll('.view-btn').forEach(btn => {
+      const activate = () => {
+        this.closeToolbarMenus();
+        this.switchMode(btn.dataset.view);
+      };
+      btn.addEventListener('pointerdown', event => {
+        if (event.button !== 0) return;
+        event.preventDefault();
+        event.stopPropagation();
+        pointerActivatedViews.add(btn);
+        activate();
+        setTimeout(() => pointerActivatedViews.delete(btn), 500);
+      });
       btn.addEventListener('click', () => {
-        const view = btn.dataset.view;
-        this.switchView(view);
+        if (pointerActivatedViews.has(btn)) {
+          pointerActivatedViews.delete(btn);
+          return;
+        }
+        activate();
       });
     });
 
@@ -739,6 +767,7 @@ const App = {
     window.gitFinder.app.onShortcut(action => {
       if (action === 'new-tab') this.createWorkspaceTab();
       if (action === 'restore-tab') this.restoreClosedWorkspaceTab();
+      if (action === 'open-tab-window') this.openWorkspaceTabInNewWindow();
       if (action === 'close-tab') this.closeWorkspaceTab();
       if (action === 'open-go-to-folder') this.openGoToFolderDialog();
       if (action === 'open-settings') this.openSettingsPage();
@@ -2014,7 +2043,10 @@ const App = {
   },
 
   async loadWorkspaceTabs() {
-    const saved = await window.gitFinder.config.get('workspaceTabSession');
+    const detachedSession = AppState.windowContext?.kind === 'detached-tab'
+      ? AppState.windowContext.workspaceSession
+      : null;
+    const saved = detachedSession || await window.gitFinder.config.get('workspaceTabSession');
     const seed = saved || {
       tabs: [{
         path: AppState.currentPath,
@@ -2033,7 +2065,7 @@ const App = {
     const activeTab = this.getActiveWorkspaceTab();
     if (activeTab) this.applyWorkspaceTabState(activeTab, { render: false });
     this.renderWorkspaceTabs();
-    if (repair.changed) {
+    if (repair.changed && this.shouldPersistWorkspaceSession()) {
       await window.gitFinder.config.set('workspaceTabSession', AppState.workspaceSession);
       await window.gitFinder.config.set('lastPath', activeTab?.path || '');
     }
@@ -2045,6 +2077,7 @@ const App = {
   },
 
   async refreshWorkspaceTabsFromConfig() {
+    if (!this.shouldPersistWorkspaceSession()) return;
     const saved = await window.gitFinder.config.get('workspaceTabSession');
     if (!saved) return;
     const repair = await this.normalizeAndRepairWorkspaceTabs(saved);
@@ -2194,8 +2227,10 @@ const App = {
     const activeTab = this.getActiveWorkspaceTab();
     this.applyWorkspaceTabState(activeTab, { render: false });
     this.renderWorkspaceTabs();
-    await window.gitFinder.config.set('workspaceTabSession', AppState.workspaceSession);
-    await window.gitFinder.config.set('lastPath', activeTab?.path || '');
+    if (this.shouldPersistWorkspaceSession()) {
+      await window.gitFinder.config.set('workspaceTabSession', AppState.workspaceSession);
+      await window.gitFinder.config.set('lastPath', activeTab?.path || '');
+    }
     this._showStatusMessage(`当前位置已失效，已恢复到 ${activeTab?.title || '可用目录'}`, 'warning');
     await this.renderContent();
     await this.renderSidebarTree();
@@ -2204,6 +2239,10 @@ const App = {
 
   getActiveWorkspaceTab() {
     return AppState.workspaceSession?.tabs.find(tab => tab.id === AppState.workspaceSession.activeTabId) || null;
+  },
+
+  shouldPersistWorkspaceSession() {
+    return AppState.windowContext?.kind !== 'detached-tab';
   },
 
   captureActiveWorkspaceTab() {
@@ -2227,6 +2266,10 @@ const App = {
 
   scheduleWorkspaceTabsPersist() {
     if (!AppState.workspaceSession) return;
+    if (!this.shouldPersistWorkspaceSession()) {
+      this.captureActiveWorkspaceTab();
+      return;
+    }
     if (this._workspaceTabsPersistTimer) clearTimeout(this._workspaceTabsPersistTimer);
     this._workspaceTabsPersistTimer = setTimeout(() => this.persistWorkspaceTabs(), 180);
   },
@@ -2238,6 +2281,7 @@ const App = {
       this._workspaceTabsPersistTimer = null;
     }
     this.captureActiveWorkspaceTab();
+    if (!this.shouldPersistWorkspaceSession()) return;
     try {
       await window.gitFinder.config.set('workspaceTabSession', AppState.workspaceSession);
     } catch (error) {
@@ -2246,6 +2290,7 @@ const App = {
   },
 
   renderWorkspaceTabs() {
+    this.closeWorkspaceTabContextMenu();
     const container = document.getElementById('workspace-tabs');
     const session = AppState.workspaceSession;
     if (!container || !session) return;
@@ -2315,6 +2360,66 @@ const App = {
     });
     if (this.workspaceTabOverflowController) this.workspaceTabOverflowController.afterRender();
     else container.querySelector('.workspace-tab.active')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  },
+
+  setupWorkspaceTabContextMenu() {
+    const container = document.getElementById('workspace-tabs');
+    const menu = document.getElementById('workspace-tab-context-menu');
+    if (!container || !menu || this._workspaceTabContextMenuBound) return;
+    this._workspaceTabContextMenuBound = true;
+    container.addEventListener('contextmenu', event => {
+      const tab = event.target.closest('.workspace-tab[data-tab-id]');
+      if (!tab) return;
+      event.preventDefault();
+      event.stopPropagation();
+      this.closeToolbarMenus();
+      menu.dataset.tabId = tab.dataset.tabId;
+      menu.hidden = false;
+      const bounds = menu.getBoundingClientRect();
+      menu.style.left = `${Math.max(6, Math.min(event.clientX, window.innerWidth - bounds.width - 6))}px`;
+      menu.style.top = `${Math.max(6, Math.min(event.clientY, window.innerHeight - bounds.height - 6))}px`;
+      requestAnimationFrame(() => menu.querySelector('[role="menuitem"]')?.focus());
+    });
+    menu.addEventListener('click', event => {
+      const action = event.target.closest('[data-workspace-tab-action]')?.dataset.workspaceTabAction;
+      const tabId = menu.dataset.tabId;
+      this.closeWorkspaceTabContextMenu();
+      if (action === 'open-window') this.openWorkspaceTabInNewWindow(tabId);
+    });
+    document.addEventListener('pointerdown', event => {
+      if (!event.target.closest('#workspace-tab-context-menu')) this.closeWorkspaceTabContextMenu();
+    });
+    document.addEventListener('keydown', event => {
+      if (event.key !== 'Escape' || menu.hidden) return;
+      event.preventDefault();
+      const tabId = menu.dataset.tabId;
+      this.closeWorkspaceTabContextMenu();
+      document.querySelector(`.workspace-tab[data-tab-id="${this.cssEscape(tabId)}"]`)?.focus();
+    });
+    window.addEventListener('blur', () => this.closeWorkspaceTabContextMenu());
+  },
+
+  closeWorkspaceTabContextMenu() {
+    const menu = document.getElementById('workspace-tab-context-menu');
+    if (!menu) return;
+    menu.hidden = true;
+    menu.removeAttribute('data-tab-id');
+  },
+
+  async openWorkspaceTabInNewWindow(tabId = AppState.workspaceSession?.activeTabId) {
+    if (!tabId || !window.gitFinder.app.openTabWindow) return false;
+    this.captureActiveWorkspaceTab();
+    const tab = AppState.workspaceSession?.tabs.find(item => item.id === tabId);
+    if (!tab) return false;
+    try {
+      const result = await window.gitFinder.app.openTabWindow(tab);
+      if (!result?.opened) throw new Error('主进程未创建窗口');
+      this._showStatusMessage(`已在新窗口打开「${tab.title || '标签页'}」`, 'success');
+      return true;
+    } catch (error) {
+      this._showStatusMessage(`无法打开新窗口：${error?.message || String(error)}`, 'error');
+      return false;
+    }
   },
 
   setupWorkspaceTabDrag() {
@@ -4882,7 +4987,10 @@ const App = {
     if (AppState.currentMode === 'relationships') {
       AppState.fileDisplayOrder = [];
       emptyState.style.display = 'none';
-      await this.relationshipBoardController.open(contentArea);
+      await this.relationshipBoardController.open(contentArea, {
+        isCurrent: () => renderRequestId === AppState.directoryRenderRequestId
+          && AppState.currentMode === 'relationships'
+      });
       return;
     }
 

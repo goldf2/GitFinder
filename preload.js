@@ -247,6 +247,8 @@ contextBridge.exposeInMainWorld('gitFinder', {
 
   app: {
     getVersion: () => ipcRenderer.invoke('app:get-version'),
+    getWindowContext: () => ipcRenderer.invoke('app:get-window-context'),
+    openTabWindow: (tab) => ipcRenderer.invoke('app:open-tab-window', tab),
     performNativeEdit: (action) => ipcRenderer.invoke('app:perform-native-edit', action),
     onShortcut: (callback) => ipcRenderer.on('app:shortcut', (_event, action) => callback(action))
   },

@@ -108,6 +108,11 @@
       <button class="workspace-tab-overflow" id="workspace-tabs-right" type="button" aria-label="向右浏览标签页" title="向右浏览标签页" aria-controls="workspace-tabs" hidden>›</button>
       <button class="workspace-new-tab" id="workspace-new-tab" type="button" title="新建标签页 (⌘T)" aria-label="新建标签页">＋</button>
     </nav>
+    <div class="workspace-tab-context-menu" id="workspace-tab-context-menu" role="menu" aria-label="标签页操作" hidden>
+      <button type="button" role="menuitem" data-workspace-tab-action="open-window">
+        <span aria-hidden="true">↗</span><span>在新窗口中打开</span>
+      </button>
+    </div>
 
     <div class="main-container">
       <aside class="sidebar" id="sidebar">

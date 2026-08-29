@@ -31,7 +31,8 @@ test('关系白板作为结构独立工作区接入菜单、渲染生命周期�
   assert.ok(html.indexOf('../shared/relationshipGraphModel.js') < html.indexOf('scripts/relationshipBoardController.js'));
   assert.ok(html.indexOf('scripts/relationshipBoardController.js') < html.indexOf('scripts/app.js'));
   assert.match(appSource, /\['tree', 'dashboard', 'tasks', 'relationships'\]\.includes\(view\)/);
-  assert.match(appSource, /AppState\.currentMode === 'relationships'[\s\S]*?relationshipBoardController\.open\(contentArea\)/);
+  assert.match(appSource, /AppState\.currentMode === 'relationships'[\s\S]*?relationshipBoardController\.open\(contentArea,/);
+  assert.match(appSource, /isCurrent:\s*\(\)\s*=>\s*renderRequestId === AppState\.directoryRenderRequestId/);
   assert.match(appSource, /restoreWorkspaceView\s*=\s*AppState\.currentMode !== 'tree'/);
   assert.match(preloadSource, /relationshipBoards:[\s\S]*?relationshipBoards:get[\s\S]*?relationshipBoards:save/);
   assert.match(mainSource, /registerRelationshipBoardsIPC\(\)/);
@@ -216,6 +217,36 @@ test('关系白板不等待全盘项目扫描即可先显示本机关系与仓�
   resolveProjects([{ projectId: 'project_local_1', name: 'MES', path: '/project' }]);
   await controller.resourceLoadingPromise;
   assert.equal(controller.resources.some(item => item.kind === 'project'), true);
+});
+
+test('切换到文件浏览后，迟到的白板载入不会重新占用内容区或键盘事件', async () => {
+  const originalDocument = globalThis.document;
+  let resolveLoad;
+  let rendered = 0;
+  let keydownBound = false;
+  globalThis.document = {
+    addEventListener(type) { if (type === 'keydown') keydownBound = true; },
+    removeEventListener(type) { if (type === 'keydown') keydownBound = false; }
+  };
+  try {
+    const controller = new Controller({ bridge: {} });
+    controller.store = RelationshipGraphModel.defaultStore();
+    controller._load = () => new Promise(resolve => { resolveLoad = resolve; });
+    controller.render = () => { rendered++; };
+    controller._schedulePanelRefresh = () => {};
+    const container = { innerHTML: '' };
+    const opening = controller.open(container, { isCurrent: () => false });
+    await Promise.resolve();
+    controller.close();
+    resolveLoad();
+    await opening;
+
+    assert.equal(rendered, 0);
+    assert.equal(keydownBound, false);
+    assert.equal(controller.container, null);
+  } finally {
+    globalThis.document = originalDocument;
+  }
 });
 
 test('白板使用稳定项目仓库身份并提供指针、键盘和降低动效交互', () => {

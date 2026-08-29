@@ -182,7 +182,9 @@
       this.app.captureActiveWorkspaceTab();
       this.app.renderWorkspaceTabs();
       this.app.scheduleWorkspaceTabsPersist();
-      this.bridge.config.set('lastPath', path).catch(() => {});
+      if (this.app.shouldPersistWorkspaceSession?.() !== false) {
+        this.bridge.config.set('lastPath', path).catch(() => {});
+      }
       this.updateBreadcrumbs();
       this.app.renderContent();
       this.updateNavButtons();

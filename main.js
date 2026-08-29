@@ -30,6 +30,10 @@ const { registerConfigIPC } = require('./src/main/ipc/config');
 const { registerPanelIPC } = require('./src/main/ipc/panel');
 const { registerTerminalHandlers } = require('./src/main/ipc/terminal');
 const { registerTrustedHandler } = require('./src/main/ipc/security');
+const {
+  createDetachedTabContext,
+  primaryWindowContext
+} = require('./src/main/services/workspaceWindowService');
 
 // GitFinder 的文件管理与关系白板不依赖 GPU。Windows 虚拟机的虚拟显卡驱动
 // 可能在 Electron 创建首个窗口前终止 GPU 进程，因此 Windows 默认使用软件渲染。
@@ -57,6 +61,7 @@ if (updateEnabled) {
 }
 
 let mainWindow = null;
+const windowContexts = new Map();
 const startupLogPath = path.join(os.tmpdir(), 'gitfinder-2-startup.log');
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 
@@ -64,10 +69,13 @@ if (!hasSingleInstanceLock) {
   app.quit();
 } else {
   app.on('second-instance', () => {
-    if (!mainWindow || mainWindow.isDestroyed()) return;
-    if (mainWindow.isMinimized()) mainWindow.restore();
-    if (!mainWindow.isVisible()) mainWindow.show();
-    mainWindow.focus();
+    const targetWindow = BrowserWindow.getFocusedWindow()
+      || (mainWindow && !mainWindow.isDestroyed() ? mainWindow : null)
+      || BrowserWindow.getAllWindows().find(window => !window.isDestroyed());
+    if (!targetWindow) return;
+    if (targetWindow.isMinimized()) targetWindow.restore();
+    if (!targetWindow.isVisible()) targetWindow.show();
+    targetWindow.focus();
   });
 }
 
@@ -100,13 +108,17 @@ function isNewerVersion(candidate, current) {
   return false;
 }
 
-function createWindow() {
+function createWindow(options = {}) {
+  const windowContext = options.windowContext || primaryWindowContext();
+  const detachedTab = windowContext.kind === 'detached-tab'
+    ? windowContext.workspaceSession?.tabs?.[0]
+    : null;
   const windowOptions = {
     width: 1280,
     height: 800,
     minWidth: 800,
     minHeight: 600,
-    title: 'GitFinder 2 Alpha',
+    title: detachedTab?.title ? `${detachedTab.title} — GitFinder 2 Alpha` : 'GitFinder 2 Alpha',
     backgroundColor: '#f6f6f6',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -123,33 +135,42 @@ function createWindow() {
     windowOptions.trafficLightPosition = { x: 16, y: 18 };
   }
 
-  mainWindow = new BrowserWindow(windowOptions);
+  const browserWindow = new BrowserWindow(windowOptions);
+  const webContentsId = browserWindow.webContents.id;
+  if (options.primary === true) mainWindow = browserWindow;
+  windowContexts.set(webContentsId, windowContext);
 
-  mainWindow.webContents.on('will-navigate', (event) => {
+  browserWindow.webContents.on('will-navigate', (event) => {
     event.preventDefault();
   });
-  mainWindow.webContents.on('render-process-gone', (_event, details) => {
+  browserWindow.webContents.on('render-process-gone', (_event, details) => {
     writeStartupError('render-process-gone', details);
   });
-  mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
+  browserWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
     if (!isMainFrame) return;
     writeStartupError('did-fail-load', { errorCode, errorDescription, validatedURL });
   });
-  mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  browserWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
 
-  mainWindow.loadFile(path.join(__dirname, 'src', 'renderer', 'index.html'));
+  browserWindow.loadFile(path.join(__dirname, 'src', 'renderer', 'index.html'));
 
   if (process.env.NODE_ENV === 'development') {
-    mainWindow.webContents.openDevTools();
+    browserWindow.webContents.openDevTools();
   }
 
-  mainWindow.on('closed', () => {
-    mainWindow = null;
+  browserWindow.on('closed', () => {
+    windowContexts.delete(webContentsId);
+    if (mainWindow === browserWindow) mainWindow = null;
   });
+  return browserWindow;
 }
 
 function setupApplicationMenu() {
-  const sendShortcut = action => mainWindow?.webContents.send('app:shortcut', action);
+  const sendShortcut = action => {
+    const targetWindow = BrowserWindow.getFocusedWindow()
+      || (mainWindow && !mainWindow.isDestroyed() ? mainWindow : null);
+    targetWindow?.webContents.send('app:shortcut', action);
+  };
   const editItem = (label, action, accelerator) => ({
     id: `edit-${action}`,
     label,
@@ -185,6 +206,7 @@ function setupApplicationMenu() {
       submenu: [
         { label: '新建标签页', accelerator: 'CmdOrCtrl+T', registerAccelerator: false, click: () => sendShortcut('new-tab') },
         { label: '恢复关闭的标签页', accelerator: 'CmdOrCtrl+Shift+T', registerAccelerator: false, click: () => sendShortcut('restore-tab') },
+        { label: '在新窗口中打开当前标签页', click: () => sendShortcut('open-tab-window') },
         { label: '关闭标签页', accelerator: 'CmdOrCtrl+W', registerAccelerator: false, click: () => sendShortcut('close-tab') },
         { type: 'separator' },
         {
@@ -358,6 +380,20 @@ registerTrustedHandler('app:get-version', () => {
   return app.getVersion();
 });
 
+registerTrustedHandler('app:get-window-context', event => (
+  windowContexts.get(event.sender.id) || primaryWindowContext()
+));
+
+registerTrustedHandler('app:open-tab-window', (event, rawTab) => {
+  const context = createDetachedTabContext(rawTab);
+  const browserWindow = createWindow({ windowContext: context, primary: false });
+  browserWindow.once('ready-to-show', () => {
+    browserWindow.show();
+    browserWindow.focus();
+  });
+  return { opened: true, windowId: context.windowId };
+});
+
 registerTrustedHandler('app:perform-native-edit', (event, action) => {
   const methods = {
     undo: 'undo',
@@ -406,12 +442,12 @@ app.whenReady().then(() => {
   registerTerminalHandlers();
 
   setupApplicationMenu();
-  createWindow();
+  createWindow({ primary: true });
   setupAutoUpdater();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
+      createWindow({ primary: true });
     }
   });
 }).catch(error => {
