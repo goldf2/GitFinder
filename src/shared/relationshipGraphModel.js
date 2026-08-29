@@ -8,7 +8,25 @@
   const MAX_ENTITIES = 200;
   const MAX_RELATIONSHIPS = 400;
   const ENTITY_TYPES = Object.freeze(['server', 'deployment', 'project', 'repository', 'endpoint', 'group']);
-  const RELATIONSHIP_TYPES = Object.freeze(['contains', 'source_of', 'runs_on', 'exposes', 'depends_on']);
+  const RELATIONSHIP_TYPES = Object.freeze([
+    'contains',
+    'belongs_to',
+    'source_of',
+    'deployed_from',
+    'runs_on',
+    'hosts',
+    'exposes',
+    'exposed_by',
+    'depends_on',
+    'required_by',
+    'forked_from',
+    'fork_source_for',
+    'mirrors',
+    'submodule_of',
+    'has_submodule',
+    'connects_to',
+    'related_to'
+  ]);
   const FACT_SOURCES = Object.freeze(['manual', 'imported', 'observed', 'gitfinder-registry']);
   const VERIFICATION_STALE_DAYS = 30;
   const BOARD_VIEW_MODES = Object.freeze(['full', 'compact']);
@@ -27,17 +45,38 @@
     endpoint: new Set(['urlLabel', 'notes']),
     group: new Set(['notes'])
   });
+  const FACT_ENTITY_TYPES = ENTITY_TYPES.filter(type => type !== 'group');
+  const GENERAL_CONNECTIONS = Object.freeze(FACT_ENTITY_TYPES.flatMap(source => (
+    FACT_ENTITY_TYPES.map(target => Object.freeze([source, target]))
+  )));
   const CONNECTIONS = Object.freeze({
     contains: [['project', 'repository']],
+    belongs_to: [['repository', 'project']],
     source_of: [['repository', 'deployment']],
+    deployed_from: [['deployment', 'repository']],
     runs_on: [['deployment', 'server']],
+    hosts: [['server', 'deployment']],
     exposes: [['deployment', 'endpoint']],
+    exposed_by: [['endpoint', 'deployment']],
     depends_on: [
       ['project', 'project'],
       ['repository', 'repository'],
       ['deployment', 'deployment'],
       ['deployment', 'repository']
-    ]
+    ],
+    required_by: [
+      ['project', 'project'],
+      ['repository', 'repository'],
+      ['deployment', 'deployment'],
+      ['repository', 'deployment']
+    ],
+    forked_from: [['repository', 'repository']],
+    fork_source_for: [['repository', 'repository']],
+    mirrors: [['repository', 'repository']],
+    submodule_of: [['repository', 'repository']],
+    has_submodule: [['repository', 'repository']],
+    connects_to: GENERAL_CONNECTIONS,
+    related_to: GENERAL_CONNECTIONS
   });
 
   class RelationshipGraphValidationError extends Error {
@@ -250,6 +289,7 @@
     const type = String(raw.type || '');
     const sourceId = String(raw.sourceId || '');
     const targetId = String(raw.targetId || '');
+    const label = cleanText(raw.label, 80);
     if (!RELATIONSHIP_ID_PATTERN.test(id)) issues.push(`${prefix}.id 无效`);
     if (!RELATIONSHIP_TYPES.includes(type)) issues.push(`${prefix}.type 无效`);
     if (!entitiesById.has(sourceId)) issues.push(`${prefix}.sourceId 引用了不存在的节点`);
@@ -268,12 +308,13 @@
     }
     if (strict) {
       for (const key of Object.keys(raw)) {
-        if (!['id', 'type', 'sourceId', 'targetId', 'source', 'verifiedAt', 'reviewIntervalDays', 'evidenceSummary'].includes(key)) {
+        if (!['id', 'type', 'sourceId', 'targetId', 'label', 'source', 'verifiedAt', 'reviewIntervalDays', 'evidenceSummary'].includes(key)) {
           issues.push(`${prefix}.${key} 不是允许的字段`);
         }
       }
     }
     const relationship = { id, type, sourceId, targetId };
+    if (label) relationship.label = label;
     const evidenceSource = normalizeFactSource(raw.source, issues, `${prefix}.source`);
     const verifiedAt = normalizeVerifiedAt(raw.verifiedAt, issues, `${prefix}.verifiedAt`);
     const reviewIntervalDays = normalizeReviewIntervalDays(raw.reviewIntervalDays, issues, `${prefix}.reviewIntervalDays`);

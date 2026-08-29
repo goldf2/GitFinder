@@ -299,6 +299,9 @@ test('选择节点或关系时使用非模态详情检查器编辑受控事实�
   assert.match(controllerSource, /name="verifiedAt"[^>]+datetime-local/);
   assert.match(controllerSource, /name="evidenceSummary"[^>]+maxlength="500"/);
   assert.match(controllerSource, /name="reviewIntervalDays"[^>]+type="number"[^>]+min="1"[^>]+max="3650"/);
+  assert.match(controllerSource, /name="relationshipType"/);
+  assert.match(controllerSource, /name="relationshipLabel"[^>]+maxlength="80"/);
+  assert.match(controllerSource, /data-relationship-action="reverse-relationship"/);
   assert.match(controllerSource, /标记为刚刚验证/);
   assert.match(controllerSource, /Model\.assertValidStore\(nextStore\)/);
   assert.match(controllerSource, /不会连接服务器、执行部署或修改 Git/);
@@ -308,6 +311,59 @@ test('选择节点或关系时使用非模态详情检查器编辑受控事实�
   assert.match(relationshipCss, /\.relationship-body\.has-inspector/);
   assert.match(relationshipCss, /@media\s*\(prefers-reduced-transparency:\s*reduce\)/);
   assert.match(relationshipCss, /@media\s*\(prefers-contrast:\s*more\)/);
+});
+
+test('关系类型按端点提供常用预设，反转方向时使用语义相反的预设', () => {
+  const controller = new Controller({ bridge: {} });
+  controller.store = {
+    schemaVersion: 1,
+    activeBoardId: 'board_test0001',
+    entities: [
+      { id: 'entity_project1', type: 'project', name: 'Project', refId: 'project_alpha01', details: {} },
+      { id: 'entity_repo0001', type: 'repository', name: 'Repo', refId: 'repo_alpha001', details: {} }
+    ],
+    relationships: [{
+      id: 'relationship_test0001',
+      type: 'contains',
+      sourceId: 'entity_project1',
+      targetId: 'entity_repo0001',
+      source: 'manual'
+    }],
+    boards: [{
+      id: 'board_test0001',
+      name: '测试',
+      viewport: { x: 0, y: 0, zoom: 1 },
+      placements: [
+        { entityId: 'entity_project1', x: 0, y: 0 },
+        { entityId: 'entity_repo0001', x: 320, y: 0 }
+      ]
+    }]
+  };
+  controller.selectedRelationshipId = 'relationship_test0001';
+  controller._persistSoon = () => {};
+  controller._renderGraph = () => {};
+  controller._refreshHistoryButtons = () => {};
+  controller._updateSummary = () => {};
+  controller._setCanvasAnnouncement = () => {};
+
+  assert.equal(controller._reverseSelectedRelationship(), true);
+  assert.deepEqual(controller.store.relationships[0], {
+    id: 'relationship_test0001',
+    type: 'belongs_to',
+    sourceId: 'entity_repo0001',
+    targetId: 'entity_project1',
+    source: 'manual'
+  });
+  assert.equal(controller.undoStack.length, 1);
+  assert.match(controller._relationshipTypeOptions('repository', 'repository', 'forked_from'), /Fork 来源于/);
+  assert.match(controller._relationshipTypeOptions('repository', 'repository', 'forked_from'), /镜像/);
+  assert.doesNotMatch(controller._relationshipTypeOptions('repository', 'repository', 'forked_from'), />包含</);
+});
+
+test('节点卡片除连接点和交互控件外可从整个卡面开始拖动', () => {
+  assert.match(controllerSource, /const node = event\.target\.closest\('\.relationship-node'\);[\s\S]*?const nodeControl = event\.target\.closest\('\.relationship-port, button, input, textarea, select, a'\);[\s\S]*?node && !nodeControl/);
+  assert.doesNotMatch(controllerSource, /const header = event\.target\.closest\('\.relationship-node-header'\)/);
+  assert.match(relationshipCss, /\.relationship-node:not\(\.panel-dynamic\)\s*\{[^}]*cursor:\s*grab/s);
 });
 
 test('部署节点用结构化版本上下文生成可扫描副标题', () => {

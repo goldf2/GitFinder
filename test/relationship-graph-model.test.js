@@ -54,6 +54,33 @@ test('关系模型接受项目到仓库再到部署和服务器的受约束链�
   });
 });
 
+test('关系模型接受常用 Git 关系预设和自定义显示名称', () => {
+  const store = validStore();
+  store.entities.push({
+    id: 'entity_repo0002',
+    type: 'repository',
+    name: 'MES Fork',
+    refId: 'r_fork123456789',
+    details: {}
+  });
+  store.boards[0].placements.push({ entityId: 'entity_repo0002', x: 320, y: 180 });
+  store.relationships.push({
+    id: 'relationship_00000004',
+    type: 'forked_from',
+    sourceId: 'entity_repo0002',
+    targetId: 'entity_repo0001',
+    label: '客户定制分支'
+  });
+
+  const normalized = RelationshipGraphModel.assertValidStore(store);
+
+  assert.equal(normalized.relationships.at(-1).type, 'forked_from');
+  assert.equal(normalized.relationships.at(-1).label, '客户定制分支');
+  assert.equal(RelationshipGraphModel.connectionAllowed('mirrors', 'repository', 'repository'), true);
+  assert.equal(RelationshipGraphModel.connectionAllowed('has_submodule', 'repository', 'repository'), true);
+  assert.equal(RelationshipGraphModel.connectionAllowed('forked_from', 'project', 'repository'), false);
+});
+
 test('部署节点只接受结构化版本上下文字段', () => {
   const store = validStore();
   store.entities[2].details.imageTag = 'latest';

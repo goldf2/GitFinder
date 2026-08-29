@@ -36,11 +36,60 @@
   });
   const RELATIONSHIP_LABELS = Object.freeze({
     contains: '包含',
+    belongs_to: '属于',
     source_of: '部署来源',
+    deployed_from: '从仓库部署',
     runs_on: '运行于',
+    hosts: '托管运行',
     exposes: '对外提供',
-    depends_on: '依赖'
+    exposed_by: '由部署提供',
+    depends_on: '依赖',
+    required_by: '被依赖',
+    forked_from: 'Fork 来源于',
+    fork_source_for: '作为 Fork 源',
+    mirrors: '镜像',
+    submodule_of: '作为子模块',
+    has_submodule: '包含子模块',
+    connects_to: '连接到',
+    related_to: '关联'
   });
+  const INVERSE_RELATIONSHIP_TYPES = Object.freeze({
+    contains: 'belongs_to',
+    belongs_to: 'contains',
+    source_of: 'deployed_from',
+    deployed_from: 'source_of',
+    runs_on: 'hosts',
+    hosts: 'runs_on',
+    exposes: 'exposed_by',
+    exposed_by: 'exposes',
+    depends_on: 'required_by',
+    required_by: 'depends_on',
+    forked_from: 'fork_source_for',
+    fork_source_for: 'forked_from',
+    mirrors: 'mirrors',
+    submodule_of: 'has_submodule',
+    has_submodule: 'submodule_of',
+    connects_to: 'connects_to',
+    related_to: 'related_to'
+  });
+  const RELATIONSHIP_PRESET_GROUPS = Object.freeze([
+    Object.freeze({
+      label: '项目与部署',
+      types: Object.freeze(['contains', 'belongs_to', 'source_of', 'deployed_from', 'runs_on', 'hosts', 'exposes', 'exposed_by'])
+    }),
+    Object.freeze({
+      label: '依赖',
+      types: Object.freeze(['depends_on', 'required_by'])
+    }),
+    Object.freeze({
+      label: 'Git 仓库',
+      types: Object.freeze(['forked_from', 'fork_source_for', 'mirrors', 'submodule_of', 'has_submodule'])
+    }),
+    Object.freeze({
+      label: '通用',
+      types: Object.freeze(['connects_to', 'related_to'])
+    })
+  ]);
   const FACT_SOURCE_LABELS = Object.freeze({
     manual: '人工声明',
     imported: '外部导入',
@@ -921,7 +970,7 @@
                 <div class="relationship-node-layer"></div>
                 <div class="relationship-selection-box" hidden></div>
               </div>
-              <div class="relationship-canvas-help">拖动节点 · Shift 拖框选择 · 从右侧连接点连线 · 滚轮缩放</div>
+              <div class="relationship-canvas-help">拖动卡片任意空白处 · Shift 拖框选择 · 从右侧连接点连线 · 滚轮缩放</div>
               <div class="relationship-projection-note" hidden>部署摘要 · 派生显示，不修改关系事实</div>
             </div>
             <aside class="relationship-inspector-panel" aria-label="关系详情" hidden></aside>
@@ -1020,6 +1069,10 @@
       }
       if (action === 'verify-now') {
         this._verifySelectedNow();
+        return;
+      }
+      if (action === 'reverse-relationship') {
+        this._reverseSelectedRelationship();
         return;
       }
       if (action === 'create-group-from-selection') {
@@ -1305,11 +1358,12 @@
         const geometry = this._edgeGeometry(relationship);
         if (!geometry) return '';
         const verification = Model.verificationStatus(relationship, { now: this.now() });
+        const relationshipLabel = this._relationshipLabel(relationship);
         return `
-          <g class="relationship-edge verification-${verification.state}" data-relationship-id="${escapeHtml(relationship.id)}" data-relationship-type="${relationship.type}" data-verification-state="${verification.state}" aria-label="${RELATIONSHIP_LABELS[relationship.type]}，${verification.label}">
+          <g class="relationship-edge verification-${verification.state}" data-relationship-id="${escapeHtml(relationship.id)}" data-relationship-type="${relationship.type}" data-verification-state="${verification.state}" aria-label="${escapeHtml(relationshipLabel)}，${verification.label}">
             <path class="relationship-edge-hit" d="${geometry.path}"></path>
             <path class="relationship-edge-line" d="${geometry.path}" marker-end="url(#relationship-edge-arrow)"></path>
-            <text x="${geometry.labelX}" y="${geometry.labelY}">${RELATIONSHIP_LABELS[relationship.type]}</text>
+            <text x="${geometry.labelX}" y="${geometry.labelY}">${escapeHtml(relationshipLabel)}</text>
           </g>`;
       }).join('') + graph.summaryRelationships.map(summary => {
         const geometry = this._edgeGeometry(summary);
@@ -1485,6 +1539,22 @@
       return null;
     }
 
+    _relationshipLabel(relationship) {
+      return Model.cleanText(relationship?.label, 80)
+        || RELATIONSHIP_LABELS[relationship?.type]
+        || String(relationship?.type || '关系');
+    }
+
+    _relationshipTypeOptions(sourceType, targetType, selectedType) {
+      return RELATIONSHIP_PRESET_GROUPS.map(group => {
+        const options = group.types.filter(type => Model.connectionAllowed(type, sourceType, targetType));
+        if (!options.length) return '';
+        return `<optgroup label="${escapeHtml(group.label)}">${options.map(type => (
+          `<option value="${type}"${type === selectedType ? ' selected' : ''}>${escapeHtml(RELATIONSHIP_LABELS[type])}</option>`
+        )).join('')}</optgroup>`;
+      }).join('');
+    }
+
     _factSourceOptions(selectedSource) {
       return `<option value=""${selectedSource ? '' : ' selected'}>未注明</option>` + Model.FACT_SOURCES.map(source => (
         `<option value="${source}"${source === selectedSource ? ' selected' : ''}>${FACT_SOURCE_LABELS[source]}</option>`
@@ -1580,7 +1650,7 @@
       if (selected.kind === 'relationship') {
         const source = entitiesById.get(fact.sourceId);
         const target = entitiesById.get(fact.targetId);
-        heading = RELATIONSHIP_LABELS[fact.type] || fact.type;
+        heading = this._relationshipLabel(fact);
         subheading = 'Panel 派生关系 · 只读';
         content = `
           <dl class="relationship-inspector-identity">
@@ -1707,14 +1777,29 @@
         const entitiesById = this._allEntitiesById();
         const source = entitiesById.get(fact.sourceId);
         const target = entitiesById.get(fact.targetId);
-        heading = RELATIONSHIP_LABELS[fact.type];
+        heading = this._relationshipLabel(fact);
         subheading = `${this._entityDisplayName(source)} → ${this._entityDisplayName(target)}`;
         identityHtml = `
           <dl class="relationship-inspector-identity">
             <div><dt>起点</dt><dd>${escapeHtml(this._entityDisplayName(source))}</dd></div>
             <div><dt>终点</dt><dd>${escapeHtml(this._entityDisplayName(target))}</dd></div>
-            <div><dt>关系类型</dt><dd>${escapeHtml(fact.type)}</dd></div>
           </dl>`;
+        editableFields = `
+          <section class="relationship-semantics-editor" aria-label="关系语义与方向">
+            <div class="relationship-inspector-section-title">关系语义</div>
+            <label class="relationship-inspector-field">
+              <span>关系类型</span>
+              <select name="relationshipType">${this._relationshipTypeOptions(source?.type, target?.type, fact.type)}</select>
+            </label>
+            <label class="relationship-inspector-field">
+              <span>显示名称（可选）</span>
+              <input name="relationshipLabel" value="${escapeHtml(fact.label || '')}" maxlength="80" placeholder="默认使用关系类型名称">
+            </label>
+            <button class="relationship-secondary-button relationship-reverse-button" type="button" data-relationship-action="reverse-relationship">
+              <span aria-hidden="true">⇄</span><span>反转方向</span>
+            </button>
+            <small>反转时会自动改用语义相反的预设，例如“包含”变为“属于”。</small>
+          </section>`;
       }
 
       panel.hidden = false;
@@ -1768,6 +1853,12 @@
             if (value.trim()) details[field.key] = value;
           }
           target.details = details;
+        }
+
+        if (kind === 'relationship') {
+          target.type = String(data.get('relationshipType') || target.type);
+          const relationshipLabel = String(data.get('relationshipLabel') || '').trim();
+          if (relationshipLabel) target.label = relationshipLabel; else delete target.label;
         }
 
         const isVisualGroup = kind === 'entity' && target.type === 'group';
@@ -1832,6 +1923,47 @@
         this._refreshHistoryButtons();
         this._updateSummary();
         this._setCanvasAnnouncement('已记录本次人工验证时间');
+        return true;
+      } catch (error) {
+        this.notify(error?.message || String(error), 'error');
+        return false;
+      }
+    }
+
+    _reverseSelectedRelationship() {
+      const id = this.selectedRelationshipId;
+      const index = this.store?.relationships.findIndex(relationship => relationship.id === id) ?? -1;
+      if (index < 0) return false;
+      const nextStore = clone(this.store);
+      const relationship = nextStore.relationships[index];
+      const entities = new Map(nextStore.entities.map(entity => [entity.id, entity]));
+      const nextSource = entities.get(relationship.targetId);
+      const nextTarget = entities.get(relationship.sourceId);
+      if (!nextSource || !nextTarget) return false;
+      const preferredTypes = [
+        INVERSE_RELATIONSHIP_TYPES[relationship.type],
+        relationship.type,
+        ...Model.RELATIONSHIP_TYPES
+      ].filter(Boolean);
+      const nextType = preferredTypes.find((type, candidateIndex) => (
+        preferredTypes.indexOf(type) === candidateIndex
+          && Model.connectionAllowed(type, nextSource.type, nextTarget.type)
+      ));
+      if (!nextType) {
+        this.notify('这两个节点没有可用的反向关系类型', 'warning');
+        return false;
+      }
+      relationship.type = nextType;
+      [relationship.sourceId, relationship.targetId] = [relationship.targetId, relationship.sourceId];
+      try {
+        const normalized = Model.assertValidStore(nextStore);
+        this._recordMutation();
+        this.store = normalized;
+        this._persistSoon(0);
+        this._renderGraph();
+        this._refreshHistoryButtons();
+        this._updateSummary();
+        this._setCanvasAnnouncement(`关系方向已反转为“${this._relationshipLabel(relationship)}”`);
         return true;
       } catch (error) {
         this.notify(error?.message || String(error), 'error');
@@ -1913,10 +2045,10 @@
         this._renderTemporaryEdge(sourceId, this._clientToWorld(event.clientX, event.clientY));
         return;
       }
-      const header = event.target.closest('.relationship-node-header');
-      if (header && event.button === 0) {
+      const node = event.target.closest('.relationship-node');
+      const nodeControl = event.target.closest('.relationship-port, button, input, textarea, select, a');
+      if (node && !nodeControl && event.button === 0) {
         event.preventDefault();
-        const node = header.closest('.relationship-node');
         const entityId = node.dataset.entityId;
         const placement = activeBoard(this.store)?.placements.find(item => item.entityId === entityId);
         if (!placement) return;
@@ -2171,7 +2303,7 @@
       this._renderGraph();
       this._refreshHistoryButtons();
       this._updateSummary();
-      this._setCanvasAnnouncement(`已建立“${RELATIONSHIP_LABELS[type]}”关系`);
+      this._setCanvasAnnouncement(`已建立“${this._relationshipLabel(this.store.relationships.at(-1))}”关系`);
       return true;
     }
 
