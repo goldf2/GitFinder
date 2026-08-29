@@ -88,9 +88,19 @@
         </div>`;
       }
       if (result.state === 'unlinked') {
+        const providerCount = Array.isArray(result.providers)
+          ? result.providers.filter(provider => provider.configured).length
+          : 0;
         return `<div class="panel-deployment-state panel-deployment-state-stacked">
           <strong>尚未关联部署资源</strong>
-          <span>${this.app.escapeHtml(project?.name || '当前项目')} · ${this.app.escapeHtml(result.provider?.label || 'Panel')}</span>
+          <span>${this.app.escapeHtml(project?.name || '当前项目')} · ${providerCount > 1 ? `${providerCount} 个 Panel 可选` : this.app.escapeHtml(result.provider?.label || result.providers?.[0]?.label || 'Panel')}</span>
+          <button class="btn btn-tiny" data-panel-action="manage-binding" type="button">管理关联…</button>
+        </div>`;
+      }
+      if (result.state === 'error') {
+        const message = result.errors?.[0]?.message || '已保存的部署关联当前无法读取';
+        return `<div class="panel-deployment-state panel-deployment-state-stacked panel-deployment-error">
+          <strong>Panel 关联不可用</strong><span>${this.app.escapeHtml(message)}</span>
           <button class="btn btn-tiny" data-panel-action="manage-binding" type="button">管理关联…</button>
         </div>`;
       }
@@ -98,14 +108,17 @@
       if (!resources.length) {
         return '<div class="panel-deployment-state"><span>关联已保存，但当前快照没有资源。</span></div>';
       }
+      const partialWarning = result.errors?.length
+        ? `<div class="panel-deployment-state panel-deployment-error"><span>${this.app.escapeHtml(`${result.errors.length} 个关联暂时无法读取：${result.errors[0].message}`)}</span></div>`
+        : '';
       return `<div class="panel-deployment-provider">
-          <span>${this.app.escapeHtml(result.provider?.label || 'Xiangshu Panel')}</span>
+          <span>${Array.isArray(result.providers) && result.providers.length > 1 ? `${result.providers.length} 个 Panel` : this.app.escapeHtml(result.provider?.label || result.providers?.[0]?.label || 'Xiangshu Panel')}</span>
           <button class="btn btn-tiny" data-panel-action="refresh" type="button">刷新</button>
         </div>
-        <div class="panel-deployment-list">${resources.map(resource => this._resourceMarkup(resource)).join('')}</div>
+        ${partialWarning}<div class="panel-deployment-list">${resources.map(resource => this._resourceMarkup(resource)).join('')}</div>
         <div class="panel-deployment-footer">
           <button class="btn btn-tiny" data-panel-action="manage-binding" type="button">管理关联…</button>
-          <button class="btn btn-tiny" data-panel-action="clear-binding" type="button">解除关联</button>
+          <button class="btn btn-tiny" data-panel-action="clear-binding" type="button">解除全部关联</button>
         </div>`;
     }
 
@@ -118,7 +131,7 @@
       ].filter(Boolean).join('');
       return `<article class="panel-resource-card" data-panel-resource="${this.app.escapeHtml(resource.resourceUuid)}">
         <header>
-          <div><strong>${this.app.escapeHtml(resource.name)}</strong><small>${this.app.escapeHtml(resource.type)}</small></div>
+          <div><strong>${this.app.escapeHtml(resource.name)}</strong><small>${this.app.escapeHtml([resource.providerLabel, resource.type].filter(Boolean).join(' · '))}</small></div>
           <span class="panel-status-badge ${tone}">${this.app.escapeHtml(resource.status || 'unknown')}</span>
         </header>
         <dl>
@@ -158,36 +171,57 @@
       });
     }
 
-    settingsMarkup(connection = {}) {
-      const connected = connection.configured === true;
-      const reconnectRequired = connection.reconnectRequired === true;
+    settingsMarkup(connections = []) {
+      const providers = (Array.isArray(connections) ? connections : [connections]).filter(connection => connection?.providerId);
+      const connectedCount = providers.filter(connection => connection.configured).length;
+      const providerCards = providers.length ? providers.map(connection => {
+        const connected = connection.configured === true;
+        const reconnectRequired = connection.reconnectRequired === true;
+        const safeId = this.app.escapeHtml(connection.providerId);
+        const safeLabel = this.app.escapeHtml(connection.label || 'Xiangshu Panel');
+        return `<article class="panel-provider-card" data-panel-provider-card="${safeId}">
+          <div class="panel-provider-card-main">
+            <span class="panel-provider-state" data-connected="${connected}"></span>
+            <span><strong>${safeLabel}</strong><small>${this.app.escapeHtml(connection.baseUrl || '')}</small></span>
+          </div>
+          <div class="panel-provider-card-meta">
+            <span>${connected ? `API ${this.app.escapeHtml(connection.apiVersion || '')} · 应用会话已保留` : (reconnectRequired ? '需要重新输入只读令牌' : '连接不可用')}</span>
+            <span class="panel-settings-actions">
+              ${reconnectRequired ? `<button class="btn" data-app-action="prepare-panel-reconnect" data-panel-provider-id="${safeId}" data-panel-provider-url="${this.app.escapeHtml(connection.baseUrl || '')}" data-panel-provider-label="${safeLabel}" type="button">重新连接</button>` : ''}
+              <button class="btn" data-app-action="disconnect-panel" data-panel-provider-id="${safeId}" data-panel-provider-label="${safeLabel}" type="button">移除</button>
+            </span>
+          </div>
+        </article>`;
+      }).join('') : '<div class="panel-provider-empty">尚未添加 Panel 地址</div>';
       return `<section class="app-settings-section" id="settings-panel-provider" aria-labelledby="settings-panel-title">
         <div class="app-settings-section-heading">
-          <h2 id="settings-panel-title">Xiangshu Panel</h2>
-          <p>Panel 负责服务器端监控；GitFinder 只读取聚合状态和事件。</p>
+          <h2 id="settings-panel-title">Xiangshu Panel 数据源</h2>
+          <p>可添加多个 Panel 地址；GitFinder 会汇总各节点、部署和事件。</p>
         </div>
         <div class="app-settings-controls">
+          <div class="panel-provider-list-heading"><strong>已添加地址</strong><span>${connectedCount} 个已连接 · ${providers.length} 个已保存</span></div>
+          <div class="panel-provider-list">${providerCards}</div>
+          <div class="panel-provider-add-heading"><strong>添加或更新 Panel</strong><small>相同地址会更新原有会话，不会重复添加</small></div>
           <label class="app-settings-row" for="panel-provider-url">
             <span><strong>Panel 地址</strong><small>必须使用 HTTPS；Token 不写入项目便携配置</small></span>
-            <input id="panel-provider-url" type="url" spellcheck="false" placeholder="https://panel.example.com" value="${this.app.escapeHtml(connection.baseUrl || '')}">
+            <input id="panel-provider-url" type="url" spellcheck="false" placeholder="https://panel.example.com" value="">
           </label>
           <label class="app-settings-row" for="panel-provider-label">
             <span><strong>连接名称</strong><small>用于项目详情和关联选择</small></span>
-            <input id="panel-provider-label" type="text" maxlength="120" value="${this.app.escapeHtml(connection.label || 'Xiangshu Panel')}">
+            <input id="panel-provider-label" type="text" maxlength="120" value="" placeholder="例如：生产 Panel">
           </label>
           <label class="app-settings-row" for="panel-provider-token">
-            <span><strong>只读访问令牌</strong><small>${connected ? '应用已保持登录；重新连接时需再次输入' : '需要 catalog:read、snapshots:read 和 topology:read'}</small></span>
-            <input id="panel-provider-token" type="password" autocomplete="off" placeholder="${connected ? '应用会话已保留' : '输入只读令牌'}">
+            <span><strong>只读访问令牌</strong><small>需要 catalog:read、snapshots:read 和 topology:read</small></span>
+            <input id="panel-provider-token" type="password" autocomplete="off" placeholder="输入该 Panel 的只读令牌">
           </label>
           <div class="panel-settings-boundary">
             <strong>应用自有会话</strong>
             <span>GitFinder 不读取系统钥匙串，也不保存 Panel 密码。只读会话令牌保存在应用本机数据中，仅由当前系统用户的文件权限保护；请使用短期、最小权限且可随时撤销的令牌。</span>
           </div>
           <div class="app-settings-row">
-            <span><strong>${connected ? '已连接' : (reconnectRequired ? '需要重新连接' : '尚未连接')}</strong><small>${connected ? `${this.app.escapeHtml(connection.apiVersion || '')} · ${this.app.escapeHtml(connection.connectedAt || '')}` : (reconnectRequired ? '旧版钥匙串密文不会被读取' : '连接时会先验证 API 版本与只读能力')}</small></span>
+            <span><strong>验证后添加</strong><small>每个地址使用独立 Provider ID 和应用会话</small></span>
             <span class="panel-settings-actions">
-              ${connected ? '<button class="btn" data-app-action="disconnect-panel" type="button">断开</button>' : ''}
-              <button class="btn btn-primary" data-app-action="connect-panel" type="button">${connected || reconnectRequired ? '重新连接并验证' : '连接并验证'}</button>
+              <button class="btn btn-primary" data-app-action="connect-panel" type="button">添加并验证</button>
             </span>
           </div>
           <div class="panel-settings-feedback" id="panel-settings-feedback" role="status" aria-live="polite"></div>
@@ -206,7 +240,7 @@
       try {
         if (!token) throw new Error('重新连接时也需要输入令牌，旧令牌不会显示在界面中');
         await this.bridge.panel.connect({ baseUrl, label, token });
-        this.app._showStatusMessage('Panel 已连接并验证', 'success');
+        this.app._showStatusMessage('Panel 地址已添加并验证', 'success');
         await this.app.renderSettingsView();
       } catch (error) {
         if (feedback) feedback.textContent = error?.message || String(error);
@@ -214,10 +248,22 @@
       }
     }
 
-    async disconnectFromSettings() {
-      if (!root.confirm('断开 Panel 连接？项目中的非敏感关联文件会保留。')) return;
-      await this.bridge.panel.disconnect();
-      this.app._showStatusMessage('Panel 连接已断开', 'info');
+    prepareReconnectFromSettings(button) {
+      if (!button) return false;
+      const url = this._element('panel-provider-url');
+      const label = this._element('panel-provider-label');
+      const token = this._element('panel-provider-token');
+      if (url) url.value = button.dataset.panelProviderUrl || '';
+      if (label) label.value = button.dataset.panelProviderLabel || '';
+      token?.focus?.();
+      return true;
+    }
+
+    async disconnectFromSettings(providerId, providerLabel = '') {
+      if (!providerId) return;
+      if (!root.confirm(`移除 Panel「${providerLabel || providerId}」？项目中的非敏感关联文件会保留。`)) return;
+      await this.bridge.panel.disconnect(providerId);
+      this.app._showStatusMessage('Panel 地址已移除', 'info');
       await this.app.renderSettingsView();
     }
 
@@ -252,13 +298,17 @@
           return candidate === normalizedProjectPath || candidate.startsWith(`${normalizedProjectPath}/`);
         });
         const existingBinding = this.currentResult?.bindings?.[0] || null;
+        const selectedResourceIndex = Math.max(0, resources.findIndex(resource => (
+          existingBinding?.providerId === resource.providerId
+          && existingBinding?.resourceUuid === resource.resourceUuid
+        )));
         const existingRepositoryIds = new Set(existingBinding?.repositoryIds || []);
         const body = overlay.querySelector('.panel-binding-body');
         body.innerHTML = resources.length ? `
           <div class="panel-binding-resource-list" role="radiogroup" aria-label="部署资源">
             ${resources.map((resource, index) => `<label class="panel-binding-resource">
-              <input type="radio" name="panel-binding-resource" value="${this.app.escapeHtml(resource.resourceUuid)}"${index === 0 ? ' checked' : ''}>
-              <span><strong>${this.app.escapeHtml(resource.name)}</strong><small>${this.app.escapeHtml(resource.projectName || '未命名项目')} · ${this.app.escapeHtml(resource.environmentName)} · ${this.app.escapeHtml(resource.serverName)}</small></span>
+              <input type="radio" name="panel-binding-resource" value="${index}"${index === selectedResourceIndex ? ' checked' : ''}>
+              <span><strong>${this.app.escapeHtml(resource.name)}</strong><small>${this.app.escapeHtml(resource.providerLabel || 'Panel')} · ${this.app.escapeHtml(resource.projectName || '未命名项目')} · ${this.app.escapeHtml(resource.environmentName)} · ${this.app.escapeHtml(resource.serverName)}</small></span>
               <span class="panel-status-badge ${this._statusTone(resource.status)}">${this.app.escapeHtml(resource.status)}</span>
             </label>`).join('')}
           </div>
@@ -272,8 +322,8 @@
           <footer><span>只写入稳定 ID，不保存 Token 或服务器凭据。</span><button class="btn btn-primary" data-panel-binding-save type="button">保存关联</button></footer>`
           : '<div class="panel-deployment-state panel-deployment-state-stacked"><strong>Panel Catalog 没有可关联资源</strong><span>请先在 Panel 中确认只读 API 返回内容。</span></div>';
         body.querySelector('[data-panel-binding-save]')?.addEventListener('click', async event => {
-          const selectedId = body.querySelector('input[name="panel-binding-resource"]:checked')?.value;
-          const resource = resources.find(item => item.resourceUuid === selectedId);
+          const selectedIndex = Number(body.querySelector('input[name="panel-binding-resource"]:checked')?.value);
+          const resource = Number.isInteger(selectedIndex) ? resources[selectedIndex] : null;
           if (!resource) return;
           const repositoryIds = [...body.querySelectorAll('input[name="panel-binding-repository"]:checked')]
             .map(input => input.value)
@@ -306,7 +356,7 @@
     }
 
     async clearBinding(directoryPath, container, project) {
-      if (!root.confirm('解除当前项目与部署资源的关联？不会修改 Panel 或 Coolify。')) return;
+      if (!root.confirm('解除当前项目与全部部署资源的关联？不会修改任何 Panel 或 Coolify。')) return;
       await this.bridge.panel.clearProjectBindings(directoryPath);
       this.app._showStatusMessage('部署资源关联已解除', 'info');
       await this._load(container, directoryPath, project);

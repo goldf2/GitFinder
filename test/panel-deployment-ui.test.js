@@ -45,14 +45,21 @@ test('部署面板区分未配置、未关联和已就绪状态', () => {
 
 test('设置页明确使用应用自有会话且不读取系统钥匙串', () => {
   const controller = createController();
-  const fresh = controller.settingsMarkup({ configured: false });
+  const fresh = controller.settingsMarkup([]);
   assert.match(fresh, /应用自有会话/);
   assert.match(fresh, /不读取系统钥匙串/);
   assert.match(fresh, /不保存 Panel 密码/);
   assert.match(fresh, /当前系统用户的文件权限保护/);
-  const legacy = controller.settingsMarkup({ configured: false, reconnectRequired: true });
-  assert.match(legacy, /需要重新连接/);
-  assert.match(legacy, /旧版钥匙串密文不会被读取/);
+  assert.match(fresh, /可添加多个 Panel 地址/);
+  const multiple = controller.settingsMarkup([
+    { configured: true, providerId: 'panel_1', label: '生产 Panel', baseUrl: 'https://panel.example.com', apiVersion: '1.1' },
+    { configured: false, reconnectRequired: true, providerId: 'panel_2', label: '旧 Panel', baseUrl: 'https://old.example.com' }
+  ]);
+  assert.match(multiple, /生产 Panel/);
+  assert.match(multiple, /旧 Panel/);
+  assert.match(multiple, /1 个已连接 · 2 个已保存/);
+  assert.match(multiple, /data-panel-provider-id="panel_1"/);
+  assert.match(multiple, /prepare-panel-reconnect/);
 });
 
 test('部署关联对话框只能通过关闭按钮或 Escape 关闭', () => {
@@ -79,9 +86,10 @@ test('1.x 界面骨架包含部署详情区、Panel 设置和可信 IPC', () => 
   assert.match(html, /data-section-id="deployments"/);
   assert.match(html, /class="empty-state" id="empty-state"/);
   assert.match(html, /scripts\/panelDeploymentController\.js/);
-  assert.match(app, /settingsMarkup\(panelConnection\)/);
+  assert.match(app, /settingsMarkup\(panelConnections\)/);
   assert.match(preload, /panel:getProjectDeployments/);
   assert.match(preload, /panel:saveProjectBinding/);
+  assert.match(preload, /panel:getConnections/);
   assert.match(main, /registerPanelIPC\(\)/);
 });
 

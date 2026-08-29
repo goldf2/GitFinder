@@ -148,6 +148,65 @@ test('连接先验证只读契约，并以应用自有会话保持登录状态',
   assert.equal(calls.at(-1).authorization, 'Bearer panel-read-token-123');
 });
 
+test('可保存多个 Panel 地址并聚合拓扑、Catalog 和同名远端资源', async t => {
+  const { root, projectPath, service, resource } = createHarness(t);
+  const primary = await service.connect({
+    baseUrl: 'https://panel.example.com', label: '生产 Panel', token: 'panel-read-token-123'
+  });
+  const secondary = await service.connect({
+    baseUrl: 'https://panel-secondary.example.com', label: '备用 Panel', token: 'panel-read-token-456'
+  });
+  assert.notEqual(primary.providerId, secondary.providerId);
+  assert.deepEqual(service.getConnections().map(item => item.label), ['生产 Panel', '备用 Panel']);
+
+  const persisted = JSON.parse(fs.readFileSync(path.join(root, 'panel-session.json'), 'utf8'));
+  assert.equal(persisted.schemaVersion, 2);
+  assert.equal(persisted.providers.length, 2);
+  assert.equal(persisted.providers[0].accessToken, 'panel-read-token-123');
+  assert.equal(persisted.providers[1].accessToken, 'panel-read-token-456');
+
+  const catalog = await service.getCatalog();
+  assert.equal(catalog.resources.length, 2);
+  assert.deepEqual(new Set(catalog.resources.map(item => item.providerId)), new Set([primary.providerId, secondary.providerId]));
+
+  service.saveProjectBinding(projectPath, { ...resource, providerId: primary.providerId, repositoryIds: ['r_0123456789ab'] });
+  service.saveProjectBinding(projectPath, { ...resource, providerId: secondary.providerId, repositoryIds: ['r_0123456789ab'] });
+  const deployments = await service.getProjectDeployments(projectPath);
+  assert.equal(deployments.state, 'ready');
+  assert.equal(deployments.resources.length, 2);
+  assert.equal(deployments.bindings.length, 2);
+
+  const topology = await service.getTopology();
+  assert.equal(topology.state, 'ready');
+  assert.equal(topology.topology.servers.length, 2);
+  assert.equal(topology.topology.deployments.length, 2);
+  assert.deepEqual(new Set(topology.topology.servers.map(item => item.providerId)), new Set([primary.providerId, secondary.providerId]));
+
+  service.disconnect(primary.providerId);
+  assert.deepEqual(service.getConnections().map(item => item.providerId), [secondary.providerId]);
+});
+
+test('alpha.4 单 Panel 应用会话自动迁移为多地址会话', t => {
+  const { root, fetchImpl, projectService } = createHarness(t);
+  fs.writeFileSync(path.join(root, 'panel-session.json'), JSON.stringify({
+    schemaVersion: 1,
+    provider: {
+      providerId: 'panel_alpha4',
+      label: 'Alpha 4 Panel',
+      baseUrl: 'https://panel.example.com',
+      accessToken: 'panel-read-token-123',
+      apiVersion: '1.1',
+      capabilities: ['catalog:read', 'snapshots:read', 'topology:read'],
+      connectedAt: '2026-08-28T05:00:00.000Z'
+    }
+  }), { mode: 0o600 });
+  const restarted = new PanelProviderService({ configDirectory: root, projectService, fetchImpl });
+  assert.equal(restarted.getConnections()[0].label, 'Alpha 4 Panel');
+  const migrated = JSON.parse(fs.readFileSync(path.join(root, 'panel-session.json'), 'utf8'));
+  assert.equal(migrated.schemaVersion, 2);
+  assert.equal(migrated.providers.length, 1);
+});
+
 test('旧版钥匙串密文不会读取并要求用户重新连接', async t => {
   const { root, service } = createHarness(t);
   fs.writeFileSync(path.join(root, 'panel-provider.json'), JSON.stringify({

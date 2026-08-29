@@ -2,7 +2,8 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const SESSION_SCHEMA_VERSION = 1;
+const SESSION_SCHEMA_VERSION = 2;
+const SINGLE_SESSION_SCHEMA_VERSION = 1;
 const LEGACY_PROVIDER_SCHEMA_VERSION = 1;
 const BINDINGS_SCHEMA_VERSION = 2;
 const API_MAJOR_VERSION = 1;
@@ -14,6 +15,7 @@ const MAX_TOPOLOGY_SERVERS = 256;
 const MAX_TOPOLOGY_DEPLOYMENTS = 2_000;
 const MAX_PROJECT_BINDINGS = 50;
 const MAX_BINDING_REPOSITORIES = 8;
+const MAX_PANEL_PROVIDERS = 12;
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
 const ID_PATTERN = /^[a-z0-9][a-z0-9_.:-]{0,179}$/i;
 
@@ -327,7 +329,7 @@ class PanelProviderService {
     this.projectService = options.projectService;
     this.now = options.now || (() => new Date());
     this.configDirectory = options.configDirectory || null;
-    this.provider = null;
+    this.providers = null;
     this.allowedExternalUrls = new Set();
   }
 
@@ -364,10 +366,31 @@ class PanelProviderService {
     }
   }
 
-  _loadProvider() {
-    if (this.provider) return this.provider;
+  _normalizeStoredProvider(value = {}, { legacy = false } = {}) {
+    const baseUrl = normalizeBaseUrl(value.baseUrl);
+    const accessToken = legacy || !value.accessToken ? '' : normalizeToken(value.accessToken);
+    return {
+      providerId: normalizeIdentifier(value.providerId, 'Provider ID'),
+      providerKind: 'xiangshu-panel',
+      label: cleanText(value.label, 120, new URL(baseUrl).hostname),
+      baseUrl,
+      accessToken,
+      apiVersion: normalizeApiVersion(value.apiVersion),
+      capabilities: Array.isArray(value.capabilities) ? value.capabilities.slice(0, 50) : [],
+      connectedAt: cleanText(value.connectedAt, 64),
+      reconnectRequired: legacy || Boolean(value.reconnectRequired),
+      credentialStorage: legacy ? 'legacy-keychain' : 'app-session'
+    };
+  }
+
+  _loadProviders() {
+    if (this.providers) return this.providers;
     const filePath = this._sessionPath();
-    if (!fs.existsSync(filePath)) return this._loadLegacyProvider();
+    if (!fs.existsSync(filePath)) {
+      const legacy = this._loadLegacyProvider();
+      this.providers = legacy ? [legacy] : [];
+      return this.providers;
+    }
     const stat = fs.lstatSync(filePath);
     if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 128 * 1024) {
       throw new Error('Panel 本机会话文件无效');
@@ -376,24 +399,24 @@ class PanelProviderService {
       throw new Error('Panel 本机会话文件权限过宽，请重新连接');
     }
     const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    if (Number(parsed.schemaVersion) !== SESSION_SCHEMA_VERSION || !parsed.provider) {
+    const schemaVersion = Number(parsed.schemaVersion);
+    const source = schemaVersion === SINGLE_SESSION_SCHEMA_VERSION && parsed.provider
+      ? [parsed.provider]
+      : parsed.providers;
+    if (![SINGLE_SESSION_SCHEMA_VERSION, SESSION_SCHEMA_VERSION].includes(schemaVersion) || !Array.isArray(source)) {
       throw new Error('Panel 本机会话版本不受支持');
     }
-    const baseUrl = normalizeBaseUrl(parsed.provider.baseUrl);
-    const providerId = normalizeIdentifier(parsed.provider.providerId, 'Provider ID');
-    const accessToken = normalizeToken(parsed.provider.accessToken);
-    this.provider = {
-      providerId,
-      providerKind: 'xiangshu-panel',
-      label: cleanText(parsed.provider.label, 120, new URL(baseUrl).hostname),
-      baseUrl,
-      accessToken,
-      apiVersion: normalizeApiVersion(parsed.provider.apiVersion),
-      capabilities: Array.isArray(parsed.provider.capabilities) ? parsed.provider.capabilities.slice(0, 50) : [],
-      connectedAt: cleanText(parsed.provider.connectedAt, 64),
-      credentialStorage: 'app-session'
-    };
-    return this.provider;
+    if (source.length > MAX_PANEL_PROVIDERS) throw new Error(`Panel 地址数量超过 ${MAX_PANEL_PROVIDERS} 个的安全上限`);
+    const seen = new Set();
+    this.providers = source.map(provider => this._normalizeStoredProvider(provider, {
+      legacy: !provider.accessToken && provider.reconnectRequired === true
+    })).filter(provider => {
+      if (seen.has(provider.providerId)) return false;
+      seen.add(provider.providerId);
+      return true;
+    });
+    if (schemaVersion === SINGLE_SESSION_SCHEMA_VERSION) this._saveProviders(this.providers);
+    return this.providers;
   }
 
   _loadLegacyProvider() {
@@ -407,23 +430,32 @@ class PanelProviderService {
     if (Number(parsed.schemaVersion) !== LEGACY_PROVIDER_SCHEMA_VERSION || !parsed.provider) {
       throw new Error('旧版 Panel 本机配置版本不受支持');
     }
-    const baseUrl = normalizeBaseUrl(parsed.provider.baseUrl);
-    this.provider = {
-      providerId: normalizeIdentifier(parsed.provider.providerId, 'Provider ID'),
-      providerKind: 'xiangshu-panel',
-      label: cleanText(parsed.provider.label, 120, new URL(baseUrl).hostname),
-      baseUrl,
-      accessToken: '',
-      apiVersion: normalizeApiVersion(parsed.provider.apiVersion),
-      capabilities: Array.isArray(parsed.provider.capabilities) ? parsed.provider.capabilities.slice(0, 50) : [],
-      connectedAt: cleanText(parsed.provider.connectedAt, 64),
-      reconnectRequired: true,
-      credentialStorage: 'legacy-keychain'
-    };
-    return this.provider;
+    return this._normalizeStoredProvider(parsed.provider, { legacy: true });
   }
 
-  _publicConnection(provider = this._loadProvider()) {
+  _saveProviders(providers = []) {
+    const values = Array.isArray(providers) ? providers.slice(0, MAX_PANEL_PROVIDERS) : [];
+    if (values.length) {
+      this._writeJsonAtomic(this._sessionPath(), { schemaVersion: SESSION_SCHEMA_VERSION, providers: values });
+    } else if (fs.existsSync(this._sessionPath())) {
+      fs.rmSync(this._sessionPath(), { force: true });
+    }
+    this.providers = values;
+    return values;
+  }
+
+  _findProvider(providerId = '', { requireCredential = false } = {}) {
+    const providers = this._loadProviders();
+    const normalizedId = cleanText(providerId, 180);
+    const provider = normalizedId
+      ? providers.find(candidate => candidate.providerId === normalizedId)
+      : (providers.find(candidate => candidate.accessToken) || providers[0]);
+    if (!provider) throw new Error('尚未连接 Xiangshu Panel');
+    if (requireCredential && !provider.accessToken) throw new Error('旧版钥匙串凭据不会读取，请重新连接 Panel');
+    return provider;
+  }
+
+  _publicConnection(provider = null) {
     if (!provider) return { configured: false, credentialAvailable: false };
     const configured = Boolean(provider.accessToken);
     return {
@@ -441,11 +473,19 @@ class PanelProviderService {
     };
   }
 
-  getConnection() {
-    return this._publicConnection();
+  getConnections() {
+    return this._loadProviders().map(provider => this._publicConnection(provider));
   }
 
-  async _get(pathname, provider = this._loadProvider()) {
+  getConnection(providerId = '') {
+    const providers = this._loadProviders();
+    const provider = providerId
+      ? providers.find(candidate => candidate.providerId === providerId)
+      : (providers.find(candidate => candidate.accessToken) || providers[0]);
+    return this._publicConnection(provider || null);
+  }
+
+  async _get(pathname, provider) {
     if (!provider) throw new Error('尚未连接 Xiangshu Panel');
     if (!provider.accessToken) throw new Error('旧版钥匙串凭据不会读取，请重新连接 Panel');
     const url = new URL(`${API_PREFIX}${pathname}`, provider.baseUrl);
@@ -474,27 +514,59 @@ class PanelProviderService {
       connectedAt,
       credentialStorage: 'app-session'
     };
-    this._writeJsonAtomic(this._sessionPath(), { schemaVersion: SESSION_SCHEMA_VERSION, provider });
+    const providers = this._loadProviders();
+    const existingIndex = providers.findIndex(candidate => candidate.providerId === providerId);
+    if (existingIndex < 0 && providers.length >= MAX_PANEL_PROVIDERS) {
+      throw new Error(`最多添加 ${MAX_PANEL_PROVIDERS} 个 Panel 地址`);
+    }
+    const updated = [...providers];
+    if (existingIndex >= 0) updated.splice(existingIndex, 1, provider);
+    else updated.push(provider);
+    this._saveProviders(updated);
     const legacyPath = this._legacyConfigPath();
     if (fs.existsSync(legacyPath)) fs.rmSync(legacyPath, { force: true });
-    this.provider = provider;
     return this._publicConnection(provider);
   }
 
-  disconnect() {
-    for (const filePath of [this._sessionPath(), this._legacyConfigPath()]) {
-      if (fs.existsSync(filePath)) fs.rmSync(filePath, { force: true });
-    }
-    this.provider = null;
+  disconnect(providerId = '') {
+    const providers = this._loadProviders();
+    const normalizedId = cleanText(providerId, 180);
+    const remaining = normalizedId
+      ? providers.filter(provider => provider.providerId !== normalizedId)
+      : [];
+    this._saveProviders(remaining);
+    const legacyPath = this._legacyConfigPath();
+    if (fs.existsSync(legacyPath)) fs.rmSync(legacyPath, { force: true });
     this.allowedExternalUrls.clear();
-    return { configured: false, credentialAvailable: false };
+    return remaining.map(provider => this._publicConnection(provider));
   }
 
-  async getCatalog() {
-    const provider = this._loadProvider();
-    const catalog = normalizeCatalog(await this._get('/catalog', provider));
-    for (const resource of catalog.resources) this._rememberExternalUrls(resource);
-    return { ...catalog, provider: this._publicConnection(provider) };
+  async getCatalog(providerId = '') {
+    const providers = providerId
+      ? [this._findProvider(providerId, { requireCredential: true })]
+      : this._loadProviders().filter(provider => provider.accessToken);
+    if (!providers.length) throw new Error('尚未连接可用的 Xiangshu Panel');
+    const settled = await Promise.allSettled(providers.map(async provider => {
+      const catalog = normalizeCatalog(await this._get('/catalog', provider));
+      const resources = catalog.resources.map(resource => ({
+        ...resource,
+        providerId: provider.providerId,
+        providerLabel: provider.label
+      }));
+      for (const resource of resources) this._rememberExternalUrls(resource);
+      return { provider, catalog, resources };
+    }));
+    const successes = settled.filter(result => result.status === 'fulfilled').map(result => result.value);
+    if (!successes.length) throw settled[0]?.reason || new Error('无法读取 Panel Catalog');
+    return {
+      apiVersion: successes[0].catalog.apiVersion,
+      resources: successes.flatMap(result => result.resources),
+      providers: successes.map(result => this._publicConnection(result.provider)),
+      errors: settled.flatMap((result, index) => result.status === 'rejected'
+        ? [{ providerId: providers[index].providerId, label: providers[index].label, message: result.reason?.message || String(result.reason) }]
+        : []),
+      ...(successes.length === 1 ? { provider: this._publicConnection(successes[0].provider) } : {})
+    };
   }
 
   _bindingsPath(directory) {
@@ -518,13 +590,21 @@ class PanelProviderService {
 
   saveProjectBinding(directoryPath, value = {}) {
     const project = this.projectService.getProject(directoryPath);
-    const provider = this._loadProvider();
-    if (!provider) throw new Error('尚未连接 Xiangshu Panel');
-    if (!provider.accessToken) throw new Error('旧版钥匙串凭据不会读取，请重新连接 Panel');
+    const connectedProviders = this._loadProviders().filter(provider => provider.accessToken);
+    const requestedProviderId = cleanText(value.providerId, 180);
+    if (!requestedProviderId && connectedProviders.length > 1) throw new Error('请选择部署资源所属的 Panel');
+    const provider = this._findProvider(requestedProviderId || connectedProviders[0]?.providerId, { requireCredential: true });
     const binding = normalizeBinding({ ...value, providerId: provider.providerId });
     const filePath = this._bindingsPath(project.path);
-    this._writeJsonAtomic(filePath, { schemaVersion: BINDINGS_SCHEMA_VERSION, bindings: [binding] });
-    return { projectId: project.projectId, bindings: [binding] };
+    const bindings = this._readBindings(project.path);
+    const replacementIndex = bindings.findIndex(candidate => (
+      candidate.providerId === binding.providerId && candidate.resourceUuid === binding.resourceUuid
+    ));
+    if (replacementIndex >= 0) bindings.splice(replacementIndex, 1, binding);
+    else bindings.push(binding);
+    if (bindings.length > MAX_PROJECT_BINDINGS) throw new Error('项目部署关联数量超过安全上限');
+    this._writeJsonAtomic(filePath, { schemaVersion: BINDINGS_SCHEMA_VERSION, bindings });
+    return { projectId: project.projectId, bindings };
   }
 
   clearProjectBindings(directoryPath) {
@@ -536,63 +616,101 @@ class PanelProviderService {
 
   async getProjectDeployments(directoryPath) {
     const project = this.projectService.getProject(directoryPath);
-    const provider = this._loadProvider();
+    const providers = this._loadProviders();
     const bindings = this._readBindings(project.path);
-    if (!provider) {
-      return { state: 'unconfigured', projectId: project.projectId, provider: this._publicConnection(null), bindings, resources: [] };
+    const publicProviders = providers.map(provider => this._publicConnection(provider));
+    if (!providers.length) {
+      return { state: 'unconfigured', projectId: project.projectId, providers: [], bindings, resources: [] };
     }
-    if (!provider.accessToken) {
-      return { state: 'reauthentication-required', projectId: project.projectId, provider: this._publicConnection(provider), bindings, resources: [] };
+    if (!bindings.length) {
+      return { state: 'unlinked', projectId: project.projectId, providers: publicProviders, bindings, resources: [] };
     }
-    const providerBindings = bindings.filter(binding => binding.providerId === provider.providerId);
-    if (!providerBindings.length) {
-      return { state: 'unlinked', projectId: project.projectId, provider: this._publicConnection(provider), bindings, resources: [] };
-    }
-    const resources = await Promise.all(providerBindings.map(async binding => {
+    const providerById = new Map(providers.map(provider => [provider.providerId, provider]));
+    const settled = await Promise.allSettled(bindings.map(async binding => {
+      const provider = providerById.get(binding.providerId);
+      if (!provider) throw new Error(`关联的 Panel 已移除：${binding.providerId}`);
+      if (!provider.accessToken) throw new Error(`Panel 需要重新连接：${provider.label}`);
       const raw = await this._get(`/snapshot?resourceUuid=${encodeURIComponent(binding.resourceUuid)}`, provider);
       normalizeApiVersion(raw?.apiVersion);
       const resource = normalizeResource(raw?.resource || raw);
       if (resource.resourceUuid !== binding.resourceUuid) throw new Error('Panel 返回了不匹配的资源身份');
       this._rememberExternalUrls(resource);
-      return resource;
+      return { ...resource, providerId: provider.providerId, providerLabel: provider.label };
     }));
+    const resources = settled.filter(result => result.status === 'fulfilled').map(result => result.value);
+    const errors = settled.flatMap((result, index) => result.status === 'rejected'
+      ? [{ providerId: bindings[index].providerId, resourceUuid: bindings[index].resourceUuid, message: result.reason?.message || String(result.reason) }]
+      : []);
+    const state = resources.length
+      ? 'ready'
+      : (providers.some(provider => !provider.accessToken) ? 'reauthentication-required' : 'error');
     return {
-      state: 'ready',
+      state,
       projectId: project.projectId,
-      provider: this._publicConnection(provider),
-      bindings: providerBindings,
-      resources
+      providers: publicProviders,
+      ...(publicProviders.length === 1 ? { provider: publicProviders[0] } : {}),
+      bindings,
+      resources,
+      errors
     };
   }
 
   async getTopology() {
-    const provider = this._loadProvider();
-    const emptyTopology = { apiVersion: provider?.apiVersion || '1.0', generatedAt: '', cursor: '', servers: [], deployments: [] };
-    if (!provider) {
-      return { state: 'unconfigured', provider: this._publicConnection(null), topology: emptyTopology, bindings: [] };
+    const providers = this._loadProviders();
+    const publicProviders = providers.map(provider => this._publicConnection(provider));
+    const emptyTopology = { apiVersion: '1.0', generatedAt: '', cursor: '', servers: [], deployments: [] };
+    if (!providers.length) return { state: 'unconfigured', providers: [], topology: emptyTopology, bindings: [] };
+    const connected = providers.filter(provider => provider.accessToken);
+    if (!connected.length) {
+      return { state: 'reauthentication-required', providers: publicProviders, topology: emptyTopology, bindings: [] };
     }
-    if (!provider.accessToken) {
-      return { state: 'reauthentication-required', provider: this._publicConnection(provider), topology: emptyTopology, bindings: [] };
+    const supported = connected.filter(provider => provider.capabilities.includes('topology:read'));
+    if (!supported.length) {
+      return { state: 'unsupported', providers: publicProviders, topology: emptyTopology, bindings: [] };
     }
-    if (!provider.capabilities.includes('topology:read')) {
-      return { state: 'unsupported', provider: this._publicConnection(provider), topology: emptyTopology, bindings: [] };
+    const settled = await Promise.allSettled(supported.map(async provider => ({
+      provider,
+      topology: normalizeTopology(await this._get('/topology', provider))
+    })));
+    const successes = settled.filter(result => result.status === 'fulfilled').map(result => result.value);
+    const errors = settled.flatMap((result, index) => result.status === 'rejected'
+      ? [{ providerId: supported[index].providerId, label: supported[index].label, message: result.reason?.message || String(result.reason) }]
+      : []);
+    if (!successes.length) {
+      return { state: 'error', providers: publicProviders, topology: emptyTopology, bindings: [], errors };
     }
-    const topology = normalizeTopology(await this._get('/topology', provider));
-    for (const server of topology.servers) this._rememberExternalUrls(server);
-    for (const deployment of topology.deployments) this._rememberExternalUrls(deployment);
+    const servers = successes.flatMap(({ provider, topology }) => topology.servers.map(server => ({
+      ...server,
+      providerId: provider.providerId,
+      providerLabel: provider.label
+    })));
+    const deployments = successes.flatMap(({ provider, topology }) => topology.deployments.map(deployment => ({
+      ...deployment,
+      providerId: provider.providerId,
+      providerLabel: provider.label
+    })));
+    for (const server of servers) this._rememberExternalUrls(server);
+    for (const deployment of deployments) this._rememberExternalUrls(deployment);
+    const generatedAt = successes.map(result => result.topology.generatedAt).filter(Boolean).sort().at(-1) || '';
     return {
       state: 'ready',
-      provider: this._publicConnection(provider),
-      topology,
-      bindings: []
+      providers: publicProviders,
+      ...(publicProviders.length === 1 ? { provider: publicProviders[0] } : {}),
+      topology: {
+        apiVersion: successes[0].topology.apiVersion,
+        generatedAt,
+        cursor: '',
+        servers,
+        deployments
+      },
+      bindings: [],
+      errors
     };
   }
 
   getProjectBindings(directoryPath) {
     const project = this.projectService.getProject(directoryPath);
-    const provider = this._loadProvider();
     const bindings = this._readBindings(project.path)
-      .filter(binding => !provider || binding.providerId === provider.providerId)
       .map(binding => ({ projectId: project.projectId, ...binding }));
     return { projectId: project.projectId, bindings };
   }
@@ -627,5 +745,6 @@ module.exports = {
   MAX_TOPOLOGY_SERVERS,
   MAX_TOPOLOGY_DEPLOYMENTS,
   MAX_BINDING_REPOSITORIES,
-  MAX_PROJECT_BINDINGS
+  MAX_PROJECT_BINDINGS,
+  MAX_PANEL_PROVIDERS
 };

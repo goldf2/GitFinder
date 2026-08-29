@@ -593,7 +593,12 @@ class ConfigService {
 
   removeTreeRoot(dirPath) {
     const config = this.getConfig();
-    config.treeRoots = (config.treeRoots || []).filter(r => r.path !== dirPath);
+    if (typeof dirPath !== 'string' || !dirPath || dirPath.includes('\0') || !path.isAbsolute(dirPath)) {
+      throw new Error('要移除的位置路径无效');
+    }
+    const directoryKey = this._favoritePathKey(path.normalize(dirPath));
+    config.treeRoots = (config.treeRoots || [])
+      .filter(root => this._favoritePathKey(root.path) !== directoryKey);
     this.saveConfig();
     return config.treeRoots;
   }

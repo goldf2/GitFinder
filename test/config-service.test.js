@@ -276,6 +276,10 @@ test('受管根必须是真实存在目录且界面更新不能改写路径', (t
   service.addTreeRoot(directoryPath, ' Workspace ');
   service.updateTreeRoot(directoryPath, { path: tempRoot, expanded: false, name: '开发目录' });
   assert.deepEqual(service.getTreeRoots(), [{ path: directoryPath, name: '开发目录', expanded: false }]);
+  assert.throws(() => service.removeTreeRoot('relative/path'), /路径无效/);
+  service.removeTreeRoot(directoryPath);
+  assert.deepEqual(service.getTreeRoots(), []);
+  assert.equal(fs.existsSync(directoryPath), true);
 });
 
 test('路径配置事务中途写入失败会恢复全部文件和内存快照', (t) => {

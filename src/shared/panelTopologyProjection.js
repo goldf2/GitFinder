@@ -33,6 +33,7 @@
       metadata: {
         state,
         generatedAt: options.topology?.generatedAt || '',
+        providerCount: 0,
         serverCount: 0,
         deploymentCount: 0,
         failureCount: 0,
@@ -41,7 +42,7 @@
     };
     if (state !== 'ready') return empty;
 
-    const providerId = String(options.provider?.providerId || 'panel');
+    const defaultProviderId = String(options.provider?.providerId || 'panel');
     const topology = options.topology || {};
     const servers = Array.isArray(topology.servers) ? topology.servers : [];
     const deployments = Array.isArray(topology.deployments) ? topology.deployments : [];
@@ -56,9 +57,10 @@
     const repositoryById = new Map(repositories.filter(item => item?.id && item.archived !== true).map(item => [item.id, item]));
     const bindingsByResource = new Map();
     for (const binding of bindings) {
-      if (!binding?.resourceUuid || binding.providerId !== providerId) continue;
-      if (!bindingsByResource.has(binding.resourceUuid)) bindingsByResource.set(binding.resourceUuid, []);
-      bindingsByResource.get(binding.resourceUuid).push(binding);
+      if (!binding?.resourceUuid || !binding.providerId) continue;
+      const key = `${binding.providerId}\u0000${binding.resourceUuid}`;
+      if (!bindingsByResource.has(key)) bindingsByResource.set(key, []);
+      bindingsByResource.get(key).push(binding);
     }
 
     const entities = [];
@@ -113,27 +115,32 @@
       });
     };
 
+    const providerIds = new Set();
     const serverIdByNode = new Map();
     servers.forEach((server, index) => {
+      const providerId = String(server.providerId || defaultProviderId);
+      providerIds.add(providerId);
       const id = dynamicEntityId('server', providerId, server.nodeId);
-      serverIdByNode.set(server.nodeId, id);
+      serverIdByNode.set(`${providerId}\u0000${server.nodeId}`, id);
       addEntity({
         id,
         type: 'server',
         name: server.name,
-        details: { environment: server.environmentName || '', hostLabel: server.name || '' },
+        details: { environment: server.environmentName || '', hostLabel: server.name || '', provider: server.providerLabel || '' },
         source: 'observed',
         verifiedAt: server.observedAt,
         transient: true,
-        runtime: { ...server, providerId, dynamicKind: 'panel-server' }
+        runtime: { ...server, providerId, providerLabel: server.providerLabel || '', dynamicKind: 'panel-server' }
       }, { x: 980, y: 80 + index * 132 });
     });
 
     let failureCount = 0;
     const missingRepositories = new Set();
     deployments.forEach((deployment, deploymentIndex) => {
+      const providerId = String(deployment.providerId || defaultProviderId);
+      providerIds.add(providerId);
       const deploymentId = dynamicEntityId('deployment', providerId, deployment.resourceUuid);
-      const deploymentBindings = bindingsByResource.get(deployment.resourceUuid) || [];
+      const deploymentBindings = bindingsByResource.get(`${providerId}\u0000${deployment.resourceUuid}`) || [];
       const repositoryIds = unique(deploymentBindings.flatMap(binding => binding.repositoryIds || []));
       const missingRepositoryIds = repositoryIds.filter(repositoryId => !repositoryById.has(repositoryId));
       missingRepositoryIds.forEach(repositoryId => missingRepositories.add(repositoryId));
@@ -147,7 +154,8 @@
           version: deployment.imageReference || '',
           branch: deployment.branch || '',
           revision: deployment.commit || '',
-          status: deployment.status || ''
+          status: deployment.status || '',
+          provider: deployment.providerLabel || ''
         },
         source: 'observed',
         verifiedAt: deployment.observedAt,
@@ -155,6 +163,7 @@
         runtime: {
           ...deployment,
           providerId,
+          providerLabel: deployment.providerLabel || '',
           dynamicKind: 'panel-deployment',
           repositoryIds,
           missingRepositoryIds,
@@ -162,7 +171,7 @@
         }
       }, { x: 680, y: 80 + deploymentIndex * 132 });
 
-      const serverId = serverIdByNode.get(deployment.nodeId);
+      const serverId = serverIdByNode.get(`${providerId}\u0000${deployment.nodeId}`);
       if (serverId) addRelationship('runs_on', deploymentId, serverId, deployment.observedAt);
 
       let relationIndex = deploymentIndex;
@@ -189,6 +198,7 @@
       metadata: {
         state,
         generatedAt: topology.generatedAt || '',
+        providerCount: providerIds.size,
         serverCount: servers.length,
         deploymentCount: deployments.length,
         failureCount,

@@ -16,9 +16,10 @@ function getService(options = {}) {
 function registerPanelIPC(options = {}) {
   const service = getService(options);
   registerTrustedHandler('panel:getConnection', async () => service.getConnection());
+  registerTrustedHandler('panel:getConnections', async () => service.getConnections());
   registerTrustedHandler('panel:connect', async (event, values = {}) => service.connect(values));
-  registerTrustedHandler('panel:disconnect', async () => service.disconnect());
-  registerTrustedHandler('panel:getCatalog', async () => service.getCatalog());
+  registerTrustedHandler('panel:disconnect', async (event, providerId = '') => service.disconnect(providerId));
+  registerTrustedHandler('panel:getCatalog', async (event, providerId = '') => service.getCatalog(providerId));
   registerTrustedHandler('panel:getTopology', async () => service.getTopology());
   registerTrustedHandler('panel:getProjectBindings', async (event, directoryPath) => service.getProjectBindings(directoryPath));
   registerTrustedHandler('panel:getProjectDeployments', async (event, directoryPath) => service.getProjectDeployments(directoryPath));

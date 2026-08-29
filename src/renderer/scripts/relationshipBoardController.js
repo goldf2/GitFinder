@@ -257,13 +257,22 @@
     }
 
     _setPanelTopology(result = {}) {
-      const sameProvider = result.provider?.providerId
-        && result.provider.providerId === this.panelTopologyResult?.provider?.providerId;
+      const providerIdentity = value => {
+        const providers = Array.isArray(value?.providers) ? value.providers : [];
+        if (providers.length) return providers.map(provider => provider?.providerId).filter(Boolean).sort().join('|');
+        return value?.provider?.providerId || '';
+      };
+      const nextProviderIdentity = providerIdentity(result);
+      const sameProvider = nextProviderIdentity
+        && nextProviderIdentity === providerIdentity(this.panelTopologyResult);
       const bindings = Array.isArray(result.bindings) && result.bindings.length
         ? result.bindings
         : (sameProvider ? (this.panelTopologyResult?.bindings || []) : []);
       this.panelTopologyResult = { ...result, bindings };
-      this.panelLastError = result.state === 'error' ? String(result.error || 'Panel 同步失败') : '';
+      const providerErrors = Array.isArray(result.errors) ? result.errors.filter(entry => entry?.message) : [];
+      this.panelLastError = providerErrors.length
+        ? `${providerErrors.length} 个 Panel 同步失败：${providerErrors[0].message}`
+        : (result.state === 'error' ? String(result.error || 'Panel 同步失败') : '');
       this.panelProjection = PanelTopologyProjection?.buildProjection?.({
         ...this.panelTopologyResult,
         projects: this.panelProjects,
@@ -421,9 +430,10 @@
       if (state === 'ready') {
         const stale = this._panelSnapshotStale();
         const failure = metadata.failureCount ? ` · ${metadata.failureCount} 个最近失败` : '';
+        const providerPrefix = metadata.providerCount > 1 ? `${metadata.providerCount} 个 Panel · ` : 'Panel ';
         return {
           state: stale ? 'stale' : (metadata.failureCount ? 'warning' : 'ready'),
-          label: `Panel ${metadata.serverCount || 0} 台服务器 · ${metadata.deploymentCount || 0} 个部署${failure}`,
+          label: `${providerPrefix}${metadata.serverCount || 0} 台服务器 · ${metadata.deploymentCount || 0} 个部署${failure}`,
           title: `最后同步 ${this._relativeTime(metadata.generatedAt)}${stale ? '；数据已陈旧' : ''}`
         };
       }

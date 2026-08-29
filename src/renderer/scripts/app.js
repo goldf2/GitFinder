@@ -784,7 +784,13 @@ const App = {
       if (action === 'select-terminal') this.selectDeveloperToolExecutable('terminal');
       if (action === 'select-editor') this.selectDeveloperToolExecutable('editor');
       if (action === 'connect-panel') this.panelDeploymentController.connectFromSettings();
-      if (action === 'disconnect-panel') this.panelDeploymentController.disconnectFromSettings();
+      if (action === 'disconnect-panel') {
+        const button = event.target.closest('[data-panel-provider-id]');
+        this.panelDeploymentController.disconnectFromSettings(button?.dataset.panelProviderId, button?.dataset.panelProviderLabel);
+      }
+      if (action === 'prepare-panel-reconnect') {
+        this.panelDeploymentController.prepareReconnectFromSettings(event.target.closest('[data-panel-provider-id]'));
+      }
       if (action === 'open-theme-settings') this.openThemeSettings();
       if (action === 'file-project-settings') this.openLocalProjectDialog(event.target.closest('[data-project-path]')?.dataset.projectPath);
       if (this.isFileBrowsingContext() && !event.target.closest('.repo-card, .repo-list-item') && !action) {
@@ -1190,10 +1196,10 @@ const App = {
     const semanticColors = window.SemanticColors.normalizeProfile(AppState.semanticColorProfile);
     const projectShortcutPreferences = window.ProjectShortcuts.normalizePreferences(AppState.projectShortcutPreferences);
     const recentProjectCount = window.ProjectShortcuts.normalizeStore(AppState.projectShortcuts).recent.length;
-    const panelConnection = await window.gitFinder.panel.getConnection().catch(error => ({
+    const panelConnections = await window.gitFinder.panel.getConnections().catch(error => ([{
       configured: false,
       error: error?.message || String(error)
-    }));
+    }]));
     const semanticPresetOptions = Object.entries(window.SemanticColors.PRESETS)
       .map(([id, preset]) => `<option value="${id}"${selected(semanticColors.preset, id)}>${this.escapeHtml(preset.label)}</option>`)
       .join('');
@@ -1358,7 +1364,7 @@ const App = {
           </div>
         </section>
 
-        ${this.panelDeploymentController.settingsMarkup(panelConnection)}
+        ${this.panelDeploymentController.settingsMarkup(panelConnections)}
 
         <section class="app-settings-section" id="settings-developer-tools" aria-labelledby="settings-tools-title">
           <div class="app-settings-section-heading">

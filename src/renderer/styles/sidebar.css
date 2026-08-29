@@ -798,6 +798,38 @@
   flex: 1;
 }
 
+.tree-node-remove {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-tertiary);
+  font: inherit;
+  font-size: 15px;
+  line-height: 18px;
+  flex-shrink: 0;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s ease, color 0.12s ease, background 0.12s ease;
+}
+
+.tree-node.is-root:hover .tree-node-remove,
+.tree-node-remove:focus-visible {
+  opacity: 1;
+}
+
+.tree-node-remove:hover {
+  color: var(--status-dirty);
+  background: color-mix(in srgb, var(--status-dirty) 12%, transparent);
+}
+
+.tree-node-remove:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 1px;
+}
+
 .tree-node-badge {
   font-size: 9px;
   background: var(--bg-active);

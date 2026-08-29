@@ -1,8 +1,8 @@
 (function exposeSidebarTreeController(root, factory) {
-  const api = factory();
+  const api = factory(root);
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) root.SidebarTreeController = api;
-})(typeof window !== 'undefined' ? window : globalThis, function createSidebarTreeControllerApi() {
+})(typeof window !== 'undefined' ? window : globalThis, function createSidebarTreeControllerApi(root) {
   function isWindowsPath(pathValue, platform = '') {
     const value = String(pathValue || '');
     return platform === 'win32'
@@ -47,6 +47,8 @@
       this.bridge = options.bridge;
       this.document = options.document;
       this.platform = options.platform || this.bridge?.platform || '';
+      this.confirm = options.confirm
+        || (typeof root?.confirm === 'function' ? root.confirm.bind(root) : () => false);
     }
 
     async init() {
@@ -85,6 +87,11 @@
     }
 
     async removeRoot(directoryPath) {
+      const currentPathLosesAccess = pathIsWithin(this.state.currentPath, directoryPath, this.platform)
+        && !(this.app._treeRoots || []).some(rootEntry => (
+          !pathsEqual(rootEntry.path, directoryPath, this.platform)
+          && pathIsWithin(this.state.currentPath, rootEntry.path, this.platform)
+        ));
       this.app._treeRoots = await this.bridge.config.removeTreeRoot(directoryPath);
       await this.bridge.content.invalidateIndex();
       for (const expandedPath of [...this.app._treeExpandedPaths]) {
@@ -94,6 +101,37 @@
       }
       await this.render();
       await this.app.refreshProjectShortcuts(true);
+      if (currentPathLosesAccess) {
+        const fallbackPath = this.app._treeRoots[0]?.path || '';
+        if (fallbackPath) {
+          this.app.navigateTo(fallbackPath, true);
+        } else {
+          this.state.currentPath = '';
+          this.state.history = [];
+          this.state.historyIndex = -1;
+          await this.bridge.config.set?.('lastPath', '');
+          this.app.captureActiveWorkspaceTab?.();
+          this.app.renderWorkspaceTabs?.();
+          this.app.scheduleWorkspaceTabsPersist?.();
+          this.app.updateBreadcrumbs?.();
+          this.app.updateNavButtons?.();
+          await this.app.renderContent?.();
+        }
+      }
+    }
+
+    async requestRemoveRoot(directoryPath, name) {
+      const label = name || fallbackName(directoryPath);
+      const confirmed = this.confirm(`从“位置”中移除「${label}」？\n\n只会删除 GitFinder 中的受管位置记录，不会删除磁盘上的文件夹或任何文件。`);
+      if (!confirmed) return false;
+      try {
+        await this.removeRoot(directoryPath);
+        this.app._showStatusMessage?.(`已移除位置「${label}」；磁盘文件未删除`, 'success');
+        return true;
+      } catch (error) {
+        this.app._showStatusMessage?.(error?.message || '无法移除位置', 'error');
+        return false;
+      }
     }
 
     async render() {
@@ -155,6 +193,7 @@
           ${this.app.getItemKindIconHtml(directoryItem, 'tree-node-icon')}
           <span class="tree-node-name" title="${safePath}">${safeName}</span>
           ${available ? '' : '<span class="tree-node-badge">位置不可用</span>'}
+          ${isRoot ? `<button class="tree-node-remove" type="button" aria-label="移除位置 ${safeName}" title="从位置列表移除（不会删除磁盘文件）">×</button>` : ''}
         </div>`;
 
       if (isExpanded) {
@@ -180,6 +219,7 @@
       container.querySelectorAll('.tree-node').forEach(node => {
         const toggle = node.querySelector('.tree-node-toggle');
         const name = node.querySelector('.tree-node-name');
+        const remove = node.querySelector('.tree-node-remove');
         const pathValue = node.dataset.path;
         const unavailable = node.getAttribute('aria-disabled') === 'true';
 
@@ -218,6 +258,11 @@
             this.state.currentMode = previousMode;
             this.app.updateModeUI();
           }
+        });
+
+        remove?.addEventListener('click', async event => {
+          event.stopPropagation();
+          await this.requestRemoveRoot(pathValue, name?.textContent || fallbackName(pathValue));
         });
       });
     }

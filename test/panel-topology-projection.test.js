@@ -124,3 +124,39 @@ test('动态实体 ID 只依赖 Provider 和远端稳定身份', () => {
     dynamicEntityId('server', 'panel_1', 'node_2')
   );
 });
+
+test('多个 Panel 即使返回相同远端 ID 也生成独立节点并匹配各自关联', () => {
+  const projection = buildProjection({
+    state: 'ready',
+    providers: [
+      { providerId: 'panel_1', label: '生产' },
+      { providerId: 'panel_2', label: '备用' }
+    ],
+    topology: {
+      generatedAt: topology.generatedAt,
+      servers: [
+        { ...topology.servers[0], providerId: 'panel_1', providerLabel: '生产' },
+        { ...topology.servers[0], providerId: 'panel_2', providerLabel: '备用' }
+      ],
+      deployments: [
+        { ...topology.deployments[0], providerId: 'panel_1', providerLabel: '生产' },
+        { ...topology.deployments[0], providerId: 'panel_2', providerLabel: '备用' }
+      ]
+    },
+    bindings: [
+      { projectId: 'project_local_1', providerId: 'panel_1', resourceUuid: 'resource_1', repositoryIds: ['r_0123456789ab'] },
+      { projectId: 'project_local_1', providerId: 'panel_2', resourceUuid: 'resource_1', repositoryIds: ['r_0123456789ab'] }
+    ],
+    projects: [{ projectId: 'project_local_1', name: 'MES', path: '/Volumes/project/mes' }],
+    repositories: [{ id: 'r_0123456789ab', name: 'mes-lite', path: '/Volumes/project/mes/mes-lite' }]
+  });
+  const servers = projection.entities.filter(entity => entity.type === 'server');
+  const deployments = projection.entities.filter(entity => entity.type === 'deployment');
+  assert.equal(servers.length, 2);
+  assert.equal(deployments.length, 2);
+  assert.notEqual(servers[0].id, servers[1].id);
+  assert.notEqual(deployments[0].id, deployments[1].id);
+  assert.equal(projection.metadata.providerCount, 2);
+  assert.equal(projection.relationships.filter(item => item.type === 'runs_on').length, 2);
+  assert.equal(projection.relationships.filter(item => item.type === 'source_of').length, 2);
+});
