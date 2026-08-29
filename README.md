@@ -11,10 +11,10 @@ GitFinder 2.0 的定位是“本地开发与部署管理中心”。它是与 Gi
 | 已记录 | 产品定位、1.x/2.0 边界、Panel 集成边界和 Alpha 闭环 |
 | 已设计 | 复用分类、应用自有会话边界、Panel 动态拓扑契约、repositoryId 身份与白板投影验收 |
 | 已实现 | 1.x v1.30.13 界面基线、可移除受管位置、多 Panel 只读 Provider、无钥匙串应用会话、v2 多仓库关联、服务器/部署动态白板、标签页独立窗口，以及关系类型/方向/显示名称编辑 |
-| 已验证 | 666 项测试与 185 个 JavaScript 文件语法检查通过；双 Mock Panel 聚合、应用会话迁移、只读投影、位置移除、视图切换竞态保护、整卡拖动和关系编辑回归通过 |
+| 已验证 | 667 项测试与 185 个 JavaScript 文件语法检查通过；双 Mock Panel 聚合、应用会话迁移、只读投影、位置移除、视图切换竞态保护、整卡拖动、关系编辑和属性栏视口约束回归通过 |
 | 尚未验证 | 真实 Xiangshu Panel `/topology` API、真实 Windows x64 runner/虚拟机、SSE 事件与系统通知 |
 
-当前开发版本为 `2.0.0-alpha.7`。它是本地可运行的开发 Alpha，不是稳定发布版；完整 MVS-01 仍需真实 Panel、真实 Windows、事件和通知验收。
+当前开发版本为 `2.0.0-alpha.8`。它是本地可运行的开发 Alpha，不是稳定发布版；完整 MVS-01 仍需真实 Panel、真实 Windows、事件和通知验收。
 
 ## 产品边界
 
@@ -51,3 +51,4 @@ GitFinder 2.0 的定位是“本地开发与部署管理中心”。它是与 Gi
 - [2.0.0-alpha.5 多 Panel 与位置移除验证记录](./docs/verification/2.0.0-alpha.5-multi-provider-and-locations.md)
 - [2.0.0-alpha.6 视图切换与标签页独立窗口验证记录](./docs/verification/2.0.0-alpha.6-view-switch-and-tab-windows.md)
 - [2.0.0-alpha.7 可编辑关系与自动发现边界](./docs/verification/2.0.0-alpha.7-editable-relationships.md)
+- [2.0.0-alpha.8 关系属性栏视口修复](./docs/verification/2.0.0-alpha.8-relationship-inspector-viewport.md)

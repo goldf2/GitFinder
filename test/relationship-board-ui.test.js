@@ -313,6 +313,11 @@ test('选择节点或关系时使用非模态详情检查器编辑受控事实�
   assert.match(relationshipCss, /@media\s*\(prefers-contrast:\s*more\)/);
 });
 
+test('白板主体不会被长资源列表撑高而把属性面板滚出视口', () => {
+  assert.match(relationshipCss, /\.relationship-body\s*\{[^}]*grid-template-rows:\s*minmax\(0,\s*1fr\);[^}]*overflow:\s*hidden;/s);
+  assert.match(relationshipCss, /\.relationship-resource-panel,\s*\.relationship-canvas,\s*\.relationship-inspector-panel\s*\{[^}]*min-height:\s*0;/s);
+});
+
 test('关系类型按端点提供常用预设，反转方向时使用语义相反的预设', () => {
   const controller = new Controller({ bridge: {} });
   controller.store = {

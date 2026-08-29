@@ -401,10 +401,18 @@
   flex: 1;
   display: grid;
   grid-template-columns: 238px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  overflow: hidden;
 }
 
 .relationship-body.has-inspector {
   grid-template-columns: 238px minmax(0, 1fr) 286px;
+}
+
+.relationship-resource-panel,
+.relationship-canvas,
+.relationship-inspector-panel {
+  min-height: 0;
 }
 
 .relationship-resource-panel {
