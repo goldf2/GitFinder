@@ -1311,6 +1311,18 @@
 }
 
 .panel-settings-actions { display: flex; gap: 8px; }
+.panel-settings-boundary {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--status-warning) 42%, var(--border-color));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg-primary) 94%, var(--status-warning) 6%);
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.panel-settings-boundary strong { color: var(--text-primary); }
 .panel-settings-feedback { min-height: 18px; color: var(--status-dirty); font-size: 11px; }
 
 @media (prefers-reduced-motion: reduce) {

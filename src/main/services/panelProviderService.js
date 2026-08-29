@@ -2,7 +2,8 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const PROVIDER_SCHEMA_VERSION = 1;
+const SESSION_SCHEMA_VERSION = 1;
+const LEGACY_PROVIDER_SCHEMA_VERSION = 1;
 const BINDINGS_SCHEMA_VERSION = 2;
 const API_MAJOR_VERSION = 1;
 const API_PREFIX = '/api/gitfinder/v1';
@@ -322,7 +323,6 @@ async function requestJson(options = {}) {
 class PanelProviderService {
   constructor(options = {}) {
     this.app = options.app;
-    this.safeStorage = options.safeStorage;
     this.fetchImpl = options.fetchImpl || globalThis.fetch;
     this.projectService = options.projectService;
     this.now = options.now || (() => new Date());
@@ -331,11 +331,19 @@ class PanelProviderService {
     this.allowedExternalUrls = new Set();
   }
 
-  _configPath() {
+  _configDirectory() {
     const directory = this.configDirectory || this.app?.getPath?.('userData');
     if (!directory) throw new Error('无法确定 Panel 本机配置目录');
     fs.mkdirSync(directory, { recursive: true });
-    return path.join(directory, 'panel-provider.json');
+    return directory;
+  }
+
+  _sessionPath() {
+    return path.join(this._configDirectory(), 'panel-session.json');
+  }
+
+  _legacyConfigPath() {
+    return path.join(this._configDirectory(), 'panel-provider.json');
   }
 
   _writeJsonAtomic(filePath, value) {
@@ -358,37 +366,68 @@ class PanelProviderService {
 
   _loadProvider() {
     if (this.provider) return this.provider;
-    const filePath = this._configPath();
-    if (!fs.existsSync(filePath)) return null;
+    const filePath = this._sessionPath();
+    if (!fs.existsSync(filePath)) return this._loadLegacyProvider();
     const stat = fs.lstatSync(filePath);
     if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 128 * 1024) {
-      throw new Error('Panel 本机配置文件无效');
+      throw new Error('Panel 本机会话文件无效');
+    }
+    if (process.platform !== 'win32' && (stat.mode & 0o077) !== 0) {
+      throw new Error('Panel 本机会话文件权限过宽，请重新连接');
     }
     const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    if (Number(parsed.schemaVersion) !== PROVIDER_SCHEMA_VERSION || !parsed.provider) {
-      throw new Error('Panel 本机配置版本不受支持');
+    if (Number(parsed.schemaVersion) !== SESSION_SCHEMA_VERSION || !parsed.provider) {
+      throw new Error('Panel 本机会话版本不受支持');
     }
     const baseUrl = normalizeBaseUrl(parsed.provider.baseUrl);
     const providerId = normalizeIdentifier(parsed.provider.providerId, 'Provider ID');
-    const encryptedToken = cleanText(parsed.provider.encryptedToken, 16 * 1024);
-    if (!encryptedToken) throw new Error('Panel 本机配置缺少安全凭据');
+    const accessToken = normalizeToken(parsed.provider.accessToken);
     this.provider = {
       providerId,
       providerKind: 'xiangshu-panel',
       label: cleanText(parsed.provider.label, 120, new URL(baseUrl).hostname),
       baseUrl,
-      encryptedToken,
+      accessToken,
       apiVersion: normalizeApiVersion(parsed.provider.apiVersion),
       capabilities: Array.isArray(parsed.provider.capabilities) ? parsed.provider.capabilities.slice(0, 50) : [],
-      connectedAt: cleanText(parsed.provider.connectedAt, 64)
+      connectedAt: cleanText(parsed.provider.connectedAt, 64),
+      credentialStorage: 'app-session'
+    };
+    return this.provider;
+  }
+
+  _loadLegacyProvider() {
+    const filePath = this._legacyConfigPath();
+    if (!fs.existsSync(filePath)) return null;
+    const stat = fs.lstatSync(filePath);
+    if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 128 * 1024) {
+      throw new Error('旧版 Panel 本机配置文件无效');
+    }
+    const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    if (Number(parsed.schemaVersion) !== LEGACY_PROVIDER_SCHEMA_VERSION || !parsed.provider) {
+      throw new Error('旧版 Panel 本机配置版本不受支持');
+    }
+    const baseUrl = normalizeBaseUrl(parsed.provider.baseUrl);
+    this.provider = {
+      providerId: normalizeIdentifier(parsed.provider.providerId, 'Provider ID'),
+      providerKind: 'xiangshu-panel',
+      label: cleanText(parsed.provider.label, 120, new URL(baseUrl).hostname),
+      baseUrl,
+      accessToken: '',
+      apiVersion: normalizeApiVersion(parsed.provider.apiVersion),
+      capabilities: Array.isArray(parsed.provider.capabilities) ? parsed.provider.capabilities.slice(0, 50) : [],
+      connectedAt: cleanText(parsed.provider.connectedAt, 64),
+      reconnectRequired: true,
+      credentialStorage: 'legacy-keychain'
     };
     return this.provider;
   }
 
   _publicConnection(provider = this._loadProvider()) {
     if (!provider) return { configured: false, credentialAvailable: false };
+    const configured = Boolean(provider.accessToken);
     return {
-      configured: true,
+      configured,
       providerId: provider.providerId,
       providerKind: provider.providerKind,
       label: provider.label,
@@ -396,7 +435,9 @@ class PanelProviderService {
       apiVersion: provider.apiVersion,
       capabilities: [...provider.capabilities],
       connectedAt: provider.connectedAt,
-      credentialAvailable: true
+      credentialAvailable: configured,
+      credentialStorage: provider.credentialStorage || 'app-session',
+      reconnectRequired: Boolean(provider.reconnectRequired)
     };
   }
 
@@ -404,30 +445,17 @@ class PanelProviderService {
     return this._publicConnection();
   }
 
-  _decryptToken(provider) {
-    if (!this.safeStorage?.isEncryptionAvailable?.()) {
-      throw new Error('系统安全凭据存储当前不可用');
-    }
-    try {
-      return normalizeToken(this.safeStorage.decryptString(Buffer.from(provider.encryptedToken, 'base64')));
-    } catch (_) {
-      throw new Error('无法解锁 Panel 凭据，请重新连接');
-    }
-  }
-
   async _get(pathname, provider = this._loadProvider()) {
     if (!provider) throw new Error('尚未连接 Xiangshu Panel');
+    if (!provider.accessToken) throw new Error('旧版钥匙串凭据不会读取，请重新连接 Panel');
     const url = new URL(`${API_PREFIX}${pathname}`, provider.baseUrl);
-    return requestJson({ url, token: this._decryptToken(provider), fetchImpl: this.fetchImpl });
+    return requestJson({ url, token: normalizeToken(provider.accessToken), fetchImpl: this.fetchImpl });
   }
 
   async connect(values = {}) {
     const baseUrl = normalizeBaseUrl(values.baseUrl);
     const label = cleanText(values.label, 120, new URL(baseUrl).hostname);
     const token = normalizeToken(values.token);
-    if (!this.safeStorage?.isEncryptionAvailable?.()) {
-      throw new Error('系统安全凭据存储当前不可用，未保存令牌');
-    }
     const capabilities = normalizeCapabilities(await requestJson({
       url: new URL(`${API_PREFIX}/capabilities`, baseUrl),
       token,
@@ -440,19 +468,23 @@ class PanelProviderService {
       providerKind: 'xiangshu-panel',
       label,
       baseUrl,
-      encryptedToken: this.safeStorage.encryptString(token).toString('base64'),
+      accessToken: token,
       apiVersion: capabilities.apiVersion,
       capabilities: capabilities.capabilities,
-      connectedAt
+      connectedAt,
+      credentialStorage: 'app-session'
     };
-    this._writeJsonAtomic(this._configPath(), { schemaVersion: PROVIDER_SCHEMA_VERSION, provider });
+    this._writeJsonAtomic(this._sessionPath(), { schemaVersion: SESSION_SCHEMA_VERSION, provider });
+    const legacyPath = this._legacyConfigPath();
+    if (fs.existsSync(legacyPath)) fs.rmSync(legacyPath, { force: true });
     this.provider = provider;
     return this._publicConnection(provider);
   }
 
   disconnect() {
-    const filePath = this._configPath();
-    if (fs.existsSync(filePath)) fs.rmSync(filePath, { force: true });
+    for (const filePath of [this._sessionPath(), this._legacyConfigPath()]) {
+      if (fs.existsSync(filePath)) fs.rmSync(filePath, { force: true });
+    }
     this.provider = null;
     this.allowedExternalUrls.clear();
     return { configured: false, credentialAvailable: false };
@@ -488,6 +520,7 @@ class PanelProviderService {
     const project = this.projectService.getProject(directoryPath);
     const provider = this._loadProvider();
     if (!provider) throw new Error('尚未连接 Xiangshu Panel');
+    if (!provider.accessToken) throw new Error('旧版钥匙串凭据不会读取，请重新连接 Panel');
     const binding = normalizeBinding({ ...value, providerId: provider.providerId });
     const filePath = this._bindingsPath(project.path);
     this._writeJsonAtomic(filePath, { schemaVersion: BINDINGS_SCHEMA_VERSION, bindings: [binding] });
@@ -507,6 +540,9 @@ class PanelProviderService {
     const bindings = this._readBindings(project.path);
     if (!provider) {
       return { state: 'unconfigured', projectId: project.projectId, provider: this._publicConnection(null), bindings, resources: [] };
+    }
+    if (!provider.accessToken) {
+      return { state: 'reauthentication-required', projectId: project.projectId, provider: this._publicConnection(provider), bindings, resources: [] };
     }
     const providerBindings = bindings.filter(binding => binding.providerId === provider.providerId);
     if (!providerBindings.length) {
@@ -534,6 +570,9 @@ class PanelProviderService {
     const emptyTopology = { apiVersion: provider?.apiVersion || '1.0', generatedAt: '', cursor: '', servers: [], deployments: [] };
     if (!provider) {
       return { state: 'unconfigured', provider: this._publicConnection(null), topology: emptyTopology, bindings: [] };
+    }
+    if (!provider.accessToken) {
+      return { state: 'reauthentication-required', provider: this._publicConnection(provider), topology: emptyTopology, bindings: [] };
     }
     if (!provider.capabilities.includes('topology:read')) {
       return { state: 'unsupported', provider: this._publicConnection(provider), topology: emptyTopology, bindings: [] };

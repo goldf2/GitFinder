@@ -17,7 +17,7 @@ GitFinder 已能识别本地项目和 Git 仓库，也有可拖拽连线的关�
 3. **部署通过 `repositoryId` 显式关联本地仓库。** 不以目录名、仓库名或远程 URL 的模糊匹配作为最终关联；它们只能提供待确认建议。
 4. **动态拓扑不写入持久白板事实。** 服务器和部署状态由 Panel 快照生成只读投影，与手工节点在渲染时合并；刷新、过期或断线不会修改用户白板。
 5. **当前状态与最近失败是不同维度。** 服务可以当前正常但最近部署失败；界面必须同时保留这两个事实，不能用单一红绿状态替代。
-6. **便携配置不得包含敏感信息和绝对路径。** `.gitfinder/deployments.json` 只保存 Provider、Panel 资源 ID 和 GitFinder `repositoryId`；令牌保存在系统安全凭据存储。
+6. **便携配置不得包含敏感信息和绝对路径。** `.gitfinder/deployments.json` 只保存 Provider、Panel 资源 ID 和 GitFinder `repositoryId`；令牌只存在应用本机会话，具体边界见 ADR-0003。
 
 ## 稳定身份
 
@@ -72,7 +72,7 @@ Panel 快照
 ## 安全边界
 
 - GitFinder 不接收或保存 Coolify Token。
-- Panel Token 只保存在 macOS Keychain/Windows Credential Protection 可用的 Electron 安全存储中。
+- Panel Token 不进入项目数据、Git 或白板；当前由应用自有会话保存，不读取系统钥匙串或保存 Panel 密码，具体边界见 ADR-0003。
 - 首批 API 和界面只读，不提供部署、重启、停止、删除和服务器配置。
 - 外部链接必须来自最近一次已验证的 Panel 响应，并由用户点击后打开。
 

@@ -23,7 +23,7 @@ function validSource(overrides = {}) {
         productName: 'GitFinder 2 Alpha',
         electronFuses: {
           runAsNode: false,
-          enableCookieEncryption: true,
+          enableCookieEncryption: false,
           enableNodeOptionsEnvironmentVariable: false,
           enableNodeCliInspectArguments: false,
           enableEmbeddedAsarIntegrityValidation: true,
@@ -102,10 +102,17 @@ test('发布源门禁拒绝恢复 Electron 的高风险默认开关', () => {
   assert.deepEqual(result.issues.map((entry) => entry.code), ['fuses.config']);
 });
 
+test('应用自有 Panel 会话构建不得启用会访问系统钥匙串的 Cookie 加密 Fuse', () => {
+  const source = validSource();
+  source.packageJson.build.electronFuses.enableCookieEncryption = true;
+  const result = validateSourceConfiguration(source);
+  assert.deepEqual(result.issues.map((entry) => entry.code), ['fuses.config']);
+});
+
 test('产物门禁要求危险 Electron 入口关闭且 ASAR 校验开启', () => {
   const expected = {
     RunAsNode: false,
-    EnableCookieEncryption: true,
+    EnableCookieEncryption: false,
     EnableNodeOptionsEnvironmentVariable: false,
     EnableNodeCliInspectArguments: false,
     EnableEmbeddedAsarIntegrityValidation: true,

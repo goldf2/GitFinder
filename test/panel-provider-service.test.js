@@ -86,11 +86,6 @@ function createHarness(t, overrides = {}) {
     });
     return jsonResponse({}, 404);
   });
-  const safeStorage = {
-    isEncryptionAvailable: () => true,
-    encryptString: value => Buffer.from(`encrypted:${value}`, 'utf8'),
-    decryptString: value => value.toString('utf8').replace(/^encrypted:/, '')
-  };
   const projectService = {
     getProject: candidatePath => {
       assert.equal(candidatePath, projectPath);
@@ -100,12 +95,11 @@ function createHarness(t, overrides = {}) {
   };
   const service = new PanelProviderService({
     configDirectory: root,
-    safeStorage,
     projectService,
     fetchImpl,
     now: () => new Date('2026-08-28T05:00:00.000Z')
   });
-  return { root, projectPath, service, calls, resource };
+  return { root, projectPath, service, calls, resource, fetchImpl, projectService };
 }
 
 test('Panel 地址只允许 HTTPS 或本机 HTTP', () => {
@@ -128,8 +122,8 @@ test('Capabilities 拒绝未知主版本和缺失只读能力', () => {
   }), /不支持的 Panel Provider/);
 });
 
-test('连接先验证只读契约，令牌只以系统密文落盘', async t => {
-  const { root, service, calls } = createHarness(t);
+test('连接先验证只读契约，并以应用自有会话保持登录状态', async t => {
+  const { root, service, calls, fetchImpl, projectService } = createHarness(t);
   const connection = await service.connect({
     baseUrl: 'https://panel.example.com',
     label: '生产 Panel',
@@ -139,11 +133,58 @@ test('连接先验证只读契约，令牌只以系统密文落盘', async t => 
   assert.equal(connection.apiVersion, '1.1');
   assert.equal(connection.label, '生产 Panel');
   assert.equal(Object.hasOwn(connection, 'token'), false);
-  const persisted = fs.readFileSync(path.join(root, 'panel-provider.json'), 'utf8');
-  assert.equal(persisted.includes('panel-read-token-123'), false);
-  assert.match(persisted, /encryptedToken/);
+  assert.equal(connection.credentialStorage, 'app-session');
+  const sessionPath = path.join(root, 'panel-session.json');
+  const persisted = fs.readFileSync(sessionPath, 'utf8');
+  assert.match(persisted, /panel-read-token-123/);
+  assert.equal(fs.existsSync(path.join(root, 'panel-provider.json')), false);
+  if (process.platform !== 'win32') assert.equal(fs.statSync(sessionPath).mode & 0o077, 0);
   assert.equal(calls[0].authorization, 'Bearer panel-read-token-123');
   assert.equal(calls[0].method, 'GET');
+
+  const restarted = new PanelProviderService({ configDirectory: root, projectService, fetchImpl });
+  assert.equal(restarted.getConnection().configured, true);
+  assert.equal((await restarted.getTopology()).state, 'ready');
+  assert.equal(calls.at(-1).authorization, 'Bearer panel-read-token-123');
+});
+
+test('旧版钥匙串密文不会读取并要求用户重新连接', async t => {
+  const { root, service } = createHarness(t);
+  fs.writeFileSync(path.join(root, 'panel-provider.json'), JSON.stringify({
+    schemaVersion: 1,
+    provider: {
+      providerId: 'panel_legacy',
+      label: '旧 Panel',
+      baseUrl: 'https://panel.example.com',
+      encryptedToken: 'do-not-decrypt',
+      apiVersion: '1.1',
+      capabilities: ['catalog:read', 'snapshots:read', 'topology:read'],
+      connectedAt: '2026-08-28T05:00:00.000Z'
+    }
+  }), { mode: 0o600 });
+  const connection = service.getConnection();
+  assert.equal(connection.configured, false);
+  assert.equal(connection.reconnectRequired, true);
+  assert.equal(connection.credentialStorage, 'legacy-keychain');
+  assert.equal((await service.getTopology()).state, 'reauthentication-required');
+});
+
+test('应用会话文件权限过宽时拒绝读取令牌', async t => {
+  if (process.platform === 'win32') return;
+  const { root, service } = createHarness(t);
+  fs.writeFileSync(path.join(root, 'panel-session.json'), JSON.stringify({
+    schemaVersion: 1,
+    provider: {
+      providerId: 'panel_local',
+      label: 'Panel',
+      baseUrl: 'https://panel.example.com',
+      accessToken: 'panel-read-token-123',
+      apiVersion: '1.1',
+      capabilities: ['catalog:read', 'snapshots:read', 'topology:read'],
+      connectedAt: '2026-08-28T05:00:00.000Z'
+    }
+  }), { mode: 0o644 });
+  assert.throws(() => service.getConnection(), /权限过宽/);
 });
 
 test('项目关联以 v2 repositoryId 保存便携稳定身份，随后读取只读快照', async t => {
@@ -229,12 +270,13 @@ test('拓扑规范化拒绝不安全容量、时间和延迟', () => {
 });
 
 test('未配置和未关联是独立状态，断开连接不删除项目关联', async t => {
-  const { projectPath, service, resource } = createHarness(t);
+  const { root, projectPath, service, resource } = createHarness(t);
   assert.equal((await service.getProjectDeployments(projectPath)).state, 'unconfigured');
   await service.connect({ baseUrl: 'https://panel.example.com', label: 'Panel', token: 'panel-read-token-123' });
   assert.equal((await service.getProjectDeployments(projectPath)).state, 'unlinked');
   service.saveProjectBinding(projectPath, resource);
   service.disconnect();
+  assert.equal(fs.existsSync(path.join(root, 'panel-session.json')), false);
   const result = await service.getProjectDeployments(projectPath);
   assert.equal(result.state, 'unconfigured');
   assert.equal(result.bindings.length, 1);

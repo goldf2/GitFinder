@@ -22,6 +22,7 @@ function createController() {
 test('部署面板区分未配置、未关联和已就绪状态', () => {
   const controller = createController();
   assert.match(controller._resultMarkup({ state: 'unconfigured' }, {}), /尚未连接 Xiangshu Panel/);
+  assert.match(controller._resultMarkup({ state: 'reauthentication-required' }, {}), /不读取旧版钥匙串凭据/);
   assert.match(controller._resultMarkup({ state: 'unlinked', provider: { label: 'Panel' } }, { name: 'MES' }), /管理关联/);
   const ready = controller._resultMarkup({
     state: 'ready',
@@ -40,6 +41,18 @@ test('部署面板区分未配置、未关联和已就绪状态', () => {
   assert.match(ready, /42 ms/);
   assert.match(ready, /最近部署失败/);
   assert.match(ready, /main · 0123456789ab/);
+});
+
+test('设置页明确使用应用自有会话且不读取系统钥匙串', () => {
+  const controller = createController();
+  const fresh = controller.settingsMarkup({ configured: false });
+  assert.match(fresh, /应用自有会话/);
+  assert.match(fresh, /不读取系统钥匙串/);
+  assert.match(fresh, /不保存 Panel 密码/);
+  assert.match(fresh, /当前系统用户的文件权限保护/);
+  const legacy = controller.settingsMarkup({ configured: false, reconnectRequired: true });
+  assert.match(legacy, /需要重新连接/);
+  assert.match(legacy, /旧版钥匙串密文不会被读取/);
 });
 
 test('部署关联对话框只能通过关闭按钮或 Escape 关闭', () => {

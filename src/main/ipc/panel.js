@@ -1,4 +1,4 @@
-const { app, safeStorage, shell } = require('electron');
+const { app, shell } = require('electron');
 const { registerTrustedHandler } = require('./security');
 const localProjectService = require('../services/localProjectService');
 const { PanelProviderService } = require('../services/panelProviderService');
@@ -8,7 +8,7 @@ let defaultService = null;
 function getService(options = {}) {
   if (options.service) return options.service;
   if (!defaultService) {
-    defaultService = new PanelProviderService({ app, safeStorage, projectService: localProjectService });
+    defaultService = new PanelProviderService({ app, projectService: localProjectService });
   }
   return defaultService;
 }

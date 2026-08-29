@@ -12,7 +12,7 @@ const VALID_MODES = new Set(['development', 'official']);
 const VALID_PHASES = new Set(['source', 'artifact']);
 const REQUIRED_FUSE_CONFIG = Object.freeze({
   runAsNode: false,
-  enableCookieEncryption: true,
+  enableCookieEncryption: false,
   enableNodeOptionsEnvironmentVariable: false,
   enableNodeCliInspectArguments: false,
   enableEmbeddedAsarIntegrityValidation: true,
@@ -82,7 +82,7 @@ function validateSourceConfiguration({
   const configuredFuses = build.electronFuses || {};
   if (Object.entries(REQUIRED_FUSE_CONFIG)
     .some(([name, expected]) => configuredFuses[name] !== expected)) {
-    issues.push(issue('fuses.config', 'Electron 打包必须关闭 Node/调试入口并启用 ASAR 完整性保护。'));
+    issues.push(issue('fuses.config', 'Electron Fuses 必须匹配应用会话、Node/调试入口和 ASAR 完整性发布基线。'));
   }
   if (!Array.isArray(build?.mac?.target) || !build.mac.target.includes('zip')) {
     issues.push(issue('target.mac-zip', 'macOS 构建必须包含 ZIP 自动升级包。'));

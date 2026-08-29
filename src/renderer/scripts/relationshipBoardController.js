@@ -428,6 +428,7 @@
         };
       }
       if (state === 'unsupported') return { state, label: 'Panel API 待升级', title: 'Provider 缺少 topology:read 只读能力' };
+      if (state === 'reauthentication-required') return { state, label: 'Panel 需要重新连接', title: '旧版钥匙串凭据不会读取，请在设置中建立应用会话' };
       if (state === 'error') return { state, label: 'Panel 同步失败', title: this.panelLastError || '无法读取动态拓扑' };
       return { state: 'unconfigured', label: 'Panel 未连接', title: '可在设置中连接 Xiangshu Panel' };
     }

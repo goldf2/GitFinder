@@ -80,6 +80,13 @@
           <button class="btn btn-tiny" data-panel-action="open-settings" type="button">连接 Panel…</button>
         </div>`;
       }
+      if (result.state === 'reauthentication-required') {
+        return `<div class="panel-deployment-state panel-deployment-state-stacked">
+          <strong>需要重新连接 Xiangshu Panel</strong>
+          <span>GitFinder 不读取旧版钥匙串凭据；请重新输入只读令牌建立应用会话。</span>
+          <button class="btn btn-tiny" data-panel-action="open-settings" type="button">前往设置…</button>
+        </div>`;
+      }
       if (result.state === 'unlinked') {
         return `<div class="panel-deployment-state panel-deployment-state-stacked">
           <strong>尚未关联部署资源</strong>
@@ -153,6 +160,7 @@
 
     settingsMarkup(connection = {}) {
       const connected = connection.configured === true;
+      const reconnectRequired = connection.reconnectRequired === true;
       return `<section class="app-settings-section" id="settings-panel-provider" aria-labelledby="settings-panel-title">
         <div class="app-settings-section-heading">
           <h2 id="settings-panel-title">Xiangshu Panel</h2>
@@ -168,14 +176,18 @@
             <input id="panel-provider-label" type="text" maxlength="120" value="${this.app.escapeHtml(connection.label || 'Xiangshu Panel')}">
           </label>
           <label class="app-settings-row" for="panel-provider-token">
-            <span><strong>只读访问令牌</strong><small>${connected ? '重新连接时需再次输入；动态白板还需要 topology:read' : '需要 catalog:read、snapshots:read；动态白板需要 topology:read'}</small></span>
-            <input id="panel-provider-token" type="password" autocomplete="off" placeholder="${connected ? '已安全保存' : '输入只读令牌'}">
+            <span><strong>只读访问令牌</strong><small>${connected ? '应用已保持登录；重新连接时需再次输入' : '需要 catalog:read、snapshots:read 和 topology:read'}</small></span>
+            <input id="panel-provider-token" type="password" autocomplete="off" placeholder="${connected ? '应用会话已保留' : '输入只读令牌'}">
           </label>
+          <div class="panel-settings-boundary">
+            <strong>应用自有会话</strong>
+            <span>GitFinder 不读取系统钥匙串，也不保存 Panel 密码。只读会话令牌保存在应用本机数据中，仅由当前系统用户的文件权限保护；请使用短期、最小权限且可随时撤销的令牌。</span>
+          </div>
           <div class="app-settings-row">
-            <span><strong>${connected ? '已连接' : '尚未连接'}</strong><small>${connected ? `${this.app.escapeHtml(connection.apiVersion || '')} · ${this.app.escapeHtml(connection.connectedAt || '')}` : '连接时会先验证 API 版本与只读能力'}</small></span>
+            <span><strong>${connected ? '已连接' : (reconnectRequired ? '需要重新连接' : '尚未连接')}</strong><small>${connected ? `${this.app.escapeHtml(connection.apiVersion || '')} · ${this.app.escapeHtml(connection.connectedAt || '')}` : (reconnectRequired ? '旧版钥匙串密文不会被读取' : '连接时会先验证 API 版本与只读能力')}</small></span>
             <span class="panel-settings-actions">
               ${connected ? '<button class="btn" data-app-action="disconnect-panel" type="button">断开</button>' : ''}
-              <button class="btn btn-primary" data-app-action="connect-panel" type="button">${connected ? '重新连接并验证' : '连接并验证'}</button>
+              <button class="btn btn-primary" data-app-action="connect-panel" type="button">${connected || reconnectRequired ? '重新连接并验证' : '连接并验证'}</button>
             </span>
           </div>
           <div class="panel-settings-feedback" id="panel-settings-feedback" role="status" aria-live="polite"></div>

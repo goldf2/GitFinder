@@ -65,7 +65,7 @@ Alpha 保持现有 `.gitfinder/project.json` `schemaVersion: 1` 不变，避免�
 ### 本机数据
 
 - Provider URL、连接标签、轮询偏好、通知策略、事件游标和去重状态保存在应用用户数据目录。
-- Provider Token 保存在 macOS Keychain / Windows Credential Manager 或留在 Panel 管理的会话中。
+- Provider Token 不进入项目数据，也不读取系统钥匙串或保存 Panel 密码；当前由应用自有会话保存，具体边界见 ADR-0003。
 - 日志只记录 Provider ID、状态码和经脱敏错误，不记录请求头和原始敏感响应。
 
 ## Panel Provider 契约方向

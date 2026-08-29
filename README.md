@@ -9,12 +9,12 @@ GitFinder 2.0 的定位是“本地开发与部署管理中心”。它是与 Gi
 | 状态 | 结论 |
 | --- | --- |
 | 已记录 | 产品定位、1.x/2.0 边界、Panel 集成边界和 Alpha 闭环 |
-| 已设计 | 复用分类、凭据边界、Panel 动态拓扑契约、repositoryId 身份与白板投影验收 |
-| 已实现 | 1.x v1.30.13 界面基线、只读 Panel Provider、v2 多仓库关联、服务器/部署动态白板、延迟/更新时间/最近失败与部署提交详情 |
-| 已验证 | 648 项测试与 183 个 JavaScript 文件语法检查通过；本地 Mock Panel 的拓扑规范化、稳定关联、只读投影和 macOS 安装包可见闭环通过 |
-| 尚未验证 | 真实 Xiangshu Panel `/topology` API、真实 Windows x64 runner/虚拟机、SSE 事件与系统通知；ad-hoc 更新后的普通 macOS 启动仍需完成旧 Safe Storage 钥匙串授权 |
+| 已设计 | 复用分类、应用自有会话边界、Panel 动态拓扑契约、repositoryId 身份与白板投影验收 |
+| 已实现 | 1.x v1.30.13 界面基线、只读 Panel Provider、无钥匙串应用会话、v2 多仓库关联、服务器/部署动态白板、延迟/更新时间/最近失败与部署提交详情 |
+| 已验证 | 652 项测试与 183 个 JavaScript 文件语法检查通过；本地 Mock Panel、应用会话跨重启、只读投影和普通 macOS 安装启动闭环通过 |
+| 尚未验证 | 真实 Xiangshu Panel `/topology` API、真实 Windows x64 runner/虚拟机、SSE 事件与系统通知 |
 
-当前开发版本为 `2.0.0-alpha.3`。它是本地可运行的开发 Alpha，不是稳定发布版；完整 MVS-01 仍需真实 Panel、真实 Windows、事件和通知验收。
+当前开发版本为 `2.0.0-alpha.4`。它是本地可运行的开发 Alpha，不是稳定发布版；完整 MVS-01 仍需真实 Panel、真实 Windows、事件和通知验收。
 
 ## 产品边界
 
@@ -22,6 +22,7 @@ GitFinder 2.0 的定位是“本地开发与部署管理中心”。它是与 Gi
 - GitFinder 2.0 负责本地项目、Git 仓库、部署关联、项目详情、关系白板和系统通知。
 - Xiangshu Panel 继续独立运行，负责 Coolify 多节点聚合、服务器端监控和管理后台。
 - GitFinder 只通过经过身份验证、最小权限、稳定版本化的 Panel API 读取聚合事实与事件。
+- GitFinder 不读取系统钥匙串或保存 Panel 密码；可撤销只读令牌作为应用会话保存在本机用户数据中，不进入项目配置。
 - GitFinder 2 不直连 Coolify，也不显示 Coolify Token 输入框；Coolify 只作为 Panel 快照中的外部跳转目标。
 - Alpha 阶段只读；不停止、重启、删除或修改服务器与 Coolify 资源。
 - 部署概览进入项目详情、白板和侧边工具，不新增一级主视图。
@@ -37,9 +38,11 @@ GitFinder 2.0 的定位是“本地开发与部署管理中心”。它是与 Gi
 - [领域上下文](./CONTEXT.md)
 - [ADR-0001：2.0 独立架构与复用边界](./docs/adr/0001-independent-architecture.md)
 - [ADR-0002：Panel 动态拓扑与仓库稳定身份](./docs/adr/0002-panel-topology-and-repository-identity.md)
+- [ADR-0003：Panel 应用自有会话，不使用系统钥匙串](./docs/adr/0003-app-owned-panel-session.md)
 - [Alpha 1 最小垂直切片与验收](./docs/product/alpha-1-vertical-slice.md)
 - [Panel 原生界面整合方案](./docs/product/panel-ui-integration.md)
 - [Panel 动态拓扑 API v1](./docs/contracts/panel-topology-api-v1.md)
 - [动态部署关系白板](./docs/product/dynamic-deployment-board.md)
 - [2.0.0-alpha.1 MVS-01 阶段验证记录](./docs/verification/2.0.0-alpha.1-mvs-01.md)
 - [2.0.0-alpha.3 Panel 动态白板验证记录](./docs/verification/2.0.0-alpha.3-panel-topology.md)
+- [2.0.0-alpha.4 应用会话与普通启动验证记录](./docs/verification/2.0.0-alpha.4-app-session.md)
