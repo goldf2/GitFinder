@@ -9,6 +9,11 @@ const {
   PREVIEW_TOKEN_PATTERN,
   OPERATION_ID_PATTERN
 } = require('../src/main/services/relationshipBoardImportService');
+const {
+  RelationshipBoardExportService,
+  EXPORT_FORMAT,
+  EXPORT_FORMAT_VERSION
+} = require('../src/main/services/relationshipBoardExportService');
 
 function makeTemporaryDirectory() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'gitfinder-relationship-import-'));
@@ -149,6 +154,47 @@ test('JSON 导入预览零写入，确认后只合并新增更新并创建备份
   });
   assert.equal(retried.alreadyApplied, true);
   assert.equal(boardStore.load().store.relationships.length, 1);
+});
+
+test('可移植白板文件导入后保留观测来源与关系自定义名称', t => {
+  const directory = makeTemporaryDirectory();
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const { boardStore, service } = setup(directory);
+  const portable = importedStore();
+  portable.relationships[0].label = '生产环境运行于';
+  const sourcePath = path.join(directory, 'portable.gitfinder-board.json');
+  new RelationshipBoardExportService({
+    now: () => new Date('2026-08-29T04:00:00.000Z')
+  }).exportToFile(sourcePath, portable);
+
+  const preview = service.previewFromFile(sourcePath);
+  assert.match(preview.boundary, /观测来源会保留/);
+  service.applyImport(preview);
+
+  const loaded = boardStore.load().store;
+  const deployment = loaded.entities.find(entity => entity.id === 'entity_deploy01');
+  const relationship = loaded.relationships.find(item => item.id === 'relationship_import01');
+  assert.equal(deployment.source, 'observed');
+  assert.equal(relationship.source, 'observed');
+  assert.equal(relationship.label, '生产环境运行于');
+});
+
+test('关系白板文件拒绝未知格式版本但继续兼容旧版原始 store JSON', t => {
+  const directory = makeTemporaryDirectory();
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const { sourcePath, service } = setup(directory);
+
+  writeJson(sourcePath, {
+    format: EXPORT_FORMAT,
+    formatVersion: EXPORT_FORMAT_VERSION + 1,
+    store: importedStore()
+  });
+  assert.throws(() => service.previewFromFile(sourcePath), /暂不支持关系白板文件版本/);
+
+  writeJson(sourcePath, importedStore());
+  const preview = service.previewFromFile(sourcePath);
+  assert.equal(preview.hasChanges, true);
+  assert.match(preview.boundary, /旧版 JSON/);
 });
 
 test('导入应用拒绝过期、篡改以及预览后变化的本机事实', t => {

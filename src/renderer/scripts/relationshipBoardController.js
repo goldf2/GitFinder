@@ -192,6 +192,7 @@
       this.saveState = 'saved';
       this.resourceSearch = '';
       this.importInFlight = false;
+      this.exportInFlight = false;
       this.panelTopologyResult = { state: 'unconfigured', topology: { servers: [], deployments: [] }, bindings: [] };
       this.panelProjection = { entities: [], relationships: [], placements: [], metadata: { state: 'unconfigured' } };
       this.panelProjects = [];
@@ -448,6 +449,101 @@
 
     _allEntitiesById() {
       return new Map(this._combinedEntities().map(entity => [entity.id, entity]));
+    }
+
+    _portableFactFields(fact) {
+      const result = {};
+      if (Model.FACT_SOURCES.includes(fact?.source)) result.source = fact.source;
+      if (fact?.verifiedAt) result.verifiedAt = fact.verifiedAt;
+      if (fact?.reviewIntervalDays) result.reviewIntervalDays = fact.reviewIntervalDays;
+      if (fact?.evidenceSummary) result.evidenceSummary = fact.evidenceSummary;
+      return result;
+    }
+
+    _portableEntity(entity) {
+      const details = {};
+      for (const field of DETAIL_FIELD_DEFINITIONS[entity.type] || []) {
+        const value = entity.details?.[field.key];
+        if (value !== undefined && value !== null && String(value).trim()) details[field.key] = value;
+      }
+      return {
+        id: entity.id,
+        type: entity.type,
+        name: this._entityDisplayName(entity),
+        ...(entity.refId ? { refId: entity.refId } : {}),
+        details,
+        ...this._portableFactFields(entity)
+      };
+    }
+
+    _portableRelationship(relationship) {
+      const id = String(relationship.id || '').startsWith('relationship_')
+        ? relationship.id
+        : String(relationship.id || '').replace(/^relation_/, 'relationship_');
+      return {
+        id,
+        type: relationship.type,
+        sourceId: relationship.sourceId,
+        targetId: relationship.targetId,
+        ...(relationship.label ? { label: relationship.label } : {}),
+        ...this._portableFactFields(relationship)
+      };
+    }
+
+    _buildActiveBoardExportStore() {
+      const board = activeBoard(this.store);
+      if (!board) throw new Error('当前没有可导出的关系白板');
+      const placements = this._combinedPlacements(board);
+      const entitiesById = this._allEntitiesById();
+      const entities = placements
+        .map(placement => entitiesById.get(placement.entityId))
+        .filter(Boolean)
+        .map(entity => this._portableEntity(entity));
+      const relationships = this._combinedRelationships(placements).map(relationship => (
+        this._portableRelationship(relationship)
+      ));
+      return Model.assertValidStore({
+        schemaVersion: Model.VERSION,
+        activeBoardId: board.id,
+        entities,
+        relationships,
+        boards: [{
+          id: board.id,
+          name: board.name,
+          viewport: clone(board.viewport),
+          view: clone(board.view || Model.defaultBoardView()),
+          placements: placements.map(placement => ({
+            entityId: placement.entityId,
+            x: placement.x,
+            y: placement.y,
+            ...(placement.groupId ? { groupId: placement.groupId } : {})
+          }))
+        }]
+      });
+    }
+
+    _entityAvailability(entity) {
+      if (!entity || entity.transient || entity.type === 'group') return { missing: false, label: '', detail: '' };
+      if (entity.refId && ['project', 'repository'].includes(entity.type)
+        && !this.resourceMap.has(`${entity.type}:${entity.refId}`)) {
+        if (this.resourceLoadingPromise) return { missing: false, label: '', detail: '' };
+        return {
+          missing: true,
+          label: '本机资源缺失',
+          detail: '稳定身份暂时无法解析 · 节点与关系仍保留'
+        };
+      }
+      if (entity.source === 'observed'
+        && /^entity_panel_/.test(entity.id)
+        && ['server', 'deployment', 'endpoint'].includes(entity.type)
+        && !(this.panelProjection?.entities || []).some(candidate => candidate.id === entity.id)) {
+        return {
+          missing: true,
+          label: '实时资源缺失',
+          detail: '当前 Panel 未返回该资源 · 快照节点与关系仍保留'
+        };
+      }
+      return { missing: false, label: '', detail: '' };
     }
 
     _panelSnapshotStale() {
@@ -942,7 +1038,8 @@
                 <button type="button" role="menuitem" data-add-node-type="endpoint"><span>↗</span><span>访问端点</span><small>仅显示标签</small></button>
                 <button type="button" role="menuitem" data-add-node-type="group"><span>▢</span><span>分组</span><small>视觉整理</small></button>
                 <div class="relationship-menu-separator" role="separator"></div>
-                <button type="button" role="menuitem" data-relationship-action="import-json"><span>⇩</span><span>导入 JSON…</span><small>先预览差异再合并</small></button>
+                <button type="button" role="menuitem" data-relationship-action="export-json"><span>⇧</span><span>导出当前白板…</span><small>可移植关系快照</small></button>
+                <button type="button" role="menuitem" data-relationship-action="import-json"><span>⇩</span><span>导入白板文件…</span><small>先预览差异再合并</small></button>
               </div>
             </div>
             <span class="relationship-toolbar-divider" aria-hidden="true"></span>
@@ -1059,6 +1156,11 @@
       if (action === 'import-json') {
         this._closeAddMenu();
         this._importRelationshipJson();
+        return;
+      }
+      if (action === 'export-json') {
+        this._closeAddMenu();
+        this._exportCurrentBoard();
         return;
       }
       if (action === 'close-inspector') {
@@ -1326,21 +1428,22 @@
         const entity = entitiesById.get(placement.entityId);
         if (!entity) return '';
         const resource = entity.refId ? this.resourceMap.get(`${entity.type}:${entity.refId}`) : null;
-        const stale = Boolean((entity.refId && !resource) || (entity.transient && this._panelSnapshotStale()));
+        const availability = this._entityAvailability(entity);
+        const stale = Boolean(availability.missing || (entity.transient && this._panelSnapshotStale()));
         const name = resource?.name || entity.name;
-        const details = this._entitySubtitle(entity, resource, stale);
+        const details = this._entitySubtitle(entity, resource, stale, availability);
         const verification = Model.verificationStatus(entity, { now: this.now() });
         const hasInput = !entity.transient && Model.RELATIONSHIP_TYPES.some(type => Object.values(Model.CONNECTIONS[type] || []).some(pair => pair[1] === entity.type));
         const hasOutput = !entity.transient && Model.RELATIONSHIP_TYPES.some(type => Object.values(Model.CONNECTIONS[type] || []).some(pair => pair[0] === entity.type));
         const runtimeStatus = entity.runtime?.status || '';
         const recentFailure = entity.runtime?.recentFailure?.hasFailure === true;
         return `
-          <article class="relationship-node verification-${verification.state}${entity.transient ? ' panel-dynamic' : ''}${recentFailure ? ' panel-recent-failure' : ''}${stale ? ' stale' : ''}${graph.contextualIds.has(entity.id) ? ' filter-context' : ''}" data-entity-id="${escapeHtml(entity.id)}" data-entity-type="${entity.type}" data-runtime-status="${escapeHtml(runtimeStatus)}" data-verification-state="${verification.state}" tabindex="0" role="button" aria-label="${escapeHtml(name)}，${TYPE_LABELS[entity.type]}，${entity.transient ? 'Panel 只读观测，' : ''}${verification.label}${graph.contextualIds.has(entity.id) ? '，关系上下文' : ''}" aria-pressed="false" style="transform:translate(${placement.x}px,${placement.y}px)">
+          <article class="relationship-node verification-${verification.state}${entity.transient ? ' panel-dynamic' : ''}${recentFailure ? ' panel-recent-failure' : ''}${stale ? ' stale' : ''}${availability.missing ? ' resource-missing' : ''}${graph.contextualIds.has(entity.id) ? ' filter-context' : ''}" data-entity-id="${escapeHtml(entity.id)}" data-entity-type="${entity.type}" data-runtime-status="${escapeHtml(runtimeStatus)}" data-verification-state="${verification.state}" data-resource-state="${availability.missing ? 'missing' : 'ready'}" tabindex="0" role="button" aria-label="${escapeHtml(name)}，${TYPE_LABELS[entity.type]}，${availability.missing ? `${availability.label}，` : ''}${entity.transient ? 'Panel 只读观测，' : ''}${verification.label}${graph.contextualIds.has(entity.id) ? '，关系上下文' : ''}" aria-pressed="false" style="transform:translate(${placement.x}px,${placement.y}px)">
             ${hasInput ? '<button class="relationship-port relationship-port-input" data-direction="in" type="button" tabindex="-1" aria-hidden="true"></button>' : ''}
             <div class="relationship-node-header">
               <span class="relationship-node-icon">${TYPE_ICONS[entity.type]}</span>
               <span class="relationship-node-title" title="${escapeHtml(name)}">${escapeHtml(name)}</span>
-              <span class="relationship-node-kind">${TYPE_LABELS[entity.type]}</span>
+              <span class="relationship-node-kind" data-state="${availability.missing ? 'missing' : 'ready'}" title="${escapeHtml(availability.missing ? `${TYPE_LABELS[entity.type]} · ${availability.label}` : TYPE_LABELS[entity.type])}">${availability.missing ? '缺失' : TYPE_LABELS[entity.type]}</span>
               <span class="relationship-node-verification" data-state="${verification.state}" title="${verification.label}" aria-label="${verification.label}"></span>
             </div>
             <div class="relationship-node-subtitle">${escapeHtml(details)}</div>
@@ -1383,7 +1486,8 @@
       this._updateSelectionCss();
     }
 
-    _entitySubtitle(entity, resource, stale) {
+    _entitySubtitle(entity, resource, stale, availability = this._entityAvailability(entity)) {
+      if (availability.missing) return availability.detail;
       if (stale && !entity.transient) return '引用已失效 · 保留关系事实';
       if (resource) return resource.secondary;
       if (entity.runtime?.dynamicKind === 'panel-server') {
@@ -1756,10 +1860,12 @@
       let heading = '';
       let subheading = '';
       let identityHtml = '';
+      let availabilityHtml = '';
       let editableFields = '';
       let contextHtml = '';
       if (selected.kind === 'entity') {
         const resource = fact.refId ? this.resourceMap.get(`${fact.type}:${fact.refId}`) : null;
+        const availability = this._entityAvailability(fact);
         heading = this._entityDisplayName(fact);
         subheading = TYPE_LABELS[fact.type];
         identityHtml = fact.refId ? `
@@ -1767,6 +1873,11 @@
             <div><dt>稳定身份</dt><dd title="${escapeHtml(fact.refId)}">${escapeHtml(fact.refId)}</dd></div>
             <div><dt>当前解析位置</dt><dd title="${escapeHtml(resource?.path || '')}">${escapeHtml(resource?.path || '引用已失效')}</dd></div>
           </dl>` : '';
+        availabilityHtml = availability.missing ? `
+          <div class="relationship-resource-missing" role="status">
+            <strong>${escapeHtml(availability.label)}</strong>
+            <small>${escapeHtml(availability.detail)}。可继续查看、编辑和导出本节点及其关系。</small>
+          </div>` : '';
         editableFields = `${fact.refId ? '' : `
           <label class="relationship-inspector-field">
             <span>名称</span>
@@ -1811,6 +1922,7 @@
         </header>
         <form class="relationship-inspector-form" data-relationship-inspector-form data-inspector-kind="${selected.kind}" data-inspector-id="${escapeHtml(fact.id)}">
           ${identityHtml}
+          ${availabilityHtml}
           ${editableFields}
           ${contextHtml}
           ${isVisualGroup ? '<p class="relationship-inspector-boundary">视觉分组只属于当前白板布局，不参与部署或 Git 事实推理。</p>' : `
@@ -2780,6 +2892,24 @@
         totalNodeCount: this._combinedPlacements(board).length,
         filterActive: graph.filterActive
       });
+    }
+
+    async _exportCurrentBoard() {
+      if (this.exportInFlight || !this.bridge?.relationshipBoards?.exportCurrent) return false;
+      this.exportInFlight = true;
+      try {
+        const store = this._buildActiveBoardExportStore();
+        const result = await this.bridge.relationshipBoards.exportCurrent({ store });
+        if (!result || result.cancelled) return false;
+        this.notify(`已导出“${activeBoard(store)?.name || '关系白板'}”：${result.nodeCount} 个节点、${result.relationshipCount} 条关系`, 'success');
+        this._setCanvasAnnouncement(`当前关系白板已导出为 ${result.fileName}`);
+        return true;
+      } catch (error) {
+        this.notify(`关系白板导出失败：${error?.message || String(error)}`, 'error');
+        return false;
+      } finally {
+        this.exportInFlight = false;
+      }
     }
 
     async _importRelationshipJson() {

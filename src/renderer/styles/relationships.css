@@ -819,6 +819,12 @@
   opacity: 0.76;
 }
 
+.relationship-node.resource-missing {
+  border-color: #c48a31;
+  opacity: 1;
+  box-shadow: inset 3px 0 0 color-mix(in srgb, #c48a31 76%, transparent), 0 7px 20px var(--shadow-overlay);
+}
+
 .relationship-node.filter-context {
   opacity: 0.58;
   filter: saturate(0.72);
@@ -885,6 +891,12 @@
   color: var(--text-tertiary);
   background: var(--bg-secondary);
   font-size: 9px;
+}
+
+.relationship-node-kind[data-state="missing"] {
+  color: #8a5a13;
+  background: color-mix(in srgb, #d29a43 20%, var(--bg-secondary));
+  font-weight: 700;
 }
 
 .relationship-node-verification {
@@ -1450,6 +1462,27 @@
   min-width: 0;
   margin: 0;
   font-size: 9px;
+}
+
+.relationship-resource-missing {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 9px 10px;
+  border: 1px solid color-mix(in srgb, #c48a31 58%, var(--border-color));
+  border-radius: 9px;
+  color: #8a5a13;
+  background: color-mix(in srgb, #d29a43 12%, var(--bg-primary));
+}
+
+.relationship-resource-missing strong {
+  font-size: 10px;
+}
+
+.relationship-resource-missing small {
+  color: var(--text-secondary);
+  font-size: 9px;
+  line-height: 1.45;
 }
 
 .relationship-inspector-identity dt {

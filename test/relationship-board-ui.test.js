@@ -47,15 +47,20 @@ test('关系白板作为结构独立工作区接入菜单、渲染生命周期�
   assert.match(userDataVerifierSource, /relationshipBoardImportService\.applyImport\(preview\)/);
 });
 
-test('关系 JSON 导入只通过系统文件选择、主进程预览令牌和确认应用', () => {
+test('关系白板文件导入导出只通过系统文件选择、主进程预览令牌和确认应用', () => {
   const relationshipPreloadBlock = preloadSource.match(/relationshipBoards:\s*\{[\s\S]*?\n\s*\},/)?.[0] || '';
+  assert.match(controllerSource, /data-relationship-action="export-json"/);
   assert.match(controllerSource, /data-relationship-action="import-json"/);
+  assert.match(controllerSource, /relationshipBoards\.exportCurrent\(\{ store \}\)/);
   assert.match(controllerSource, /relationshipBoards\.previewImport\(\)/);
   assert.match(controllerSource, /relationshipBoards\.applyImport\(\{[\s\S]*?operationId:[\s\S]*?previewToken:/);
   assert.match(controllerSource, /确认前不会写入/);
   assert.match(relationshipPreloadBlock, /previewImport:\s*\(\)\s*=>\s*ipcRenderer\.invoke\('relationshipBoards:previewImport'\)/);
   assert.match(relationshipPreloadBlock, /applyImport:\s*\(request\)\s*=>\s*ipcRenderer\.invoke\('relationshipBoards:applyImport', request\)/);
+  assert.match(relationshipPreloadBlock, /exportCurrent:\s*\(request\)\s*=>\s*ipcRenderer\.invoke\('relationshipBoards:export', request\)/);
   assert.match(relationshipIpcSource, /dialog\.showOpenDialog/);
+  assert.match(relationshipIpcSource, /dialog\.showSaveDialog/);
+  assert.match(relationshipIpcSource, /exportToFile\(result\.filePath, store\)/);
   assert.match(relationshipIpcSource, /previewFromFile\(result\.filePaths\[0\]\)/);
   assert.match(importServiceSource, /baseRevision/);
   assert.match(importServiceSource, /sourceFingerprint/);
@@ -191,6 +196,14 @@ test('Panel 动态拓扑通过只读 IPC 投影到白板而不写入持久关系
   assert.equal(controller.store.entities.length, 0);
   assert.equal(controller.store.relationships.length, 0);
   assert.doesNotMatch(JSON.stringify(controller.store), /entity_panel_/);
+
+  const exported = controller._buildActiveBoardExportStore();
+  assert.equal(exported.boards.length, 1);
+  assert.equal(exported.entities.length, 4);
+  assert.equal(exported.relationships.length, 3);
+  assert.equal(exported.entities.some(entity => entity.source === 'observed'), true);
+  assert.equal(exported.relationships.every(relationship => relationship.id.startsWith('relationship_')), true);
+  assert.doesNotMatch(JSON.stringify(exported), /\/Volumes\/|"transient"|"runtime"|"dynamic"|"provider"/);
 });
 
 test('关系白板不等待全盘项目扫描即可先显示本机关系与仓库', async () => {
@@ -385,6 +398,52 @@ test('部署节点用结构化版本上下文生成可扫描副标题', () => {
   }, null, false);
 
   assert.equal(subtitle, 'production · v2.4.1 · release/2.4 · abcdef012345 · running');
+});
+
+test('本机或 Panel 资源丢失时保留节点关系并显示明确缺失状态', () => {
+  const controller = new Controller({ bridge: {} });
+  controller.resourceMap = new Map();
+  controller.panelProjection = { entities: [], relationships: [], placements: [], metadata: {} };
+
+  const missingRepository = controller._entityAvailability({
+    id: 'entity_repo0001',
+    type: 'repository',
+    name: 'Repo',
+    refId: 'r_0123456789ab',
+    details: {}
+  });
+  const missingPanelDeployment = controller._entityAvailability({
+    id: 'entity_panel_deployment_12345678',
+    type: 'deployment',
+    name: 'MES production',
+    details: {},
+    source: 'observed'
+  });
+  const manualObserved = controller._entityAvailability({
+    id: 'entity_manual001',
+    type: 'deployment',
+    name: 'Manually observed',
+    details: {},
+    source: 'observed'
+  });
+
+  assert.equal(missingRepository.missing, true);
+  assert.match(missingRepository.detail, /关系仍保留/);
+  assert.equal(missingPanelDeployment.missing, true);
+  assert.equal(manualObserved.missing, false);
+  assert.match(controllerSource, /data-resource-state="\$\{availability\.missing \? 'missing' : 'ready'\}"/);
+  assert.match(controllerSource, /可继续查看、编辑和导出本节点及其关系/);
+  assert.match(relationshipCss, /\.relationship-node\.resource-missing\s*\{[^}]*opacity:\s*1/s);
+  assert.match(relationshipCss, /\.relationship-node-kind\[data-state="missing"\]/);
+
+  controller.resourceLoadingPromise = Promise.resolve();
+  assert.equal(controller._entityAvailability({
+    id: 'entity_project1',
+    type: 'project',
+    name: 'Loading project',
+    refId: 'project_loading01',
+    details: {}
+  }).missing, false);
 });
 
 test('手工部署创建入口将版本上下文写入受控详情字段', async () => {

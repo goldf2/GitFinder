@@ -107,6 +107,7 @@ contextBridge.exposeInMainWorld('gitFinder', {
   relationshipBoards: {
     get: () => ipcRenderer.invoke('relationshipBoards:get'),
     save: (store) => ipcRenderer.invoke('relationshipBoards:save', store),
+    exportCurrent: (request) => ipcRenderer.invoke('relationshipBoards:export', request),
     previewImport: () => ipcRenderer.invoke('relationshipBoards:previewImport'),
     applyImport: (request) => ipcRenderer.invoke('relationshipBoards:applyImport', request)
   },

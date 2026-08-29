@@ -3,6 +3,10 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const RelationshipGraphModel = require('../../shared/relationshipGraphModel');
 const relationshipBoardService = require('./relationshipBoardService');
+const {
+  containsHighConfidenceSecret,
+  unwrapRelationshipBoardFile
+} = require('./relationshipBoardFileFormat');
 
 const MAX_IMPORT_BYTES = relationshipBoardService.MAX_FILE_BYTES;
 const PREVIEW_TTL_MS = 5 * 60 * 1000;
@@ -10,7 +14,6 @@ const MAX_ACTIVE_PREVIEWS = 20;
 const MAX_COMPLETED_OPERATIONS = 50;
 const PREVIEW_TOKEN_PATTERN = /^[a-f0-9]{64}$/;
 const OPERATION_ID_PATTERN = /^relationship_import_[a-f0-9]{32}$/;
-const HIGH_CONFIDENCE_SECRET_PATTERN = /-----BEGIN(?: [A-Z0-9]+)? PRIVATE KEY-----|(?:password|passwd|secret|token|credential|private[_ -]?key|access[_ -]?key)\s*[:=]\s*\S+/i;
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -22,13 +25,6 @@ function stableHash(value) {
 
 function cleanFileName(filePath) {
   return RelationshipGraphModel.cleanText(path.basename(filePath), 180, '关系白板.json');
-}
-
-function containsHighConfidenceSecret(value) {
-  if (typeof value === 'string') return HIGH_CONFIDENCE_SECRET_PATTERN.test(value);
-  if (Array.isArray(value)) return value.some(containsHighConfidenceSecret);
-  if (value && typeof value === 'object') return Object.values(value).some(containsHighConfidenceSecret);
-  return false;
 }
 
 function factFields(source) {
@@ -105,9 +101,11 @@ class RelationshipBoardImportService {
     if (containsHighConfidenceSecret(parsed)) {
       throw new Error('关系白板导入文件疑似包含密码、令牌或私钥，已拒绝读取');
     }
-    const store = RelationshipGraphModel.assertValidStore(parsed);
+    const file = unwrapRelationshipBoardFile(parsed);
+    const store = RelationshipGraphModel.assertValidStore(file.store);
     return {
       store,
+      portable: file.portable,
       fingerprint: {
         size: buffer.length,
         sha256: crypto.createHash('sha256').update(buffer).digest('hex')
@@ -198,6 +196,7 @@ class RelationshipBoardImportService {
           type: incoming.type,
           sourceId,
           targetId,
+          ...(incoming.label ? { label: incoming.label } : {}),
           source: options.preserveSource ? (incoming.source || 'observed') : 'imported',
           ...factFields(incoming)
         };
@@ -209,6 +208,7 @@ class RelationshipBoardImportService {
       }
       const before = clone(existing);
       existing.source = options.preserveSource ? (incoming.source || 'observed') : 'imported';
+      if (!existing.label && incoming.label) existing.label = incoming.label;
       const incomingFacts = factFields(incoming);
       if (incomingFacts.verifiedAt
         && (!existing.verifiedAt || Date.parse(incomingFacts.verifiedAt) >= Date.parse(existing.verifiedAt))) {
@@ -216,7 +216,7 @@ class RelationshipBoardImportService {
       }
       if (incomingFacts.reviewIntervalDays) existing.reviewIntervalDays = incomingFacts.reviewIntervalDays;
       if (incomingFacts.evidenceSummary) existing.evidenceSummary = incomingFacts.evidenceSummary;
-      const fields = fieldChanges(before, existing, ['source', 'verifiedAt', 'reviewIntervalDays', 'evidenceSummary']);
+      const fields = fieldChanges(before, existing, ['label', 'source', 'verifiedAt', 'reviewIntervalDays', 'evidenceSummary']);
       if (fields.length) {
         counts.updatedRelationships += 1;
         changes.push({ kind: 'relationship', action: 'update', label: `${sourceName} → ${targetName}`, detail: incoming.type, fields });
@@ -284,7 +284,10 @@ class RelationshipBoardImportService {
       fileSize: source.fingerprint.size,
       sourcePath: filePath,
       sourceFingerprint: source.fingerprint,
-      boundary: '仅合并新增或更新事实，不删除现有节点、关系或白板；导入来源不会被视为实时健康状态。'
+      preserveSource: source.portable,
+      boundary: source.portable
+        ? '仅合并新增或更新事实，不删除现有节点、关系或白板；快照中的观测来源会保留，但不会被视为当前实时健康状态。'
+        : '仅合并新增或更新事实，不删除现有节点、关系或白板；旧版 JSON 导入来源不会被视为实时健康状态。'
     });
   }
 
