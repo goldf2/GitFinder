@@ -116,6 +116,8 @@ contextBridge.exposeInMainWorld('gitFinder', {
     connect: (values) => ipcRenderer.invoke('panel:connect', values),
     disconnect: () => ipcRenderer.invoke('panel:disconnect'),
     getCatalog: () => ipcRenderer.invoke('panel:getCatalog'),
+    getTopology: () => ipcRenderer.invoke('panel:getTopology'),
+    getProjectBindings: (directoryPath) => ipcRenderer.invoke('panel:getProjectBindings', directoryPath),
     getProjectDeployments: (directoryPath) => ipcRenderer.invoke('panel:getProjectDeployments', directoryPath),
     saveProjectBinding: (directoryPath, binding) => ipcRenderer.invoke('panel:saveProjectBinding', directoryPath, binding),
     clearProjectBindings: (directoryPath) => ipcRenderer.invoke('panel:clearProjectBindings', directoryPath),

@@ -83,6 +83,38 @@
   flex: 1;
 }
 
+.relationship-panel-status {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding-left: 9px;
+  border-left: 1px solid var(--border-color);
+}
+
+.relationship-panel-status > span {
+  max-width: min(330px, 28vw);
+  overflow: hidden;
+  color: var(--text-tertiary);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.relationship-panel-status[data-state="ready"] > span {
+  color: #3f985d;
+}
+
+.relationship-panel-status[data-state="warning"] > span,
+.relationship-panel-status[data-state="stale"] > span {
+  color: #b78332;
+}
+
+.relationship-panel-status[data-state="error"] > span,
+.relationship-panel-status[data-state="unsupported"] > span {
+  color: var(--status-dirty);
+}
+
 .relationship-tool-button {
   min-width: 30px;
   height: 30px;
@@ -694,6 +726,25 @@
   border-color: color-mix(in srgb, #d1843f 62%, var(--border-color));
 }
 
+.relationship-node.panel-dynamic {
+  box-shadow: inset 0 3px 0 color-mix(in srgb, var(--accent-primary) 72%, transparent), 0 5px 16px color-mix(in srgb, var(--shadow-overlay) 70%, transparent);
+}
+
+.relationship-node.panel-dynamic[data-runtime-status="running"],
+.relationship-node.panel-dynamic[data-runtime-status="online"] {
+  box-shadow: inset 0 3px 0 #3f985d, 0 5px 16px color-mix(in srgb, var(--shadow-overlay) 70%, transparent);
+}
+
+.relationship-node.panel-dynamic[data-runtime-status="degraded"],
+.relationship-node.panel-recent-failure {
+  border-color: color-mix(in srgb, #c47835 74%, var(--border-color));
+  box-shadow: inset 0 3px 0 #c47835, 0 5px 16px color-mix(in srgb, var(--shadow-overlay) 70%, transparent);
+}
+
+.relationship-node.panel-dynamic .relationship-node-header {
+  cursor: default;
+}
+
 .relationship-node[data-entity-type="endpoint"] {
   border-color: color-mix(in srgb, #3b9f83 62%, var(--border-color));
 }
@@ -1289,6 +1340,76 @@
   flex-direction: column;
   gap: 11px;
   padding: 12px;
+}
+
+.relationship-runtime-inspector {
+  display: grid;
+  gap: 13px;
+  padding: 13px;
+  overflow: auto;
+}
+
+.relationship-runtime-facts dd {
+  font-variant-numeric: tabular-nums;
+}
+
+.relationship-panel-repository-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.relationship-panel-repository-list li {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 9px;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+}
+
+.relationship-panel-repository-list li[data-state="missing"],
+.relationship-panel-repository-list li[data-state="unlinked"] {
+  border-style: dashed;
+}
+
+.relationship-panel-repository-list li > div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.relationship-panel-repository-list strong,
+.relationship-panel-repository-list small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.relationship-panel-repository-list strong {
+  font-size: 10px;
+}
+
+.relationship-panel-repository-list small {
+  color: var(--text-tertiary);
+  font-size: 9px;
+}
+
+.relationship-panel-repository-list button {
+  flex: 0 0 auto;
+  min-height: 25px;
+  padding: 0 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  font: inherit;
+  font-size: 9px;
 }
 
 .relationship-inspector-identity {

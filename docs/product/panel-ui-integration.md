@@ -1,6 +1,6 @@
 # Xiangshu Panel 原生界面整合
 
-- 状态：项目详情首批切片已实现；本地假 Panel/macOS 实际 App 已验证；真实 Panel 和其余投影未验证
+- 状态：项目详情与动态白板首批切片已实现；本地 Mock Panel/macOS 安装包已验证；真实 Panel、Windows 与普通 macOS 更新启动尚未完成验收
 - 界面基线：GitFinder 1.x v1.30.13
 
 ## 设计结论
@@ -65,4 +65,13 @@ GitFinder 2.0 直接复用 1.x 已验证的布局与交互结构。Panel 提供�
 - 已支持从 Catalog 明确选择一个资源，并将稳定 ID 写入 `.gitfinder/deployments.json`；不触发 Git 或部署写操作。
 - 已支持刷新快照及用户点击后打开允许列表中的 Panel/Coolify 链接。
 - 已移除 1.x 遗留的白板直连 Coolify、Token 输入和对应 IPC；部署数据统一由 Panel Provider 提供。
-- 尚未实现侧栏故障摘要、项目内独立部署标签、白板部署投影、事件摘要与系统通知。
+- 已在关系白板中加入服务器与部署的只读动态投影，显示当前状态、延迟、更新时间、最近部署失败、分支和部署提交；动态事实不写入持久白板。
+- 已支持一个部署显式关联多个 `repositoryId` 并指定主仓库；本地项目扫描在后台继续，不阻塞白板首屏。
+- 尚未实现侧栏故障摘要、项目内独立部署标签、SSE 事件摘要与系统通知。
+- 真实 Xiangshu Panel 尚未提供本文契约的生产 `/topology` 接口；macOS 当前是 ad-hoc 开发签名，旧版 Safe Storage 钥匙串访问控制会阻塞普通更新启动，需用户授权或稳定 Developer ID 签名后再验收。
+
+动态白板的已确认契约、身份和验收范围见：
+
+- [Panel 动态拓扑与仓库稳定身份](../adr/0002-panel-topology-and-repository-identity.md)
+- [Panel 动态拓扑 API v1](../contracts/panel-topology-api-v1.md)
+- [动态部署关系白板](dynamic-deployment-board.md)

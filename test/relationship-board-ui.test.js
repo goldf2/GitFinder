@@ -142,6 +142,82 @@ test('GitFinder 2 白板不暴露直连 Coolify 或输入 Coolify Token 的入�
   assert.doesNotMatch(relationshipIpcSource, /previewCoolify|applyCoolify|coolifyReadOnlyConnectorService/);
 });
 
+test('Panel 动态拓扑通过只读 IPC 投影到白板而不写入持久关系事实', () => {
+  assert.match(preloadSource, /getTopology:\s*\(\)\s*=>\s*ipcRenderer\.invoke\('panel:getTopology'\)/);
+  assert.match(preloadSource, /getProjectBindings:\s*\(directoryPath\)\s*=>\s*ipcRenderer\.invoke\('panel:getProjectBindings'/);
+  assert.match(controllerSource, /PanelTopologyProjection/);
+  assert.match(controllerSource, /data-panel-topology-status/);
+  assert.match(controllerSource, /data-relationship-action="refresh-panel"/);
+  assert.match(controllerSource, /动态事实来自 Panel，不写入本机白板/);
+
+  const controller = new Controller({ bridge: {} });
+  controller.store = {
+    schemaVersion: 1,
+    activeBoardId: 'board_panel001',
+    entities: [],
+    relationships: [],
+    boards: [{
+      id: 'board_panel001',
+      name: '部署关系',
+      viewport: { x: 0, y: 0, zoom: 1 },
+      view: RelationshipGraphModel.defaultBoardView(),
+      placements: []
+    }]
+  };
+  controller.panelProjects = [{ projectId: 'project_local_1', name: 'MES', path: '/Volumes/project/mes' }];
+  controller.panelRepositories = [{ id: 'r_0123456789ab', name: 'mes-lite', path: '/Volumes/project/mes/mes-lite' }];
+  controller._setResources(controller.panelProjects, controller.panelRepositories);
+  controller._setPanelTopology({
+    state: 'ready',
+    provider: { providerId: 'panel_1', label: 'Panel' },
+    topology: {
+      generatedAt: '2026-08-29T02:00:00.000Z',
+      servers: [{ nodeId: 'node_1', name: 'Con01', status: 'online', observedAt: '2026-08-29T02:00:00.000Z', latencyMs: 32 }],
+      deployments: [{
+        resourceUuid: 'resource_1', nodeId: 'node_1', name: 'MES Lite', status: 'running',
+        environmentName: '生产', observedAt: '2026-08-29T02:00:00.000Z', latencyMs: 80,
+        recentFailure: { hasFailure: false }
+      }]
+    },
+    bindings: [{
+      providerId: 'panel_1', projectId: 'project_local_1', resourceUuid: 'resource_1', repositoryIds: ['r_0123456789ab']
+    }]
+  });
+
+  const graph = controller._filteredGraph();
+  assert.equal(graph.placements.length, 4);
+  assert.equal(graph.relationships.length, 3);
+  assert.equal(controller.store.entities.length, 0);
+  assert.equal(controller.store.relationships.length, 0);
+  assert.doesNotMatch(JSON.stringify(controller.store), /entity_panel_/);
+});
+
+test('关系白板不等待全盘项目扫描即可先显示本机关系与仓库', async () => {
+  let resolveProjects;
+  const projects = new Promise(resolve => { resolveProjects = resolve; });
+  const controller = new Controller({
+    bridge: {
+      relationshipBoards: { get: async () => ({ store: RelationshipGraphModel.defaultStore() }) },
+      localProjects: { list: () => projects },
+      repos: { getRegistry: async () => ({ repos: [{ id: 'r_0123456789ab', path: '/repo', name: 'repo' }] }) },
+      panel: { getTopology: async () => ({ state: 'unconfigured' }) }
+    }
+  });
+
+  const loadResult = await Promise.race([
+    controller._load().then(() => 'loaded'),
+    new Promise(resolve => setTimeout(() => resolve('blocked'), 50))
+  ]);
+  assert.equal(loadResult, 'loaded');
+  assert.equal(controller.loaded, true);
+  assert.equal(controller.resources.some(item => item.kind === 'repository'), true);
+  assert.equal(controller.resources.some(item => item.kind === 'project'), false);
+
+  resolveProjects([{ projectId: 'project_local_1', name: 'MES', path: '/project' }]);
+  await controller.resourceLoadingPromise;
+  assert.equal(controller.resources.some(item => item.kind === 'project'), true);
+});
+
 test('白板使用稳定项目仓库身份并提供指针、键盘和降低动效交互', () => {
   assert.match(controllerSource, /refId:\s*resource\.refId/);
   assert.match(controllerSource, /setPointerCapture\(event\.pointerId\)/);

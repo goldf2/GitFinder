@@ -29,13 +29,17 @@ test('部署面板区分未配置、未关联和已就绪状态', () => {
     resources: [{
       resourceUuid: 'resource_1', name: '<MES>', type: 'application', status: 'running',
       environmentName: 'production', serverName: 'Con01', domains: ['https://mes.example.com'],
-      observedAt: '2026-08-28T06:00:00.000Z', panelUrl: '', coolifyUrl: ''
+      observedAt: '2026-08-28T06:00:00.000Z', panelUrl: '', coolifyUrl: '', latencyMs: 42,
+      latencyKind: 'http', branch: 'main', commit: '0123456789abcdef', recentFailure: { hasFailure: true }
     }]
   }, {});
   assert.match(ready, /panel-status-badge healthy/);
   assert.match(ready, /&lt;MES&gt;/);
   assert.match(ready, /production/);
   assert.match(ready, /Con01/);
+  assert.match(ready, /42 ms/);
+  assert.match(ready, /最近部署失败/);
+  assert.match(ready, /main · 0123456789ab/);
 });
 
 test('部署关联对话框只能通过关闭按钮或 Escape 关闭', () => {
@@ -43,6 +47,15 @@ test('部署关联对话框只能通过关闭按钮或 Escape 关闭', () => {
   assert.match(source, /panel-binding-close/);
   assert.match(source, /event\.key === 'Escape'/);
   assert.doesNotMatch(source, /overlay\.addEventListener\(['"]click/);
+});
+
+test('部署关联使用项目范围内的稳定 repositoryId 且支持多仓库', () => {
+  const source = read('src/renderer/scripts/panelDeploymentController.js');
+  assert.match(source, /repos\?\.getRegistry/);
+  assert.match(source, /name="panel-binding-repository"/);
+  assert.match(source, /repositoryIds/);
+  assert.match(source, /primaryRepositoryId/);
+  assert.doesNotMatch(source, /repositoryIds:\s*\[[^\]]*directoryPath/);
 });
 
 test('1.x 界面骨架包含部署详情区、Panel 设置和可信 IPC', () => {

@@ -118,6 +118,9 @@
           <div><dt>环境</dt><dd>${this.app.escapeHtml(resource.environmentName)}</dd></div>
           <div><dt>服务器</dt><dd>${this.app.escapeHtml(resource.serverName)}</dd></div>
           ${domains.length ? `<div><dt>域名</dt><dd>${domains.map(domain => `<button class="panel-domain-link" data-panel-action="open-external" data-panel-url="${this.app.escapeHtml(domain)}" type="button">${this.app.escapeHtml(this._domainLabel(domain))}</button>`).join('')}</dd></div>` : ''}
+          <div><dt>延迟</dt><dd>${resource.latencyMs === null || resource.latencyMs === undefined ? '未知' : `${this.app.escapeHtml(resource.latencyMs)} ms${resource.latencyKind ? ` · ${this.app.escapeHtml(resource.latencyKind)}` : ''}`}</dd></div>
+          <div><dt>最近部署失败</dt><dd class="${resource.recentFailure?.hasFailure ? 'panel-failure-yes' : ''}">${resource.recentFailure?.hasFailure ? `是${resource.recentFailure.occurredAt ? ` · ${this.app.escapeHtml(this._formatObservedAt(resource.recentFailure.occurredAt))}` : ''}` : '否'}</dd></div>
+          ${resource.branch || resource.commit ? `<div><dt>部署源码</dt><dd title="${this.app.escapeHtml(resource.commit || '')}">${this.app.escapeHtml([resource.branch, resource.commit ? String(resource.commit).slice(0, 12) : ''].filter(Boolean).join(' · '))}</dd></div>` : ''}
           <div><dt>观测时间</dt><dd>${this.app.escapeHtml(this._formatObservedAt(resource.observedAt))}</dd></div>
         </dl>
         ${actions ? `<footer>${actions}</footer>` : ''}
@@ -165,7 +168,7 @@
             <input id="panel-provider-label" type="text" maxlength="120" value="${this.app.escapeHtml(connection.label || 'Xiangshu Panel')}">
           </label>
           <label class="app-settings-row" for="panel-provider-token">
-            <span><strong>只读访问令牌</strong><small>${connected ? '重新连接时需再次输入；旧令牌不会显示' : '需要 catalog:read 与 snapshots:read 权限'}</small></span>
+            <span><strong>只读访问令牌</strong><small>${connected ? '重新连接时需再次输入；动态白板还需要 topology:read' : '需要 catalog:read、snapshots:read；动态白板需要 topology:read'}</small></span>
             <input id="panel-provider-token" type="password" autocomplete="off" placeholder="${connected ? '已安全保存' : '输入只读令牌'}">
           </label>
           <div class="app-settings-row">
@@ -222,9 +225,22 @@
       };
       this.document.addEventListener('keydown', this.dialogKeyHandler);
       try {
-        const catalog = await this.bridge.panel.getCatalog();
+        const [catalog, registry] = await Promise.all([
+          this.bridge.panel.getCatalog(),
+          this.bridge.repos?.getRegistry
+            ? this.bridge.repos.getRegistry().catch(() => ({ repos: [] }))
+            : Promise.resolve({ repos: [] })
+        ]);
         if (!this.document.body.contains(overlay)) return;
         const resources = catalog.resources || [];
+        const normalizedProjectPath = String(directoryPath || '').replaceAll('\\', '/').replace(/\/$/, '').toLocaleLowerCase('en');
+        const repositories = (registry?.repos || []).filter(repository => {
+          if (!repository?.id || repository.archived === true || !repository.path) return false;
+          const candidate = String(repository.path).replaceAll('\\', '/').replace(/\/$/, '').toLocaleLowerCase('en');
+          return candidate === normalizedProjectPath || candidate.startsWith(`${normalizedProjectPath}/`);
+        });
+        const existingBinding = this.currentResult?.bindings?.[0] || null;
+        const existingRepositoryIds = new Set(existingBinding?.repositoryIds || []);
         const body = overlay.querySelector('.panel-binding-body');
         body.innerHTML = resources.length ? `
           <div class="panel-binding-resource-list" role="radiogroup" aria-label="部署资源">
@@ -234,15 +250,29 @@
               <span class="panel-status-badge ${this._statusTone(resource.status)}">${this.app.escapeHtml(resource.status)}</span>
             </label>`).join('')}
           </div>
+          <section class="panel-binding-repositories" aria-labelledby="panel-binding-repositories-title">
+            <div><strong id="panel-binding-repositories-title">关联本地 Git 仓库</strong><small>用稳定 repositoryId 建立源码与部署关系，可多选</small></div>
+            ${repositories.length ? `<div class="panel-binding-repository-list">${repositories.map((repository, index) => `<label>
+              <input type="checkbox" name="panel-binding-repository" value="${this.app.escapeHtml(repository.id)}"${existingRepositoryIds.has(repository.id) || (!existingRepositoryIds.size && index === 0) ? ' checked' : ''}>
+              <span><strong>${this.app.escapeHtml(repository.name || repository.id)}</strong><small title="${this.app.escapeHtml(repository.path)}">${this.app.escapeHtml(repository.path)}</small></span>
+            </label>`).join('')}</div>` : '<p>当前项目范围内尚未发现已注册的 Git 仓库；可以先只关联部署，稍后补充。</p>'}
+          </section>
           <footer><span>只写入稳定 ID，不保存 Token 或服务器凭据。</span><button class="btn btn-primary" data-panel-binding-save type="button">保存关联</button></footer>`
           : '<div class="panel-deployment-state panel-deployment-state-stacked"><strong>Panel Catalog 没有可关联资源</strong><span>请先在 Panel 中确认只读 API 返回内容。</span></div>';
         body.querySelector('[data-panel-binding-save]')?.addEventListener('click', async event => {
           const selectedId = body.querySelector('input[name="panel-binding-resource"]:checked')?.value;
           const resource = resources.find(item => item.resourceUuid === selectedId);
           if (!resource) return;
+          const repositoryIds = [...body.querySelectorAll('input[name="panel-binding-repository"]:checked')]
+            .map(input => input.value)
+            .slice(0, 8);
           event.currentTarget.disabled = true;
           try {
-            await this.bridge.panel.saveProjectBinding(directoryPath, resource);
+            await this.bridge.panel.saveProjectBinding(directoryPath, {
+              ...resource,
+              repositoryIds,
+              ...(repositoryIds[0] ? { primaryRepositoryId: repositoryIds[0] } : {})
+            });
             this.closeBindingDialog();
             this.app._showStatusMessage('部署资源关联已保存', 'success');
             await this._load(container, directoryPath, project);

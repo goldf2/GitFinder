@@ -1181,6 +1181,7 @@
 }
 
 .panel-domain-link + .panel-domain-link::before { content: ' · '; color: var(--text-tertiary); }
+.panel-failure-yes { color: var(--status-dirty); font-weight: 650; }
 
 .panel-binding-overlay {
   position: fixed;
@@ -1247,6 +1248,57 @@
 .panel-binding-resource > span:nth-child(2) { display: flex; min-width: 0; flex-direction: column; }
 .panel-binding-resource strong { overflow: hidden; color: var(--text-primary); text-overflow: ellipsis; white-space: nowrap; }
 .panel-binding-resource small { color: var(--text-tertiary); }
+
+.panel-binding-repositories {
+  display: grid;
+  gap: 9px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-light);
+}
+
+.panel-binding-repositories > div:first-child {
+  display: grid;
+  gap: 2px;
+}
+
+.panel-binding-repositories > div:first-child strong { color: var(--text-primary); font-size: 12px; }
+.panel-binding-repositories > div:first-child small,
+.panel-binding-repositories > p { margin: 0; color: var(--text-tertiary); font-size: 10px; }
+.panel-binding-repository-list { display: grid; gap: 6px; }
+
+.panel-binding-repository-list label {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.panel-binding-repository-list label:has(input:checked) {
+  border-color: color-mix(in srgb, #4a90a8 62%, var(--border-color));
+  background: color-mix(in srgb, var(--bg-primary) 94%, #4a90a8 6%);
+}
+
+.panel-binding-repository-list label > span {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.panel-binding-repository-list strong,
+.panel-binding-repository-list small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.panel-binding-repository-list strong { color: var(--text-primary); font-size: 11px; }
+.panel-binding-repository-list small { color: var(--text-tertiary); font-size: 9px; }
 
 .panel-binding-body > footer {
   display: flex;

@@ -1,8 +1,10 @@
 (function exposeRelationshipBoardController(root, factory) {
-  const api = factory(root?.RelationshipGraphModel);
+  const projection = root?.PanelTopologyProjection
+    || (typeof module !== 'undefined' && module.exports ? require('../../shared/panelTopologyProjection') : null);
+  const api = factory(root?.RelationshipGraphModel, projection);
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) root.RelationshipBoardController = api;
-})(typeof window !== 'undefined' ? window : globalThis, function createRelationshipBoardController(Model) {
+})(typeof window !== 'undefined' ? window : globalThis, function createRelationshipBoardController(Model, PanelTopologyProjection) {
   const NODE_WIDTH = 236;
   const NODE_HEIGHT = 94;
   const COMPACT_NODE_WIDTH = 180;
@@ -14,6 +16,8 @@
   const GROUP_MIN_HEIGHT = 180;
   const GRID_SIZE = 24;
   const HISTORY_LIMIT = 50;
+  const PANEL_REFRESH_INTERVAL_MS = 30_000;
+  const PANEL_STALE_AFTER_MS = 90_000;
   const TYPE_LABELS = Object.freeze({
     server: '服务器',
     deployment: '部署',
@@ -125,6 +129,7 @@
       this.root = null;
       this.loaded = false;
       this.loadingPromise = null;
+      this.resourceLoadingPromise = null;
       this.undoStack = [];
       this.redoStack = [];
       this.selectedEntityId = '';
@@ -138,6 +143,13 @@
       this.saveState = 'saved';
       this.resourceSearch = '';
       this.importInFlight = false;
+      this.panelTopologyResult = { state: 'unconfigured', topology: { servers: [], deployments: [] }, bindings: [] };
+      this.panelProjection = { entities: [], relationships: [], placements: [], metadata: { state: 'unconfigured' } };
+      this.panelProjects = [];
+      this.panelRepositories = [];
+      this.panelRefreshTimer = null;
+      this.panelRefreshInFlight = false;
+      this.panelLastError = '';
       this.now = options.now || (() => new Date());
       this._boundKeydown = event => this._handleKeydown(event);
     }
@@ -145,6 +157,7 @@
     async open(container) {
       if (!container) return;
       if (this.container === container && this.root?.isConnected) return;
+      const wasLoaded = this.loaded;
       this.close({ preserveContainer: true });
       this.container = container;
       container.innerHTML = '<div class="relationship-loading"><div class="loading-spinner"></div><span>正在载入关系白板…</span></div>';
@@ -163,6 +176,8 @@
           await this._persistNow();
         }
         this.render();
+        if (wasLoaded && this.bridge?.panel?.getTopology) this._refreshPanelTopology();
+        else this._schedulePanelRefresh();
         document.addEventListener('keydown', this._boundKeydown, true);
       } catch (error) {
         container.innerHTML = `
@@ -187,6 +202,10 @@
         this.saveTimer = null;
         if (this.store) this._persistNow();
       }
+      if (this.panelRefreshTimer) {
+        clearTimeout(this.panelRefreshTimer);
+        this.panelRefreshTimer = null;
+      }
       this.root = null;
       if (!options.preserveContainer) this.container = null;
     }
@@ -194,14 +213,39 @@
     async _load() {
       if (this.loaded) return;
       if (this.loadingPromise) return this.loadingPromise;
+      const projectsPromise = this.bridge.localProjects.list().catch(() => []);
       this.loadingPromise = Promise.all([
         this.bridge.relationshipBoards.get(),
-        this.bridge.localProjects.list().catch(() => []),
-        this.bridge.repos.getRegistry().catch(() => ({ repos: [] }))
-      ]).then(([result, projects, registry]) => {
+        this.bridge.repos.getRegistry().catch(() => ({ repos: [] })),
+        this.bridge.panel?.getTopology
+          ? this.bridge.panel.getTopology().catch(error => ({ state: 'error', error: error?.message || String(error) }))
+          : Promise.resolve({ state: 'unconfigured' })
+      ]).then(([result, registry, topologyResult]) => {
         this.store = Model.normalizeStore(result?.store).value;
-        this._setResources(projects, registry?.repos || []);
+        this.panelRepositories = Array.isArray(registry?.repos) ? registry.repos : [];
+        this._setResources([], this.panelRepositories);
+        this._setPanelTopology(topologyResult);
         this.loaded = true;
+        this.resourceLoadingPromise = projectsPromise.then(async projects => {
+          this.panelProjects = Array.isArray(projects) ? projects : [];
+          this._setResources(this.panelProjects, this.panelRepositories);
+          if (this.bridge.panel?.getProjectBindings && this.panelTopologyResult?.state === 'ready') {
+            const bindingResults = await Promise.all(this.panelProjects.map(project => (
+              this.bridge.panel.getProjectBindings(project.path).catch(() => ({ bindings: [] }))
+            )));
+            this.panelTopologyResult = {
+              ...this.panelTopologyResult,
+              bindings: bindingResults.flatMap(result => result?.bindings || [])
+            };
+          }
+          this._setPanelTopology(this.panelTopologyResult);
+          if (this.root?.isConnected) {
+            this.render();
+            this._schedulePanelRefresh();
+          }
+        }).finally(() => {
+          this.resourceLoadingPromise = null;
+        });
         if (result?.recovered) {
           const suffix = result.backupPath ? '；原文件已备份' : '';
           this.notify(`关系白板已从异常配置中恢复${suffix}`, 'warning');
@@ -210,6 +254,61 @@
         this.loadingPromise = null;
       });
       return this.loadingPromise;
+    }
+
+    _setPanelTopology(result = {}) {
+      const sameProvider = result.provider?.providerId
+        && result.provider.providerId === this.panelTopologyResult?.provider?.providerId;
+      const bindings = Array.isArray(result.bindings) && result.bindings.length
+        ? result.bindings
+        : (sameProvider ? (this.panelTopologyResult?.bindings || []) : []);
+      this.panelTopologyResult = { ...result, bindings };
+      this.panelLastError = result.state === 'error' ? String(result.error || 'Panel 同步失败') : '';
+      this.panelProjection = PanelTopologyProjection?.buildProjection?.({
+        ...this.panelTopologyResult,
+        projects: this.panelProjects,
+        repositories: this.panelRepositories,
+        existingEntities: this.store?.entities || []
+      }) || { entities: [], relationships: [], placements: [], metadata: { state: result.state || 'unconfigured' } };
+    }
+
+    _schedulePanelRefresh() {
+      if (this.panelRefreshTimer) clearTimeout(this.panelRefreshTimer);
+      this.panelRefreshTimer = null;
+      if (!this.root?.isConnected || !this.bridge?.panel?.getTopology) return;
+      if (!['ready', 'error'].includes(this.panelTopologyResult?.state)) return;
+      this.panelRefreshTimer = setTimeout(() => this._refreshPanelTopology(), PANEL_REFRESH_INTERVAL_MS);
+    }
+
+    async _refreshPanelTopology(options = {}) {
+      if (this.panelRefreshInFlight || !this.bridge?.panel?.getTopology) return false;
+      this.panelRefreshInFlight = true;
+      this._updatePanelStatus();
+      try {
+        const result = await this.bridge.panel.getTopology();
+        this._setPanelTopology(result);
+        if (this.root?.isConnected) {
+          this._renderGraph();
+          this._updateFilterSummary();
+          this._updateSummary();
+          this._updatePanelStatus();
+        }
+        if (options.announce) this.notify('Panel 动态拓扑已刷新', 'success');
+        return true;
+      } catch (error) {
+        this.panelLastError = error?.message || String(error);
+        if (!this.panelProjection?.entities?.length) {
+          this.panelTopologyResult = { state: 'error', error: this.panelLastError };
+          this.panelProjection = { entities: [], relationships: [], placements: [], metadata: { state: 'error' } };
+        }
+        this._updatePanelStatus();
+        if (options.announce) this.notify(`Panel 刷新失败：${this.panelLastError}`, 'error');
+        return false;
+      } finally {
+        this.panelRefreshInFlight = false;
+        this._updatePanelStatus();
+        this._schedulePanelRefresh();
+      }
     }
 
     _setResources(projects, repositories) {
@@ -239,6 +338,110 @@
       resources.sort((left, right) => left.name.localeCompare(right.name, 'zh-CN'));
       this.resources = resources;
       this.resourceMap = new Map(resources.map(resource => [resource.key, resource]));
+    }
+
+    _combinedEntities() {
+      const entities = [...(this.store?.entities || [])];
+      const ids = new Set(entities.map(entity => entity.id));
+      for (const entity of this.panelProjection?.entities || []) {
+        if (!ids.has(entity.id)) {
+          ids.add(entity.id);
+          entities.push(entity);
+        }
+      }
+      return entities;
+    }
+
+    _combinedPlacements(board = activeBoard(this.store)) {
+      const placements = [...(board?.placements || [])];
+      const ids = new Set(placements.map(placement => placement.entityId));
+      for (const placement of this.panelProjection?.placements || []) {
+        if (!ids.has(placement.entityId)) {
+          ids.add(placement.entityId);
+          placements.push(placement);
+        }
+      }
+      return placements;
+    }
+
+    _combinedRelationships(placements = this._combinedPlacements()) {
+      const placedIds = new Set(placements.map(placement => placement.entityId));
+      const relationships = [];
+      const facts = new Set();
+      for (const relationship of [
+        ...(this.store?.relationships || []),
+        ...(this.panelProjection?.relationships || [])
+      ]) {
+        if (!placedIds.has(relationship.sourceId) || !placedIds.has(relationship.targetId)) continue;
+        const factKey = `${relationship.type}\u0000${relationship.sourceId}\u0000${relationship.targetId}`;
+        if (facts.has(factKey)) continue;
+        facts.add(factKey);
+        relationships.push(relationship);
+      }
+      return relationships;
+    }
+
+    _allEntitiesById() {
+      return new Map(this._combinedEntities().map(entity => [entity.id, entity]));
+    }
+
+    _panelSnapshotStale() {
+      const generatedAt = new Date(this.panelProjection?.metadata?.generatedAt || 0);
+      const now = new Date(this.now());
+      return Number.isFinite(generatedAt.getTime())
+        && Number.isFinite(now.getTime())
+        && now.getTime() - generatedAt.getTime() > PANEL_STALE_AFTER_MS;
+    }
+
+    _relativeTime(value) {
+      const date = new Date(value || 0);
+      const now = new Date(this.now());
+      if (!Number.isFinite(date.getTime()) || !Number.isFinite(now.getTime())) return '时间未知';
+      const seconds = Math.max(0, Math.round((now.getTime() - date.getTime()) / 1000));
+      if (seconds < 10) return '刚刚';
+      if (seconds < 60) return `${seconds} 秒前`;
+      const minutes = Math.round(seconds / 60);
+      if (minutes < 60) return `${minutes} 分钟前`;
+      const hours = Math.round(minutes / 60);
+      if (hours < 24) return `${hours} 小时前`;
+      return `${Math.round(hours / 24)} 天前`;
+    }
+
+    _panelStatusView() {
+      const state = this.panelTopologyResult?.state || this.panelProjection?.metadata?.state || 'unconfigured';
+      const metadata = this.panelProjection?.metadata || {};
+      if (this.panelRefreshInFlight) return { state: 'loading', label: 'Panel 同步中…', title: '正在读取只读动态拓扑' };
+      if (this.panelLastError && metadata.deploymentCount) {
+        return {
+          state: 'error',
+          label: `Panel ${metadata.deploymentCount} 个部署 · 同步失败`,
+          title: `${this.panelLastError}；保留最后成功快照`
+        };
+      }
+      if (state === 'ready') {
+        const stale = this._panelSnapshotStale();
+        const failure = metadata.failureCount ? ` · ${metadata.failureCount} 个最近失败` : '';
+        return {
+          state: stale ? 'stale' : (metadata.failureCount ? 'warning' : 'ready'),
+          label: `Panel ${metadata.serverCount || 0} 台服务器 · ${metadata.deploymentCount || 0} 个部署${failure}`,
+          title: `最后同步 ${this._relativeTime(metadata.generatedAt)}${stale ? '；数据已陈旧' : ''}`
+        };
+      }
+      if (state === 'unsupported') return { state, label: 'Panel API 待升级', title: 'Provider 缺少 topology:read 只读能力' };
+      if (state === 'error') return { state, label: 'Panel 同步失败', title: this.panelLastError || '无法读取动态拓扑' };
+      return { state: 'unconfigured', label: 'Panel 未连接', title: '可在设置中连接 Xiangshu Panel' };
+    }
+
+    _updatePanelStatus() {
+      const element = this.root?.querySelector('[data-panel-topology-status]');
+      const refresh = this.root?.querySelector('[data-relationship-action="refresh-panel"]');
+      if (!element) return;
+      const status = this._panelStatusView();
+      element.parentElement.dataset.state = status.state;
+      element.dataset.state = status.state;
+      element.textContent = status.label;
+      element.title = status.title;
+      if (refresh) refresh.disabled = this.panelRefreshInFlight || !this.bridge?.panel?.getTopology;
     }
 
     revealResource(kind, refId) {
@@ -304,7 +507,7 @@
 
     _environmentOptions(selectedValue = '') {
       const values = new Set();
-      for (const entity of this.store?.entities || []) {
+      for (const entity of this._combinedEntities()) {
         const value = Model.cleanText(entity.details?.environment, 80);
         if (value) values.add(value);
       }
@@ -328,8 +531,8 @@
         : { width: NODE_WIDTH, height: NODE_HEIGHT };
     }
 
-    _placementGeometry(placement, placements = activeBoard(this.store)?.placements || []) {
-      const entitiesById = new Map((this.store?.entities || []).map(entity => [entity.id, entity]));
+    _placementGeometry(placement, placements = this._combinedPlacements()) {
+      const entitiesById = this._allEntitiesById();
       const entity = entitiesById.get(placement?.entityId);
       if (entity?.type !== 'group') {
         const { width, height } = this._nodeDimensions();
@@ -577,14 +780,12 @@
       const board = activeBoard(this.store);
       if (!board) return { placements: [], relationships: [], summaryRelationships: [], directIds: new Set(), contextualIds: new Set(), filterActive: false };
       const view = this._boardView();
-      const entitiesById = new Map(this.store.entities.map(entity => [entity.id, entity]));
-      const placedIds = new Set(board.placements.map(placement => placement.entityId));
-      const boardRelationships = this.store.relationships.filter(relationship => (
-        placedIds.has(relationship.sourceId) && placedIds.has(relationship.targetId)
-      ));
+      const entitiesById = this._allEntitiesById();
+      const placements = this._combinedPlacements(board);
+      const boardRelationships = this._combinedRelationships(placements);
       const filterActive = this._hasActiveFilters(view);
       const directIds = new Set();
-      for (const placement of board.placements) {
+      for (const placement of placements) {
         const entity = entitiesById.get(placement.entityId);
         if (!entity) continue;
         const resource = entity.refId ? this.resourceMap.get(`${entity.type}:${entity.refId}`) : null;
@@ -601,7 +802,7 @@
       }
       const contextualIds = new Set([...visibleIds].filter(entityId => !directIds.has(entityId)));
       return this._deploymentSummaryProjection({
-        placements: board.placements.filter(placement => visibleIds.has(placement.entityId)),
+        placements: placements.filter(placement => visibleIds.has(placement.entityId)),
         relationships: boardRelationships.filter(relationship => (
           visibleIds.has(relationship.sourceId) && visibleIds.has(relationship.targetId)
         )),
@@ -638,6 +839,10 @@
               <button class="relationship-tool-button" data-relationship-action="rename-board" type="button" title="重命名白板" aria-label="重命名白板">✎</button>
             </div>
             <div class="relationship-toolbar-spacer"></div>
+            <div class="relationship-panel-status" data-state="${escapeHtml(this._panelStatusView().state)}">
+              <span data-panel-topology-status title="${escapeHtml(this._panelStatusView().title)}">${escapeHtml(this._panelStatusView().label)}</span>
+              <button class="relationship-tool-button" data-relationship-action="refresh-panel" type="button" title="刷新 Panel 动态拓扑" aria-label="刷新 Panel 动态拓扑">↻</button>
+            </div>
             <div class="relationship-filter-host">
               <button class="relationship-tool-button relationship-filter-trigger" data-relationship-action="toggle-filter-menu" type="button" aria-haspopup="dialog" aria-expanded="false">
                 <span aria-hidden="true">⌕</span><span>筛选</span><span class="relationship-filter-count" hidden></span><span aria-hidden="true">⌄</span>
@@ -711,6 +916,7 @@
       this._renderGraph();
       this._updateFilterSummary();
       this._updateSummary();
+      this._updatePanelStatus();
     }
 
     _bindRootEvents() {
@@ -779,6 +985,10 @@
       if (action === 'undo') this.undo();
       if (action === 'redo') this.redo();
       if (action === 'fit') this.fitContent();
+      if (action === 'refresh-panel') {
+        this._refreshPanelTopology({ announce: true });
+        return;
+      }
       if (action === 'import-json') {
         this._closeAddMenu();
         this._importRelationshipJson();
@@ -811,6 +1021,21 @@
       const locateEntityId = event.target.closest('[data-relationship-locate-entity]')?.dataset.relationshipLocateEntity;
       if (locateEntityId) {
         this._focusEntityOnBoard(locateEntityId);
+        return;
+      }
+
+      const panelExternalUrl = event.target.closest('[data-panel-open-external]')?.dataset.panelOpenExternal;
+      if (panelExternalUrl) {
+        this.bridge.panel?.openExternal?.(panelExternalUrl).catch(error => {
+          this.notify(`无法打开链接：${error?.message || String(error)}`, 'error');
+        });
+        return;
+      }
+
+      const revealRepositoryId = event.target.closest('[data-panel-reveal-repository]')?.dataset.panelRevealRepository;
+      if (revealRepositoryId) {
+        this.revealResource('repository', revealRepositoryId);
+        this._setPanelTopology(this.panelTopologyResult);
         return;
       }
 
@@ -1010,7 +1235,7 @@
       if (this.selectedRelationshipId && !graph.relationships.some(item => item.id === this.selectedRelationshipId)) {
         this.selectedRelationshipId = '';
       }
-      const entitiesById = new Map(this.store.entities.map(entity => [entity.id, entity]));
+      const entitiesById = this._allEntitiesById();
       const groupFrames = graph.placements.filter(placement => entitiesById.get(placement.entityId)?.type === 'group');
       const regularNodes = graph.placements.filter(placement => entitiesById.get(placement.entityId)?.type !== 'group');
       nodeLayer.innerHTML = groupFrames.map(placement => {
@@ -1030,14 +1255,16 @@
         const entity = entitiesById.get(placement.entityId);
         if (!entity) return '';
         const resource = entity.refId ? this.resourceMap.get(`${entity.type}:${entity.refId}`) : null;
-        const stale = Boolean(entity.refId && !resource);
+        const stale = Boolean((entity.refId && !resource) || (entity.transient && this._panelSnapshotStale()));
         const name = resource?.name || entity.name;
         const details = this._entitySubtitle(entity, resource, stale);
         const verification = Model.verificationStatus(entity, { now: this.now() });
-        const hasInput = Model.RELATIONSHIP_TYPES.some(type => Object.values(Model.CONNECTIONS[type] || []).some(pair => pair[1] === entity.type));
-        const hasOutput = Model.RELATIONSHIP_TYPES.some(type => Object.values(Model.CONNECTIONS[type] || []).some(pair => pair[0] === entity.type));
+        const hasInput = !entity.transient && Model.RELATIONSHIP_TYPES.some(type => Object.values(Model.CONNECTIONS[type] || []).some(pair => pair[1] === entity.type));
+        const hasOutput = !entity.transient && Model.RELATIONSHIP_TYPES.some(type => Object.values(Model.CONNECTIONS[type] || []).some(pair => pair[0] === entity.type));
+        const runtimeStatus = entity.runtime?.status || '';
+        const recentFailure = entity.runtime?.recentFailure?.hasFailure === true;
         return `
-          <article class="relationship-node verification-${verification.state}${stale ? ' stale' : ''}${graph.contextualIds.has(entity.id) ? ' filter-context' : ''}" data-entity-id="${escapeHtml(entity.id)}" data-entity-type="${entity.type}" data-verification-state="${verification.state}" tabindex="0" role="button" aria-label="${escapeHtml(name)}，${TYPE_LABELS[entity.type]}，${verification.label}${graph.contextualIds.has(entity.id) ? '，关系上下文' : ''}" aria-pressed="false" style="transform:translate(${placement.x}px,${placement.y}px)">
+          <article class="relationship-node verification-${verification.state}${entity.transient ? ' panel-dynamic' : ''}${recentFailure ? ' panel-recent-failure' : ''}${stale ? ' stale' : ''}${graph.contextualIds.has(entity.id) ? ' filter-context' : ''}" data-entity-id="${escapeHtml(entity.id)}" data-entity-type="${entity.type}" data-runtime-status="${escapeHtml(runtimeStatus)}" data-verification-state="${verification.state}" tabindex="0" role="button" aria-label="${escapeHtml(name)}，${TYPE_LABELS[entity.type]}，${entity.transient ? 'Panel 只读观测，' : ''}${verification.label}${graph.contextualIds.has(entity.id) ? '，关系上下文' : ''}" aria-pressed="false" style="transform:translate(${placement.x}px,${placement.y}px)">
             ${hasInput ? '<button class="relationship-port relationship-port-input" data-direction="in" type="button" tabindex="-1" aria-hidden="true"></button>' : ''}
             <div class="relationship-node-header">
               <span class="relationship-node-icon">${TYPE_ICONS[entity.type]}</span>
@@ -1085,8 +1312,17 @@
     }
 
     _entitySubtitle(entity, resource, stale) {
-      if (stale) return '引用已失效 · 保留关系事实';
+      if (stale && !entity.transient) return '引用已失效 · 保留关系事实';
       if (resource) return resource.secondary;
+      if (entity.runtime?.dynamicKind === 'panel-server') {
+        const latency = entity.runtime.latencyMs === null ? '延迟未知' : `${entity.runtime.latencyMs} ms`;
+        return `${entity.runtime.status || 'unknown'} · ${latency} · 更新 ${this._relativeTime(entity.runtime.observedAt)}`;
+      }
+      if (entity.runtime?.dynamicKind === 'panel-deployment') {
+        const latency = entity.runtime.latencyMs === null ? '延迟未知' : `${entity.runtime.latencyMs} ms`;
+        const failure = entity.runtime.recentFailure?.hasFailure ? '最近部署失败：是' : '最近部署失败：否';
+        return `${entity.runtime.environmentName || '默认环境'} · ${entity.runtime.status || 'unknown'} · ${latency} · ${failure}`;
+      }
       if (entity.type === 'server') return entity.details.hostLabel || entity.details.environment || '手工服务器节点';
       if (entity.type === 'deployment') {
         return [
@@ -1120,11 +1356,11 @@
 
     _serverDeploymentContext(serverId) {
       if (!serverId || !this.store) return [];
-      const entitiesById = new Map(this.store.entities.map(entity => [entity.id, entity]));
-      const relationships = this.store.relationships || [];
+      const entitiesById = this._allEntitiesById();
+      const relationships = this._combinedRelationships();
       const sourceRelationships = relationships.filter(relationship => relationship.type === 'source_of');
       const containsRelationships = relationships.filter(relationship => relationship.type === 'contains');
-      const placedIds = new Set(activeBoard(this.store)?.placements.map(item => item.entityId) || []);
+      const placedIds = new Set(this._combinedPlacements().map(item => item.entityId));
       return relationships
         .filter(relationship => relationship.type === 'runs_on' && relationship.targetId === serverId)
         .map(relationship => {
@@ -1189,8 +1425,8 @@
 
     _focusEntityOnBoard(entityId) {
       const board = activeBoard(this.store);
-      const entity = this.store?.entities.find(candidate => candidate.id === entityId);
-      const placement = board?.placements.find(candidate => candidate.entityId === entityId);
+      const entity = this._allEntitiesById().get(entityId);
+      const placement = this._combinedPlacements(board).find(candidate => candidate.entityId === entityId);
       if (!board || !entity || !placement) {
         this.notify('该关联节点未放在当前白板中', 'warning');
         return false;
@@ -1221,11 +1457,11 @@
     _selectedFact() {
       const selectedIds = this._entitySelectionIds();
       if (selectedIds.size === 1) {
-        const value = this.store.entities.find(entity => entity.id === this.selectedEntityId);
+        const value = this._allEntitiesById().get(this.selectedEntityId);
         if (value) return { kind: 'entity', value };
       }
       if (this.selectedRelationshipId) {
-        const value = this.store.relationships.find(relationship => relationship.id === this.selectedRelationshipId);
+        const value = this._combinedRelationships().find(relationship => relationship.id === this.selectedRelationshipId);
         if (value) return { kind: 'relationship', value };
       }
       return null;
@@ -1283,13 +1519,106 @@
       }).join('');
     }
 
+    _runtimeInspectorRows(entity) {
+      const runtime = entity.runtime || {};
+      const rows = [];
+      const add = (label, value, title = '') => {
+        if (value === null || value === undefined || value === '') return;
+        rows.push(`<div><dt>${escapeHtml(label)}</dt><dd${title ? ` title="${escapeHtml(title)}"` : ''}>${escapeHtml(value)}</dd></div>`);
+      };
+      add('当前状态', runtime.status || 'unknown');
+      if (entity.type === 'server') {
+        add('最近延迟', runtime.latencyMs === null ? '未知' : `${runtime.latencyMs} ms`);
+        add('部署资源', `${runtime.resourceCount || 0} 个`);
+        add('最后观测', this._relativeTime(runtime.observedAt), runtime.observedAt);
+        add('最后在线', this._relativeTime(runtime.lastSeenAt), runtime.lastSeenAt);
+      } else if (entity.type === 'deployment') {
+        add('环境', runtime.environmentName || '默认环境');
+        add('服务器', runtime.serverName || '未知服务器');
+        add('访问延迟', runtime.latencyMs === null ? '未知' : `${runtime.latencyMs} ms${runtime.latencyKind ? ` · ${runtime.latencyKind}` : ''}`);
+        add('最后观测', this._relativeTime(runtime.observedAt), runtime.observedAt);
+        add('最近部署失败', runtime.recentFailure?.hasFailure ? '是' : '否');
+        if (runtime.recentFailure?.hasFailure) {
+          add('失败时间', this._relativeTime(runtime.recentFailure.occurredAt), runtime.recentFailure.occurredAt);
+          add('失败摘要', runtime.recentFailure.message || '未提供原因');
+          if (runtime.recentFailure.recoveredAt) add('恢复时间', this._relativeTime(runtime.recentFailure.recoveredAt), runtime.recentFailure.recoveredAt);
+        }
+        add('分支', runtime.branch);
+        add('部署提交', runtime.commit, runtime.commit);
+        add('镜像', runtime.imageReference, runtime.imageReference);
+      }
+      return rows.join('');
+    }
+
+    _renderTransientInspector(selected) {
+      const panel = this.root?.querySelector('.relationship-inspector-panel');
+      const body = this.root?.querySelector('.relationship-body');
+      if (!panel || !body) return;
+      const fact = selected.value;
+      const entitiesById = this._allEntitiesById();
+      let heading;
+      let subheading;
+      let content;
+      if (selected.kind === 'relationship') {
+        const source = entitiesById.get(fact.sourceId);
+        const target = entitiesById.get(fact.targetId);
+        heading = RELATIONSHIP_LABELS[fact.type] || fact.type;
+        subheading = 'Panel 派生关系 · 只读';
+        content = `
+          <dl class="relationship-inspector-identity">
+            <div><dt>起点</dt><dd>${escapeHtml(this._entityDisplayName(source))}</dd></div>
+            <div><dt>终点</dt><dd>${escapeHtml(this._entityDisplayName(target))}</dd></div>
+            <div><dt>来源</dt><dd>Panel 动态拓扑</dd></div>
+          </dl>`;
+      } else {
+        heading = this._entityDisplayName(fact);
+        subheading = fact.runtime?.dynamicKind
+          ? `${TYPE_LABELS[fact.type]} · Panel 只读观测`
+          : `${TYPE_LABELS[fact.type]} · 动态投影引用`;
+        const runtime = fact.runtime || {};
+        const localResource = fact.refId ? this.resourceMap.get(`${fact.type}:${fact.refId}`) : null;
+        const repositoryIds = Array.isArray(runtime.repositoryIds) ? runtime.repositoryIds : [];
+        const missingIds = new Set(runtime.missingRepositoryIds || []);
+        const repositoriesHtml = fact.type === 'deployment' ? `
+          <div class="relationship-inspector-section-title">本地仓库关联</div>
+          <ul class="relationship-panel-repository-list">
+            ${repositoryIds.length ? repositoryIds.map(repositoryId => {
+              const resource = this.resourceMap.get(`repository:${repositoryId}`);
+              return `<li data-state="${missingIds.has(repositoryId) ? 'missing' : 'ready'}">
+                <div><strong>${escapeHtml(resource?.name || repositoryId)}</strong><small title="${escapeHtml(resource?.path || '')}">${escapeHtml(resource?.path || '本机尚无该仓库')}</small></div>
+                ${resource ? `<button type="button" data-panel-reveal-repository="${escapeHtml(repositoryId)}">定位</button>` : ''}
+              </li>`;
+            }).join('') : '<li data-state="unlinked"><div><strong>未关联本地仓库</strong><small>请在项目部署关联中选择 repositoryId</small></div></li>'}
+          </ul>` : '';
+        const externalActions = [
+          runtime.panelUrl ? `<button class="relationship-primary-button" type="button" data-panel-open-external="${escapeHtml(runtime.panelUrl)}">打开 Panel</button>` : '',
+          runtime.coolifyUrl ? `<button class="relationship-secondary-button" type="button" data-panel-open-external="${escapeHtml(runtime.coolifyUrl)}">打开 Coolify</button>` : ''
+        ].filter(Boolean).join('');
+        content = `
+          ${fact.refId ? `<dl class="relationship-inspector-identity"><div><dt>稳定身份</dt><dd title="${escapeHtml(fact.refId)}">${escapeHtml(fact.refId)}</dd></div><div><dt>当前解析位置</dt><dd title="${escapeHtml(localResource?.path || '')}">${escapeHtml(localResource?.path || '本机尚无该资源')}</dd></div></dl>` : `<dl class="relationship-inspector-identity relationship-runtime-facts">${this._runtimeInspectorRows(fact)}</dl>`}
+          ${repositoriesHtml}
+          ${externalActions ? `<div class="relationship-inspector-actions">${externalActions}</div>` : ''}`;
+      }
+      panel.hidden = false;
+      body.classList.add('has-inspector');
+      panel.innerHTML = `
+        <header class="relationship-inspector-header">
+          <div><small>${escapeHtml(subheading)}</small><h3>${escapeHtml(heading)}</h3></div>
+          <button type="button" data-relationship-action="close-inspector" aria-label="关闭关系详情" title="关闭详情">×</button>
+        </header>
+        <div class="relationship-runtime-inspector">
+          ${content}
+          <p class="relationship-inspector-boundary">动态事实来自 Panel，不写入本机白板，也不会触发部署或修改 Git。</p>
+        </div>`;
+    }
+
     _renderInspector() {
       const panel = this.root?.querySelector('.relationship-inspector-panel');
       const body = this.root?.querySelector('.relationship-body');
       if (!panel || !body) return;
       const selectedIds = this._entitySelectionIds();
       if (selectedIds.size > 1) {
-        const selectedEntities = this.store.entities.filter(entity => selectedIds.has(entity.id));
+        const selectedEntities = this._combinedEntities().filter(entity => selectedIds.has(entity.id));
         const selectedMembers = selectedEntities.filter(entity => entity.type !== 'group');
         const board = activeBoard(this.store);
         const groupOptions = (board?.placements || []).map(placement => (
@@ -1331,6 +1660,10 @@
       }
 
       const fact = selected.value;
+      if (fact.transient) {
+        this._renderTransientInspector(selected);
+        return;
+      }
       const isVisualGroup = selected.kind === 'entity' && fact.type === 'group';
       let heading = '';
       let subheading = '';
@@ -1353,8 +1686,9 @@
           </label>`}${this._entityDetailFieldsHtml(fact)}`;
         if (fact.type === 'server') contextHtml = this._serverDeploymentContextHtml(fact.id);
       } else {
-        const source = this.store.entities.find(entity => entity.id === fact.sourceId);
-        const target = this.store.entities.find(entity => entity.id === fact.targetId);
+        const entitiesById = this._allEntitiesById();
+        const source = entitiesById.get(fact.sourceId);
+        const target = entitiesById.get(fact.targetId);
         heading = RELATIONSHIP_LABELS[fact.type];
         subheading = `${this._entityDisplayName(source)} → ${this._entityDisplayName(target)}`;
         identityHtml = `
@@ -1488,9 +1822,9 @@
     }
 
     _edgeGeometry(relationship, overrideTarget = null) {
-      const board = activeBoard(this.store);
-      const source = board?.placements.find(placement => placement.entityId === relationship.sourceId);
-      const target = overrideTarget || board?.placements.find(placement => placement.entityId === relationship.targetId);
+      const placements = this._combinedPlacements(activeBoard(this.store));
+      const source = placements.find(placement => placement.entityId === relationship.sourceId);
+      const target = overrideTarget || placements.find(placement => placement.entityId === relationship.targetId);
       if (!source || !target) return null;
       const { width, height } = this._nodeDimensions();
       const pointerTarget = Boolean(overrideTarget);
@@ -1534,7 +1868,7 @@
 
     _updateGroupFrames() {
       const graph = this._filteredGraph();
-      const entitiesById = new Map(this.store.entities.map(entity => [entity.id, entity]));
+      const entitiesById = this._allEntitiesById();
       for (const placement of graph.placements) {
         if (entitiesById.get(placement.entityId)?.type !== 'group') continue;
         const frame = this.root?.querySelector(`[data-entity-id="${escapeSelectorValue(placement.entityId)}"]`);
@@ -2293,7 +2627,7 @@
         boardName: board.name,
         nodeCount: graph.placements.length,
         relationshipCount: graph.relationships.length,
-        totalNodeCount: board.placements.length,
+        totalNodeCount: this._combinedPlacements(board).length,
         filterActive: graph.filterActive
       });
     }

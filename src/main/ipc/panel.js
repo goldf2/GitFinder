@@ -19,6 +19,8 @@ function registerPanelIPC(options = {}) {
   registerTrustedHandler('panel:connect', async (event, values = {}) => service.connect(values));
   registerTrustedHandler('panel:disconnect', async () => service.disconnect());
   registerTrustedHandler('panel:getCatalog', async () => service.getCatalog());
+  registerTrustedHandler('panel:getTopology', async () => service.getTopology());
+  registerTrustedHandler('panel:getProjectBindings', async (event, directoryPath) => service.getProjectBindings(directoryPath));
   registerTrustedHandler('panel:getProjectDeployments', async (event, directoryPath) => service.getProjectDeployments(directoryPath));
   registerTrustedHandler('panel:saveProjectBinding', async (event, directoryPath, binding = {}) => service.saveProjectBinding(directoryPath, binding));
   registerTrustedHandler('panel:clearProjectBindings', async (event, directoryPath) => service.clearProjectBindings(directoryPath));

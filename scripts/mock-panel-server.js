@@ -6,6 +6,16 @@ const host = '127.0.0.1';
 const port = Number(process.env.GITFINDER_PANEL_MOCK_PORT || 4786);
 const token = process.env.GITFINDER_PANEL_MOCK_TOKEN || 'mock-panel-read-token';
 const observedAt = new Date().toISOString();
+const topologyServer = {
+  nodeId: 'node_con01',
+  name: 'Con01',
+  status: 'online',
+  observedAt,
+  lastSeenAt: observedAt,
+  latencyMs: 28,
+  resourceCount: 2,
+  panelUrl: `http://${host}:${port}/nodes/node_con01`
+};
 const resource = {
   resourceUuid: 'resource_demo',
   nodeId: 'node_con01',
@@ -21,6 +31,37 @@ const resource = {
   panelUrl: `http://${host}:${port}/resources/resource_demo`,
   coolifyUrl: 'https://cool.example.test/project/resource_demo',
   observedAt
+};
+const failedResource = {
+  ...resource,
+  resourceUuid: 'resource_failed_demo',
+  name: 'GitFinder Worker',
+  status: 'degraded',
+  domains: [],
+  latencyMs: null,
+  latencyKind: '',
+  branch: 'main',
+  commit: '89abcdef01234567',
+  panelUrl: `http://${host}:${port}/resources/resource_failed_demo`,
+  coolifyUrl: 'https://cool.example.test/project/resource_failed_demo',
+  lastDeployment: {
+    deploymentUuid: 'deployment_failed_demo',
+    status: 'failed',
+    success: false,
+    createdAt: observedAt,
+    updatedAt: observedAt,
+    finishedAt: observedAt,
+    branch: 'main',
+    commit: '89abcdef01234567',
+    message: 'Mock health check failed'
+  },
+  recentFailure: {
+    hasFailure: true,
+    occurredAt: observedAt,
+    deploymentUuid: 'deployment_failed_demo',
+    message: 'Mock health check failed',
+    recoveredAt: null
+  }
 };
 
 function sendJson(response, statusCode, value) {
@@ -45,18 +86,40 @@ const server = http.createServer((request, response) => {
   }
   if (url.pathname === '/api/gitfinder/v1/capabilities') {
     sendJson(response, 200, {
-      apiVersion: '1.0',
+      apiVersion: '1.1',
       providerKind: 'xiangshu-panel',
-      capabilities: ['catalog:read', 'snapshots:read', 'events:read']
+      capabilities: ['catalog:read', 'snapshots:read', 'topology:read', 'events:read']
     });
     return;
   }
   if (url.pathname === '/api/gitfinder/v1/catalog') {
-    sendJson(response, 200, { apiVersion: '1.0', resources: [resource] });
+    sendJson(response, 200, { apiVersion: '1.1', resources: [resource, failedResource] });
     return;
   }
   if (url.pathname === '/api/gitfinder/v1/snapshot' && url.searchParams.get('resourceUuid') === resource.resourceUuid) {
-    sendJson(response, 200, { apiVersion: '1.0', resource: { ...resource, observedAt: new Date().toISOString() } });
+    sendJson(response, 200, { apiVersion: '1.1', resource: { ...resource, observedAt: new Date().toISOString() } });
+    return;
+  }
+  if (url.pathname === '/api/gitfinder/v1/topology') {
+    const currentObservedAt = new Date().toISOString();
+    sendJson(response, 200, {
+      apiVersion: '1.1',
+      generatedAt: currentObservedAt,
+      cursor: `mock_${Date.now()}`,
+      servers: [{ ...topologyServer, observedAt: currentObservedAt, lastSeenAt: currentObservedAt }],
+      deployments: [
+        {
+          ...resource,
+          observedAt: currentObservedAt,
+          latencyMs: 42,
+          latencyKind: 'http',
+          branch: 'main',
+          commit: '0123456789abcdef',
+          recentFailure: { hasFailure: false }
+        },
+        { ...failedResource, observedAt: currentObservedAt }
+      ]
+    });
     return;
   }
   sendJson(response, 404, { error: 'not_found' });

@@ -9,12 +9,12 @@ GitFinder 2.0 的定位是“本地开发与部署管理中心”。它是与 Gi
 | 状态 | 结论 |
 | --- | --- |
 | 已记录 | 产品定位、1.x/2.0 边界、Panel 集成边界和 Alpha 闭环 |
-| 已设计 | 复用分类、凭据与便携配置边界、最小垂直切片及验收标准 |
-| 已实现 | 1.x v1.30.13 Finder 式界面基线、只读 Panel Provider、系统安全凭据、显式项目关联和原生部署详情 |
-| 已验证 | 638 项测试、macOS arm64 构建与实际 App 启动；本地假 Panel 的连接、关联和详情显示端到端通过 |
-| 尚未验证 | 真实 Xiangshu Panel API、真实 Windows x64 runner/虚拟机、白板部署投影、事件与系统通知 |
+| 已设计 | 复用分类、凭据边界、Panel 动态拓扑契约、repositoryId 身份与白板投影验收 |
+| 已实现 | 1.x v1.30.13 界面基线、只读 Panel Provider、v2 多仓库关联、服务器/部署动态白板、延迟/更新时间/最近失败与部署提交详情 |
+| 已验证 | 648 项测试与 183 个 JavaScript 文件语法检查通过；本地 Mock Panel 的拓扑规范化、稳定关联、只读投影和 macOS 安装包可见闭环通过 |
+| 尚未验证 | 真实 Xiangshu Panel `/topology` API、真实 Windows x64 runner/虚拟机、SSE 事件与系统通知；ad-hoc 更新后的普通 macOS 启动仍需完成旧 Safe Storage 钥匙串授权 |
 
-当前开发版本为 `2.0.0-alpha.2`。它是本地可运行的开发 Alpha，不是稳定发布版；完整 MVS-01 仍需真实 Panel、真实 Windows、白板和通知验收。
+当前开发版本为 `2.0.0-alpha.3`。它是本地可运行的开发 Alpha，不是稳定发布版；完整 MVS-01 仍需真实 Panel、真实 Windows、事件和通知验收。
 
 ## 产品边界
 
@@ -36,6 +36,10 @@ GitFinder 2.0 的定位是“本地开发与部署管理中心”。它是与 Gi
 
 - [领域上下文](./CONTEXT.md)
 - [ADR-0001：2.0 独立架构与复用边界](./docs/adr/0001-independent-architecture.md)
+- [ADR-0002：Panel 动态拓扑与仓库稳定身份](./docs/adr/0002-panel-topology-and-repository-identity.md)
 - [Alpha 1 最小垂直切片与验收](./docs/product/alpha-1-vertical-slice.md)
 - [Panel 原生界面整合方案](./docs/product/panel-ui-integration.md)
+- [Panel 动态拓扑 API v1](./docs/contracts/panel-topology-api-v1.md)
+- [动态部署关系白板](./docs/product/dynamic-deployment-board.md)
 - [2.0.0-alpha.1 MVS-01 阶段验证记录](./docs/verification/2.0.0-alpha.1-mvs-01.md)
+- [2.0.0-alpha.3 Panel 动态白板验证记录](./docs/verification/2.0.0-alpha.3-panel-topology.md)

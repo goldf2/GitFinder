@@ -3,13 +3,16 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const PROVIDER_SCHEMA_VERSION = 1;
-const BINDINGS_SCHEMA_VERSION = 1;
+const BINDINGS_SCHEMA_VERSION = 2;
 const API_MAJOR_VERSION = 1;
 const API_PREFIX = '/api/gitfinder/v1';
 const REQUEST_TIMEOUT_MS = 12_000;
 const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
 const MAX_CATALOG_RESOURCES = 2_000;
+const MAX_TOPOLOGY_SERVERS = 256;
+const MAX_TOPOLOGY_DEPLOYMENTS = 2_000;
 const MAX_PROJECT_BINDINGS = 50;
+const MAX_BINDING_REPOSITORIES = 8;
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
 const ID_PATTERN = /^[a-z0-9][a-z0-9_.:-]{0,179}$/i;
 
@@ -107,9 +110,65 @@ function normalizeDomains(value) {
   return domains;
 }
 
+function normalizeTimestamp(value, label, { optional = false } = {}) {
+  if ((value === null || value === undefined || value === '') && optional) return null;
+  const date = new Date(value || 0);
+  if (!Number.isFinite(date.getTime())) throw new Error(`Panel ${label}缺少有效时间`);
+  return date.toISOString();
+}
+
+function normalizeLatency(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const latency = Number(value);
+  if (!Number.isFinite(latency) || latency < 0 || latency > 600_000) {
+    throw new Error('Panel 返回了无效延迟');
+  }
+  return Math.round(latency * 100) / 100;
+}
+
+function normalizeDeploymentAttempt(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  return {
+    deploymentUuid: normalizeIdentifier(value.deploymentUuid, '部署事件 ID'),
+    status: cleanText(value.status, 80, 'unknown').toLowerCase(),
+    success: Boolean(value.success),
+    createdAt: normalizeTimestamp(value.createdAt, '部署创建时间'),
+    updatedAt: normalizeTimestamp(value.updatedAt || value.finishedAt || value.createdAt, '部署更新时间'),
+    finishedAt: normalizeTimestamp(value.finishedAt, '部署完成时间', { optional: true }),
+    branch: cleanText(value.branch, 240),
+    commit: cleanText(value.commit, 160),
+    message: cleanText(value.message, 500)
+  };
+}
+
+function normalizeRecentFailure(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value) || value.hasFailure !== true) {
+    return { hasFailure: false, occurredAt: null, deploymentUuid: '', message: '', recoveredAt: null };
+  }
+  return {
+    hasFailure: true,
+    occurredAt: normalizeTimestamp(value.occurredAt, '最近失败时间'),
+    deploymentUuid: normalizeIdentifier(value.deploymentUuid, '失败部署 ID', { required: false }),
+    message: cleanText(value.message, 500),
+    recoveredAt: normalizeTimestamp(value.recoveredAt, '恢复时间', { optional: true })
+  };
+}
+
+function normalizeServer(value = {}) {
+  return {
+    nodeId: normalizeIdentifier(value.nodeId, '节点 ID'),
+    name: cleanText(value.name, 160, '未命名服务器'),
+    status: cleanText(value.status, 80, 'unknown').toLowerCase(),
+    environmentName: cleanText(value.environmentName, 120),
+    observedAt: normalizeTimestamp(value.observedAt || value.updatedAt, '服务器观测时间'),
+    lastSeenAt: normalizeTimestamp(value.lastSeenAt || value.observedAt || value.updatedAt, '服务器最后在线时间'),
+    latencyMs: normalizeLatency(value.latencyMs),
+    resourceCount: Math.max(0, Math.min(20_000, Number.isInteger(Number(value.resourceCount)) ? Number(value.resourceCount) : 0)),
+    panelUrl: normalizeUrl(value.panelUrl)
+  };
+}
+
 function normalizeResource(value = {}) {
-  const observedAt = new Date(value.observedAt || value.updatedAt || 0);
-  if (!Number.isFinite(observedAt.getTime())) throw new Error('Panel 资源缺少有效观测时间');
   return {
     resourceUuid: normalizeIdentifier(value.resourceUuid, '资源 ID'),
     nodeId: normalizeIdentifier(value.nodeId, '节点 ID'),
@@ -122,9 +181,40 @@ function normalizeResource(value = {}) {
     projectName: cleanText(value.projectName, 160),
     environmentName: cleanText(value.environmentName, 120, '默认环境'),
     domains: normalizeDomains(value.domains),
+    latencyMs: normalizeLatency(value.latencyMs),
+    latencyKind: cleanText(value.latencyKind, 40).toLowerCase(),
+    branch: cleanText(value.branch, 240),
+    commit: cleanText(value.commit, 160),
+    imageReference: cleanText(value.imageReference, 500),
+    imageDigest: cleanText(value.imageDigest, 240),
+    lastDeployment: normalizeDeploymentAttempt(value.lastDeployment),
+    recentFailure: normalizeRecentFailure(value.recentFailure),
     panelUrl: normalizeUrl(value.panelUrl),
     coolifyUrl: normalizeUrl(value.coolifyUrl),
-    observedAt: observedAt.toISOString()
+    observedAt: normalizeTimestamp(value.observedAt || value.updatedAt, '资源观测时间')
+  };
+}
+
+function normalizeTopology(value = {}) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('Panel Topology 响应格式无效');
+  }
+  const apiVersion = normalizeApiVersion(value.apiVersion);
+  if (!Array.isArray(value.servers) || !Array.isArray(value.deployments)) {
+    throw new Error('Panel Topology 缺少服务器或部署列表');
+  }
+  if (value.servers.length > MAX_TOPOLOGY_SERVERS) {
+    throw new Error(`Panel Topology 服务器数量超过 ${MAX_TOPOLOGY_SERVERS} 个的安全上限`);
+  }
+  if (value.deployments.length > MAX_TOPOLOGY_DEPLOYMENTS) {
+    throw new Error(`Panel Topology 部署数量超过 ${MAX_TOPOLOGY_DEPLOYMENTS} 个的安全上限`);
+  }
+  return {
+    apiVersion,
+    generatedAt: normalizeTimestamp(value.generatedAt || value.observedAt, '拓扑生成时间'),
+    cursor: cleanText(value.cursor, 500),
+    servers: value.servers.map(normalizeServer),
+    deployments: value.deployments.map(normalizeResource)
   };
 }
 
@@ -167,6 +257,15 @@ function normalizeBinding(value = {}) {
     || path.posix.normalize(repositoryRelativePath.replace(/\\/g, '/')) === '..'
     || path.posix.normalize(repositoryRelativePath.replace(/\\/g, '/')).startsWith('../')
   )) throw new Error('关联仓库必须使用项目内相对路径');
+  const repositoryIdsInput = Array.isArray(value.repositoryIds) ? value.repositoryIds : [];
+  if (repositoryIdsInput.length > MAX_BINDING_REPOSITORIES) {
+    throw new Error(`一个部署最多关联 ${MAX_BINDING_REPOSITORIES} 个仓库`);
+  }
+  const repositoryIds = [...new Set(repositoryIdsInput.map(item => normalizeIdentifier(item, '仓库 ID')))];
+  const primaryRepositoryId = normalizeIdentifier(value.primaryRepositoryId, '主仓库 ID', { required: false });
+  if (primaryRepositoryId && !repositoryIds.includes(primaryRepositoryId)) {
+    throw new Error('主仓库必须包含在关联仓库列表中');
+  }
   return {
     providerKind: 'xiangshu-panel',
     providerId: normalizeIdentifier(value.providerId, 'Provider ID'),
@@ -174,6 +273,8 @@ function normalizeBinding(value = {}) {
     projectUuid: normalizeIdentifier(value.projectUuid, 'Panel 项目 ID'),
     environmentUuid: normalizeIdentifier(value.environmentUuid, '环境 ID'),
     resourceUuid: normalizeIdentifier(value.resourceUuid, '资源 ID'),
+    repositoryIds,
+    ...(primaryRepositoryId ? { primaryRepositoryId } : {}),
     ...(repositoryRelativePath ? { repositoryRelativePath: path.posix.normalize(repositoryRelativePath.replace(/\\/g, '/')) } : {})
   };
 }
@@ -376,7 +477,7 @@ class PanelProviderService {
       throw new Error('项目部署关联文件无效');
     }
     const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    if (Number(parsed.schemaVersion) !== BINDINGS_SCHEMA_VERSION || !Array.isArray(parsed.bindings)) {
+    if (![1, BINDINGS_SCHEMA_VERSION].includes(Number(parsed.schemaVersion)) || !Array.isArray(parsed.bindings)) {
       throw new Error('项目部署关联版本不受支持');
     }
     if (parsed.bindings.length > MAX_PROJECT_BINDINGS) throw new Error('项目部署关联数量超过安全上限');
@@ -428,8 +529,37 @@ class PanelProviderService {
     };
   }
 
+  async getTopology() {
+    const provider = this._loadProvider();
+    const emptyTopology = { apiVersion: provider?.apiVersion || '1.0', generatedAt: '', cursor: '', servers: [], deployments: [] };
+    if (!provider) {
+      return { state: 'unconfigured', provider: this._publicConnection(null), topology: emptyTopology, bindings: [] };
+    }
+    if (!provider.capabilities.includes('topology:read')) {
+      return { state: 'unsupported', provider: this._publicConnection(provider), topology: emptyTopology, bindings: [] };
+    }
+    const topology = normalizeTopology(await this._get('/topology', provider));
+    for (const server of topology.servers) this._rememberExternalUrls(server);
+    for (const deployment of topology.deployments) this._rememberExternalUrls(deployment);
+    return {
+      state: 'ready',
+      provider: this._publicConnection(provider),
+      topology,
+      bindings: []
+    };
+  }
+
+  getProjectBindings(directoryPath) {
+    const project = this.projectService.getProject(directoryPath);
+    const provider = this._loadProvider();
+    const bindings = this._readBindings(project.path)
+      .filter(binding => !provider || binding.providerId === provider.providerId)
+      .map(binding => ({ projectId: project.projectId, ...binding }));
+    return { projectId: project.projectId, bindings };
+  }
+
   _rememberExternalUrls(resource) {
-    for (const value of [resource.panelUrl, resource.coolifyUrl, ...resource.domains]) {
+    for (const value of [resource.panelUrl, resource.coolifyUrl, ...(Array.isArray(resource.domains) ? resource.domains : [])]) {
       if (value) this.allowedExternalUrls.add(value);
     }
   }
@@ -446,6 +576,8 @@ module.exports = {
   normalizeBaseUrl,
   normalizeCapabilities,
   normalizeCatalog,
+  normalizeTopology,
+  normalizeServer,
   normalizeResource,
   normalizeBinding,
   requestJson,
@@ -453,5 +585,8 @@ module.exports = {
   REQUEST_TIMEOUT_MS,
   MAX_RESPONSE_BYTES,
   MAX_CATALOG_RESOURCES,
+  MAX_TOPOLOGY_SERVERS,
+  MAX_TOPOLOGY_DEPLOYMENTS,
+  MAX_BINDING_REPOSITORIES,
   MAX_PROJECT_BINDINGS
 };
