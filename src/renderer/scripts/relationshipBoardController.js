@@ -6,7 +6,7 @@
   if (root) root.RelationshipBoardController = api;
 })(typeof window !== 'undefined' ? window : globalThis, function createRelationshipBoardController(Model, PanelTopologyProjection) {
   const NODE_WIDTH = 280;
-  const NODE_HEIGHT = 142;
+  const NODE_HEIGHT = 143;
   const COMPACT_NODE_WIDTH = 236;
   const COMPACT_NODE_HEIGHT = 94;
   const GROUP_PADDING_X = 28;
@@ -19,11 +19,11 @@
   const PANEL_REFRESH_INTERVAL_MS = 30_000;
   const PANEL_STALE_AFTER_MS = 90_000;
   const TYPE_LABELS = Object.freeze({
-    server: '服务器',
+    server: '主机',
     deployment: '部署',
     project: '项目',
     repository: 'Git 仓库',
-    endpoint: '访问端点',
+    endpoint: '访问点',
     group: '分组'
   });
   const TYPE_ICONS = Object.freeze({
@@ -328,6 +328,7 @@
       this.selectedEntityIds = new Set();
       this.selectedRelationshipId = '';
       this.expandedCardIds = new Set();
+      this.cardHeights = new Map();
       this.inspectorPinned = false;
       this.keyboardConnectSourceId = '';
       this.pointerAction = null;
@@ -1153,7 +1154,8 @@
       for (const placement of regular) {
         let y = placement.y;
         const expanded = this.expandedCardIds.has(placement.entityId);
-        const cardHeight = expanded ? this._expandedNodeHeight(placement) : height;
+        const cardHeight = this.cardHeights.get(placement.entityId)
+          || (expanded ? this._expandedNodeHeight(placement) : height);
         for (const previous of resolved) {
           const horizontalOverlap = placement.x < previous.x + width + gap
             && placement.x + width + gap > previous.x;
@@ -2465,13 +2467,26 @@
         ['延迟', Number.isFinite(entity.runtime?.latencyMs) ? `${entity.runtime.latencyMs} ms` : ''],
         ['更新', entity.runtime?.observedAt ? this._relativeTime(entity.runtime.observedAt) : '']
       ].filter(([, value]) => value);
+      const resource = entity.refId ? this.resourceMap.get(`${entity.type}:${entity.refId}`) : null;
+      const resourceFacts = [
+        ['资源名称', this._entityBaseName(entity)],
+        ['本地目录', resource?.path],
+        ['环境', entity.details?.environment],
+        ['主机', entity.details?.hostLabel || entity.runtime?.serverName],
+        ['访问地址', entity.runtime?.url || entity.details?.urlLabel],
+        ['数据源', entity.runtime?.providerLabel || entity.details?.provider]
+      ].filter(([, value]) => value);
+      const todoKind = todo => todo.completed ? 'completed'
+        : (todo.dueAt && new Date(todo.dueAt) < new Date(this.now()) ? 'overdue' : (todo.reminderAt ? 'reminder' : 'todo'));
+      const todoLabels = { completed: '已完成', overdue: '逾期', reminder: '提醒', todo: '待办' };
       return `
         <div class="relationship-card-detail-content" data-card-detail-content>
           ${facts.length ? `<dl class="relationship-card-facts">${facts.slice(0, 4).map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd title="${escapeHtml(value)}">${escapeHtml(value)}</dd></div>`).join('')}</dl>` : ''}
           <section class="relationship-card-todos" aria-label="待办与提醒">
             <header><strong>待办与提醒</strong><span>${todos.length}</span></header>
-            ${todos.length ? `<ul>${todos.map(todo => `<li data-state="${todo.completed ? 'completed' : 'open'}"><span class="relationship-card-todo-check" aria-hidden="true"></span><span><b>${escapeHtml(todo.title)}</b><small>${escapeHtml(this._cardTodoMeta(todo))}</small></span></li>`).join('')}</ul>` : '<p>暂无待办</p>'}
+            ${todos.length ? `<ul>${todos.map(todo => `<li data-state="${todo.completed ? 'completed' : 'open'}" data-kind="${todoKind(todo)}"><span class="relationship-card-todo-check" aria-hidden="true"></span><span class="relationship-card-todo-copy"><b>${escapeHtml(todo.title)}</b><small>${escapeHtml(this._cardTodoMeta(todo))}</small></span><span class="relationship-card-todo-kind">${todoLabels[todoKind(todo)]}</span></li>`).join('')}</ul>` : '<p>暂无待办</p>'}
           </section>
+          <section class="relationship-card-resources"><strong>资源详情</strong><dl>${resourceFacts.map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd title="${escapeHtml(value)}">${escapeHtml(value)}</dd></div>`).join('')}</dl></section>
           ${annotations.note ? `<section class="relationship-card-note"><strong>备注</strong><p>${escapeHtml(annotations.note)}</p></section>` : ''}
         </div>`;
     }
@@ -2493,7 +2508,7 @@
       const entitiesById = this._allEntitiesById();
       const groupFrames = graph.placements.filter(placement => entitiesById.get(placement.entityId)?.type === 'group');
       const regularNodes = graph.placements.filter(placement => entitiesById.get(placement.entityId)?.type !== 'group');
-      const geometryById = this._displayGeometryMap(graph.placements);
+      let geometryById = this._displayGeometryMap(graph.placements);
       this._syncExpandAllButton(regularNodes.map(placement => placement.entityId));
       nodeLayer.innerHTML = groupFrames.map(placement => {
         const entity = entitiesById.get(placement.entityId);
@@ -2543,8 +2558,9 @@
         const geometry = geometryById.get(entity.id) || { x: placement.x, y: placement.y, ...this._nodeDimensions() };
         return `
           <article class="relationship-node verification-${verification.state}${entity.transient ? ' panel-dynamic' : ''}${recentFailure ? ' panel-recent-failure' : ''}${stale ? ' stale' : ''}${availability.missing ? ' resource-missing' : ''}${expanded ? ' is-detail' : ''}${graph.filterActive && graph.directIds.has(entity.id) ? ' filter-match' : ''}${graph.contextualIds.has(entity.id) ? ' filter-context' : ''}${graph.mutedIds.has(entity.id) ? ' filter-muted' : ''}" data-entity-id="${escapeHtml(entity.id)}" data-entity-type="${entity.type}" data-runtime-status="${escapeHtml(runtimeStatus)}" data-runtime-state="${escapeHtml(runtimeStatusView?.state || '')}" data-status-tone="${statusTone}" data-card-mode="${expanded ? 'detail' : 'compact'}" data-verification-state="${verification.state}" data-resource-state="${availability.missing ? 'missing' : 'ready'}" tabindex="0" role="button" aria-label="${escapeHtml(name)}，${TYPE_LABELS[entity.type]}，${runtimeStatusView ? `${runtimeStatusView.label}，` : ''}${availability.missing ? `${availability.label}，` : ''}${entity.transient ? 'Coolify 只读观测，' : ''}${verification.label}${graph.contextualIds.has(entity.id) ? '，关系上下文' : ''}" aria-pressed="false" style="transform:translate(${geometry.x}px,${geometry.y}px);height:${geometry.height}px">
+            <div class="relationship-card-surface">
             ${this._cardAttentionRailHtml(annotations.todos || [])}
-            ${hasInput ? '<button class="relationship-port relationship-port-input" data-direction="in" type="button" tabindex="-1" aria-hidden="true"></button>' : ''}
+            ${hasInput ? '<button class="relationship-port relationship-port-input" data-direction="in" type="button" tabindex="-1" aria-hidden="true"></button>' : '<span class="relationship-port relationship-port-input" aria-hidden="true"></span>'}
             <div class="relationship-node-header">
               <span class="relationship-node-icon">${TYPE_ICONS[entity.type]}</span>
               <span class="relationship-node-identity">
@@ -2564,10 +2580,23 @@
             </div>
             ${this._cardDetailHtml(entity, placement, runtimeStatusView)}
             <button class="relationship-card-expand relationship-card-expand-bottom" data-relationship-card-detail="${escapeHtml(entity.id)}" type="button" aria-expanded="${expanded}" aria-label="${expanded ? '收起' : '展开'} ${escapeHtml(name)} 详情" title="${expanded ? '收起详情' : '展开详情'}"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6.5 8 3.5 3.5L13.5 8"></path></svg><b>${expanded ? '收起详情' : '展开详情'}</b></button>
-            ${hasOutput ? `<button class="relationship-port relationship-port-output" data-direction="out" type="button" aria-label="从 ${escapeHtml(name)} 开始连接" title="拖到兼容节点建立关系"></button>` : ''}
+            ${hasOutput ? `<button class="relationship-port relationship-port-output" data-direction="out" type="button" aria-label="从 ${escapeHtml(name)} 开始连接" title="拖到兼容节点建立关系"></button>` : '<span class="relationship-port relationship-port-output" aria-hidden="true"></span>'}
+            </div>
           </article>`;
       }).join('');
 
+      // Layout follows the real card content, including font size and expanded details.
+      this.cardHeights.clear();
+      const cardScale = this._displayViewSettings().cardScale;
+      nodeLayer.querySelectorAll('.relationship-card-surface').forEach(surface => {
+        this.cardHeights.set(surface.parentElement.dataset.entityId, surface.offsetHeight * cardScale);
+      });
+      geometryById = this._displayGeometryMap(graph.placements);
+      nodeLayer.querySelectorAll('.relationship-node:not(.relationship-group-frame)').forEach(node => {
+        const geometry = geometryById.get(node.dataset.entityId);
+        node.style.height = `${geometry.height}px`;
+        node.style.transform = `translate(${geometry.x}px,${geometry.y}px)`;
+      });
       const edgeLayer = this.root.querySelector('.relationship-edge-layer');
       edgeLayer.innerHTML = `
         <defs>
@@ -3461,10 +3490,12 @@
       const targetCenterX = pointerTarget ? targetGeometry.x : targetGeometry.x + targetGeometry.width / 2;
       const sourceCenterX = sourceGeometry.x + sourceGeometry.width / 2;
       const direction = targetCenterX >= sourceCenterX ? 1 : -1;
-      const x1 = direction > 0 ? sourceGeometry.x + sourceGeometry.width : sourceGeometry.x;
-      const y1 = sourceGeometry.y + Math.min(fallbackDimensions.height, sourceGeometry.height) / 2;
-      const x2 = pointerTarget ? targetGeometry.x : (direction > 0 ? targetGeometry.x : targetGeometry.x + targetGeometry.width);
-      const y2 = pointerTarget ? targetGeometry.y : targetGeometry.y + Math.min(fallbackDimensions.height, targetGeometry.height) / 2;
+      const scale = this._displayViewSettings().cardScale;
+      const portOffsetY = (this._displayViewSettings().mode === 'compact' ? 44.5 : 59.5) * scale;
+      const x1 = direction > 0 ? sourceGeometry.x + sourceGeometry.width - 0.5 * scale : sourceGeometry.x + 0.5 * scale;
+      const y1 = sourceGeometry.y + portOffsetY;
+      const x2 = pointerTarget ? targetGeometry.x : (direction > 0 ? targetGeometry.x + 0.5 * scale : targetGeometry.x + targetGeometry.width - 0.5 * scale);
+      const y2 = pointerTarget ? targetGeometry.y : targetGeometry.y + portOffsetY;
       const bend = Math.max(28, Math.abs(x2 - x1) * 0.5);
       return {
         path: `M ${x1} ${y1} C ${x1 + direction * bend} ${y1}, ${x2 - direction * bend} ${y2}, ${x2} ${y2}`,

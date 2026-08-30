@@ -402,8 +402,8 @@ test('反向关系使用相邻端口而不是绕到两个节点外侧', () => {
 
   const geometry = controller._edgeGeometry({ sourceId: 'entity_source01', targetId: 'entity_target01' });
 
-  assert.match(geometry.path, new RegExp(`^M 420 ${100 + NODE_HEIGHT / 2} C`));
-  assert.match(geometry.path, new RegExp(` ${80 + NODE_WIDTH} ${180 + NODE_HEIGHT / 2}$`));
+  assert.match(geometry.path, /^M 420.5 159.5 C/);
+  assert.match(geometry.path, new RegExp(` ${80 + NODE_WIDTH - .5} 239.5$`));
   assert.equal(geometry.labelX, (420 + 80 + NODE_WIDTH) / 2);
 });
 
@@ -719,9 +719,9 @@ test('服务卡片将运行、停止、部署失败和故障显示为明确状�
     runtime: { status: 'unhealthy' }
   }).label, '故障');
   assert.match(controllerSource, /relationship-node-runtime-status/);
-  assert.match(relationshipCss, /\.relationship-node-runtime-status\[data-state="running"\]/);
-  assert.match(relationshipCss, /\.relationship-node-runtime-status\[data-state="deploy-failed"\]/);
-  assert.match(relationshipCss, /\.relationship-node-runtime-status\[data-state="fault"\]/);
+  assert.match(relationshipCss, /\.relationship-node\[data-status-tone="normal"\] \.relationship-card-surface/);
+  assert.match(relationshipCss, /\.relationship-node\[data-status-tone="warning"\] \.relationship-card-surface/);
+  assert.match(relationshipCss, /\.relationship-node\[data-status-tone="inactive"\] \.relationship-card-surface/);
 });
 
 test('单卡标题来源和状态可覆盖白板默认且继续支持别名重命名', () => {
@@ -753,7 +753,7 @@ test('单卡标题来源和状态可覆盖白板默认且继续支持别名重�
 test('卡片上下按钮切换双态详情并保留可固定的属性浮窗', () => {
   assert.deepEqual(
     { width: NODE_WIDTH, height: NODE_HEIGHT, compactWidth: COMPACT_NODE_WIDTH, compactHeight: COMPACT_NODE_HEIGHT },
-    { width: 280, height: 142, compactWidth: 236, compactHeight: 94 }
+    { width: 280, height: 143, compactWidth: 236, compactHeight: 94 }
   );
   assert.match(controllerSource, /relationship-card-expand relationship-card-expand-top/);
   assert.match(controllerSource, /relationship-card-expand relationship-card-expand-bottom/);
@@ -769,7 +769,7 @@ test('卡片上下按钮切换双态详情并保留可固定的属性浮窗', ()
   assert.match(controllerSource, /inspectorPinned/);
   assert.match(relationshipCss, /\.relationship-node\.is-detail\s*\{/);
   assert.match(relationshipCss, /--relationship-card-width:\s*280px/);
-  assert.match(relationshipCss, /--relationship-card-height:\s*142px/);
+  assert.match(relationshipCss, /--relationship-card-height:\s*143px/);
   assert.match(relationshipCss, /backdrop-filter:\s*blur\(22px\) saturate\(145%\)/);
   assert.match(controllerSource, /entity\.type === 'repository' \? '已同步' : '正常'/);
   assert.match(controllerSource, /class="relationship-card-expand relationship-card-expand-top"[\s\S]*?<svg viewBox="0 0 20 20"/);
@@ -812,6 +812,45 @@ test('展开卡片使用临时布局推开同列下方卡片且不改写保存�
   assert.ok(geometry.get('entity_deploy02').y > 120);
   assert.equal(geometry.get('entity_server01').y, 120);
   assert.equal(controller.store.boards[0].placements[1].y, 120);
+});
+
+test('卡片整体缩放，详情色条不裁切且连接点在色条之上', () => {
+  assert.match(controllerSource, /class="relationship-card-surface"/);
+  assert.match(relationshipCss, /\.relationship-card-surface\s*\{[^}]*zoom:\s*var\(--relationship-card-scale\)/s);
+  assert.match(relationshipCss, /\.relationship-card-surface\s*\{[^}]*overflow:\s*visible/s);
+  assert.match(relationshipCss, /\.relationship-node\.is-detail\s*\{[^}]*overflow:\s*visible/s);
+  assert.match(relationshipCss, /\.relationship-attention-rail\s*\{[^}]*z-index:\s*1/s);
+  assert.match(relationshipCss, /\.relationship-port\s*\{[^}]*z-index:\s*2/s);
+  assert.match(controllerSource, /<span class="relationship-port relationship-port-input" aria-hidden="true"><\/span>/);
+  assert.match(controllerSource, /<span class="relationship-port relationship-port-output" aria-hidden="true"><\/span>/);
+  const controller = new Controller({ bridge: {}, now: () => '2026-08-31T00:00:00Z' });
+  const rail = controller._cardAttentionRailHtml([
+    { id: 'todo_rail001', title: '逾期任务', dueAt: '2026-08-30T00:00:00Z' },
+    { id: 'todo_rail002', title: '提醒任务', reminderAt: '2026-09-01T00:00:00Z' }
+  ]);
+  for (const kind of ['todo', 'reminder', 'overdue']) assert.match(rail, new RegExp(`data-kind="${kind}"`));
+  assert.equal(controller._cardAttentionRailHtml([]), '');
+  assert.equal(controller._cardAttentionRailHtml([{ id: 'todo_done001', title: '已完成', completed: true }]), '');
+});
+
+test('测量详情内容高度后推开邻卡，连线保持在卡片端口而非高度中点', () => {
+  const controller = new Controller({ bridge: {} });
+  const placements = [{ entityId: 'entity_height01', x: 0, y: 0 }, { entityId: 'entity_height02', x: 0, y: 250 }];
+  controller.store = {
+    activeBoardId: 'board_height01',
+    entities: placements.map(item => ({ id: item.entityId, type: 'server', name: item.entityId, details: {} })),
+    relationships: [],
+    boards: [{ id: 'board_height01', view: { ...RelationshipGraphModel.defaultBoardView(), cardScale: 1.35 }, placements }]
+  };
+  controller.expandedCardIds.add('entity_height01');
+  controller.cardHeights.set('entity_height01', 600);
+  const geometry = controller._displayGeometryMap(placements);
+  assert.equal(geometry.get('entity_height01').height, 600);
+  assert.equal(geometry.get('entity_height02').y, 632);
+  const edge = controller._edgeGeometry({ sourceId: 'entity_height01', targetId: 'entity_height02' }, null, geometry);
+  assert.match(edge.path, /^M 377\.325 80\.325 C/);
+  assert.equal(placements[1].y, 250);
+  assert.match(controllerSource, /surface\.offsetHeight \* cardScale/);
 });
 
 test('筛选器同组多选取任一条件、跨组同时满足并提供弱化或隐藏策略', () => {
@@ -904,7 +943,7 @@ test('本机或 Panel 资源丢失时保留节点关系并显示明确缺失状�
   assert.equal(manualObserved.missing, false);
   assert.match(controllerSource, /data-resource-state="\$\{availability\.missing \? 'missing' : 'ready'\}"/);
   assert.match(controllerSource, /可继续查看、编辑和导出本节点及其关系/);
-  assert.match(relationshipCss, /\.relationship-node\.resource-missing\s*\{[^}]*opacity:\s*1/s);
+  assert.match(relationshipCss, /\.relationship-node\.resource-missing \.relationship-card-surface\s*\{[^}]*opacity:\s*1/s);
   assert.match(relationshipCss, /\.relationship-node-kind\[data-state="missing"\]/);
 
   controller.resourceLoadingPromise = Promise.resolve();
@@ -1619,8 +1658,8 @@ test('精简模式使用对应节点尺寸计算双向连线端点', () => {
 
   assert.deepEqual(controller._nodeDimensions(), { width: COMPACT_NODE_WIDTH, height: COMPACT_NODE_HEIGHT });
   const geometry = controller._edgeGeometry({ sourceId: 'entity_source01', targetId: 'entity_target01' });
-  assert.match(geometry.path, new RegExp(`^M 420 ${100 + COMPACT_NODE_HEIGHT / 2} C`));
-  assert.match(geometry.path, new RegExp(` ${80 + COMPACT_NODE_WIDTH} ${180 + COMPACT_NODE_HEIGHT / 2}$`));
+  assert.match(geometry.path, /^M 420.5 144.5 C/);
+  assert.match(geometry.path, new RegExp(` ${80 + COMPACT_NODE_WIDTH - .5} 224.5$`));
 });
 
 test('项目和仓库可按稳定身份加入当前白板并清除遮挡它的筛选', () => {
