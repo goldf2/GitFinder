@@ -54,6 +54,41 @@ test('关系模型接受项目到仓库再到部署和服务器的受约束链�
   });
 });
 
+test('关系白板按白板保存卡片、文字和画布显示偏好', () => {
+  const store = validStore();
+  store.boards[0].view = {
+    ...RelationshipGraphModel.defaultBoardView(),
+    cardScale: 1.25,
+    textScale: 1.15,
+    cardAppearance: 'flat',
+    showGrid: false,
+    showEdgeLabels: false,
+    cardTitleSource: 'note',
+    showRuntimeStatus: false,
+    unmatchedDisplay: 'hide',
+    filterContextOpacity: 0.42,
+    filterMutedOpacity: 0.09,
+    filterMutedSaturation: 0.2,
+    filterContextEdgeOpacity: 0.36,
+    filterMutedEdgeOpacity: 0.06,
+    filterMatchHaloOpacity: 0.38,
+    statusTintOpacity: 0.1
+  };
+
+  const normalized = RelationshipGraphModel.assertValidStore(store);
+
+  assert.deepEqual(normalized.boards[0].view, store.boards[0].view);
+  assert.equal(RelationshipGraphModel.defaultBoardView().cardScale, 1);
+  assert.equal(RelationshipGraphModel.defaultBoardView().textScale, 1);
+  assert.equal(RelationshipGraphModel.defaultBoardView().cardAppearance, 'elevated');
+  assert.equal(RelationshipGraphModel.defaultBoardView().showGrid, true);
+  assert.equal(RelationshipGraphModel.defaultBoardView().showEdgeLabels, true);
+  assert.equal(RelationshipGraphModel.defaultBoardView().cardTitleSource, 'name');
+  assert.equal(RelationshipGraphModel.defaultBoardView().showRuntimeStatus, true);
+  assert.equal(RelationshipGraphModel.defaultBoardView().unmatchedDisplay, 'dim');
+  assert.equal(RelationshipGraphModel.defaultBoardView().statusTintOpacity, 0.08);
+});
+
 test('关系模型接受常用 Git 关系预设和自定义显示名称', () => {
   const store = validStore();
   store.entities.push({
@@ -94,17 +129,67 @@ test('部署节点只接受结构化版本上下文字段', () => {
 test('白板视图配置保存筛选和精简模式并兼容旧数据', () => {
   const store = validStore();
   store.boards[0].view = {
+    ...RelationshipGraphModel.defaultBoardView(),
     mode: 'compact',
     projection: 'deployment-summary',
+    snapMode: 'grid',
     query: 'MES production',
     entityType: 'deployment',
+    entityTypes: ['deployment', 'server'],
     environment: 'production',
-    verification: 'stale'
+    verification: 'stale',
+    annotation: 'has-note',
+    task: 'overdue',
+    taskFilters: ['open', 'overdue'],
+    runtimeStates: ['normal', 'warning'],
+    label: '生产'
   };
 
   const normalized = RelationshipGraphModel.assertValidStore(store);
 
   assert.deepEqual(normalized.boards[0].view, store.boards[0].view);
+});
+
+test('白板元素保存标签、可折叠备注和带截止提醒的待办，而不污染关系事实', () => {
+  const store = validStore();
+  store.boards[0].placements[0] = {
+    ...store.boards[0].placements[0],
+    titleMode: 'prefix',
+    titleText: '核心',
+    titleSource: 'note',
+    statusVisibility: 'hide',
+    labels: ['生产', '关键'],
+    note: '发布前复核数据库备份。',
+    todos: [{
+      id: 'todo_release01',
+      title: '核对发布清单',
+      completed: false,
+      dueAt: '2026-08-31T10:00:00+08:00',
+      reminderAt: '2026-08-31T09:30:00+08:00'
+    }]
+  };
+
+  const normalized = RelationshipGraphModel.assertValidStore(store);
+
+  assert.deepEqual(normalized.boards[0].placements[0], {
+    entityId: 'entity_project1',
+    x: 0,
+    y: 0,
+    titleMode: 'prefix',
+    titleText: '核心',
+    titleSource: 'note',
+    statusVisibility: 'hide',
+    labels: ['生产', '关键'],
+    note: '发布前复核数据库备份。',
+    todos: [{
+      id: 'todo_release01',
+      title: '核对发布清单',
+      completed: false,
+      dueAt: '2026-08-31T02:00:00.000Z',
+      reminderAt: '2026-08-31T01:30:00.000Z'
+    }]
+  });
+  assert.equal(normalized.entities[0].details.notes, undefined);
 });
 
 test('白板视图配置拒绝未知模式、筛选枚举和额外字段', () => {

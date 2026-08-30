@@ -1,14 +1,14 @@
 const { app, shell } = require('electron');
 const { registerTrustedHandler } = require('./security');
 const localProjectService = require('../services/localProjectService');
-const { PanelProviderService } = require('../services/panelProviderService');
+const { CoolifyProviderService } = require('../services/coolifyProviderService');
 
 let defaultService = null;
 
 function getService(options = {}) {
   if (options.service) return options.service;
   if (!defaultService) {
-    defaultService = new PanelProviderService({ app, projectService: localProjectService });
+    defaultService = new CoolifyProviderService({ app, projectService: localProjectService });
   }
   return defaultService;
 }
@@ -18,6 +18,7 @@ function registerPanelIPC(options = {}) {
   registerTrustedHandler('panel:getConnection', async () => service.getConnection());
   registerTrustedHandler('panel:getConnections', async () => service.getConnections());
   registerTrustedHandler('panel:connect', async (event, values = {}) => service.connect(values));
+  registerTrustedHandler('panel:update', async (event, values = {}) => service.update(values));
   registerTrustedHandler('panel:disconnect', async (event, providerId = '') => service.disconnect(providerId));
   registerTrustedHandler('panel:getCatalog', async (event, providerId = '') => service.getCatalog(providerId));
   registerTrustedHandler('panel:getTopology', async () => service.getTopology());

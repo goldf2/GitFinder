@@ -81,6 +81,7 @@ const AppState = {
   globalIndexPollTimer: null,
   galleryPreviewRequestId: 0,
   settingsReturnMode: null,
+  settingsSection: 'settings-browsing',
   localProjects: [],
   localProjectsLoading: false,
   projectDialog: null,
@@ -820,6 +821,10 @@ const App = {
       if (action === 'prepare-panel-reconnect') {
         this.panelDeploymentController.prepareReconnectFromSettings(event.target.closest('[data-panel-provider-id]'));
       }
+      if (action === 'prepare-panel-edit') {
+        this.panelDeploymentController.prepareEditFromSettings(event.target.closest('[data-panel-provider-id]'));
+      }
+      if (action === 'cancel-panel-edit') this.panelDeploymentController.cancelEditFromSettings();
       if (action === 'open-theme-settings') this.openThemeSettings();
       if (action === 'file-project-settings') this.openLocalProjectDialog(event.target.closest('[data-project-path]')?.dataset.projectPath);
       if (this.isFileBrowsingContext() && !event.target.closest('.repo-card, .repo-list-item') && !action) {
@@ -1199,13 +1204,13 @@ const App = {
     if (AppState.currentMode !== 'settings') {
       AppState.settingsReturnMode = AppState.currentMode;
     }
+    AppState.settingsSection = window.SettingsNavigation.normalizeSection(sectionId || AppState.settingsSection);
     this.closeQuickLook();
     this.clearFileSelection();
     AppState.currentMode = 'settings';
     this.updateModeUI();
     this.updateBreadcrumbs();
     await this.renderContent();
-    if (sectionId) document.getElementById(sectionId)?.scrollIntoView({ block: 'start' });
   },
 
   async openDeveloperToolSettings() {
@@ -1217,6 +1222,16 @@ const App = {
     const emptyState = document.getElementById('empty-state');
     if (emptyState) emptyState.style.display = 'none';
     const selected = (value, candidate) => value === candidate ? ' selected' : '';
+    const activeSettingsSection = window.SettingsNavigation.normalizeSection(AppState.settingsSection);
+    AppState.settingsSection = activeSettingsSection;
+    const settingsNavigationMarkup = window.SettingsNavigation.ITEMS.map(item => {
+      const isActive = item.id === activeSettingsSection;
+      const navigationId = `settings-navigation-${item.id.slice('settings-'.length)}`;
+      return `<button class="app-settings-navigation-item" id="${navigationId}" data-settings-section="${item.id}" role="tab" aria-controls="${item.id}" aria-selected="${isActive}" tabindex="${isActive ? '0' : '-1'}" type="button">
+        <span class="app-settings-navigation-icon" aria-hidden="true">${this.escapeHtml(item.glyph)}</span>
+        <span><strong>${this.escapeHtml(item.label)}</strong><small>${this.escapeHtml(item.summary)}</small></span>
+      </button>`;
+    }).join('');
     const modeLabels = { light: '浅色', dark: '深色', auto: '跟随系统' };
     const schemeLabels = {
       github: 'GitHub', onedark: 'One Dark', dracula: 'Dracula', monokai: 'Monokai',
@@ -1254,15 +1269,20 @@ const App = {
     contentArea.innerHTML = `
       <div class="app-settings-page">
         <header class="app-settings-header">
-          <div>
-            <span class="app-settings-kicker">GitFinder 2</span>
+          <div class="app-settings-header-copy">
             <h1>应用设置</h1>
-            <p>这些偏好只保存在本机，不会写入项目的便携配置。</p>
+            <p>偏好只保存在本机，不写入项目配置。</p>
           </div>
-          <button class="btn" data-app-action="close-settings" type="button">完成</button>
         </header>
 
-        <section class="app-settings-section" aria-labelledby="settings-browsing-title">
+        <div class="app-settings-layout">
+          <nav class="app-settings-navigation" aria-label="设置分类">
+            <div class="app-settings-navigation-list" role="tablist" aria-orientation="vertical">
+              ${settingsNavigationMarkup}
+            </div>
+          </nav>
+          <main class="app-settings-content" aria-label="设置内容">
+        <section class="app-settings-section" id="settings-browsing" role="tabpanel" aria-labelledby="settings-navigation-browsing">
           <div class="app-settings-section-heading">
             <h2 id="settings-browsing-title">目录显示</h2>
             <p>设置目录页默认采用的视图和排列方式。</p>
@@ -1322,7 +1342,7 @@ const App = {
           </div>
         </section>
 
-        <section class="app-settings-section" aria-labelledby="settings-sidebar-title">
+        <section class="app-settings-section" id="settings-sidebar" role="tabpanel" aria-labelledby="settings-navigation-sidebar">
           <div class="app-settings-section-heading">
             <h2 id="settings-sidebar-title">侧边栏</h2>
             <p>项目区是快捷导航，不是独立的项目视图。</p>
@@ -1349,7 +1369,7 @@ const App = {
           </div>
         </section>
 
-        <section class="app-settings-section" aria-labelledby="settings-appearance-title">
+        <section class="app-settings-section" id="settings-appearance" role="tabpanel" aria-labelledby="settings-navigation-appearance">
           <div class="app-settings-section-heading">
             <h2 id="settings-appearance-title">外观</h2>
             <p>主题设置仍可从顶部太阳图标快速打开。</p>
@@ -1395,7 +1415,7 @@ const App = {
 
         ${this.panelDeploymentController.settingsMarkup(panelConnections)}
 
-        <section class="app-settings-section" id="settings-developer-tools" aria-labelledby="settings-tools-title">
+        <section class="app-settings-section" id="settings-developer-tools" role="tabpanel" aria-labelledby="settings-navigation-developer-tools">
           <div class="app-settings-section-heading">
             <h2 id="settings-tools-title">开发工具</h2>
             <p>配置“打开终端”和“在代码编辑器中打开”使用的本机程序。</p>
@@ -1420,7 +1440,7 @@ const App = {
           </div>
         </section>
 
-        <section class="app-settings-section" aria-labelledby="settings-projects-title">
+        <section class="app-settings-section" id="settings-projects" role="tabpanel" aria-labelledby="settings-navigation-projects">
           <div class="app-settings-section-heading">
             <h2 id="settings-projects-title">项目身份</h2>
             <p>项目设置属于具体文件夹，不属于全局应用偏好。</p>
@@ -1432,12 +1452,25 @@ const App = {
             </div>
           </div>
         </section>
+          </main>
+        </div>
 
         <footer class="app-settings-footer">
           <button class="btn" data-app-action="close-settings" type="button">取消</button>
           <button class="btn btn-primary" data-app-action="save-settings" type="button">保存设置</button>
         </footer>
       </div>`;
+
+    this.activateSettingsSection(activeSettingsSection);
+    contentArea.querySelectorAll('[data-settings-section]').forEach(button => {
+      button.addEventListener('click', () => this.activateSettingsSection(button.dataset.settingsSection));
+      button.addEventListener('keydown', event => {
+        const nextSection = window.SettingsNavigation.sectionFromKey(button.dataset.settingsSection, event.key);
+        if (!nextSection) return;
+        event.preventDefault();
+        this.activateSettingsSection(nextSection, { focusNavigation: true });
+      });
+    });
 
     const columnWidthInput = document.getElementById('settings-column-view-width');
     const columnWidthValue = document.getElementById('settings-column-view-width-value');
@@ -1460,6 +1493,23 @@ const App = {
 
     await this.hydrateDeveloperToolSettings();
     this.updateStatusBar();
+  },
+
+  activateSettingsSection(sectionId, options = {}) {
+    const activeSection = window.SettingsNavigation.normalizeSection(sectionId);
+    AppState.settingsSection = activeSection;
+    document.querySelectorAll('.app-settings-navigation-item[data-settings-section]').forEach(button => {
+      const isActive = button.dataset.settingsSection === activeSection;
+      button.setAttribute('aria-selected', String(isActive));
+      button.tabIndex = isActive ? 0 : -1;
+      if (isActive && options.focusNavigation) button.focus();
+    });
+    document.querySelectorAll('.app-settings-section[role="tabpanel"]').forEach(panel => {
+      const isActive = panel.id === activeSection;
+      panel.hidden = !isActive;
+      panel.setAttribute('aria-hidden', String(!isActive));
+    });
+    return activeSection;
   },
 
   readSemanticColorSettings() {

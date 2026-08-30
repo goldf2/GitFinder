@@ -31,10 +31,23 @@
   const VERIFICATION_STALE_DAYS = 30;
   const BOARD_VIEW_MODES = Object.freeze(['full', 'compact']);
   const BOARD_PROJECTIONS = Object.freeze(['facts', 'deployment-summary']);
+  const BOARD_SNAP_MODES = Object.freeze(['off', 'grid', 'smart']);
+  const BOARD_CARD_APPEARANCES = Object.freeze(['elevated', 'flat']);
+  const BOARD_CARD_TITLE_SOURCES = Object.freeze(['name', 'note']);
+  const ANNOTATION_FILTERS = Object.freeze(['all', 'has-note']);
+  const TASK_FILTERS = Object.freeze(['all', 'has-todos', 'no-todos', 'open', 'overdue', 'due-today', 'reminder-today', 'completed']);
+  const RUNTIME_FILTERS = Object.freeze(['normal', 'warning', 'inactive']);
   const VERIFICATION_FILTERS = Object.freeze(['all', 'unverified', 'verified', 'stale']);
+  const UNMATCHED_DISPLAY_MODES = Object.freeze(['dim', 'hide']);
+  const PLACEMENT_TITLE_MODES = Object.freeze(['original', 'replace', 'prefix', 'suffix', 'subtitle']);
+  const PLACEMENT_TITLE_SOURCES = Object.freeze(['inherit', 'name', 'note']);
+  const PLACEMENT_STATUS_VISIBILITIES = Object.freeze(['inherit', 'show', 'hide']);
+  const MAX_PLACEMENT_LABELS = 6;
+  const MAX_PLACEMENT_TODOS = 20;
   const ENTITY_ID_PATTERN = /^entity_[a-z0-9][a-z0-9_-]{7,79}$/i;
   const BOARD_ID_PATTERN = /^board_[a-z0-9][a-z0-9_-]{7,79}$/i;
   const RELATIONSHIP_ID_PATTERN = /^relationship_[a-z0-9][a-z0-9_-]{7,79}$/i;
+  const TODO_ID_PATTERN = /^todo_[a-z0-9][a-z0-9_-]{7,79}$/i;
   const REFERENCE_ID_PATTERN = /^[a-z0-9][a-z0-9_.:-]{2,159}$/i;
   const SENSITIVE_KEY_PATTERN = /(password|passwd|secret|token|credential|private.?key|access.?key)/i;
   const DETAILS_KEYS = Object.freeze({
@@ -168,10 +181,34 @@
     return {
       mode: 'full',
       projection: 'facts',
+      snapMode: 'smart',
+      cardScale: 1,
+      textScale: 1,
+      horizontalSpacing: 64,
+      verticalSpacing: 36,
+      cardAppearance: 'elevated',
+      showGrid: true,
+      showEdgeLabels: true,
+      cardTitleSource: 'name',
+      showRuntimeStatus: true,
+      unmatchedDisplay: 'dim',
+      filterContextOpacity: 0.34,
+      filterMutedOpacity: 0.07,
+      filterMutedSaturation: 0.12,
+      filterContextEdgeOpacity: 0.28,
+      filterMutedEdgeOpacity: 0.04,
+      filterMatchHaloOpacity: 0.3,
+      statusTintOpacity: 0.08,
       query: '',
       entityType: 'all',
+      entityTypes: [],
       environment: '',
-      verification: 'all'
+      verification: 'all',
+      annotation: 'all',
+      task: 'all',
+      taskFilters: [],
+      runtimeStates: [],
+      label: ''
     };
   }
 
@@ -180,15 +217,42 @@
     if (raw != null && !isPlainObject(raw)) issues.push(`${pathPrefix} 必须是对象`);
     const mode = String(view.mode || 'full');
     const projection = String(view.projection || 'facts');
+    const snapMode = String(view.snapMode || 'smart');
+    const cardAppearance = String(view.cardAppearance || 'elevated');
+    const cardTitleSource = String(view.cardTitleSource || 'name');
     const entityType = String(view.entityType || 'all');
     const verification = String(view.verification || 'all');
+    const annotation = String(view.annotation || 'all');
+    const task = String(view.task || 'all');
+    const unmatchedDisplay = String(view.unmatchedDisplay || 'dim');
+    const entityTypes = Array.isArray(view.entityTypes)
+      ? [...new Set(view.entityTypes.map(value => String(value)).filter(value => ENTITY_TYPES.includes(value)))]
+      : [];
+    const taskFilters = Array.isArray(view.taskFilters)
+      ? [...new Set(view.taskFilters.map(value => String(value)).filter(value => TASK_FILTERS.includes(value) && value !== 'all'))]
+      : [];
+    const runtimeStates = Array.isArray(view.runtimeStates)
+      ? [...new Set(view.runtimeStates.map(value => String(value)).filter(value => RUNTIME_FILTERS.includes(value)))]
+      : [];
     if (!BOARD_VIEW_MODES.includes(mode)) issues.push(`${pathPrefix}.mode 无效`);
     if (!BOARD_PROJECTIONS.includes(projection)) issues.push(`${pathPrefix}.projection 无效`);
+    if (!BOARD_SNAP_MODES.includes(snapMode)) issues.push(`${pathPrefix}.snapMode 无效`);
+    if (!BOARD_CARD_APPEARANCES.includes(cardAppearance)) issues.push(`${pathPrefix}.cardAppearance 无效`);
+    if (!BOARD_CARD_TITLE_SOURCES.includes(cardTitleSource)) issues.push(`${pathPrefix}.cardTitleSource 无效`);
+    if (strict && view.showGrid != null && typeof view.showGrid !== 'boolean') issues.push(`${pathPrefix}.showGrid 必须是布尔值`);
+    if (strict && view.showEdgeLabels != null && typeof view.showEdgeLabels !== 'boolean') issues.push(`${pathPrefix}.showEdgeLabels 必须是布尔值`);
+    if (strict && view.showRuntimeStatus != null && typeof view.showRuntimeStatus !== 'boolean') issues.push(`${pathPrefix}.showRuntimeStatus 必须是布尔值`);
     if (entityType !== 'all' && !ENTITY_TYPES.includes(entityType)) issues.push(`${pathPrefix}.entityType 无效`);
     if (!VERIFICATION_FILTERS.includes(verification)) issues.push(`${pathPrefix}.verification 无效`);
+    if (!ANNOTATION_FILTERS.includes(annotation)) issues.push(`${pathPrefix}.annotation 无效`);
+    if (!TASK_FILTERS.includes(task)) issues.push(`${pathPrefix}.task 无效`);
+    if (!UNMATCHED_DISPLAY_MODES.includes(unmatchedDisplay)) issues.push(`${pathPrefix}.unmatchedDisplay 无效`);
+    if (strict && view.entityTypes != null && (!Array.isArray(view.entityTypes) || view.entityTypes.some(value => !ENTITY_TYPES.includes(String(value))))) issues.push(`${pathPrefix}.entityTypes 无效`);
+    if (strict && view.taskFilters != null && (!Array.isArray(view.taskFilters) || view.taskFilters.some(value => !TASK_FILTERS.includes(String(value)) || value === 'all'))) issues.push(`${pathPrefix}.taskFilters 无效`);
+    if (strict && view.runtimeStates != null && (!Array.isArray(view.runtimeStates) || view.runtimeStates.some(value => !RUNTIME_FILTERS.includes(String(value))))) issues.push(`${pathPrefix}.runtimeStates 无效`);
     if (strict) {
       for (const key of Object.keys(view)) {
-        if (!['mode', 'projection', 'query', 'entityType', 'environment', 'verification'].includes(key)) {
+        if (!['mode', 'projection', 'snapMode', 'cardScale', 'textScale', 'horizontalSpacing', 'verticalSpacing', 'cardAppearance', 'showGrid', 'showEdgeLabels', 'cardTitleSource', 'showRuntimeStatus', 'unmatchedDisplay', 'filterContextOpacity', 'filterMutedOpacity', 'filterMutedSaturation', 'filterContextEdgeOpacity', 'filterMutedEdgeOpacity', 'filterMatchHaloOpacity', 'statusTintOpacity', 'query', 'entityType', 'entityTypes', 'environment', 'verification', 'annotation', 'task', 'taskFilters', 'runtimeStates', 'label'].includes(key)) {
           issues.push(`${pathPrefix}.${key} 不是允许的字段`);
         }
       }
@@ -196,11 +260,94 @@
     return {
       mode: BOARD_VIEW_MODES.includes(mode) ? mode : 'full',
       projection: BOARD_PROJECTIONS.includes(projection) ? projection : 'facts',
+      snapMode: BOARD_SNAP_MODES.includes(snapMode) ? snapMode : 'smart',
+      cardScale: finiteNumber(view.cardScale, 1, 0.8, 1.4),
+      textScale: finiteNumber(view.textScale, 1, 0.85, 1.3),
+      horizontalSpacing: finiteNumber(view.horizontalSpacing, 64, 16, 180),
+      verticalSpacing: finiteNumber(view.verticalSpacing, 36, 16, 140),
+      cardAppearance: BOARD_CARD_APPEARANCES.includes(cardAppearance) ? cardAppearance : 'elevated',
+      showGrid: view.showGrid !== false,
+      showEdgeLabels: view.showEdgeLabels !== false,
+      cardTitleSource: BOARD_CARD_TITLE_SOURCES.includes(cardTitleSource) ? cardTitleSource : 'name',
+      showRuntimeStatus: view.showRuntimeStatus !== false,
+      unmatchedDisplay: UNMATCHED_DISPLAY_MODES.includes(unmatchedDisplay) ? unmatchedDisplay : 'dim',
+      filterContextOpacity: finiteNumber(view.filterContextOpacity, 0.34, 0.15, 0.8),
+      filterMutedOpacity: finiteNumber(view.filterMutedOpacity, 0.07, 0.03, 0.4),
+      filterMutedSaturation: finiteNumber(view.filterMutedSaturation, 0.12, 0, 0.8),
+      filterContextEdgeOpacity: finiteNumber(view.filterContextEdgeOpacity, 0.28, 0.1, 0.8),
+      filterMutedEdgeOpacity: finiteNumber(view.filterMutedEdgeOpacity, 0.04, 0.01, 0.3),
+      filterMatchHaloOpacity: finiteNumber(view.filterMatchHaloOpacity, 0.3, 0, 0.6),
+      statusTintOpacity: finiteNumber(view.statusTintOpacity, 0.08, 0, 0.18),
       query: cleanText(view.query, 120),
       entityType: entityType === 'all' || ENTITY_TYPES.includes(entityType) ? entityType : 'all',
+      entityTypes,
       environment: cleanText(view.environment, 80),
-      verification: VERIFICATION_FILTERS.includes(verification) ? verification : 'all'
+      verification: VERIFICATION_FILTERS.includes(verification) ? verification : 'all',
+      annotation: ANNOTATION_FILTERS.includes(annotation) ? annotation : 'all',
+      task: TASK_FILTERS.includes(task) ? task : 'all',
+      taskFilters,
+      runtimeStates,
+      label: cleanText(view.label, 24)
     };
+  }
+
+  function normalizePlacementLabels(raw, issues, pathPrefix, strict) {
+    if (raw == null) return [];
+    if (!Array.isArray(raw)) {
+      issues.push(`${pathPrefix} 必须是数组`);
+      return [];
+    }
+    if (raw.length > MAX_PLACEMENT_LABELS) issues.push(`${pathPrefix} 不能超过 ${MAX_PLACEMENT_LABELS} 个`);
+    const labels = [];
+    const seen = new Set();
+    for (const [index, value] of raw.slice(0, MAX_PLACEMENT_LABELS).entries()) {
+      if (strict && typeof value !== 'string') issues.push(`${pathPrefix}[${index}] 必须是文本`);
+      const label = cleanText(value, 24);
+      if (!label) continue;
+      const key = label.toLocaleLowerCase('zh-CN');
+      if (seen.has(key)) continue;
+      seen.add(key);
+      labels.push(label);
+    }
+    return labels;
+  }
+
+  function normalizePlacementTodos(raw, issues, pathPrefix, strict) {
+    if (raw == null) return [];
+    if (!Array.isArray(raw)) {
+      issues.push(`${pathPrefix} 必须是数组`);
+      return [];
+    }
+    if (raw.length > MAX_PLACEMENT_TODOS) issues.push(`${pathPrefix} 不能超过 ${MAX_PLACEMENT_TODOS} 项`);
+    const todos = [];
+    const seen = new Set();
+    for (const [index, value] of raw.slice(0, MAX_PLACEMENT_TODOS).entries()) {
+      const prefix = `${pathPrefix}[${index}]`;
+      if (!isPlainObject(value)) {
+        issues.push(`${prefix} 必须是对象`);
+        continue;
+      }
+      const id = String(value.id || '');
+      const title = cleanText(value.title, 160);
+      if (!TODO_ID_PATTERN.test(id)) issues.push(`${prefix}.id 无效`);
+      if (!title) issues.push(`${prefix}.title 不能为空`);
+      if (seen.has(id)) issues.push(`${prefix}.id 重复`);
+      if (strict && typeof value.completed !== 'boolean') issues.push(`${prefix}.completed 必须是布尔值`);
+      if (strict) {
+        for (const key of Object.keys(value)) {
+          if (!['id', 'title', 'completed', 'dueAt', 'reminderAt'].includes(key)) issues.push(`${prefix}.${key} 不是允许的字段`);
+        }
+      }
+      if (!TODO_ID_PATTERN.test(id) || !title || seen.has(id)) continue;
+      seen.add(id);
+      const dueAt = normalizeVerifiedAt(value.dueAt, issues, `${prefix}.dueAt`);
+      const reminderAt = normalizeVerifiedAt(value.reminderAt, issues, `${prefix}.reminderAt`);
+      const todo = { id, title, completed: value.completed === true };
+      if (dueAt) todo.dueAt = dueAt;
+      if (reminderAt) todo.reminderAt = reminderAt;
+      todos.push(todo);
+    }
+    return todos;
   }
 
   function normalizeDetails(type, rawDetails, issues, pathPrefix, strict) {
@@ -345,7 +492,7 @@
     if (groupId && group && group.type !== 'group') issues.push(`${prefix}.groupId 必须引用分组节点`);
     if (strict) {
       for (const key of Object.keys(raw)) {
-        if (!['entityId', 'x', 'y', 'groupId'].includes(key)) issues.push(`${prefix}.${key} 不是允许的字段`);
+        if (!['entityId', 'x', 'y', 'groupId', 'titleMode', 'titleText', 'titleSource', 'statusVisibility', 'labels', 'note', 'todos'].includes(key)) issues.push(`${prefix}.${key} 不是允许的字段`);
       }
       if (!Number.isFinite(Number(raw.x)) || !Number.isFinite(Number(raw.y))) {
         issues.push(`${prefix} 坐标必须是有限数字`);
@@ -357,6 +504,25 @@
       y: finiteNumber(raw.y, 0, -100000, 100000)
     };
     if (groupId && entity?.type !== 'group' && group?.type === 'group') placement.groupId = groupId;
+    const titleMode = String(raw.titleMode || 'original');
+    const titleText = cleanText(raw.titleText, 160);
+    if (!PLACEMENT_TITLE_MODES.includes(titleMode)) issues.push(`${prefix}.titleMode 无效`);
+    if (titleText) {
+      placement.titleMode = PLACEMENT_TITLE_MODES.includes(titleMode) ? titleMode : 'original';
+      placement.titleText = titleText;
+    }
+    const titleSource = String(raw.titleSource || 'inherit');
+    const statusVisibility = String(raw.statusVisibility || 'inherit');
+    if (!PLACEMENT_TITLE_SOURCES.includes(titleSource)) issues.push(`${prefix}.titleSource 无效`);
+    if (!PLACEMENT_STATUS_VISIBILITIES.includes(statusVisibility)) issues.push(`${prefix}.statusVisibility 无效`);
+    if (PLACEMENT_TITLE_SOURCES.includes(titleSource) && titleSource !== 'inherit') placement.titleSource = titleSource;
+    if (PLACEMENT_STATUS_VISIBILITIES.includes(statusVisibility) && statusVisibility !== 'inherit') placement.statusVisibility = statusVisibility;
+    const labels = normalizePlacementLabels(raw.labels, issues, `${prefix}.labels`, strict);
+    const note = cleanText(raw.note, 1000);
+    const todos = normalizePlacementTodos(raw.todos, issues, `${prefix}.todos`, strict);
+    if (labels.length) placement.labels = labels;
+    if (note) placement.note = note;
+    if (todos.length) placement.todos = todos;
     return placement;
   }
 
@@ -518,7 +684,17 @@
     VERIFICATION_STALE_DAYS,
     BOARD_VIEW_MODES,
     BOARD_PROJECTIONS,
+    BOARD_SNAP_MODES,
+    BOARD_CARD_APPEARANCES,
+    BOARD_CARD_TITLE_SOURCES,
+    ANNOTATION_FILTERS,
+    TASK_FILTERS,
+    RUNTIME_FILTERS,
     VERIFICATION_FILTERS,
+    UNMATCHED_DISPLAY_MODES,
+    PLACEMENT_TITLE_MODES,
+    PLACEMENT_TITLE_SOURCES,
+    PLACEMENT_STATUS_VISIBILITIES,
     CONNECTIONS,
     RelationshipGraphValidationError,
     defaultStore,

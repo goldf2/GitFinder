@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GitFinder 2 · 全览关系卡片原型</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main class="prototype-shell">
+    <header class="page-header">
+      <div>
+        <p class="kicker">GITFINDER 2 · RELATION CARD OVERVIEW</p>
+        <h1>统一卡片，多语义关系</h1>
+        <p>所有资源使用同一套全览卡片；仓库、部署、主机和访问点仍保留为独立语义节点，通过关系图表达一对多和多对多。</p>
+      </div>
+      <div class="header-actions">
+        <button id="visual-settings-toggle" class="quiet-button" type="button" aria-expanded="false" aria-controls="visual-settings">视觉设置</button>
+        <button id="theme-toggle" class="icon-button" type="button" aria-pressed="false" aria-label="切换明暗主题" title="切换明暗主题">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v2m0 14v2m9-9h-2M5 12H3m15.36-6.36-1.42 1.42M7.06 16.94l-1.42 1.42m12.72 0-1.42-1.42M7.06 7.06 5.64 5.64M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <aside class="visual-settings" id="visual-settings" aria-label="白板视觉设置" hidden>
+      <header class="visual-settings-header">
+        <div><span>白板显示</span><strong>筛选视觉设置</strong><small>只改变聚焦层级，不改变筛选逻辑</small></div>
+        <button class="settings-close" id="visual-settings-close" type="button" aria-label="关闭视觉设置" title="关闭">×</button>
+      </header>
+      <div class="visual-settings-body">
+        <section class="settings-section">
+          <div class="settings-section-title"><strong>快速预设</strong><span>选择后仍可继续微调</span></div>
+          <div class="preset-row" role="group" aria-label="视觉强度预设">
+            <button type="button" data-visual-preset="soft">柔和</button>
+            <button type="button" data-visual-preset="focus" class="active">聚焦</button>
+            <button type="button" data-visual-preset="contrast">强对比</button>
+          </div>
+        </section>
+        <section class="settings-section settings-controls" aria-label="视觉强度调整">
+          <label>
+            <span><strong>一跳关联可见度</strong><output for="context-opacity">34%</output></span>
+            <small>保留与命中节点直接相连的上下文</small>
+            <input id="context-opacity" data-visual-setting="contextOpacity" type="range" min="15" max="80" value="34">
+          </label>
+          <label>
+            <span><strong>非相关节点可见度</strong><output for="muted-opacity">7%</output></span>
+            <small>数值越低，筛选结果越突出</small>
+            <input id="muted-opacity" data-visual-setting="mutedOpacity" type="range" min="2" max="35" value="7">
+          </label>
+          <label>
+            <span><strong>非相关节点色彩</strong><output for="muted-saturation">12%</output></span>
+            <small>降低色彩可以减少状态颜色干扰</small>
+            <input id="muted-saturation" data-visual-setting="mutedSaturation" type="range" min="0" max="100" value="12">
+          </label>
+          <label>
+            <span><strong>关联线可见度</strong><output for="context-edge-opacity">28%</output></span>
+            <small>仅影响与命中节点有关的关系线</small>
+            <input id="context-edge-opacity" data-visual-setting="contextEdgeOpacity" type="range" min="10" max="80" value="28">
+          </label>
+          <label>
+            <span><strong>非相关关系线</strong><output for="muted-edge-opacity">4%</output></span>
+            <small>保持拓扑存在感，但不抢占注意力</small>
+            <input id="muted-edge-opacity" data-visual-setting="mutedEdgeOpacity" type="range" min="0" max="25" value="4">
+          </label>
+          <label>
+            <span><strong>命中高亮强度</strong><output for="match-halo-opacity">30%</output></span>
+            <small>调整选中卡片外圈的蓝色强调</small>
+            <input id="match-halo-opacity" data-visual-setting="matchHaloOpacity" type="range" min="0" max="60" value="30">
+          </label>
+          <label>
+            <span><strong>状态底色强度</strong><output for="status-tint-opacity">8%</output></span>
+            <small>运行、停止和故障使用各自状态色轻染卡片</small>
+            <input id="status-tint-opacity" data-visual-setting="statusTintOpacity" type="range" min="0" max="18" value="8">
+          </label>
+        </section>
+        <section class="settings-section visual-preview" aria-label="视觉设置实时预览">
+          <div class="settings-section-title"><strong>实时预览</strong><span>命中 / 关联 / 非相关</span></div>
+          <div class="preview-stage">
+            <span class="preview-line context"></span><span class="preview-line muted"></span>
+            <article class="preview-card match"><i></i><strong>命中</strong><small>部署</small></article>
+            <article class="preview-card context"><i></i><strong>关联</strong><small>主机</small></article>
+            <article class="preview-card muted"><i></i><strong>非相关</strong><small>仓库</small></article>
+          </div>
+        </section>
+      </div>
+      <footer class="visual-settings-footer">
+        <button id="reset-visual-settings" type="button">恢复默认</button>
+        <button id="done-visual-settings" class="primary" type="button">完成</button>
+      </footer>
+    </aside>
+
+    <section class="decision-banner" aria-label="原型设计结论">
+      <span class="decision-icon">i</span>
+      <div>
+        <strong>统一视觉，不合并语义节点</strong>
+        <p>类型决定能与谁连线；状态决定是否健康；待办和提醒决定是否需要人工关注。三个维度同时存在，但使用不同视觉位置。</p>
+      </div>
+    </section>
+
+    <section class="prototype-toolbar" aria-label="卡片图例">
+      <div class="legend-group">
+        <span class="legend-title">运行状态</span>
+        <span class="legend-item"><i class="dot running"></i>正常</span>
+        <span class="legend-item"><i class="dot fault"></i>预警 / 故障</span>
+        <span class="legend-item"><i class="dot stopped"></i>停止 / 无效</span>
+      </div>
+      <div class="legend-group attention-legend">
+        <span class="legend-title">左侧关注条</span>
+        <span class="legend-item"><i class="bar todo"></i>待办</span>
+        <span class="legend-item"><i class="bar reminder"></i>提醒</span>
+        <span class="legend-item"><i class="bar overdue"></i>逾期</span>
+      </div>
+    </section>
+
+    <section class="specimen-section" aria-label="简略卡片状态样例">
+      <header><div><strong>简略卡片状态样例</strong><span>同一模板，不同状态与关注信息</span></div></header>
+      <div class="specimen-grid" id="specimen-grid"></div>
+    </section>
+
+    <section class="board-frame" aria-label="多对多关系图原型">
+      <header class="board-header">
+        <div><span class="live-dot"></span><strong>生产部署关系</strong><small>统一全览卡片</small></div>
+        <div class="board-filter">
+          <button id="toggle-all-details" class="board-detail-toggle" type="button" aria-pressed="false">展开全部</button>
+          <span class="board-control-divider" aria-hidden="true"></span>
+          <span class="filter-label">筛选</span>
+          <div class="filter-menu" id="filter-menu">
+            <button class="filter-trigger" id="filter-trigger" type="button" aria-expanded="false" aria-controls="filter-popover">有待办</button>
+            <div class="filter-popover" id="filter-popover" role="group" aria-label="多选筛选条件" hidden>
+              <header>
+                <div><strong>内容筛选</strong><small>同组任一，跨组同时满足</small></div>
+                <button type="button" id="clear-filters">清除</button>
+              </header>
+              <fieldset data-filter-group="runtime">
+                <legend>运行状态</legend>
+                <label><input type="checkbox" value="running">正常</label>
+                <label><input type="checkbox" value="fault">预警 / 故障</label>
+                <label><input type="checkbox" value="stopped">停止 / 无效</label>
+              </fieldset>
+              <fieldset data-filter-group="attention">
+                <legend>关注状态</legend>
+                <label><input type="checkbox" value="todo" checked>有待办</label>
+                <label><input type="checkbox" value="reminder">有提醒</label>
+                <label><input type="checkbox" value="overdue">已逾期</label>
+                <label><input type="checkbox" value="no-todo">无待办</label>
+              </fieldset>
+              <fieldset data-filter-group="type">
+                <legend>资源类型</legend>
+                <label><input type="checkbox" value="repository">Git 仓库</label>
+                <label><input type="checkbox" value="deployment">部署</label>
+                <label><input type="checkbox" value="server">主机</label>
+                <label><input type="checkbox" value="endpoint">访问点</label>
+              </fieldset>
+              <section class="unmatched-display" aria-labelledby="unmatched-display-title">
+                <div><strong id="unmatched-display-title">未命中项</strong><small>选择保留上下文或完全隐藏</small></div>
+                <div class="display-mode-options" role="radiogroup" aria-label="未命中项显示方式">
+                  <label><input type="radio" name="unmatched-display" value="dim" checked><span>低可视</span></label>
+                  <label><input type="radio" name="unmatched-display" value="hide"><span>隐藏</span></label>
+                </div>
+              </section>
+              <footer><button type="button" id="close-filters">完成</button></footer>
+            </div>
+          </div>
+          <span id="filter-summary" aria-live="polite"></span>
+        </div>
+      </header>
+      <div class="canvas-scroll" id="canvas-scroll">
+        <div class="overview-canvas" id="overview-canvas">
+          <svg class="edge-layer" id="edge-layer" aria-hidden="true">
+            <defs>
+              <marker id="edge-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto">
+                <path d="M0 0 8 4 0 8Z"></path>
+              </marker>
+            </defs>
+          </svg>
+          <div class="node-layer" id="node-layer"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="design-notes" aria-label="设计说明">
+      <article><span>01</span><div><strong>状态和任务分离</strong><p>绿色、灰色、红色徽标表示服务状态；紫色、橙色、红色竖条表示人工关注状态。</p></div></article>
+      <article><span>02</span><div><strong>无待办也明确</strong><p>简略卡片显示“无待办”，有待办时显示数量；提醒和逾期分别独立提示。</p></div></article>
+      <article><span>03</span><div><strong>关系图继续保留</strong><p>示例中一个仓库派生多个部署，一个部署连接两个主机和多个访问点。</p></div></article>
+    </section>
+  </main>
+  <script src="./prototype.js"></script>
+</body>
+</html>

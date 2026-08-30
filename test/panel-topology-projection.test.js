@@ -26,6 +26,7 @@ const topology = {
     status: 'running',
     environmentName: '生产',
     serverName: 'Con01',
+    domains: ['https://mes.example.com'],
     observedAt: '2026-08-29T02:00:00.000Z',
     latencyMs: 86,
     latencyKind: 'http',
@@ -63,16 +64,23 @@ test('Panel 拓扑生成确定性的服务器、部署、本地仓库和项目�
   assert.deepEqual(first, second);
   assert.equal(first.entities.filter(entity => entity.type === 'server').length, 1);
   assert.equal(first.entities.filter(entity => entity.type === 'deployment').length, 1);
+  assert.equal(first.entities.filter(entity => entity.type === 'endpoint').length, 1);
   assert.equal(first.entities.filter(entity => entity.type === 'repository').length, 1);
   assert.equal(first.entities.filter(entity => entity.type === 'project').length, 1);
-  assert.deepEqual(first.relationships.map(item => item.type).sort(), ['contains', 'runs_on', 'source_of']);
+  assert.deepEqual(first.relationships.map(item => item.type).sort(), ['contains', 'exposes', 'runs_on', 'source_of']);
 
+  const server = first.entities.find(entity => entity.type === 'server');
+  assert.equal(server.name, '生产 Panel');
+  assert.equal(server.details.hostLabel, 'Con01');
+  assert.equal(server.details.provider, '生产 Panel');
   const deployment = first.entities.find(entity => entity.type === 'deployment');
   assert.equal(deployment.runtime.latencyMs, 86);
   assert.equal(deployment.runtime.recentFailure.hasFailure, true);
   assert.equal(deployment.runtime.commit, '0123456789abcdef');
   assert.deepEqual(deployment.runtime.missingRepositoryIds, []);
   assert.equal(first.metadata.failureCount, 1);
+  const endpoint = first.entities.find(entity => entity.type === 'endpoint');
+  assert.equal(endpoint.details.urlLabel, 'https://mes.example.com');
 });
 
 test('已存在的本地项目仓库节点被复用，缺失 repositoryId 不会被模糊匹配', () => {
@@ -125,6 +133,58 @@ test('动态实体 ID 只依赖 Provider 和远端稳定身份', () => {
   );
 });
 
+test('多个部署使用分层泳道布局，访问端点与所属部署保持相邻关系层', () => {
+  const deployments = Array.from({ length: 7 }, (_, index) => ({
+    ...topology.deployments[0],
+    resourceUuid: `resource_${index + 1}`,
+    name: `App ${index + 1}`,
+    domains: [`https://app-${index + 1}.example.com`]
+  }));
+  const projection = buildProjection({
+    state: 'ready',
+    provider: { providerId: 'panel_1', label: '生产' },
+    topology: { ...topology, deployments },
+    bindings: []
+  });
+  const entities = new Map(projection.entities.map(entity => [entity.id, entity]));
+  const placements = new Map(projection.placements.map(placement => [placement.entityId, placement]));
+  const deploymentPlacements = projection.placements.filter(placement => entities.get(placement.entityId)?.type === 'deployment');
+
+  assert.equal(new Set(deploymentPlacements.map(placement => placement.x)).size, 1);
+  assert.equal(new Set(deploymentPlacements.map(placement => placement.y)).size, deployments.length);
+  for (const relationship of projection.relationships.filter(item => item.type === 'exposes')) {
+    const deploymentPlacement = placements.get(relationship.sourceId);
+    const endpointPlacement = placements.get(relationship.targetId);
+    assert.ok(endpointPlacement.x > deploymentPlacement.x);
+    assert.equal(endpointPlacement.x - deploymentPlacement.x, (280 + 64) * 2);
+  }
+});
+
+test('卡片横纵间距参与 Coolify 自动布局而不改变拓扑身份', () => {
+  const projection = buildProjection({
+    state: 'ready',
+    provider: { providerId: 'panel_1', label: '生产' },
+    topology: {
+      ...topology,
+      servers: [
+        topology.servers[0],
+        { ...topology.servers[0], nodeId: 'node_2', name: 'Con02' }
+      ]
+    },
+    bindings: [],
+    layout: { width: 300, height: 150, horizontalSpacing: 100, verticalSpacing: 60 }
+  });
+  const entities = new Map(projection.entities.map(entity => [entity.id, entity]));
+  const servers = projection.placements.filter(placement => entities.get(placement.entityId)?.type === 'server');
+  const deployment = projection.placements.find(placement => entities.get(placement.entityId)?.type === 'deployment');
+  const endpoint = projection.placements.find(placement => entities.get(placement.entityId)?.type === 'endpoint');
+
+  assert.equal(servers[1].x - servers[0].x, 0);
+  assert.equal(servers[1].y - servers[0].y, 210);
+  assert.equal(deployment.y, 80);
+  assert.equal(endpoint.x - deployment.x, 800);
+});
+
 test('多个 Panel 即使返回相同远端 ID 也生成独立节点并匹配各自关联', () => {
   const projection = buildProjection({
     state: 'ready',
@@ -159,4 +219,25 @@ test('多个 Panel 即使返回相同远端 ID 也生成独立节点并匹配各
   assert.equal(projection.metadata.providerCount, 2);
   assert.equal(projection.relationships.filter(item => item.type === 'runs_on').length, 2);
   assert.equal(projection.relationships.filter(item => item.type === 'source_of').length, 2);
+  assert.deepEqual(servers.map(server => server.name).sort(), ['备用', '生产']);
+});
+
+test('同一 Coolify 下有多台服务器时同时保留连接名称和远端服务器名', () => {
+  const projection = buildProjection({
+    state: 'ready',
+    provider: { providerId: 'panel_1', label: '生产 Coolify' },
+    topology: {
+      generatedAt: topology.generatedAt,
+      servers: [
+        { ...topology.servers[0], nodeId: 'node_1', name: 'app-01' },
+        { ...topology.servers[0], nodeId: 'node_2', name: 'app-02' }
+      ],
+      deployments: []
+    }
+  });
+
+  assert.deepEqual(
+    projection.entities.filter(entity => entity.type === 'server').map(server => server.name),
+    ['生产 Coolify · app-01', '生产 Coolify · app-02']
+  );
 });

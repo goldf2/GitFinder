@@ -43,7 +43,8 @@ const RENDERER_PREFERENCE_KEYS = new Set([
   'markdownDocumentSelections',
   'projectControlSelections',
   'taskViewMode',
-  'taskTimelineCategory'
+  'taskTimelineCategory',
+  'relationshipDynamicLayouts'
 ]);
 
 class ConfigService {
@@ -341,7 +342,8 @@ class ConfigService {
       smartCollections: { version: 1, collections: [] },
       projectShortcuts: ProjectShortcuts.defaultStore(),
       projectShortcutPreferences: ProjectShortcuts.defaultPreferences(),
-      fileLabels: FileLabels.defaultStore()
+      fileLabels: FileLabels.defaultStore(),
+      relationshipDynamicLayouts: { version: 1, boards: {} }
     };
   }
 

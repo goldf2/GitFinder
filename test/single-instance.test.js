@@ -15,3 +15,8 @@ test('桌面 App 使用单实例锁，重复启动只恢复并聚焦现有窗口
   assert.match(mainSource, /targetWindow\.focus\(\)/);
   assert.match(mainSource, /if \(!hasSingleInstanceLock\) return;/);
 });
+
+test('macOS 源码运行时使用正式 GitFinder 图标而不是 Electron 默认图标', () => {
+  assert.match(mainSource, /process\.platform === 'darwin' && isDev && app\.dock/);
+  assert.match(mainSource, /app\.dock\.setIcon\(path\.join\(__dirname, 'public', 'icon\.png'\)\)/);
+});

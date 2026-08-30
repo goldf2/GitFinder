@@ -4,6 +4,8 @@
 - 日期：2026-08-28
 - 决策范围：项目边界、复用策略、Panel 集成、数据与凭据边界
 
+> 2026-08-29 更新：本文关于“必须通过 Xiangshu Panel 获取 Coolify 数据”的决定已由 [ADR-0004](./0004-direct-coolify-provider.md) 取代。GitFinder 2 的独立项目边界与 1.x 复用策略继续有效。
+
 ## 背景
 
 GitFinder 1.x 已累积可用的 Finder 式文件管理、Git 状态、本地项目、关系白板和 macOS/Windows 发布能力。继续在 1.x 中叠加部署监控会放大模块耦合、发布风险和产品概念混乱。

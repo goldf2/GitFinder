@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GitFinder 2 · 双态部署卡片原型</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main class="prototype-shell">
+    <header class="prototype-header">
+      <div>
+        <p class="prototype-kicker">GITFINDER 2 · ISOLATED PROTOTYPE</p>
+        <h1>双态部署卡片</h1>
+        <p>简略态保持白板可扫描性；详情态在卡片内部展开部署上下文。此页面不连接正式白板，也不会保存数据。</p>
+      </div>
+      <div class="prototype-actions" aria-label="原型显示控制">
+        <button class="quiet-button" id="theme-toggle" type="button" aria-pressed="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v2m0 14v2m9-9h-2M5 12H3m15.36-6.36-1.42 1.42M7.06 16.94l-1.42 1.42m12.72 0-1.42-1.42M7.06 7.06 5.64 5.64M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z"/></svg>
+          <span>切换主题</span>
+        </button>
+      </div>
+    </header>
+
+    <section class="prototype-toolbar" aria-label="原型状态控制">
+      <div class="segmented-control" aria-label="卡片状态">
+        <button type="button" data-card-mode="compact" aria-pressed="true">简略状态</button>
+        <button type="button" data-card-mode="detail" aria-pressed="false">详情状态</button>
+      </div>
+      <label>
+        <span>服务状态</span>
+        <select id="status-picker">
+          <option value="running">运行中</option>
+          <option value="deploying">部署中</option>
+          <option value="stopped">已停止</option>
+          <option value="failed">部署失败</option>
+          <option value="fault">服务故障</option>
+        </select>
+      </label>
+    </section>
+
+    <section class="board-stage" aria-label="关系白板卡片预览">
+      <div class="stage-caption">
+        <span class="live-dot"></span>
+        <span>部署关系 · 原型画布</span>
+      </div>
+
+      <div class="connection-line connection-line-in" aria-hidden="true"></div>
+      <div class="connection-line connection-line-out" aria-hidden="true"></div>
+
+      <article class="deployment-card" id="deployment-card" data-mode="compact" data-status="running">
+        <span class="connection-port connection-port-in" aria-hidden="true"></span>
+        <span class="connection-port connection-port-out" aria-hidden="true"></span>
+
+        <header class="card-header">
+          <span class="resource-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M8 7.5h8M8 12h8M8 16.5h5M6.5 3.5h11a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2h-11a2 2 0 0 1-2-2v-13a2 2 0 0 1 2-2Z"/></svg>
+          </span>
+          <span class="card-identity">
+            <span class="card-eyebrow">部署 · production</span>
+            <strong>mes-lite</strong>
+          </span>
+          <span class="status-pill" id="status-pill"><span></span><b>运行中</b></span>
+          <button class="card-toggle card-toggle-top" type="button" aria-expanded="false" aria-controls="card-detail" title="展开详情">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6.5 8 3.5 3.5L13.5 8"/></svg>
+            <span class="sr-only">展开详情</span>
+          </button>
+        </header>
+
+        <div class="compact-summary">
+          <span class="summary-chip"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 3v6a2 2 0 0 0 2 2h6M8 5l2-2 2 2M10 3v5"/></svg>main</span>
+          <span class="summary-chip summary-commit">a24c7e1</span>
+          <span class="summary-separator"></span>
+          <span class="summary-copy">con01 · 3 分钟前更新</span>
+        </div>
+
+        <div class="detail-clip" id="card-detail" aria-hidden="true">
+          <div class="detail-content">
+            <section class="metric-grid" aria-label="部署指标">
+              <div>
+                <span>当前状态</span>
+                <strong id="metric-status">运行中</strong>
+              </div>
+              <div>
+                <span>访问延迟</span>
+                <strong>42 ms</strong>
+              </div>
+              <div>
+                <span>最近部署</span>
+                <strong>3 分钟前</strong>
+              </div>
+              <div>
+                <span>最近失败</span>
+                <strong id="metric-failure">否</strong>
+              </div>
+            </section>
+
+            <section class="detail-section">
+              <h2>部署链路</h2>
+              <dl class="detail-list">
+                <div><dt>代码来源</dt><dd>mes-lite · main</dd></div>
+                <div><dt>提交版本</dt><dd><code>a24c7e1</code><span>修复库存一致性检查</span></dd></div>
+                <div><dt>运行主机</dt><dd>con01 <small>online</small></dd></div>
+                <div><dt>访问端点</dt><dd class="endpoint">mes.csyufeng.com</dd></div>
+              </dl>
+            </section>
+
+            <section class="detail-section note-section">
+              <div>
+                <h2>部署备注</h2>
+                <p>生产 MES 服务；部署后核对库存列表、就绪探针和数据库挂载。</p>
+              </div>
+              <span class="todo-badge">待办 2</span>
+            </section>
+
+            <footer class="card-footer">
+              <span>自动部署</span>
+              <span>健康检查</span>
+              <span>只读观测</span>
+            </footer>
+          </div>
+        </div>
+
+        <button class="card-toggle card-toggle-bottom" type="button" aria-expanded="false" aria-controls="card-detail">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6.5 8 3.5 3.5L13.5 8"/></svg>
+          <span>展开详情</span>
+        </button>
+      </article>
+
+      <p class="stage-hint">点击卡片右上角或底部按钮切换状态。卡片宽度和连接点保持稳定，详情向下展开。</p>
+    </section>
+
+    <section class="design-notes" aria-label="设计说明">
+      <article><span>01</span><div><strong>简略态用于扫视</strong><p>只保留身份、状态、分支、提交、主机和更新时间。</p></div></article>
+      <article><span>02</span><div><strong>详情态用于判断</strong><p>增加指标、部署链路、备注和待办，但不承担完整属性编辑。</p></div></article>
+      <article><span>03</span><div><strong>两级详情不冲突</strong><p>卡片详情用于快速诊断；现有浮动属性窗口继续用于编辑和完整信息。</p></div></article>
+    </section>
+  </main>
+  <script src="./prototype.js"></script>
+</body>
+</html>

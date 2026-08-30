@@ -116,6 +116,7 @@ contextBridge.exposeInMainWorld('gitFinder', {
     getConnection: () => ipcRenderer.invoke('panel:getConnection'),
     getConnections: () => ipcRenderer.invoke('panel:getConnections'),
     connect: (values) => ipcRenderer.invoke('panel:connect', values),
+    update: (values) => ipcRenderer.invoke('panel:update', values),
     disconnect: (providerId) => ipcRenderer.invoke('panel:disconnect', providerId),
     getCatalog: (providerId) => ipcRenderer.invoke('panel:getCatalog', providerId),
     getTopology: () => ipcRenderer.invoke('panel:getTopology'),

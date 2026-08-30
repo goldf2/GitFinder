@@ -1311,6 +1311,24 @@
 }
 
 .panel-settings-actions { display: flex; gap: 8px; }
+.panel-provider-settings {
+  display: grid;
+  gap: 12px;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.panel-provider-block {
+  padding: 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--bg-primary);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--text-primary) 6%, transparent);
+}
+
 .panel-provider-list-heading,
 .panel-provider-add-heading {
   display: flex;
@@ -1325,11 +1343,14 @@
 .panel-provider-add-heading strong { color: var(--text-primary); font-size: 12px; }
 .panel-provider-list-heading span,
 .panel-provider-add-heading small { color: var(--text-tertiary); }
+.panel-provider-list-heading,
+.panel-provider-add-heading { margin-bottom: 12px; }
 .panel-provider-list { display: grid; gap: 8px; }
 .panel-provider-empty {
-  padding: 14px;
+  padding: 22px 14px;
   border: 1px dashed var(--border-color);
-  border-radius: 8px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--bg-secondary) 72%, var(--bg-primary));
   color: var(--text-tertiary);
   font-size: 11px;
   text-align: center;
@@ -1371,20 +1392,86 @@
 .panel-provider-card-meta { color: var(--text-tertiary); font-size: 10px; }
 .panel-provider-state { width: 8px; height: 8px; flex: 0 0 8px; border-radius: 50%; background: var(--status-dirty); }
 .panel-provider-state[data-connected="true"] { background: var(--status-clean); }
-.panel-provider-add-heading { margin-top: 8px; padding-top: 14px; border-top: 1px solid var(--border-light); }
+.panel-provider-fields {
+  overflow: hidden;
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  background: var(--bg-secondary);
+}
+
+.panel-provider-settings .app-settings-row {
+  grid-template-columns: minmax(180px, 1fr) minmax(280px, 420px);
+  gap: 24px;
+  padding: 13px 14px;
+}
+
+.panel-provider-settings .app-settings-row > input {
+  width: 100%;
+  min-width: 0;
+  height: 34px;
+  padding: 7px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 7px;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 11px;
+}
+
+.panel-provider-settings .app-settings-row > input:focus {
+  border-color: var(--accent-primary);
+  outline: 2px solid color-mix(in srgb, var(--accent-primary) 18%, transparent);
+  outline-offset: 1px;
+}
+
 .panel-settings-boundary {
   display: grid;
   gap: 4px;
-  padding: 10px 12px;
-  border: 1px solid color-mix(in srgb, var(--status-warning) 42%, var(--border-color));
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--bg-primary) 94%, var(--status-warning) 6%);
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--accent-primary) 24%, var(--border-color));
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--accent-bg) 58%, var(--bg-primary));
   color: var(--text-secondary);
   font-size: 11px;
   line-height: 1.5;
 }
 .panel-settings-boundary strong { color: var(--text-primary); }
-.panel-settings-feedback { min-height: 18px; color: var(--status-dirty); font-size: 11px; }
+.panel-provider-submit {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding-top: 14px;
+}
+
+.panel-provider-submit > span:first-child {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.panel-provider-submit strong { color: var(--text-primary); font-size: 12px; }
+.panel-provider-submit small { color: var(--text-tertiary); font-size: 10px; }
+.panel-settings-feedback { margin-top: 10px; color: var(--status-dirty); font-size: 11px; }
+.panel-settings-feedback:empty { display: none; }
+
+@media (max-width: 920px) {
+  .panel-provider-settings .app-settings-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .panel-provider-submit {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .panel-provider-submit .panel-settings-actions,
+  .panel-provider-submit .btn {
+    width: 100%;
+  }
+}
 
 @media (prefers-reduced-motion: reduce) {
   .panel-deployment-spinner { animation-duration: 1.8s; }

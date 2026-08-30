@@ -3,6 +3,8 @@
 - 状态：项目详情、动态白板和应用自有会话首批切片已实现；本地 Mock Panel 与普通 macOS 安装启动已验证；真实 Panel 和 Windows 未验证
 - 界面基线：GitFinder 1.x v1.30.13
 
+> 本文保留为早期 Panel 方案记录。自 `2.0.0-alpha.13` 起，运行时改为 GitFinder 直接连接 Coolify；当前方案见 [Coolify 直接集成](./direct-coolify-integration.md)。
+
 ## 设计结论
 
 GitFinder 2.0 直接复用 1.x 已验证的布局与交互结构。Panel 提供数据，GitFinder 负责用本地原生组件呈现；不复制 Panel 整站，不使用 `iframe` 或 Electron `webview`。

@@ -10,6 +10,7 @@ const appSource = read('src/renderer/scripts/app.js');
 const controllerSource = read('src/renderer/scripts/relationshipBoardController.js');
 const selectionDetailSource = read('src/renderer/scripts/fileSelectionDetailController.js');
 const relationshipCss = read('src/renderer/styles/relationships.css');
+const contentCss = read('src/renderer/styles/content.css');
 const serviceSource = read('src/main/services/relationshipBoardService.js');
 const importServiceSource = read('src/main/services/relationshipBoardImportService.js');
 const relationshipIpcSource = read('src/main/ipc/relationshipBoards.js');
@@ -20,11 +21,84 @@ const mainSource = read('main.js');
 globalThis.RelationshipGraphModel = require('../src/shared/relationshipGraphModel');
 const {
   Controller,
+  RESOURCE_CATEGORY_DEFINITIONS,
+  normalizeDynamicLayoutStore,
+  resolveMagneticSnap,
   NODE_WIDTH,
   NODE_HEIGHT,
   COMPACT_NODE_WIDTH,
   COMPACT_NODE_HEIGHT
 } = require('../src/renderer/scripts/relationshipBoardController');
+
+test('左侧资源库同时提供目录范围与分类资源导航', () => {
+  assert.deepEqual(
+    RESOURCE_CATEGORY_DEFINITIONS.map(category => category.id),
+    ['project', 'repository', 'server', 'deployment', 'endpoint', 'other']
+  );
+  assert.match(controllerSource, /data-resource-scope="directories"/);
+  assert.match(controllerSource, /data-resource-scope="resources"/);
+  assert.match(controllerSource, /data-resource-section/);
+  assert.match(controllerSource, /aria-label="白板目录与资源库"/);
+  assert.match(controllerSource, /getTreeRoots/);
+  assert.match(relationshipCss, /\.relationship-resource-scope\s*\{/);
+  assert.match(relationshipCss, /\.relationship-resource-section-trigger\s*\{/);
+});
+
+test('全局左侧导航在设置与关系白板中保留，资源库改为可移动浮动工具面板', () => {
+  assert.doesNotMatch(relationshipCss, /relationships-mode\s+\.sidebar/);
+  assert.doesNotMatch(relationshipCss, /relationships-mode\s+#resize-handle-left/);
+  assert.doesNotMatch(contentCss, /settings-mode\s+\.sidebar/);
+  assert.doesNotMatch(contentCss, /settings-mode\s+#resize-handle-left/);
+  assert.match(controllerSource, /data-relationship-action="toggle-resource-panel"/);
+  assert.match(controllerSource, /data-resource-panel-handle/);
+  assert.match(controllerSource, /data-relationship-action="close-resource-panel"/);
+  assert.match(controllerSource, /type:\s*'resource-panel'/);
+  assert.match(relationshipCss, /\.relationship-resource-panel\s*\{[^}]*position:\s*absolute;/s);
+  assert.match(relationshipCss, /\.relationship-resource-panel\[hidden\]\s*\{[^}]*display:\s*none;/s);
+  assert.match(relationshipCss, /\.relationship-resource-drag-handle\s*\{[^}]*cursor:\s*grab;/s);
+});
+
+test('项目仓库、Panel 主机部署和访问端点归入稳定资源分类', () => {
+  const controller = new Controller({ bridge: { platform: 'darwin' } });
+  controller.directories = [
+    { key: '/Volumes/project', name: 'project', path: '/Volumes/project' },
+    { key: '/Users/test/Desktop', name: 'Desktop', path: '/Users/test/Desktop' }
+  ];
+  controller.resources = [
+    { key: 'project:project_1', kind: 'project', refId: 'project_1', name: 'MES', path: '/Volumes/project/MES', secondary: 'active' },
+    { key: 'repository:r_1', kind: 'repository', refId: 'r_1', name: 'mes-lite', path: '/Volumes/project/MES/mes-lite', secondary: 'Git 仓库' }
+  ];
+  controller.store = {
+    schemaVersion: 1,
+    activeBoardId: 'board_resources01',
+    entities: [{ id: 'entity_endpoint01', type: 'endpoint', name: 'MES 公网', details: { urlLabel: 'https://mes.example.com' }, source: 'manual' }],
+    relationships: [],
+    boards: [{ id: 'board_resources01', name: '部署', viewport: { x: 0, y: 0, zoom: 1 }, placements: [] }]
+  };
+  controller.panelProjection = {
+    entities: [
+      { id: 'entity_server01', type: 'server', name: 'Con01', details: {}, source: 'observed', transient: true },
+      { id: 'entity_deploy01', type: 'deployment', name: 'MES production', details: { environment: 'production' }, source: 'observed', transient: true }
+    ],
+    relationships: [],
+    placements: [
+      { entityId: 'entity_server01', x: 900, y: 0, dynamic: true },
+      { entityId: 'entity_deploy01', x: 600, y: 0, dynamic: true }
+    ],
+    metadata: {}
+  };
+
+  const catalog = controller._resourceCatalog();
+  assert.deepEqual(catalog.map(resource => resource.kind).sort(), ['deployment', 'endpoint', 'project', 'repository', 'server']);
+  const resourceSections = controller._resourceSections('resources', catalog);
+  assert.equal(resourceSections.find(section => section.id === 'server').items[0].name, 'Con01');
+  assert.equal(resourceSections.find(section => section.id === 'deployment').label, '站点与部署');
+  assert.equal(resourceSections.find(section => section.id === 'endpoint').label, '访问端点');
+
+  const directorySections = controller._resourceSections('directories', catalog);
+  assert.deepEqual(directorySections.map(section => section.label), ['project']);
+  assert.deepEqual(directorySections[0].items.map(item => item.name), ['MES', 'mes-lite']);
+});
 
 test('关系白板作为结构独立工作区接入菜单、渲染生命周期和本机 IPC', () => {
   assert.match(html, /data-view="relationships"[\s\S]*?<span>关系白板<\/span>/);
@@ -138,7 +212,7 @@ test('确认 JSON 差异后控制器载入主进程结果并保留一次撤销�
   assert.equal(notifications[0].type, 'success');
 });
 
-test('GitFinder 2 白板不暴露直连 Coolify 或输入 Coolify Token 的入口', () => {
+test('白板不在画布内重复暴露 Coolify Token，连接统一放在应用设置', () => {
   const relationshipPreloadBlock = preloadSource.match(/relationshipBoards:\s*\{[\s\S]*?\n\s*\},/)?.[0] || '';
   assert.equal(fs.existsSync(path.join(projectRoot, 'src/main/services/coolifyReadOnlyConnectorService.js')), false);
   assert.doesNotMatch(controllerSource, /data-relationship-action="connect-coolify"/);
@@ -148,13 +222,13 @@ test('GitFinder 2 白板不暴露直连 Coolify 或输入 Coolify Token 的入�
   assert.doesNotMatch(relationshipIpcSource, /previewCoolify|applyCoolify|coolifyReadOnlyConnectorService/);
 });
 
-test('Panel 动态拓扑通过只读 IPC 投影到白板而不写入持久关系事实', () => {
+test('Coolify 动态拓扑通过只读 IPC 投影到白板而不写入持久关系事实', () => {
   assert.match(preloadSource, /getTopology:\s*\(\)\s*=>\s*ipcRenderer\.invoke\('panel:getTopology'\)/);
   assert.match(preloadSource, /getProjectBindings:\s*\(directoryPath\)\s*=>\s*ipcRenderer\.invoke\('panel:getProjectBindings'/);
   assert.match(controllerSource, /PanelTopologyProjection/);
   assert.match(controllerSource, /data-panel-topology-status/);
   assert.match(controllerSource, /data-relationship-action="refresh-panel"/);
-  assert.match(controllerSource, /动态事实来自 Panel，不写入本机白板/);
+  assert.match(controllerSource, /动态事实直接来自 Coolify，只读显示，不写入本机白板/);
 
   const controller = new Controller({ bridge: {} });
   controller.store = {
@@ -206,15 +280,16 @@ test('Panel 动态拓扑通过只读 IPC 投影到白板而不写入持久关系
   assert.doesNotMatch(JSON.stringify(exported), /\/Volumes\/|"transient"|"runtime"|"dynamic"|"provider"/);
 });
 
-test('关系白板不等待全盘项目扫描即可先显示本机关系与仓库', async () => {
+test('关系白板不等待全盘项目扫描或 Coolify 网络即可先显示本机关系与仓库', async () => {
   let resolveProjects;
   const projects = new Promise(resolve => { resolveProjects = resolve; });
+  const topology = new Promise(() => {});
   const controller = new Controller({
     bridge: {
       relationshipBoards: { get: async () => ({ store: RelationshipGraphModel.defaultStore() }) },
       localProjects: { list: () => projects },
       repos: { getRegistry: async () => ({ repos: [{ id: 'r_0123456789ab', path: '/repo', name: 'repo' }] }) },
-      panel: { getTopology: async () => ({ state: 'unconfigured' }) }
+      panel: { getTopology: () => topology }
     }
   });
 
@@ -230,6 +305,40 @@ test('关系白板不等待全盘项目扫描即可先显示本机关系与仓�
   resolveProjects([{ projectId: 'project_local_1', name: 'MES', path: '/project' }]);
   await controller.resourceLoadingPromise;
   assert.equal(controller.resources.some(item => item.kind === 'project'), true);
+});
+
+test('关系白板完成本地渲染后才在后台刷新 Coolify', async () => {
+  const originalDocument = globalThis.document;
+  let rendered = 0;
+  let refreshStartedAfterRender = false;
+  globalThis.document = {
+    addEventListener() {},
+    removeEventListener() {}
+  };
+  try {
+    const controller = new Controller({ bridge: { panel: { getTopology: async () => ({ state: 'ready' }) } } });
+    controller._load = async () => {
+      controller.store = RelationshipGraphModel.defaultStore();
+      controller.loaded = true;
+    };
+    controller.render = () => { rendered += 1; };
+    controller._refreshPanelTopology = () => {
+      refreshStartedAfterRender = rendered === 1;
+      return new Promise(() => {});
+    };
+    const container = { innerHTML: '' };
+
+    const openResult = await Promise.race([
+      controller.open(container),
+      new Promise(resolve => setTimeout(() => resolve('blocked'), 50))
+    ]);
+
+    assert.notEqual(openResult, 'blocked');
+    assert.equal(rendered, 1);
+    assert.equal(refreshStartedAfterRender, true);
+  } finally {
+    globalThis.document = originalDocument;
+  }
 });
 
 test('切换到文件浏览后，迟到的白板载入不会重新占用内容区或键盘事件', async () => {
@@ -378,10 +487,372 @@ test('关系类型按端点提供常用预设，反转方向时使用语义相�
   assert.doesNotMatch(controller._relationshipTypeOptions('repository', 'repository', 'forked_from'), />包含</);
 });
 
-test('节点卡片除连接点和交互控件外可从整个卡面开始拖动', () => {
-  assert.match(controllerSource, /const node = event\.target\.closest\('\.relationship-node'\);[\s\S]*?const nodeControl = event\.target\.closest\('\.relationship-port, button, input, textarea, select, a'\);[\s\S]*?node && !nodeControl/);
+test('节点卡片除连接点、详情内容和交互控件外可从整个卡面开始拖动', () => {
+  assert.match(controllerSource, /const node = event\.target\.closest\('\.relationship-node'\);[\s\S]*?const nodeControl = event\.target\.closest\('\.relationship-port, \.relationship-card-detail-content, button, input, textarea, select, a'\);[\s\S]*?node && !nodeControl/);
   assert.doesNotMatch(controllerSource, /const header = event\.target\.closest\('\.relationship-node-header'\)/);
   assert.match(relationshipCss, /\.relationship-node:not\(\.panel-dynamic\)\s*\{[^}]*cursor:\s*grab/s);
+});
+
+test('Coolify 动态节点可移动且布局覆盖只保存在本机偏好中', () => {
+  const normalized = normalizeDynamicLayoutStore({
+    version: 1,
+    boards: {
+      board_test0001: {
+        entity_panel_server_12345678: {
+          x: 456.4,
+          y: 123.6,
+          labels: ['生产'],
+          note: '只读主机备注',
+          todos: [{ id: 'todo_check001', title: '检查延迟', completed: false }]
+        },
+        invalid: { x: 'bad', y: 0 }
+      }
+    }
+  });
+  assert.deepEqual(normalized, {
+    version: 1,
+    boards: {
+      board_test0001: {
+        entity_panel_server_12345678: {
+          x: 456,
+          y: 124,
+          labels: ['生产'],
+          note: '只读主机备注',
+          todos: [{ id: 'todo_check001', title: '检查延迟', completed: false }]
+        }
+      }
+    }
+  });
+  assert.match(controllerSource, /relationshipDynamicLayouts/);
+  assert.match(controllerSource, /data-relationship-action="reset-dynamic-layout"/);
+  assert.match(controllerSource, /data-relationship-action="arrange-by-category"/);
+  assert.match(controllerSource, /_saveDynamicPlacementOverrides/);
+  assert.match(relationshipCss, /\.relationship-node\.panel-dynamic\s*\{[^}]*cursor:\s*grab/s);
+});
+
+test('按类别分列会排列当前白板的本地与动态资源并保持关系顺序', () => {
+  const controller = new Controller({ bridge: {} });
+  controller.store = {
+    schemaVersion: 1,
+    activeBoardId: 'board_lanes001',
+    entities: [
+      { id: 'entity_project01', type: 'project', name: 'MES', details: {} },
+      { id: 'entity_repo0001', type: 'repository', name: 'mes-lite', details: {} },
+      { id: 'entity_deploy01', type: 'deployment', name: 'Production', details: {} },
+      { id: 'entity_server01', type: 'server', name: 'Con01', details: {} },
+      { id: 'entity_endpoint1', type: 'endpoint', name: 'mes.example.com', details: {} }
+    ],
+    relationships: [
+      { id: 'relation_contain1', type: 'contains', sourceId: 'entity_project01', targetId: 'entity_repo0001' },
+      { id: 'relation_source01', type: 'source_of', sourceId: 'entity_repo0001', targetId: 'entity_deploy01' },
+      { id: 'relation_runson01', type: 'runs_on', sourceId: 'entity_deploy01', targetId: 'entity_server01' },
+      { id: 'relation_expose01', type: 'exposes', sourceId: 'entity_deploy01', targetId: 'entity_endpoint1' }
+    ],
+    boards: [{
+      id: 'board_lanes001',
+      name: '类别分列',
+      viewport: { x: 0, y: 0, zoom: 1 },
+      view: RelationshipGraphModel.defaultBoardView(),
+      placements: ['entity_project01', 'entity_repo0001', 'entity_deploy01', 'entity_server01', 'entity_endpoint1']
+        .map(entityId => ({ entityId, x: 0, y: 0 }))
+    }]
+  };
+  let fitOptions = null;
+  controller._renderGraph = () => {};
+  controller._persistSoon = () => {};
+  controller._refreshHistoryButtons = () => {};
+  controller.fitContent = options => { fitOptions = options; };
+
+  assert.equal(controller._arrangeByCategory(), true);
+
+  const placements = new Map(controller.store.boards[0].placements.map(placement => [placement.entityId, placement]));
+  assert.deepEqual(
+    ['entity_project01', 'entity_repo0001', 'entity_deploy01', 'entity_server01', 'entity_endpoint1'].map(id => placements.get(id).x),
+    [80, 424, 768, 1112, 1456]
+  );
+  assert.deepEqual([...placements.values()].map(placement => placement.y), [80, 80, 80, 80, 80]);
+  assert.deepEqual(fitOptions, { minZoom: 1 });
+  assert.match(controllerSource, /_resetDynamicLayout\(\)[\s\S]*?fitContent\(\{ minZoom: 1 \}\)/);
+});
+
+test('智能磁吸优先对齐节点参考线，网格模式使用稳定间距', () => {
+  const smart = resolveMagneticSnap({
+    mode: 'smart',
+    threshold: 8,
+    gridSize: 24,
+    movingBounds: { left: 100, centerX: 218, right: 336, top: 96, centerY: 143, bottom: 190 },
+    stationaryBounds: [{ left: 344, centerX: 462, right: 580, top: 100, centerY: 147, bottom: 194 }]
+  });
+  assert.equal(smart.dx, 8);
+  assert.equal(smart.dy, 4);
+  assert.deepEqual(smart.guides.map(guide => [guide.axis, guide.position, guide.kind]), [
+    ['x', 344, 'node'],
+    ['y', 100, 'node']
+  ]);
+
+  const grid = resolveMagneticSnap({
+    mode: 'grid',
+    gridSize: 24,
+    movingBounds: { left: 51, centerX: 169, right: 287, top: 49, centerY: 96, bottom: 143 },
+    stationaryBounds: []
+  });
+  assert.deepEqual({ dx: grid.dx, dy: grid.dy }, { dx: -3, dy: -1 });
+});
+
+test('白板工具栏公开吸附和群组入口，元素注释支持标签备注待办提醒与筛选', () => {
+  assert.match(controllerSource, /data-relationship-snap-mode/);
+  assert.match(controllerSource, /按住 Option\/Alt 临时关闭吸附/);
+  assert.match(controllerSource, /data-relationship-action="create-group-from-selection"/);
+  assert.match(controllerSource, /data-relationship-action="add-todo-row"/);
+  assert.match(controllerSource, /name="placementLabels"/);
+  assert.match(controllerSource, /name="placementNote"/);
+  assert.match(controllerSource, /name="placementTitleMode"/);
+  assert.match(controllerSource, /name="placementTitleText"/);
+  assert.match(controllerSource, /name="task"/);
+  assert.match(controllerSource, /name="annotation"/);
+  assert.match(controllerSource, /name="label"/);
+  assert.match(controllerSource, /event\.altKey/);
+  assert.match(controllerSource, /relationship-guide-layer/);
+  assert.match(controllerSource, /preserveDirtyInspector/);
+  assert.match(relationshipCss, /\.relationship-snap-guide\s*\{/);
+  assert.match(relationshipCss, /\.relationship-node-labels\s*\{/);
+  assert.match(relationshipCss, /\.relationship-todo-row\s*\{/);
+});
+
+test('卡片显示别名可替换、前后追加或作为副标题且不修改原始实体名', () => {
+  const controller = new Controller({ bridge: {} });
+  controller.store = {
+    schemaVersion: 1,
+    activeBoardId: 'board_alias0001',
+    entities: [{ id: 'entity_server01', type: 'server', name: 'localhost', details: { hostLabel: 'localhost' } }],
+    relationships: [],
+    boards: [{
+      id: 'board_alias0001',
+      name: '别名测试',
+      viewport: { x: 0, y: 0, zoom: 1 },
+      view: RelationshipGraphModel.defaultBoardView(),
+      placements: [{ entityId: 'entity_server01', x: 0, y: 0, titleMode: 'prefix', titleText: '生产' }]
+    }]
+  };
+  const entity = controller.store.entities[0];
+
+  assert.equal(controller._entityDisplayName(entity), '生产 · localhost');
+  assert.equal(controller._entityBaseName(entity), 'localhost');
+  controller.store.boards[0].placements[0].titleMode = 'replace';
+  assert.equal(controller._entityDisplayName(entity), '生产');
+  controller.store.boards[0].placements[0].titleMode = 'suffix';
+  assert.equal(controller._entityDisplayName(entity), 'localhost · 生产');
+  controller.store.boards[0].placements[0].titleMode = 'subtitle';
+  assert.equal(controller._entityDisplayName(entity), 'localhost');
+  assert.equal(controller._entityDisplaySubtitle(entity, 'online'), '生产 · online');
+  assert.equal(entity.name, 'localhost');
+});
+
+test('白板显示菜单可实时调节卡片尺寸、间距、文字、层次、网格和关系文字', () => {
+  const controller = new Controller({ bridge: {} });
+  controller.store = {
+    schemaVersion: 1,
+    activeBoardId: 'board_display01',
+    entities: [],
+    relationships: [],
+    boards: [{
+      id: 'board_display01',
+      name: '显示测试',
+      viewport: { x: 0, y: 0, zoom: 1 },
+      view: {
+        ...RelationshipGraphModel.defaultBoardView(),
+        cardScale: 1.2,
+        textScale: 1.1,
+        horizontalSpacing: 96,
+        verticalSpacing: 52,
+        cardAppearance: 'flat',
+        showGrid: false,
+        showEdgeLabels: false,
+        cardTitleSource: 'note',
+        showRuntimeStatus: false
+      },
+      placements: []
+    }]
+  };
+
+  assert.deepEqual(controller._nodeDimensions(), {
+    width: Math.round(NODE_WIDTH * 1.2),
+    height: Math.round(NODE_HEIGHT * 1.2)
+  });
+  assert.match(controllerSource, /data-relationship-action="toggle-display-menu"/);
+  assert.match(controllerSource, /name="cardScale"/);
+  assert.match(controllerSource, /name="textScale"/);
+  assert.match(controllerSource, /name="horizontalSpacing" type="range"/);
+  assert.match(controllerSource, /name="verticalSpacing" type="range"/);
+  assert.match(controllerSource, /horizontalSpacing: this\._displayViewSettings\(\)\.horizontalSpacing/);
+  assert.match(controllerSource, /verticalSpacing: this\._displayViewSettings\(\)\.verticalSpacing/);
+  assert.match(controllerSource, /name="cardAppearance"/);
+  assert.match(controllerSource, /name="showGrid"/);
+  assert.match(controllerSource, /name="showEdgeLabels"/);
+  assert.match(controllerSource, /name="cardTitleSource"/);
+  assert.match(controllerSource, /name="showRuntimeStatus"/);
+  assert.match(controllerSource, /data-relationship-action="reset-display-settings"/);
+  assert.match(relationshipCss, /--relationship-card-scale/);
+  assert.match(relationshipCss, /--relationship-text-scale/);
+  assert.match(relationshipCss, /data-card-appearance="flat"/);
+  assert.match(relationshipCss, /data-show-grid="false"/);
+  assert.match(relationshipCss, /data-show-edge-labels="false"/);
+});
+
+test('服务卡片将运行、停止、部署失败和故障显示为明确状态徽标', () => {
+  const controller = new Controller({ bridge: {} });
+
+  assert.deepEqual(controller._entityRuntimeStatus({
+    type: 'deployment',
+    runtime: { status: 'running', recentFailure: { hasFailure: false } }
+  }), { state: 'running', label: '运行中', sourceStatus: 'running' });
+  assert.deepEqual(controller._entityRuntimeStatus({
+    type: 'deployment',
+    runtime: { status: 'running', recentFailure: { hasFailure: true } }
+  }), { state: 'deploy-failed', label: '部署失败', sourceStatus: 'running' });
+  assert.equal(controller._entityRuntimeStatus({
+    type: 'deployment',
+    runtime: { status: 'stopped' }
+  }).label, '已停止');
+  assert.equal(controller._entityRuntimeStatus({
+    type: 'deployment',
+    runtime: { status: 'unhealthy' }
+  }).label, '故障');
+  assert.match(controllerSource, /relationship-node-runtime-status/);
+  assert.match(relationshipCss, /\.relationship-node-runtime-status\[data-state="running"\]/);
+  assert.match(relationshipCss, /\.relationship-node-runtime-status\[data-state="deploy-failed"\]/);
+  assert.match(relationshipCss, /\.relationship-node-runtime-status\[data-state="fault"\]/);
+});
+
+test('单卡标题来源和状态可覆盖白板默认且继续支持别名重命名', () => {
+  const controller = new Controller({ bridge: {} });
+  controller.store = {
+    schemaVersion: 1,
+    activeBoardId: 'board_override01',
+    entities: [{ id: 'entity_deploy01', type: 'deployment', name: 'MES production', details: { status: 'running' } }],
+    relationships: [],
+    boards: [{
+      id: 'board_override01',
+      name: '覆盖测试',
+      viewport: { x: 0, y: 0, zoom: 1 },
+      view: { ...RelationshipGraphModel.defaultBoardView(), cardTitleSource: 'note', showRuntimeStatus: false },
+      placements: [{ entityId: 'entity_deploy01', x: 0, y: 0, note: '生产主站', titleMode: 'suffix', titleText: '华东' }]
+    }]
+  };
+
+  assert.equal(controller._entityDisplayName(controller.store.entities[0]), '生产主站 · 华东');
+  assert.equal(controller._cardShowsRuntimeStatus(controller.store.boards[0].placements[0]), false);
+  controller.store.boards[0].placements[0].titleSource = 'name';
+  controller.store.boards[0].placements[0].statusVisibility = 'show';
+  assert.equal(controller._entityDisplayName(controller.store.entities[0]), 'MES production · 华东');
+  assert.equal(controller._cardShowsRuntimeStatus(controller.store.boards[0].placements[0]), true);
+  assert.match(controllerSource, /name="placementTitleSource"/);
+  assert.match(controllerSource, /name="placementStatusVisibility"/);
+});
+
+test('卡片上下按钮切换双态详情并保留可固定的属性浮窗', () => {
+  assert.deepEqual(
+    { width: NODE_WIDTH, height: NODE_HEIGHT, compactWidth: COMPACT_NODE_WIDTH, compactHeight: COMPACT_NODE_HEIGHT },
+    { width: 280, height: 142, compactWidth: 236, compactHeight: 94 }
+  );
+  assert.match(controllerSource, /relationship-card-expand relationship-card-expand-top/);
+  assert.match(controllerSource, /relationship-card-expand relationship-card-expand-bottom/);
+  assert.match(controllerSource, /relationship-node-identity/);
+  assert.match(controllerSource, /relationship-node-attention-row/);
+  assert.match(controllerSource, /relationship-attention-chip neutral">无待办/);
+  assert.match(controllerSource, /<b>\$\{expanded \? '收起详情' : '展开详情'\}<\/b>/);
+  assert.match(controllerSource, /data-relationship-card-detail/);
+  assert.match(controllerSource, /expandedCardIds/);
+  assert.match(controllerSource, /relationship-card-detail-content/);
+  assert.match(controllerSource, /data-relationship-action="toggle-all-card-details"/);
+  assert.match(controllerSource, /data-relationship-action="toggle-inspector-pin"/);
+  assert.match(controllerSource, /inspectorPinned/);
+  assert.match(relationshipCss, /\.relationship-node\.is-detail\s*\{/);
+  assert.match(relationshipCss, /--relationship-card-width:\s*280px/);
+  assert.match(relationshipCss, /--relationship-card-height:\s*142px/);
+  assert.match(relationshipCss, /backdrop-filter:\s*blur\(22px\) saturate\(145%\)/);
+  assert.match(controllerSource, /entity\.type === 'repository' \? '已同步' : '正常'/);
+  assert.match(controllerSource, /class="relationship-card-expand relationship-card-expand-top"[\s\S]*?<svg viewBox="0 0 20 20"/);
+  assert.match(relationshipCss, /\.relationship-node-header\s*\{[^}]*grid-template-columns:\s*32px minmax\(0, 1fr\) auto 28px;/s);
+  assert.match(relationshipCss, /\.relationship-card-expand-bottom\s*\{[^}]*min-width:\s*106px;/s);
+  assert.match(relationshipCss, /\.relationship-card-todos\s*\{/);
+  assert.match(relationshipCss, /\.relationship-inspector-panel\s*\{[^}]*position:\s*absolute;/s);
+  assert.match(relationshipCss, /\.relationship-inspector-panel\[data-pinned="true"\]/);
+  assert.doesNotMatch(relationshipCss, /\.relationship-body\.has-inspector\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+286px;/s);
+});
+
+test('展开卡片使用临时布局推开同列下方卡片且不改写保存坐标', () => {
+  const controller = new Controller({ bridge: {} });
+  controller.store = {
+    schemaVersion: 1,
+    activeBoardId: 'board_expand001',
+    entities: [
+      { id: 'entity_deploy01', type: 'deployment', name: 'Production', details: {} },
+      { id: 'entity_deploy02', type: 'deployment', name: 'Staging', details: {} },
+      { id: 'entity_server01', type: 'server', name: 'Con01', details: {} }
+    ],
+    relationships: [],
+    boards: [{
+      id: 'board_expand001',
+      name: '展开测试',
+      viewport: { x: 0, y: 0, zoom: 1 },
+      view: RelationshipGraphModel.defaultBoardView(),
+      placements: [
+        { entityId: 'entity_deploy01', x: 0, y: 0, todos: [{ id: 'todo_expand001', title: '检查部署', completed: false }] },
+        { entityId: 'entity_deploy02', x: 0, y: 120 },
+        { entityId: 'entity_server01', x: 500, y: 120 }
+      ]
+    }]
+  };
+  controller.expandedCardIds.add('entity_deploy01');
+
+  const geometry = controller._displayGeometryMap(controller.store.boards[0].placements);
+
+  assert.ok(geometry.get('entity_deploy01').height > NODE_HEIGHT);
+  assert.ok(geometry.get('entity_deploy02').y > 120);
+  assert.equal(geometry.get('entity_server01').y, 120);
+  assert.equal(controller.store.boards[0].placements[1].y, 120);
+});
+
+test('筛选器同组多选取任一条件、跨组同时满足并提供弱化或隐藏策略', () => {
+  const controller = new Controller({ bridge: {} });
+  controller.store = {
+    schemaVersion: 1,
+    activeBoardId: 'board_filter001',
+    entities: [
+      { id: 'entity_project1', type: 'project', name: 'Project', details: {} },
+      { id: 'entity_repo0001', type: 'repository', name: 'Repo', details: {} },
+      { id: 'entity_server01', type: 'server', name: 'Server', details: {} }
+    ],
+    relationships: [],
+    boards: [{
+      id: 'board_filter001',
+      name: '筛选测试',
+      viewport: { x: 0, y: 0, zoom: 1 },
+      view: {
+        ...RelationshipGraphModel.defaultBoardView(),
+        entityTypes: ['project', 'repository'],
+        taskFilters: ['has-todos', 'no-todos']
+      },
+      placements: [
+        { entityId: 'entity_project1', x: 0, y: 0, todos: [{ id: 'todo_filter001', title: '待办', completed: false }] },
+        { entityId: 'entity_repo0001', x: 300, y: 0 },
+        { entityId: 'entity_server01', x: 600, y: 0 }
+      ]
+    }]
+  };
+
+  let graph = controller._filteredGraph();
+  assert.deepEqual([...graph.directIds], ['entity_project1', 'entity_repo0001']);
+  assert.deepEqual([...graph.mutedIds], ['entity_server01']);
+
+  controller.store.boards[0].view.unmatchedDisplay = 'hide';
+  graph = controller._filteredGraph();
+  assert.deepEqual(graph.placements.map(item => item.entityId), ['entity_project1', 'entity_repo0001']);
+  assert.match(controllerSource, /name="entityTypes" type="checkbox"/);
+  assert.match(controllerSource, /name="taskFilters" type="checkbox"/);
+  assert.match(controllerSource, /name="runtimeStates" type="checkbox"/);
+  assert.match(relationshipCss, /\.relationship-node\.filter-muted\s*\{/);
 });
 
 test('部署节点用结构化版本上下文生成可扫描副标题', () => {
@@ -590,16 +1061,13 @@ test('服务器关联部署可清除摘要和筛选后定位当前白板节点',
 
   assert.equal(controller._focusEntityOnBoard('entity_deploy01'), true);
   assert.deepEqual(controller.store.boards[0].view, {
+    ...RelationshipGraphModel.defaultBoardView(),
     mode: 'compact',
-    projection: 'facts',
-    query: '',
-    entityType: 'all',
-    environment: '',
-    verification: 'all'
+    projection: 'facts'
   });
   assert.equal(controller.selectedEntityId, 'entity_deploy01');
-  assert.equal(controller.store.boards[0].viewport.x, -190);
-  assert.equal(controller.store.boards[0].viewport.y, 173);
+  assert.equal(controller.store.boards[0].viewport.x, 500 - (600 + COMPACT_NODE_WIDTH / 2));
+  assert.equal(controller.store.boards[0].viewport.y, 300 - (100 + COMPACT_NODE_HEIGHT / 2));
   assert.equal(notifications.length, 0);
 
   assert.equal(controller._focusEntityOnBoard('entity_missing1'), false);
@@ -697,10 +1165,14 @@ test('部署摘要从完整事实链派生并聚合同一项目到服务器的�
   const filtered = controller._filteredGraph();
   assert.deepEqual([...filtered.directIds], ['entity_deploy01']);
   assert.deepEqual(filtered.placements.map(item => item.entityId), [
+    'entity_project1',
     'entity_repo0001',
+    'entity_repo0002',
     'entity_deploy01',
+    'entity_deploy02',
     'entity_server01'
   ]);
+  assert.deepEqual([...filtered.mutedIds], ['entity_project1', 'entity_repo0002', 'entity_deploy02']);
   assert.equal(filtered.summaryRelationships.length, 0);
 });
 
@@ -848,7 +1320,12 @@ test('视觉分组边框包围成员并保留标题空间', () => {
 
   const geometry = controller._placementGeometry(controller.store.boards[0].placements[0]);
 
-  assert.deepEqual(geometry, { x: 72, y: 66, width: 612, height: 316 });
+  assert.deepEqual(geometry, {
+    x: 72,
+    y: 66,
+    width: 420 + NODE_WIDTH + 28 - 72,
+    height: 260 + NODE_HEIGHT + 28 - 66
+  });
 });
 
 test('拖动视觉分组会把当前白板中的成员一起移动', () => {
@@ -1065,7 +1542,7 @@ test('白板多选提供修饰键、Shift 框选和不批量编辑事实的说�
   assert.match(relationshipCss, /\.relationship-group-frame\s*\{/);
 });
 
-test('内容筛选保留直接匹配节点的一跳关系上下文', () => {
+test('内容筛选高亮匹配与一跳上下文并低可视保留其余节点', () => {
   const controller = new Controller({
     bridge: {},
     now: () => new Date('2026-08-27T12:00:00.000Z')
@@ -1100,17 +1577,25 @@ test('内容筛选保留直接匹配节点的一跳关系上下文', () => {
 
   let graph = controller._filteredGraph();
   assert.deepEqual([...graph.directIds], ['entity_project1']);
-  assert.deepEqual(graph.placements.map(item => item.entityId), ['entity_project1', 'entity_repo0001']);
+  assert.deepEqual(graph.placements.map(item => item.entityId), ['entity_project1', 'entity_repo0001', 'entity_deploy01', 'entity_server01']);
   assert.deepEqual([...graph.contextualIds], ['entity_repo0001']);
-  assert.deepEqual(graph.relationships.map(item => item.id), ['relationship_test0001']);
+  assert.deepEqual([...graph.mutedIds], ['entity_deploy01', 'entity_server01']);
+  assert.deepEqual(graph.relationships.map(item => item.id), ['relationship_test0001', 'relationship_test0002', 'relationship_test0003']);
 
   controller.store.boards[0].view = {
     mode: 'full', query: '', entityType: 'all', environment: '', verification: 'stale'
   };
   graph = controller._filteredGraph();
   assert.deepEqual([...graph.directIds], ['entity_deploy01']);
-  assert.deepEqual(graph.placements.map(item => item.entityId), ['entity_repo0001', 'entity_deploy01', 'entity_server01']);
-  assert.deepEqual(graph.relationships.map(item => item.id), ['relationship_test0002', 'relationship_test0003']);
+  assert.deepEqual(graph.placements.map(item => item.entityId), ['entity_project1', 'entity_repo0001', 'entity_deploy01', 'entity_server01']);
+  assert.deepEqual([...graph.contextualIds], ['entity_repo0001', 'entity_server01']);
+  assert.deepEqual([...graph.mutedIds], ['entity_project1']);
+  assert.deepEqual(graph.relationships.map(item => item.id), ['relationship_test0001', 'relationship_test0002', 'relationship_test0003']);
+
+  controller.store.boards[0].view.unmatchedDisplay = 'hide';
+  graph = controller._filteredGraph();
+  assert.deepEqual(graph.placements.map(item => item.entityId), ['entity_deploy01']);
+  assert.deepEqual(graph.relationships, []);
 });
 
 test('精简模式使用对应节点尺寸计算双向连线端点', () => {

@@ -3,6 +3,8 @@
 - 状态：已接受并实现
 - 日期：2026-08-29
 
+> 2026-08-29 更新：不使用系统钥匙串、应用自有会话和 `0600` 权限边界继续有效；新连接使用 `coolify-session.json`，详见 [ADR-0004](./0004-direct-coolify-provider.md)。
+
 ## 背景
 
 早期 Alpha 使用 Electron `safeStorage` 保存 Panel 只读令牌，并开启 Cookie Encryption Fuse。macOS 会因此访问 `GitFinder 2 Alpha Safe Storage` 钥匙串项；ad-hoc 签名的指定要求绑定每次构建的 CDHash，更新后会再次要求授权，并可能在创建窗口前阻塞。

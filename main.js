@@ -427,6 +427,9 @@ registerTrustedHandler('updater:install', () => {
 
 app.whenReady().then(() => {
   if (!hasSingleInstanceLock) return;
+  if (process.platform === 'darwin' && isDev && app.dock) {
+    app.dock.setIcon(path.join(__dirname, 'public', 'icon.png'));
+  }
   registerFilesystemIPC();
   registerClipboardIPC();
   registerFileOperationsIPC();
