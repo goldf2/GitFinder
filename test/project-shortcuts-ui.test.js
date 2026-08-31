@@ -16,6 +16,12 @@ test('左侧项目区是快捷导航而不是项目分类或一级视图', () =>
   assert.doesNotMatch(html, /<span class="sidebar-title-text">项目分类<\/span>/);
   assert.doesNotMatch(html, /class="view-btn[^>]+data-view="projects"/);
   assert.match(controllerSource, /data-project-shortcut-all[\s\S]*?applyContentPreset\('all-projects'\)/);
+  assert.match(html, /id="sidebar-navigation"[^>]*role="tablist"/);
+  assert.match(html, /data-sidebar-navigation="projects"/);
+  assert.match(html, /data-sidebar-navigation="directories"/);
+  assert.match(controllerSource, /config\.get\('sidebarNavigationMode'\)/);
+  assert.match(appSource, /id !== 'board-components' && AppState\.sidebarCollapsedSections\.has\(id\)/);
+  assert.match(css, /\.sidebar-section\[hidden\]\s*\{\s*display: none/);
 });
 
 test('项目快捷入口显示固定与最近项目，进入目录仍使用统一目录导航', () => {

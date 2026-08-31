@@ -213,11 +213,15 @@ test('渲染层配置写入只允许偏好键，不能替换受管根或收藏',
   assert.equal(service.get('cardStyle'), 'list');
   service.setRendererPreference('columnViewWidth', 320);
   assert.equal(service.get('columnViewWidth'), 320);
+  service.setRendererPreference('sidebarNavigationMode', 'projects');
+  assert.equal(service.get('sidebarNavigationMode'), 'projects');
   service.setRendererPreference('relationshipDynamicLayouts', {
     version: 1,
     boards: { board_test0001: { entity_panel_server_12345678: { x: 120, y: 80 } } }
   });
   assert.equal(service.get('relationshipDynamicLayouts').boards.board_test0001.entity_panel_server_12345678.x, 120);
+  service.setRendererPreference('relationshipPanelLayout', { library: { side: 'left', collapsed: true }, inspector: { side: 'right' } });
+  assert.equal(service.get('relationshipPanelLayout').library.collapsed, true);
   service.setRendererPreference('semanticColorProfile', {
     preset: 'custom',
     colors: { folder: '#ABCDEF', project: 'invalid', gitBadge: '#7654A1', gitMark: '#FFFFFF', extra: '#000000' },

@@ -4,7 +4,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const RelationshipGraphModel = require('../../shared/relationshipGraphModel');
 
-const MAX_FILE_BYTES = 2 * 1024 * 1024;
+const MAX_FILE_BYTES = 32 * 1024 * 1024;
 const FILE_NAME = 'relationship-boards.json';
 
 function resolveDefaultBaseDirectory() {
@@ -36,7 +36,7 @@ class RelationshipBoardService {
   _assertReadableFile() {
     const stat = fs.lstatSync(this.filePath);
     if (stat.isSymbolicLink() || !stat.isFile()) throw new Error('关系白板配置必须是普通文件');
-    if (stat.size > MAX_FILE_BYTES) throw new Error('关系白板配置超过 2 MB 安全限制');
+    if (stat.size > MAX_FILE_BYTES) throw new Error('关系白板配置超过 32 MB 安全限制');
     return stat;
   }
 
@@ -56,7 +56,7 @@ class RelationshipBoardService {
     this._ensureBaseDirectory();
     const serialized = `${JSON.stringify(value, null, 2)}\n`;
     if (Buffer.byteLength(serialized, 'utf8') > MAX_FILE_BYTES) {
-      throw new Error('关系白板配置超过 2 MB 安全限制');
+      throw new Error('关系白板配置超过 32 MB 安全限制');
     }
     const temporaryPath = path.join(
       this.baseDirectory,

@@ -16,15 +16,14 @@ test('收藏夹写入通过受信主进程切换受管目录，不再借用仓�
   assert.doesNotMatch(appSource, /tags\.create\('收藏'/);
 });
 
-test('普通文件夹可从操作菜单、右键菜单和详情加入侧栏收藏夹', () => {
+test('移除独立收藏夹及菜单和详情入口', () => {
   const htmlSource = fs.readFileSync(path.join(projectRoot, 'src', 'renderer', 'index.html'), 'utf8');
   const appSource = fs.readFileSync(path.join(projectRoot, 'src', 'renderer', 'scripts', 'app.js'), 'utf8');
   const detailSource = fs.readFileSync(path.join(projectRoot, 'src', 'renderer', 'scripts', 'fileSelectionDetailController.js'), 'utf8');
 
-  assert.match(htmlSource, /id="file-favorite"[\s\S]*data-context-action="favorite"/);
-  assert.match(appSource, /file-favorite[\s\S]*toggleSelectedFavorite/);
-  assert.match(detailSource, /data-detail-action="toggle-favorite"/);
-  assert.match(appSource, /file-context-favorite-label[\s\S]*isFavoritePath/);
+  assert.doesNotMatch(htmlSource, /id="favorites-list"|id="file-favorite"|data-context-action="favorite"|id="detail-fav-btn"/);
+  assert.doesNotMatch(detailSource, /data-detail-action="toggle-favorite"/);
+  assert.match(appSource, /async loadFavorites\(\)\s*\{\s*const container = document\.getElementById\('favorites-list'\);\s*if \(!container\) return;/);
 });
 
 test('侧栏收藏夹批量识别普通、Git 和项目文件夹并标记失效位置', () => {

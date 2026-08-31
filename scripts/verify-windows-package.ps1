@@ -9,7 +9,9 @@ $DistDirectory = Join-Path $ProjectRoot 'dist'
 $Installer = Join-Path $DistDirectory "GitFinder-2-$Version-x64-win-setup.exe"
 $Zip = Join-Path $DistDirectory "GitFinder-2-$Version-x64-win.zip"
 $UnpackedExe = Join-Path $DistDirectory 'win-unpacked\GitFinder 2 Alpha.exe'
-$InstallDirectory = Join-Path $env:LOCALAPPDATA 'Programs\GitFinder 2 Alpha'
+$TestRoot = Join-Path $env:TEMP ("gitfinder-package-acceptance-" + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $TestRoot | Out-Null
+$InstallDirectory = Join-Path $TestRoot 'GitFinder 2 Alpha'
 $InstalledExe = Join-Path $InstallDirectory 'GitFinder 2 Alpha.exe'
 $Uninstaller = Join-Path $InstallDirectory 'Uninstall GitFinder 2 Alpha.exe'
 $ReportPath = Join-Path $DistDirectory 'windows-install-verification.json'
@@ -50,7 +52,8 @@ try {
   $ZipHash = (Get-FileHash -LiteralPath $Zip -Algorithm SHA256).Hash.ToLowerInvariant()
   Assert-ApplicationStarts $UnpackedExe 'Unpacked GitFinder 2 Alpha'
 
-  $Install = Start-Process -FilePath $Installer -ArgumentList '/S' -Wait -PassThru
+  # A dedicated directory keeps acceptance from overwriting an existing installation.
+  $Install = Start-Process -FilePath $Installer -ArgumentList "/S /D=$InstallDirectory" -Wait -PassThru
   if ($Install.ExitCode -ne 0) { throw "NSIS installer failed with code $($Install.ExitCode)" }
   $Installed = $true
   if (-not (Test-Path -LiteralPath $InstalledExe -PathType Leaf)) {
@@ -74,6 +77,7 @@ try {
     version = $Version
     platform = 'windows'
     architecture = 'x64'
+    hostArchitecture = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString()
     installer = [ordered]@{ file = (Split-Path -Leaf $Installer); sha256 = $InstallerHash }
     zip = [ordered]@{ file = (Split-Path -Leaf $Zip); sha256 = $ZipHash }
     signatureStatus = $Signature

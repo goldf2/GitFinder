@@ -28,6 +28,7 @@ const RENDERER_PREFERENCE_KEYS = new Set([
   'searchScope',
   'sidebarSectionOrder',
   'sidebarCollapsedSections',
+  'sidebarNavigationMode',
   'smartCollections',
   'projectShortcuts',
   'projectShortcutPreferences',
@@ -44,7 +45,8 @@ const RENDERER_PREFERENCE_KEYS = new Set([
   'projectControlSelections',
   'taskViewMode',
   'taskTimelineCategory',
-  'relationshipDynamicLayouts'
+  'relationshipDynamicLayouts',
+  'relationshipPanelLayout'
 ]);
 
 class ConfigService {

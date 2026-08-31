@@ -3,8 +3,42 @@ const test = require('node:test');
 
 const {
   buildProjection,
+  arrangeAroundCenters,
   dynamicEntityId
 } = require('../src/shared/panelTopologyProjection');
+
+test('围绕中心按关系距离分环，中心不动，孤立节点保留且不改关系', () => {
+  const placements = ['center', 'app', 'url', 'isolated'].map(entityId => ({ entityId, x: 150, y: 200, width: 280, height: 160 }));
+  const relationships = [{ sourceId: 'center', targetId: 'app' }, { sourceId: 'app', targetId: 'url' }];
+  const originalEdges = structuredClone(relationships);
+  assert.equal(arrangeAroundCenters({ placements, relationships }, ['center'], { keepCenter: true }), true);
+  assert.equal(placements[0].x, 150);
+  assert.equal(placements[0].y, 200);
+  const distance = item => Math.hypot(item.x - placements[0].x, item.y - placements[0].y);
+  assert.ok(distance(placements[2]) > distance(placements[1]));
+  assert.ok(placements[3].x > Math.max(...placements.slice(0, 3).map(item => item.x + item.width)));
+  assert.deepEqual(relationships, originalEdges);
+});
+
+test('多服务器中心共享节点仅出现一次，循环和多访问点可排列且矩形不重叠', () => {
+  const placements = ['s1', 's2', 'app', ...Array.from({ length: 16 }, (_, index) => `url${index}`)].map((entityId, index) => ({ entityId, x: 0, y: 0, width: index % 3 ? 280 : 440, height: index % 2 ? 160 : 400 }));
+  const relationships = [{ sourceId: 'app', targetId: 's1' }, { sourceId: 'app', targetId: 's2' }, ...placements.slice(3).map(item => ({ sourceId: 'app', targetId: item.entityId })), { sourceId: 'url0', targetId: 'url1' }];
+  const original = structuredClone(relationships);
+  arrangeAroundCenters({ placements, relationships }, ['s1', 's2'], {});
+  assert.equal(placements.length, 19);
+  assert.equal(new Set(placements.map(item => item.entityId)).size, 19);
+  for (let index = 0; index < placements.length; index++) {
+    const a = placements[index];
+    assert.ok(Number.isFinite(a.x) && Number.isFinite(a.y));
+    for (const b of placements.slice(index + 1)) {
+      assert.ok(a.x + a.width <= b.x || b.x + b.width <= a.x || a.y + a.height <= b.y || b.y + b.height <= a.y, `${a.entityId} overlaps ${b.entityId}`);
+    }
+  }
+  assert.deepEqual(relationships, original);
+  const first = structuredClone(placements);
+  arrangeAroundCenters({ placements, relationships }, ['s1', 's2'], {});
+  assert.deepEqual(placements, first);
+});
 
 const topology = {
   generatedAt: '2026-08-29T02:00:00.000Z',
@@ -41,6 +75,126 @@ const topology = {
     }
   }]
 };
+
+test('访问点只使用独立 HTTP 检测结果和时间，不能继承部署健康、延迟或更新时间', () => {
+  const input = { state: 'ready', provider: { providerId: 'coolify_one' }, topology };
+  const before = buildProjection(input);
+  const endpoint = before.entities.find(entity => entity.type === 'endpoint');
+  assert.equal(endpoint.runtime.status, 'unknown');
+  assert.equal(endpoint.runtime.observedAt, null);
+  assert.equal(endpoint.runtime.latencyMs, null);
+  assert.equal(endpoint.verifiedAt, '');
+  const checked = buildProjection({ ...input, topology: { ...topology, endpointChecks: [{
+    providerId: 'coolify_one', url: 'https://mes.example.com', status: 'http_error', httpStatus: 503, latencyMs: 55, checkedAt: '2026-08-31T02:00:00Z', message: 'HTTP 503'
+  }] } });
+  const result = checked.entities.find(entity => entity.type === 'endpoint');
+  assert.equal(result.id, endpoint.id);
+  assert.equal(result.runtime.httpStatus, 503);
+  assert.equal(result.runtime.observedAt, '2026-08-31T02:00:00Z');
+  assert.equal(result.runtime.checkMessage, 'HTTP 503');
+  assert.equal(checked.entities.find(entity => entity.type === 'deployment').runtime.status, 'running');
+  assert.deepEqual(checked.placements, before.placements);
+  assert.deepEqual(checked.relationships, before.relationships);
+});
+
+test('Coolify 项目群组按画布比例横向换行，单个长项目也折为多列且无节点重叠', () => {
+  for (const sameProject of [false, true]) {
+    const deployments = Array.from({ length: 24 }, (_, index) => ({
+      ...topology.deployments[0], resourceUuid: `app_${index}`, projectUuid: sameProject ? 'one_project' : `project_${index}`,
+      projectName: sameProject ? '单个长项目' : `项目 ${index}`, domains: [`https://site-${index}.example.com`]
+    }));
+    const input = { state: 'ready', groupByProject: true, topology: { deployments }, layout: { viewportAspectRatio: 1.7 } };
+    const result = buildProjection(input);
+    assert.deepEqual(result, buildProjection(input), '相同画布与数据保持确定布局');
+    const groups = result.entities.filter(entity => entity.type === 'group');
+    const members = result.placements.filter(item => !groups.some(group => group.id === item.entityId));
+    const bounds = { width: Math.max(...members.map(item => item.x + 280)) - Math.min(...members.map(item => item.x)),
+      height: Math.max(...members.map(item => item.y + 132)) - Math.min(...members.map(item => item.y)) };
+    assert.ok(bounds.width / bounds.height > 1 && bounds.width / bounds.height < 2.7, JSON.stringify(bounds));
+    if (!sameProject) assert.ok(new Set(result.placements.filter(item => groups.some(group => group.id === item.entityId)).map(item => item.x)).size > 1);
+    for (let index = 0; index < members.length; index++) {
+      const a = members[index];
+      for (const b of members.slice(index + 1)) assert.ok(a.x + 280 <= b.x || b.x + 280 <= a.x || a.y + 132 <= b.y || b.y + 132 <= a.y);
+    }
+    assert.equal(new Set(members.map(item => item.entityId)).size, 48);
+  }
+});
+
+test('Coolify Projects 分组使用实例和项目身份，跨环境同组、同名跨实例分开', () => {
+  const deployments = [
+    { ...topology.deployments[0], providerId: 'one', providerLabel: '实例一', resourceUuid: 'one_a', projectName: 'MES', environmentName: '生产' },
+    { ...topology.deployments[0], providerId: 'one', providerLabel: '实例一', resourceUuid: 'one_b', projectName: 'MES', environmentName: '测试' },
+    { ...topology.deployments[0], providerId: 'two', providerLabel: '实例二', resourceUuid: 'two_a', projectName: 'MES' }
+  ];
+  const input = { state: 'ready', groupByProject: true, topology: { deployments, servers: [] } };
+  const before = JSON.stringify(input);
+  const result = buildProjection(input);
+  const group = id => result.placements.find(item => item.entityId === dynamicEntityId('deployment', id.startsWith('two') ? 'two' : 'one', id)).groupId;
+  assert.equal(group('one_a'), group('one_b'));
+  assert.notEqual(group('one_a'), group('two_a'));
+  assert.equal(result.entities.filter(item => item.type === 'group').length, 2);
+  assert.equal(JSON.stringify(input), before);
+  deployments[0].projectName = '新名称';
+  const renamed = buildProjection(input);
+  assert.equal(renamed.entities.find(item => item.type === 'group' && item.runtime.providerId === 'one').id, group('one_a'));
+});
+
+test('项目分组中共享仓库、主机和多项目访问点只出现一次，所有关系保留且分组不重叠', () => {
+  const result = buildProjection({ state: 'ready', groupByProject: true, provider: { providerId: 'coolify_1', label: 'Con01' },
+    topology: { servers: topology.servers, deployments: [
+      { ...topology.deployments[0], resourceUuid: 'one', projectName: 'MES', repositoryUrl: 'https://github.com/owner/app' },
+      { ...topology.deployments[0], resourceUuid: 'two', projectUuid: 'other', projectName: '工具', repositoryUrl: 'https://github.com/owner/app' }
+    ] }, repositories: [{ id: 'repo_one', name: 'app', path: '/work/app', originUrl: 'git@github.com:owner/app.git' }]
+  });
+  const groups = result.entities.filter(item => item.type === 'group');
+  assert.equal(groups.length, 3);
+  for (const type of ['server', 'repository', 'endpoint']) {
+    const resources = result.entities.filter(item => item.type === type);
+    assert.equal(resources.length, 1);
+    assert.equal(result.placements.find(item => item.entityId === resources[0].id).groupId, 'entity_panel_shared_resources');
+  }
+  assert.equal(result.relationships.length, 6);
+  assert.equal(new Set(result.placements.map(item => item.entityId)).size, result.placements.length);
+  const ranges = groups.map(item => result.placements.filter(p => p.groupId === item.id)).map(members => ({
+    top: Math.min(...members.map(item => item.y)) - 74,
+    bottom: Math.max(...members.map(item => item.y)) + 132 + 28
+  })).sort((a, b) => a.top - b.top);
+  for (let i = 1; i < ranges.length; i++) assert.ok(ranges[i].top > ranges[i - 1].bottom);
+});
+
+test('旧分列布局不会自动新增群组，缺失项目明确归入未分配而非猜测', () => {
+  const input = { state: 'ready', topology: { servers: [], deployments: [{ ...topology.deployments[0], projectUuid: 'project_unknown' }] } };
+  assert.ok(!buildProjection(input).entities.some(item => item.type === 'group'));
+  assert.ok(buildProjection({ ...input, groupByProject: true }).entities.some(item => item.type === 'group' && item.name.includes('未分配项目')));
+});
+
+test('自动投影为多个部署共用仓库连线，不初始化项目且保留多访问点', () => {
+  const projection = buildProjection({
+    state: 'ready', provider: { providerId: 'coolify_1' },
+    topology: { ...topology, deployments: [
+      { ...topology.deployments[0], resourceUuid: 'app_1', repositoryUrl: 'https://github.com/owner/app' },
+      { ...topology.deployments[0], resourceUuid: 'app_2', repositoryUrl: 'https://github.com/owner/app.git', domains: ['https://one.example', 'https://two.example'] }
+    ] },
+    repositories: [{ id: 'repo_1', name: 'app', path: '/work/app', originUrl: 'git@github.com:owner/app.git' }]
+  });
+  assert.equal(projection.entities.filter(entity => entity.type === 'repository').length, 1);
+  assert.equal(projection.entities.some(entity => entity.type === 'project'), false);
+  assert.equal(projection.relationships.filter(relation => relation.type === 'source_of').length, 2);
+  assert.equal(projection.relationships.filter(relation => relation.type === 'exposes').length, 3);
+  assert.equal(projection.entities.find(entity => entity.type === 'deployment').runtime.repositoryAssociation.mode, 'automatic');
+});
+
+test('本机关联按实例和部署隔离，解除只影响一个部署', () => {
+  const projection = buildProjection({
+    state: 'ready', topology: { servers: [], deployments: ['one', 'two'].map(providerId => ({ ...topology.deployments[0], providerId, repositoryUrl: 'https://github.com/owner/app' })) },
+    repositories: [{ id: 'repo_1', path: '/app', originUrl: 'https://github.com/owner/app' }],
+    repositoryAssociations: [{ providerId: 'one', resourceUuid: 'resource_1', mode: 'disabled' }]
+  });
+  const deployments = projection.entities.filter(entity => entity.type === 'deployment');
+  assert.equal(deployments[0].runtime.repositoryAssociation.mode, 'disabled');
+  assert.equal(deployments[1].runtime.repositoryAssociation.mode, 'automatic');
+  assert.equal(projection.relationships.filter(relation => relation.type === 'source_of').length, 1);
+});
 
 test('Panel 拓扑生成确定性的服务器、部署、本地仓库和项目关系', () => {
   const input = {

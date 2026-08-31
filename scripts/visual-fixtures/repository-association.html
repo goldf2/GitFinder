@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN" data-effective-mode="light" data-scheme="github">
+<meta charset="utf-8">
+<title>正式白板 · 自动仓库关联验证</title>
+<link rel="stylesheet" href="../../src/renderer/styles/main.css">
+<link rel="stylesheet" href="../../src/renderer/styles/relationships.css?v=31-link">
+<link rel="stylesheet" href="../../src/renderer/styles/theme.css">
+<style>
+  html,body {height:100%;} body {display:flex;flex-direction:column;}
+  .fixture-controls {display:flex;flex-wrap:wrap;gap:16px;align-items:center;padding:12px;font:14px system-ui;flex-shrink:0;}
+  #board {flex:1;min-height:0;} #notice {font-size:12px;color:var(--text-secondary);}
+</style>
+<div class="fixture-controls"><strong>正式控制器 · 隔离测试数据</strong>
+  <label>场景 <select id="scenario"><option value="unique">唯一匹配</option><option value="scan">扫描后发现</option><option value="ambiguous">多个副本</option><option value="no-source">仅镜像</option><option value="project">项目手工绑定</option></select></label>
+  <button id="inspect">查看部署关联</button><button id="refresh">模拟刷新</button><span id="scan-count">磁盘扫描次数：0</span><span id="notice" role="status"></span>
+</div>
+<div id="board"></div>
+<script src="../../src/shared/relationshipGraphModel.js"></script>
+<script src="../../src/shared/repositoryAssociation.js"></script>
+<script src="../../src/shared/panelTopologyProjection.js"></script>
+<script src="../../src/renderer/scripts/sidebarTreeController.js"></script>
+<script src="../../src/renderer/scripts/repositoryRootScanner.js"></script>
+<script src="../../src/renderer/scripts/relationshipBoardController.js?v=32-link"></script>
+<script src="repository-association.js?v=32-link"></script>
+</html>

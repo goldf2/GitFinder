@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="zh-CN" data-effective-mode="light" data-scheme="github">
+<meta charset="utf-8">
+<title>侧栏导航与白板交互验收</title>
+<link rel="stylesheet" href="../../src/renderer/styles/main.css">
+<link rel="stylesheet" href="../../src/renderer/styles/sidebar.css?v=33">
+<link rel="stylesheet" href="../../src/renderer/styles/relationships.css?v=36-density">
+<link rel="stylesheet" href="../../src/renderer/styles/theme.css">
+<style>
+html,body{height:100%}body{display:flex;flex-direction:column}
+.fixture-controls{display:flex;gap:12px;padding:10px;font:13px system-ui;align-items:center;flex-wrap:wrap}
+.fixture-workspace{display:flex;flex:1;min-height:0}.sidebar{width:300px}#board{flex:1;min-width:0;min-height:0}
+</style>
+<div class="fixture-controls"><strong>正式侧栏与白板组件 · 隔离数据</strong><button id="reload-navigation">重载导航偏好</button><button data-test-width="600">测试宽卡片 600</button><button data-test-width="280">测试窄卡片 280</button><button id="test-spacing">测试间距 120</button><span id="notice" role="status"></span></div>
+<div class="fixture-workspace"><div id="board"></div></div>
+<script src="../../src/shared/projectShortcuts.js"></script>
+<script src="../../src/shared/relationshipGraphModel.js"></script>
+<script src="../../src/shared/repositoryAssociation.js"></script>
+<script src="../../src/shared/panelTopologyProjection.js"></script>
+<script src="../../src/renderer/scripts/projectShortcutsController.js?v=33"></script>
+<script src="../../src/renderer/scripts/relationshipBoardController.js?v=34-reflow"></script>
+<script src="sidebar-navigation.js?v=36-density"></script>
+</html>

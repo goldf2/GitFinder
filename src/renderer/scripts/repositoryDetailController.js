@@ -189,11 +189,6 @@
       }
 
       const tags = repo.tags || [];
-      const isFavorite = this.app.isFavoritePath(repo.path);
-      const favoriteButton = this._element('detail-fav-btn');
-      favoriteButton.classList.toggle('active', isFavorite);
-      favoriteButton.textContent = isFavorite ? '★' : '☆';
-      favoriteButton.title = isFavorite ? '从侧栏收藏夹移除' : '添加到侧栏收藏夹';
 
       const status = repo.gitStatus || {};
       const statusMap = {

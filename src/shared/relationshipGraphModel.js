@@ -7,7 +7,7 @@
   const MAX_BOARDS = 20;
   const MAX_ENTITIES = 200;
   const MAX_RELATIONSHIPS = 400;
-  const ENTITY_TYPES = Object.freeze(['server', 'deployment', 'project', 'repository', 'endpoint', 'group']);
+  const ENTITY_TYPES = Object.freeze(['server', 'deployment', 'project', 'repository', 'endpoint', 'group', 'text', 'image', 'attachment']);
   const RELATIONSHIP_TYPES = Object.freeze([
     'contains',
     'belongs_to',
@@ -56,7 +56,10 @@
     project: new Set(),
     repository: new Set(),
     endpoint: new Set(['urlLabel', 'notes']),
-    group: new Set(['notes'])
+    group: new Set(['notes']),
+    text: new Set(['content', 'fontSize', 'color', 'align', 'width', 'height']),
+    image: new Set(['imageData', 'assetPath', 'referencePath', 'width', 'height', 'fit', 'caption']),
+    attachment: new Set(['assetPath', 'referencePath', 'width', 'height', 'caption', 'fileSize'])
   });
   const FACT_ENTITY_TYPES = ENTITY_TYPES.filter(type => type !== 'group');
   const GENERAL_CONNECTIONS = Object.freeze(FACT_ENTITY_TYPES.flatMap(source => (
@@ -181,8 +184,11 @@
     return {
       mode: 'full',
       projection: 'facts',
+      topologyLayout: 'lanes',
       snapMode: 'smart',
       cardScale: 1,
+      cardWidth: 280,
+      cardHeight: 143,
       textScale: 1,
       horizontalSpacing: 64,
       verticalSpacing: 36,
@@ -217,6 +223,7 @@
     if (raw != null && !isPlainObject(raw)) issues.push(`${pathPrefix} 必须是对象`);
     const mode = String(view.mode || 'full');
     const projection = String(view.projection || 'facts');
+    const topologyLayout = String(view.topologyLayout || 'lanes');
     const snapMode = String(view.snapMode || 'smart');
     const cardAppearance = String(view.cardAppearance || 'elevated');
     const cardTitleSource = String(view.cardTitleSource || 'name');
@@ -236,6 +243,7 @@
       : [];
     if (!BOARD_VIEW_MODES.includes(mode)) issues.push(`${pathPrefix}.mode 无效`);
     if (!BOARD_PROJECTIONS.includes(projection)) issues.push(`${pathPrefix}.projection 无效`);
+    if (!['lanes', 'coolify-projects', 'selection-centered', 'server-centered'].includes(topologyLayout)) issues.push(`${pathPrefix}.topologyLayout 无效`);
     if (!BOARD_SNAP_MODES.includes(snapMode)) issues.push(`${pathPrefix}.snapMode 无效`);
     if (!BOARD_CARD_APPEARANCES.includes(cardAppearance)) issues.push(`${pathPrefix}.cardAppearance 无效`);
     if (!BOARD_CARD_TITLE_SOURCES.includes(cardTitleSource)) issues.push(`${pathPrefix}.cardTitleSource 无效`);
@@ -252,7 +260,7 @@
     if (strict && view.runtimeStates != null && (!Array.isArray(view.runtimeStates) || view.runtimeStates.some(value => !RUNTIME_FILTERS.includes(String(value))))) issues.push(`${pathPrefix}.runtimeStates 无效`);
     if (strict) {
       for (const key of Object.keys(view)) {
-        if (!['mode', 'projection', 'snapMode', 'cardScale', 'textScale', 'horizontalSpacing', 'verticalSpacing', 'cardAppearance', 'showGrid', 'showEdgeLabels', 'cardTitleSource', 'showRuntimeStatus', 'unmatchedDisplay', 'filterContextOpacity', 'filterMutedOpacity', 'filterMutedSaturation', 'filterContextEdgeOpacity', 'filterMutedEdgeOpacity', 'filterMatchHaloOpacity', 'statusTintOpacity', 'query', 'entityType', 'entityTypes', 'environment', 'verification', 'annotation', 'task', 'taskFilters', 'runtimeStates', 'label'].includes(key)) {
+        if (!['mode', 'projection', 'topologyLayout', 'snapMode', 'cardScale', 'cardWidth', 'cardHeight', 'textScale', 'horizontalSpacing', 'verticalSpacing', 'cardAppearance', 'showGrid', 'showEdgeLabels', 'cardTitleSource', 'showRuntimeStatus', 'unmatchedDisplay', 'filterContextOpacity', 'filterMutedOpacity', 'filterMutedSaturation', 'filterContextEdgeOpacity', 'filterMutedEdgeOpacity', 'filterMatchHaloOpacity', 'statusTintOpacity', 'query', 'entityType', 'entityTypes', 'environment', 'verification', 'annotation', 'task', 'taskFilters', 'runtimeStates', 'label'].includes(key)) {
           issues.push(`${pathPrefix}.${key} 不是允许的字段`);
         }
       }
@@ -260,8 +268,11 @@
     return {
       mode: BOARD_VIEW_MODES.includes(mode) ? mode : 'full',
       projection: BOARD_PROJECTIONS.includes(projection) ? projection : 'facts',
+      topologyLayout: ['lanes', 'coolify-projects', 'selection-centered', 'server-centered'].includes(topologyLayout) ? topologyLayout : 'lanes',
       snapMode: BOARD_SNAP_MODES.includes(snapMode) ? snapMode : 'smart',
       cardScale: finiteNumber(view.cardScale, 1, 0.8, 1.4),
+      cardWidth: finiteNumber(view.cardWidth, 280, 220, 600),
+      cardHeight: finiteNumber(view.cardHeight, 143, 143, 420),
       textScale: finiteNumber(view.textScale, 1, 0.85, 1.3),
       horizontalSpacing: finiteNumber(view.horizontalSpacing, 64, 16, 180),
       verticalSpacing: finiteNumber(view.verticalSpacing, 36, 16, 140),
@@ -366,6 +377,31 @@
       if (!allowed.has(key)) {
         if (strict) issues.push(`${pathPrefix}.${key} 不是允许的字段`);
         continue;
+      }
+      if (key === 'imageData') {
+        if (typeof rawValue !== 'string' || rawValue.length > 5600000 || !/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(rawValue)) {
+          issues.push(`${pathPrefix}.imageData 必须是内嵌 PNG、JPEG 或 WebP（最多 4 MB）`);
+        } else details[key] = rawValue;
+        continue;
+      }
+      if (key === 'assetPath') {
+        if (!/^assets\/[a-z0-9][a-z0-9._-]{0,180}$/i.test(rawValue) || String(rawValue).includes('..')) issues.push(`${pathPrefix}.assetPath 必须是项目媒体目录内的相对路径`);
+        else details[key] = rawValue;
+        continue;
+      }
+      if (key === 'referencePath') {
+        if (typeof rawValue !== 'string' || rawValue.length > 4096 || /[\u0000-\u001f]/.test(rawValue) || !/^(\/|[a-z]:[\\/])/i.test(rawValue)) issues.push(`${pathPrefix}.referencePath 必须是本地绝对路径`);
+        else details[key] = rawValue;
+        continue;
+      }
+      if (['text', 'image', 'attachment'].includes(type)) {
+        if (key === 'content') { details.content = String(rawValue ?? '').replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, '').slice(0, 10000); continue; }
+        if (['width', 'height', 'fontSize'].includes(key)) {
+          details[key] = String(finiteNumber(rawValue, key === 'fontSize' ? 24 : 240, key === 'fontSize' ? 12 : 60, key === 'fontSize' ? 96 : 1600)); continue;
+        }
+        if (key === 'color' && !/^#[0-9a-f]{6}$/i.test(rawValue)) { issues.push(`${pathPrefix}.color 无效`); continue; }
+        if (key === 'align' && !['left', 'center', 'right'].includes(rawValue)) { issues.push(`${pathPrefix}.align 无效`); continue; }
+        if (key === 'fit' && !['contain', 'cover'].includes(rawValue)) { issues.push(`${pathPrefix}.fit 无效`); continue; }
       }
       const limit = key === 'notes' ? 1000 : 240;
       const value = cleanText(rawValue, limit);
@@ -487,12 +523,11 @@
     const groupId = String(raw.groupId || '');
     const entity = entitiesById.get(entityId);
     const group = groupId ? entitiesById.get(groupId) : null;
-    if (groupId && entity?.type === 'group') issues.push(`${prefix} 分组节点不能归入其他分组`);
     if (groupId && !group) issues.push(`${prefix}.groupId 引用了不存在的节点`);
     if (groupId && group && group.type !== 'group') issues.push(`${prefix}.groupId 必须引用分组节点`);
     if (strict) {
       for (const key of Object.keys(raw)) {
-        if (!['entityId', 'x', 'y', 'groupId', 'titleMode', 'titleText', 'titleSource', 'statusVisibility', 'labels', 'note', 'todos'].includes(key)) issues.push(`${prefix}.${key} 不是允许的字段`);
+        if (!['entityId', 'x', 'y', 'groupId', 'groupBackground', 'groupBorder', 'groupLayout', 'groupWidth', 'groupHeight', 'titleMode', 'titleText', 'titleSource', 'statusVisibility', 'labels', 'note', 'todos', 'locked', 'expanded'].includes(key)) issues.push(`${prefix}.${key} 不是允许的字段`);
       }
       if (!Number.isFinite(Number(raw.x)) || !Number.isFinite(Number(raw.y))) {
         issues.push(`${prefix} 坐标必须是有限数字`);
@@ -503,7 +538,24 @@
       x: finiteNumber(raw.x, 0, -100000, 100000),
       y: finiteNumber(raw.y, 0, -100000, 100000)
     };
-    if (groupId && entity?.type !== 'group' && group?.type === 'group') placement.groupId = groupId;
+    if (raw.locked === true) placement.locked = true;
+    if (raw.expanded === true) placement.expanded = true;
+    if (raw.groupLayout != null) {
+      if (entity?.type !== 'group' || !['auto', 'manual'].includes(raw.groupLayout)) issues.push(`${prefix}.groupLayout 必须是分组的 auto 或 manual`);
+      else placement.groupLayout = raw.groupLayout;
+    }
+    for (const [key, min] of [['groupWidth', 320], ['groupHeight', 180]]) {
+      if (raw[key] == null) continue;
+      if (entity?.type !== 'group' || !Number.isFinite(Number(raw[key])) || Number(raw[key]) < min || Number(raw[key]) > 100000) issues.push(`${prefix}.${key} 必须是分组的有效尺寸`);
+      else placement[key] = Math.round(Number(raw[key]));
+    }
+    if (groupId && group?.type === 'group') placement.groupId = groupId;
+    for (const key of ['groupBackground', 'groupBorder']) {
+      if (raw[key] == null) continue;
+      if (entity?.type !== 'group' || !/^#[0-9a-f]{6}$/i.test(raw[key])) {
+        issues.push(`${prefix}.${key} 必须是分组的六位十六进制颜色`);
+      } else placement[key] = raw[key].toLowerCase();
+    }
     const titleMode = String(raw.titleMode || 'original');
     const titleText = cleanText(raw.titleText, 160);
     if (!PLACEMENT_TITLE_MODES.includes(titleMode)) issues.push(`${prefix}.titleMode 无效`);
@@ -558,6 +610,20 @@
       if (!placement.groupId || seen.has(placement.groupId)) continue;
       issues.push(`${prefix}.placements[${placementIndex}].groupId 引用的分组不在当前白板`);
       delete placement.groupId;
+    }
+    const placementsById = new Map(placements.map(placement => [placement.entityId, placement]));
+    for (const placement of placements) {
+      const ancestors = new Set([placement.entityId]);
+      let parentId = placement.groupId;
+      while (parentId) {
+        if (ancestors.has(parentId)) {
+          issues.push(`${prefix}.placements 的分组不能包含自身或形成循环嵌套`);
+          delete placement.groupId;
+          break;
+        }
+        ancestors.add(parentId);
+        parentId = placementsById.get(parentId)?.groupId;
+      }
     }
     if (strict) {
       for (const key of Object.keys(raw)) {

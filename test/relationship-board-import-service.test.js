@@ -186,7 +186,7 @@ test('关系白板文件拒绝未知格式版本但继续兼容旧版原始 stor
 
   writeJson(sourcePath, {
     format: EXPORT_FORMAT,
-    formatVersion: EXPORT_FORMAT_VERSION + 1,
+    formatVersion: 999,
     store: importedStore()
   });
   assert.throws(() => service.previewFromFile(sourcePath), /暂不支持关系白板文件版本/);
@@ -245,7 +245,8 @@ test('导入新白板时重映射并保留视觉分组成员关系', t => {
     activeBoardId: 'board_group0001',
     entities: [
       { id: 'entity_server01', type: 'server', name: 'Con01', details: {} },
-      { id: 'entity_group001', type: 'group', name: '生产环境', details: {} }
+      { id: 'entity_group001', type: 'group', name: '生产环境', details: {} },
+      { id: 'entity_group002', type: 'group', name: '外层', details: {} }
     ],
     relationships: [],
     boards: [{
@@ -253,7 +254,8 @@ test('导入新白板时重映射并保留视觉分组成员关系', t => {
       name: '视觉分组',
       viewport: { x: 0, y: 0, zoom: 1 },
       placements: [
-        { entityId: 'entity_group001', x: 40, y: 40 },
+        { entityId: 'entity_group002', x: 0, y: 0 },
+        { entityId: 'entity_group001', x: 40, y: 40, groupId: 'entity_group002', groupBackground: '#aabbcc', groupBorder: '#112233', groupLayout: 'auto', groupWidth: 800, groupHeight: 600 },
         { entityId: 'entity_server01', x: 100, y: 120, groupId: 'entity_group001' }
       ]
     }]
@@ -265,6 +267,13 @@ test('导入新白板时重映射并保留视觉分组成员关系', t => {
   const member = board.placements.find(item => item.entityId === 'entity_server01');
 
   assert.equal(member.groupId, group.id);
+  const groupPlacement = board.placements.find(item => item.entityId === group.id);
+  assert.equal(groupPlacement.groupBackground, '#aabbcc');
+  assert.equal(groupPlacement.groupBorder, '#112233');
+  assert.equal(groupPlacement.groupLayout, 'auto');
+  assert.equal(groupPlacement.groupWidth, 800);
+  assert.equal(groupPlacement.groupHeight, 600);
+  assert.equal(merged.store.entities.find(item => item.id === groupPlacement.groupId).name, '外层');
 });
 
 test('导入已有白板时只补充分组成员而不覆盖本机已有布局', t => {

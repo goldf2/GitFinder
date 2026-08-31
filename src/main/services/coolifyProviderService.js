@@ -1,6 +1,9 @@
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
+const { execFile } = require('node:child_process');
+const { repositoryKey } = require('../../shared/repositoryAssociation');
+const { EndpointHealthService } = require('./endpointHealthService');
 
 const SESSION_SCHEMA_VERSION = 1;
 const BINDINGS_SCHEMA_VERSION = 2;
@@ -137,7 +140,8 @@ function unknownRecentFailure() {
 }
 
 function deploymentFacts(items, fallbackTime) {
-  const latest = Array.isArray(items) ? items[0] : null;
+  const deployments = Array.isArray(items) ? items : items?.deployments;
+  const latest = Array.isArray(deployments) ? deployments[0] : null;
   if (!latest || typeof latest !== 'object') return { lastDeployment: null, recentFailure: unknownRecentFailure() };
   const status = statusText(latest.status);
   const failed = /failed|error|cancelled|canceled/.test(status);
@@ -189,6 +193,11 @@ function normalizeCoolifyResource(resource = {}, type = 'resource', context = {}
     { fallback: 'server_unknown' }
   );
   const facts = context.deploymentFacts || { lastDeployment: null, recentFailure: unknownRecentFailure() };
+  const shortSource = cleanText(resource.git_repository || resource.repository, 1000);
+  const isShortSource = /^[\w.-]+\/[\w./-]+$/.test(shortSource);
+  const sourceKey = [resource.git_full_url, resource.git_repository, resource.repository,
+    isShortSource && context.sourceHtmlUrl ? `${context.sourceHtmlUrl.replace(/\/+$/, '')}/${shortSource}` : ''
+  ].map(repositoryKey).find(Boolean);
   return {
     resourceUuid,
     nodeId,
@@ -204,8 +213,9 @@ function normalizeCoolifyResource(resource = {}, type = 'resource', context = {}
     latencyMs: null,
     latencyKind: '',
     branch: cleanText(resource.git_branch || resource.branch, 240),
-    commit: cleanText(resource.git_commit_sha || resource.commit, 160),
-    repositoryUrl: cleanText(resource.git_repository || resource.repository, 1000),
+    commit: cleanText(facts.lastDeployment?.commit || resource.git_commit_sha || resource.commit, 160),
+    commitSource: facts.lastDeployment?.commit ? 'deployment-history' : 'configuration',
+    repositoryUrl: sourceKey ? `https://${sourceKey}` : (isShortSource ? shortSource : ''),
     imageReference: cleanText([
       resource.docker_registry_image_name,
       resource.docker_registry_image_tag
@@ -305,7 +315,19 @@ async function readCoolifyOverview(options = {}) {
   if (rawServers.length > MAX_SERVERS) throw new Error(`Coolify 服务器数量超过 ${MAX_SERVERS} 个的安全上限`);
   if (rawProjects.length > MAX_PROJECTS) throw new Error(`Coolify 项目数量超过 ${MAX_PROJECTS} 个的安全上限`);
 
-  const projectDetails = await mapWithConcurrency(rawProjects, 4, project => get(`${API_PREFIX}/projects/${encodeURIComponent(project.uuid)}`));
+  // A GitHub App stores owner/repo separately from its (possibly enterprise) host.
+  // Resolve only its explicit source identity; never infer the host from a name.
+  const needsGithubSource = resource => resource.source_type === 'App\\Models\\GithubApp' && resource.source_id != null
+    && ![resource.git_full_url, resource.git_repository, resource.repository].some(repositoryKey);
+  const [projectDetails, sourceHosts] = await Promise.all([
+    mapWithConcurrency(rawProjects, 4, project => get(`${API_PREFIX}/projects/${encodeURIComponent(project.uuid)}`)),
+    applications.some(needsGithubSource) ? get(`${API_PREFIX}/github-apps`).then(sources => new Map(
+      (Array.isArray(sources) ? sources : []).map(source => [String(source.id), cleanText(source.html_url, 1000)])
+    )).catch(error => {
+      errors.push({ kind: 'repository-source', message: error.message });
+      return new Map();
+    }) : new Map()
+  ]);
   const environmentById = new Map();
   projectDetails.forEach((result, index) => {
     if (result.status === 'rejected') {
@@ -351,6 +373,7 @@ async function readCoolifyOverview(options = {}) {
   const resources = [
     ...applications.map(resource => normalizeCoolifyResource(resource, 'application', {
       baseUrl, observedAt, environment: environmentFor(resource), server: serverFor(resource),
+      sourceHtmlUrl: needsGithubSource(resource) ? sourceHosts.get(String(resource.source_id)) : '',
       deploymentFacts: deploymentByApplication.get(String(resource.uuid))
     })),
     ...services.map(resource => normalizeCoolifyResource(resource, 'service', {
@@ -412,10 +435,15 @@ class CoolifyProviderService {
     this.app = options.app;
     this.fetchImpl = options.fetchImpl || globalThis.fetch;
     this.projectService = options.projectService;
+    this.getRegistry = options.getRegistry || (() => ({ repos: [] }));
+    this.readOrigin = options.readOrigin || (directory => new Promise(resolve => {
+      execFile('git', ['remote', 'get-url', 'origin'], { cwd: directory, encoding: 'utf8', timeout: 3000, maxBuffer: 8192, windowsHide: true }, (error, stdout) => resolve(error ? '' : stdout.trim()));
+    }));
     this.now = options.now || (() => new Date());
     this.configDirectory = options.configDirectory || null;
     this.providers = null;
     this.allowedExternalUrls = new Set();
+    this.endpointHealth = options.endpointHealth || new EndpointHealthService();
   }
 
   _configDirectory() {
@@ -426,6 +454,51 @@ class CoolifyProviderService {
   }
 
   _sessionPath() { return path.join(this._configDirectory(), 'coolify-session.json'); }
+
+  _associationsPath() { return path.join(this._configDirectory(), 'coolify-repository-associations.json'); }
+
+  getRepositoryAssociations() {
+    const filePath = this._associationsPath();
+    if (!fs.existsSync(filePath)) return [];
+    const stat = fs.lstatSync(filePath);
+    if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 2 * 1024 * 1024) throw new Error('本地仓库关联文件无效');
+    const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    if (data.version !== 1 || !Array.isArray(data.associations)) throw new Error('本地仓库关联版本不受支持');
+    return data.associations;
+  }
+
+  setRepositoryAssociation(value = {}) {
+    const providerId = this._findProvider(value.providerId).providerId;
+    const resourceUuid = normalizeIdentifier(value.resourceUuid, '部署 ID');
+    if (!['automatic', 'manual', 'disabled'].includes(value.mode)) throw new Error('仓库关联模式无效');
+    const repositoryIds = [...new Set((Array.isArray(value.repositoryIds) ? value.repositoryIds : []).map(id => normalizeIdentifier(id, '仓库 ID')))];
+    if (value.mode === 'manual') {
+      if (!repositoryIds.length || repositoryIds.length > MAX_BINDING_REPOSITORIES) throw new Error('请选择 1–8 个本地仓库');
+      const activeIds = new Set(this.getRegistry().repos.filter(repo => !repo.archived && repo.path).map(repo => repo.id));
+      if (repositoryIds.some(id => !activeIds.has(id))) throw new Error('所选仓库已不在本地注册表中，请刷新后重试');
+    }
+    const associations = this.getRepositoryAssociations().filter(item => item.providerId !== providerId || item.resourceUuid !== resourceUuid);
+    if (value.mode !== 'automatic') associations.push({ providerId, resourceUuid, mode: value.mode, repositoryIds: value.mode === 'manual' ? repositoryIds : [] });
+    this._writeJsonAtomic(this._associationsPath(), { version: 1, associations });
+    return associations;
+  }
+
+  async getLocalRepositories() {
+    const repositories = this.getRegistry().repos.filter(repo => !repo.archived && repo.path);
+    const results = new Array(repositories.length);
+    let next = 0;
+    // Only read already registered roots. No recursive scan, fetch, status or credential access.
+    await Promise.all(Array.from({ length: Math.min(4, repositories.length) }, async () => {
+      while (next < repositories.length) {
+        const index = next++;
+        const repo = repositories[index];
+        const available = fs.existsSync(path.join(repo.path, '.git'));
+        const origin = available ? await this.readOrigin(repo.path) : '';
+        results[index] = { ...repo, originUrl: '', repositoryKey: repositoryKey(origin), available };
+      }
+    }));
+    return results;
+  }
 
   _writeJsonAtomic(filePath, value) {
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -563,6 +636,7 @@ class CoolifyProviderService {
     };
     providers.splice(index, 1, provider);
     this._saveProviders(providers);
+    if (baseUrl !== current.baseUrl) this.endpointHealth.setTargets(provider.providerId, []);
     this.allowedExternalUrls.clear();
     return this._publicConnection(provider);
   }
@@ -570,6 +644,7 @@ class CoolifyProviderService {
   disconnect(providerId = '') {
     const remaining = providerId ? this._loadProviders().filter(item => item.providerId !== providerId) : [];
     this._saveProviders(remaining);
+    this.endpointHealth.retainProviders(remaining.map(item => item.providerId));
     this.allowedExternalUrls.clear();
     return remaining.map(provider => this._publicConnection(provider));
   }
@@ -620,6 +695,12 @@ class CoolifyProviderService {
 
   async getTopology() {
     const result = await this._aggregate();
+    const currentProviders = this._loadProviders();
+    this.endpointHealth.retainProviders(currentProviders.map(item => item.providerId));
+    for (const { provider, overview } of result.successes) {
+      if (!currentProviders.some(current => current.providerId === provider.providerId && current.baseUrl === provider.baseUrl)) continue;
+      this.endpointHealth.setTargets(provider.providerId, overview.deployments.flatMap(resource => resource.domains));
+    }
     const empty = { apiVersion: 'v1', generatedAt: '', cursor: '', servers: [], deployments: [] };
     if (result.state === 'unconfigured') return { state: 'unconfigured', providers: [], topology: empty, bindings: [] };
     if (!result.successes.length) return { state: 'error', providers: result.providers, topology: empty, bindings: [], errors: result.errors };
@@ -638,12 +719,17 @@ class CoolifyProviderService {
         generatedAt: result.successes.map(item => item.overview.generatedAt).sort().at(-1) || '',
         cursor: '',
         servers,
-        deployments
+        deployments,
+        endpointChecks: this.endpointHealth.snapshot().checks
       },
       bindings: [],
       errors: result.errors
     };
   }
+
+  checkEndpoints(values = {}) { return this.endpointHealth.start(values); }
+
+  getEndpointChecks() { return this.endpointHealth.snapshot(); }
 
   _bindingsPath(directory) { return path.join(directory, '.gitfinder', 'deployments.json'); }
 

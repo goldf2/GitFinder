@@ -83,9 +83,9 @@ class RelationshipBoardImportService {
     }
     const before = this.fs.lstatSync(filePath);
     if (before.isSymbolicLink() || !before.isFile()) throw new Error('关系白板导入源必须是普通 JSON 文件');
-    if (before.size > MAX_IMPORT_BYTES) throw new Error('关系白板导入文件超过 2 MB 安全限制');
+    if (before.size > MAX_IMPORT_BYTES) throw new Error('关系白板导入文件超过 32 MB 安全限制');
     const buffer = this.fs.readFileSync(filePath);
-    if (buffer.length > MAX_IMPORT_BYTES) throw new Error('关系白板导入文件超过 2 MB 安全限制');
+    if (buffer.length > MAX_IMPORT_BYTES) throw new Error('关系白板导入文件超过 32 MB 安全限制');
     const after = this.fs.lstatSync(filePath);
     if (after.isSymbolicLink() || !after.isFile()
       || after.size !== before.size
@@ -232,6 +232,11 @@ class RelationshipBoardImportService {
           entityId,
           x: placement.x,
           y: placement.y,
+          ...(placement.groupBackground ? { groupBackground: placement.groupBackground } : {}),
+          ...(placement.groupBorder ? { groupBorder: placement.groupBorder } : {}),
+          ...(placement.groupLayout ? { groupLayout: placement.groupLayout } : {}),
+          ...(placement.groupWidth ? { groupWidth: placement.groupWidth } : {}),
+          ...(placement.groupHeight ? { groupHeight: placement.groupHeight } : {}),
           ...(groupId ? { groupId } : {})
         };
       }).filter(placement => placement.entityId);

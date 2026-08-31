@@ -96,6 +96,62 @@ function createHarness(t) {
   return { root, projectPath, calls, fetchImpl, projectService, service };
 }
 
+test('访问点检测独立于拓扑加载，只能重测已发现地址，断开后撤销目标', async t => {
+  const { service } = createHarness(t);
+  const probes = [];
+  service.endpointHealth.probe = async url => { probes.push(url); return { status: 'reachable', httpStatus: 200, latencyMs: 42, checkedAt: '2026-08-31T01:00:00Z' }; };
+  const provider = await service.connect({ baseUrl: 'https://cool.example.com', token: 'fixture-read-token' });
+  const topology = await service.getTopology();
+  assert.deepEqual(probes, []);
+  assert.equal(topology.topology.endpointChecks[0].status, 'unknown');
+  assert.throws(() => service.checkEndpoints({ providerId: provider.providerId, url: 'https://arbitrary.example.com' }), /访问点不存在/);
+  assert.equal(service.checkEndpoints().pending, 1);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(service.getEndpointChecks().checks[0].httpStatus, 200);
+  assert.deepEqual(probes, ['https://mes.example.com/']);
+  assert.doesNotMatch(JSON.stringify(service.getEndpointChecks()), /token|Authorization/);
+  assert.equal((await service.getTopology()).topology.endpointChecks[0].latencyMs, 42);
+  service.disconnect(provider.providerId);
+  assert.deepEqual(service.getEndpointChecks(), { checks: [], pending: 0 });
+});
+
+test('本机手工关联与暂停模式可跨重启读取，不写项目文件且无令牌', async t => {
+  const { service, root } = createHarness(t);
+  const provider = await service.connect({ baseUrl: 'https://cool.example.com', token: 'fixture-read-token' });
+  service.getRegistry = () => ({ repos: [{ id: 'repo_1', path: '/app' }, { id: 'archived', path: '/old', archived: true }] });
+  const identity = { providerId: provider.providerId, resourceUuid: 'app_1' };
+  service.setRepositoryAssociation({ ...identity, mode: 'manual', repositoryIds: ['repo_1'], accessToken: 'never-store' });
+  const restarted = new CoolifyProviderService({ configDirectory: root, getRegistry: service.getRegistry });
+  assert.deepEqual(restarted.getRepositoryAssociations()[0], { ...identity, mode: 'manual', repositoryIds: ['repo_1'] });
+  assert.throws(() => restarted.setRepositoryAssociation({ ...identity, mode: 'manual', repositoryIds: ['archived'] }), /注册表/);
+  restarted.setRepositoryAssociation({ ...identity, mode: 'disabled' });
+  assert.equal(service.getRepositoryAssociations()[0].mode, 'disabled');
+  assert.doesNotMatch(fs.readFileSync(path.join(root, 'coolify-repository-associations.json'), 'utf8'), /token|https|\/app|projectId/);
+  restarted.setRepositoryAssociation({ ...identity, mode: 'automatic' });
+  assert.deepEqual(service.getRepositoryAssociations(), []);
+  assert.equal(fs.existsSync(path.join(root, 'project', '.gitfinder', 'deployments.json')), false);
+});
+
+test('自动匹配读取现有仓库的当前 origin，不用陈旧缓存或触发远程访问', async t => {
+  const { service, root } = createHarness(t);
+  const repoPath = path.join(root, 'local');
+  fs.mkdirSync(path.join(repoPath, '.git'), { recursive: true });
+  service.getRegistry = () => ({ repos: [
+    { id: 'repo_1', path: repoPath, originUrl: 'https://github.com/old/app' },
+    { id: 'missing', path: path.join(root, 'missing'), originUrl: 'https://github.com/old/app' },
+    { id: 'archived', path: repoPath, archived: true }
+  ] });
+  let reads = 0;
+  service.readOrigin = async directory => { assert.equal(directory, repoPath); reads++; return 'https://user:secret@github.com/new/app.git'; };
+  const repos = await service.getLocalRepositories();
+  assert.equal(reads, 1);
+  assert.equal(repos.length, 2);
+  assert.equal(repos[0].repositoryKey, 'github.com/new/app');
+  assert.equal(repos[1].available, false);
+  assert.equal(repos[1].repositoryKey, '');
+  assert.doesNotMatch(JSON.stringify(repos), /secret|github.com\/old/);
+});
+
 test('Coolify 地址只接受站点根地址和安全协议', () => {
   assert.equal(normalizeCoolifyBaseUrl('https://cool.example.com/api/v1'), 'https://cool.example.com');
   assert.equal(normalizeCoolifyBaseUrl('http://127.0.0.1:8000'), 'http://127.0.0.1:8000');
@@ -138,6 +194,61 @@ test('字段归一化不把未知部署历史伪装成没有失败', () => {
     message: '',
     recoveredAt: null
   });
+});
+
+test('提交优先读取实际最近部署记录，标明来源，失败记录不伪称当前运行版本', () => {
+  const result = normalizeCoolifyResource({ uuid: 'app_1', git_commit_sha: 'HEAD' }, 'application', {
+    deploymentFacts: { lastDeployment: { commit: 'abcdef1234567890', status: 'failed' }, recentFailure: { known: true, hasFailure: true } }
+  });
+  assert.equal(result.commit, 'abcdef1234567890');
+  assert.equal(result.commitSource, 'deployment-history');
+  assert.equal(result.lastDeployment.status, 'failed');
+  assert.equal(normalizeCoolifyResource({ uuid: 'app_1', git_commit_sha: 'HEAD' }).commitSource, 'configuration');
+});
+
+test('兼容 Coolify 包装后的部署历史，完整 Git URL 优先用于身份匹配且移除凭据', async t => {
+  const { fetchImpl } = createHarness(t);
+  const overview = await readCoolifyOverview({ baseUrl: 'https://cool.example.com', token: 'fixture-read-token',
+    fetchImpl: async (url, options) => {
+      const response = await fetchImpl(url, options);
+      if (new URL(url).pathname.includes('/deployments/applications/')) {
+        return jsonResponse({ count: 1, deployments: JSON.parse(Buffer.from(await response.arrayBuffer()).toString('utf8')) });
+      }
+      return response;
+    }
+  });
+  assert.equal(overview.deployments[0].commit, '0123456789abcdef');
+  assert.equal(overview.deployments[0].commitSource, 'deployment-history');
+  assert.equal(overview.deployments[0].recentFailure.hasFailure, true);
+  const source = normalizeCoolifyResource({ uuid: 'app_1', git_repository: 'owner/app', git_full_url: 'https://user:secret@github.com/owner/app.git' });
+  assert.equal(source.repositoryUrl, 'https://github.com/owner/app');
+  assert.doesNotMatch(JSON.stringify(source), /secret|user:/);
+});
+
+test('GitHub App 的短仓库名通过明确 source_id 补全主机，不猜测 github.com', async t => {
+  const { fetchImpl } = createHarness(t);
+  const run = async unavailable => readCoolifyOverview({ baseUrl: 'https://cool.example.com', token: 'fixture-read-token',
+    fetchImpl: async (url, options) => {
+      const pathname = new URL(url).pathname;
+      assert.equal(options.method, 'GET');
+      if (pathname === '/api/v1/github-apps') return unavailable ? jsonResponse({}, 404) : jsonResponse([
+        { id: 7, html_url: 'https://git.enterprise.example', client_secret: 'fixture-secret-never-forward' },
+        { id: 8, html_url: 'https://github.com' }
+      ]);
+      const response = await fetchImpl(url, options);
+      if (pathname !== '/api/v1/applications') return response;
+      const apps = JSON.parse(Buffer.from(await response.arrayBuffer()).toString('utf8'));
+      return jsonResponse(apps.flatMap(app => [
+        { ...app, git_repository: 'Owner/app', git_full_url: null, source_type: 'App\\Models\\GithubApp', source_id: 7 },
+        { ...app, uuid: 'app_gitlab', git_repository: 'Owner/app', source_type: 'App\\Models\\GitlabApp', source_id: 7 }
+      ]));
+    }
+  });
+  const complete = await run(false);
+  assert.equal(complete.deployments[0].repositoryUrl, 'https://git.enterprise.example/Owner/app');
+  assert.equal(complete.deployments[1].repositoryUrl, 'Owner/app');
+  assert.doesNotMatch(JSON.stringify(complete), /fixture-secret-never-forward|client_secret/);
+  assert.equal((await run(true)).deployments[0].repositoryUrl, 'Owner/app');
 });
 
 test('多 Coolify 实例保存在应用自有会话并可聚合白板拓扑', async t => {

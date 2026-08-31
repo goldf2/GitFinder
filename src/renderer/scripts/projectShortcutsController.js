@@ -24,6 +24,20 @@
     bind() {
       if (this.bound) return;
       this.bound = true;
+      const navigation = this.element('sidebar-navigation');
+      navigation?.addEventListener('click', event => {
+        const mode = event.target.closest?.('[data-sidebar-navigation]')?.dataset.sidebarNavigation;
+        if (mode) void this.setNavigationMode(mode);
+      });
+      navigation?.addEventListener('keydown', event => {
+        if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+        if (!event.target.closest?.('[data-sidebar-navigation]')) return;
+        event.preventDefault();
+        const mode = event.key === 'Home' ? 'projects' : event.key === 'End' ? 'directories'
+          : this.state.sidebarNavigationMode === 'projects' ? 'directories' : 'projects';
+        void this.setNavigationMode(mode);
+        this.element(`sidebar-navigation-${mode}`)?.focus();
+      });
       this.element('project-shortcuts-list')?.addEventListener('click', event => {
         const pinButton = event.target.closest?.('[data-project-shortcut-pin]');
         if (pinButton) {
@@ -41,14 +55,40 @@
     }
 
     async load() {
-      const [rawStore, rawPreferences] = await Promise.all([
+      const [rawStore, rawPreferences, navigationMode] = await Promise.all([
         this.bridge.config.get('projectShortcuts').catch(() => null),
-        this.bridge.config.get('projectShortcutPreferences').catch(() => null)
+        this.bridge.config.get('projectShortcutPreferences').catch(() => null),
+        this.bridge.config.get('sidebarNavigationMode').catch(() => null)
       ]);
       this.state.projectShortcuts = ProjectShortcuts.normalizeStore(rawStore);
       this.state.projectShortcutPreferences = ProjectShortcuts.normalizePreferences(rawPreferences);
+      this.state.sidebarNavigationMode = navigationMode === 'projects' ? 'projects' : 'directories';
       this.render();
       return this.state.projectShortcuts;
+    }
+
+    async setNavigationMode(mode) {
+      if (!['projects', 'directories'].includes(mode)) return;
+      this.state.sidebarNavigationMode = mode;
+      this.renderNavigation();
+      try {
+        await this.bridge.config.set('sidebarNavigationMode', mode);
+      } catch (_) {
+        this.app._showStatusMessage('侧栏已切换，但未能保存导航偏好', 'warning');
+      }
+    }
+
+    renderNavigation() {
+      const mode = this.state.sidebarNavigationMode === 'projects' ? 'projects' : 'directories';
+      const projects = this.element('project-shortcuts-sidebar-section');
+      const locations = this.element('locations-sidebar-section');
+      if (projects) projects.hidden = mode !== 'projects';
+      if (locations) locations.hidden = mode !== 'directories';
+      this.element('sidebar-navigation')?.querySelectorAll('[data-sidebar-navigation]').forEach(button => {
+        const selected = button.dataset.sidebarNavigation === mode;
+        button.setAttribute('aria-selected', String(selected));
+        button.tabIndex = selected ? 0 : -1;
+      });
     }
 
     async loadLocalProjects(forceRefresh = false) {
@@ -149,13 +189,9 @@
       if (!section || !container) return;
       const preferences = ProjectShortcuts.normalizePreferences(this.state.projectShortcutPreferences);
       const display = ProjectShortcuts.resolveDisplay(this.state.projectShortcuts, this.state.localProjects);
-      const recent = preferences.showRecent ? display.recent.slice(0, preferences.recentLimit) : [];
-      const hasProjects = this.state.localProjects.length > 0 || display.pinned.length > 0;
-      section.hidden = !preferences.visible || !hasProjects;
-      if (section.hidden) {
-        container.innerHTML = '';
-        return;
-      }
+      const recent = preferences.visible && preferences.showRecent ? display.recent.slice(0, preferences.recentLimit) : [];
+      const pinned = preferences.visible ? display.pinned : [];
+      this.renderNavigation();
       const activeProject = ProjectShortcuts.findProjectForPath(
         this.state.localProjects,
         this.state.currentPath,
@@ -187,7 +223,7 @@
           <span class="sidebar-item-name">所有项目</span>
           <span class="badge">${this.state.localProjects.length}</span>
         </button>
-        ${display.pinned.length ? `<div class="project-shortcut-heading">已固定</div>${display.pinned.map(entry => renderEntry(entry, true)).join('')}` : ''}
+        ${pinned.length ? `<div class="project-shortcut-heading">已固定</div>${pinned.map(entry => renderEntry(entry, true)).join('')}` : ''}
         ${recent.length ? `<div class="project-shortcut-heading">最近</div>${recent.map(entry => renderEntry(entry, false)).join('')}` : ''}`;
     }
   }

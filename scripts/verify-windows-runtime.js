@@ -7,6 +7,8 @@ const { app, shell } = require('electron');
 const localProjectSingleton = require('../src/main/services/localProjectService');
 const LocalProjectService = localProjectSingleton.constructor;
 const { FileOperationService } = require('../src/main/services/fileOperationService');
+const { WhiteboardDocumentService } = require('../src/main/services/whiteboardDocumentService');
+const { WhiteboardPackageService } = require('../src/main/services/whiteboardPackageService');
 
 async function verify() {
   if (process.platform !== 'win32') throw new Error('Windows 运行时验收必须在 Windows runner 上执行');
@@ -91,6 +93,24 @@ async function verify() {
       throw new Error('Windows 系统回收站验证失败');
     }
 
+    const documents = new WhiteboardDocumentService({ baseDirectory: path.join(temporaryRoot, 'boards') });
+    const packages = new WhiteboardPackageService(documents);
+    const document = await documents.createProject({ store: {
+      schemaVersion: 1, activeBoardId: 'board_wincheck1', entities: [], relationships: [],
+      boards: [{ id: 'board_wincheck1', name: 'Windows package check', placements: [] }]
+    } }, path.join(temporaryRoot, 'original'));
+    const [attachment] = await documents.attachFiles({ id: document.record.id, paths: [sourceFile] });
+    document.store.entities.push(attachment);
+    document.store.boards[0].placements.push({ entityId: attachment.id, x: 50, y: 80 });
+    const packagePath = path.join(temporaryRoot, 'windows.gfb');
+    await packages.exportPackage({ id: document.record.id, store: document.store }, packagePath);
+    const imported = await packages.importPackage(packagePath, path.join(temporaryRoot, 'imported'));
+    const [asset] = documents.inspectAssets(imported.record.id);
+    if (asset.state !== 'available' || fs.readFileSync(asset.filePath, 'utf8') !== 'windows runtime\n') {
+      throw new Error('Windows 白板包附件往返验证失败');
+    }
+    documents.save({ ...imported.record, store: imported.store });
+
     const report = {
       schemaVersion: 1,
       generatedAt: new Date().toISOString(),
@@ -102,7 +122,10 @@ async function verify() {
         gitForWindowsDetected: true,
         copy: true,
         move: true,
-        recycleBin: true
+        recycleBin: true,
+        whiteboardPackageRoundTrip: true,
+        whiteboardPackageMedia: true,
+        importedBoardSave: true
       }
     };
     const distDir = path.resolve(__dirname, '..', 'dist');

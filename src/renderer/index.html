@@ -116,17 +116,11 @@
 
     <div class="main-container">
       <aside class="sidebar" id="sidebar">
-        <div class="sidebar-section" data-section-id="favorites">
-          <div class="sidebar-title">
-            <span class="sidebar-drag-handle" title="拖拽排序">⋮⋮</span>
-            <span class="sidebar-title-text">收藏夹</span>
-            <span class="sidebar-toggle" title="折叠/展开">▼</span>
-          </div>
-          <div id="favorites-list"></div>
-          <button class="sidebar-add-btn" id="add-favorite-btn">+ 添加收藏</button>
+        <div class="sidebar-navigation" id="sidebar-navigation" role="tablist" aria-label="侧栏导航">
+          <button type="button" role="tab" id="sidebar-navigation-projects" data-sidebar-navigation="projects" aria-controls="project-shortcuts-sidebar-section" aria-selected="false" tabindex="-1">项目</button>
+          <button type="button" role="tab" id="sidebar-navigation-directories" data-sidebar-navigation="directories" aria-controls="locations-sidebar-section" aria-selected="true" tabindex="0">目录</button>
         </div>
-
-        <div class="sidebar-section" id="project-shortcuts-sidebar-section" data-section-id="projects" hidden>
+        <div class="sidebar-section" id="project-shortcuts-sidebar-section" data-section-id="projects" role="tabpanel" aria-labelledby="sidebar-navigation-projects" hidden>
           <div class="sidebar-title">
             <span class="sidebar-drag-handle" title="拖拽排序">⋮⋮</span>
             <span class="sidebar-title-text">项目</span>
@@ -135,7 +129,7 @@
           <div id="project-shortcuts-list"></div>
         </div>
 
-        <div class="sidebar-section sidebar-tree-section" data-section-id="locations">
+        <div class="sidebar-section sidebar-tree-section" id="locations-sidebar-section" data-section-id="locations" role="tabpanel" aria-labelledby="sidebar-navigation-directories">
           <div class="sidebar-title">
             <span class="sidebar-drag-handle" title="拖拽排序">⋮⋮</span>
             <span class="sidebar-title-text">位置</span>
@@ -157,15 +151,9 @@
           <div id="smart-collections-list"></div>
         </div>
 
-        <div class="sidebar-section" id="file-labels-sidebar-section" data-section-id="file-labels">
-          <div class="sidebar-title">
-            <span class="sidebar-drag-handle" title="拖拽排序">⋮⋮</span>
-            <span class="sidebar-title-text">文件标签</span>
-            <span class="sidebar-toggle" title="折叠/展开">▼</span>
-          </div>
-          <div id="file-labels-sidebar-list"></div>
-          <button class="sidebar-add-btn" id="manage-file-labels-sidebar-btn" type="button">管理标签…</button>
-        </div>
+        <section class="sidebar-section" id="relationship-resource-sidebar-section" data-section-id="board-components" hidden>
+          <div id="relationship-resource-sidebar-content" class="relationship-panel-dock" data-panel-dock="left"></div>
+        </section>
 
         <div class="sidebar-section" id="tags-sidebar-section" data-section-id="tags">
           <div class="sidebar-title">
@@ -239,8 +227,6 @@
               <button class="finder-menu-item finder-menu-command" id="file-move" type="button" role="menuitem" disabled><span>移动到…</span></button>
               <button class="finder-menu-item finder-menu-command" id="file-open-terminal" type="button" role="menuitem"><span>在终端中打开</span></button>
               <button class="finder-menu-item finder-menu-command" id="file-open-editor" type="button" role="menuitem" disabled><span>在代码编辑器中打开</span></button>
-              <button class="finder-menu-item finder-menu-command" id="file-labels" type="button" role="menuitem" disabled><span>分配标签…</span></button>
-              <button class="finder-menu-item finder-menu-command" id="file-favorite" type="button" role="menuitem" disabled><span>添加到收藏夹</span></button>
               <button class="finder-menu-item finder-menu-command" id="file-project-settings" type="button" role="menuitem" disabled><span>设为项目…</span></button>
               <button class="finder-menu-item finder-menu-command finder-menu-danger" id="file-trash" type="button" role="menuitem" disabled><span>移到废纸篓</span><kbd>⌘⌫</kbd></button>
               <div class="finder-menu-separator" role="separator"></div>
@@ -337,7 +323,6 @@
           <div class="detail-header">
             <div class="detail-header-top">
               <h3 id="detail-name">仓库名称</h3>
-              <button class="detail-fav-btn" id="detail-fav-btn" title="添加到侧栏收藏夹">☆</button>
             </div>
             <div class="detail-path" id="detail-path">/path/to/repo</div>
             <div class="detail-status" id="detail-status"></div>
@@ -491,9 +476,7 @@
     <button class="finder-menu-item finder-menu-command" data-context-action="move" type="button" role="menuitem"><span>移动到…</span></button>
     <button class="finder-menu-item finder-menu-command" data-context-action="open-terminal" type="button" role="menuitem"><span>在终端中打开</span></button>
     <button class="finder-menu-item finder-menu-command" data-context-action="open-editor" type="button" role="menuitem"><span>在代码编辑器中打开</span></button>
-    <button class="finder-menu-item finder-menu-command" data-context-action="labels" type="button" role="menuitem"><span>分配标签…</span></button>
     <div class="finder-menu-separator" role="separator"></div>
-    <button class="finder-menu-item finder-menu-command" data-context-action="favorite" type="button" role="menuitem"><span id="file-context-favorite-label">添加到收藏夹</span></button>
     <button class="finder-menu-item finder-menu-command" data-context-action="project" type="button" role="menuitem"><span id="file-context-project-label">设为项目…</span></button>
     <button class="finder-menu-item finder-menu-command finder-menu-danger" data-context-action="trash" type="button" role="menuitem"><span>移到废纸篓</span><kbd>⌘⌫</kbd></button>
   </div>
@@ -563,37 +546,6 @@
     </footer>
   </aside>
 
-  <div class="modal-overlay" id="file-label-modal" style="display:none;" aria-hidden="true" inert>
-    <section class="modal file-label-modal" role="dialog" aria-modal="true" aria-labelledby="file-label-title" aria-describedby="file-label-description">
-      <header class="modal-header">
-        <div>
-          <h3 id="file-label-title">为所选项目分配标签</h3>
-          <div class="external-import-description" id="file-label-description">文件标签只保存在本机。</div>
-        </div>
-        <button class="modal-close" id="file-label-close-btn" type="button" aria-label="关闭文件标签">×</button>
-      </header>
-      <div class="modal-body file-label-body">
-        <div class="file-label-list" id="file-label-list"></div>
-        <section class="file-label-create" aria-labelledby="file-label-create-title">
-          <h4 id="file-label-create-title">新建标签</h4>
-          <div class="file-label-create-controls">
-            <input id="file-label-create-name" type="text" maxlength="40" autocomplete="off" placeholder="例如：待处理、客户资料">
-            <input id="file-label-create-color" type="color" value="#0a84ff" aria-label="新标签颜色">
-            <button class="btn" id="file-label-create-btn" type="button">新建</button>
-          </div>
-        </section>
-        <div class="file-label-feedback" id="file-label-feedback" role="status" aria-live="polite"></div>
-      </div>
-      <footer class="modal-footer">
-        <span></span>
-        <div>
-          <button class="btn" id="file-label-cancel-btn" type="button">取消</button>
-          <button class="btn btn-primary" id="file-label-apply-btn" type="button">应用标签</button>
-        </div>
-      </footer>
-    </section>
-  </div>
-
   <div class="modal-overlay" id="content-filter-modal" style="display:none;" aria-hidden="true" inert>
     <section class="modal content-filter-modal" role="dialog" aria-modal="true" aria-labelledby="content-filter-title" aria-describedby="content-filter-description">
       <header class="modal-header">
@@ -631,11 +583,6 @@
             <label><input type="checkbox" name="content-filter-git-status" value="no-remote">无远程</label>
           </div>
           <div class="content-filter-hint" id="content-filter-git-hint">Git 综合状态多选为“或”；“无远程”与综合状态组合时为“且”。</div>
-        </fieldset>
-        <fieldset class="content-filter-section" id="content-filter-file-label-section">
-          <legend>文件标签</legend>
-          <div class="content-filter-check-grid content-filter-file-labels" id="content-filter-file-labels"></div>
-          <div class="content-filter-hint" id="content-filter-file-label-hint">显示带有任一所选本机标签的文件或文件夹；多选之间为“或”。</div>
         </fieldset>
         <fieldset class="content-filter-section">
           <legend>修改时间</legend>
@@ -1338,6 +1285,7 @@
   <script src="../shared/gitPatchSelection.js"></script>
   <script src="../shared/semanticColors.js"></script>
   <script src="../shared/relationshipGraphModel.js"></script>
+  <script src="../shared/repositoryAssociation.js"></script>
   <script src="../shared/panelTopologyProjection.js"></script>
   <script src="../shared/projectShortcuts.js"></script>
   <script src="../shared/batchRename.js"></script>

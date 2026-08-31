@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="zh-CN" data-effective-mode="light" data-scheme="github">
+<meta charset="utf-8">
+<title>正式白板 · HTTP 检测与分组验证</title>
+<link rel="stylesheet" href="../../src/renderer/styles/main.css">
+<link rel="stylesheet" href="../../src/renderer/styles/relationships.css">
+<link rel="stylesheet" href="../../src/renderer/styles/theme.css">
+<style>
+  html, body { height:100%; } body { display:flex; flex-direction:column; }
+  .fixture-controls { display:flex; flex-wrap:wrap; gap:12px; padding:10px; font:13px system-ui; }
+  #board { flex:1; min-height:0; } #notice { color:var(--text-secondary); }
+</style>
+<div class="fixture-controls"><strong>模拟 HTTP 数据 · 正式白板组件</strong><button id="reload">重读保存状态</button><button id="many">载入 24 个项目</button><button id="single">载入单个长项目</button><span id="notice" role="status"></span></div>
+<div id="board"></div>
+<script src="../../src/shared/relationshipGraphModel.js"></script>
+<script src="../../src/shared/repositoryAssociation.js"></script>
+<script src="../../src/shared/panelTopologyProjection.js"></script>
+<script src="../../src/renderer/scripts/relationshipBoardController.js"></script>
+<script src="endpoint-health.js"></script>
+</html>

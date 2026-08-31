@@ -19,7 +19,7 @@ function unwrapRelationshipBoardFile(parsed) {
   if (parsed.format !== EXPORT_FORMAT) {
     throw new Error(`不支持的关系白板文件格式：${String(parsed.format || '未知')}`);
   }
-  if (Number(parsed.formatVersion) !== EXPORT_FORMAT_VERSION) {
+  if (![EXPORT_FORMAT_VERSION, 2].includes(Number(parsed.formatVersion))) {
     throw new Error(`暂不支持关系白板文件版本：${String(parsed.formatVersion ?? '未知')}`);
   }
   if (!parsed.store || typeof parsed.store !== 'object' || Array.isArray(parsed.store)) {

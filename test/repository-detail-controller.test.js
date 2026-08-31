@@ -180,7 +180,6 @@ test('仓库详情渲染保留项目、收藏和 Git 状态语义，并转义外
     'detail-project-settings',
     'detail-relationship-board',
     'toggle-assignments-btn',
-    'detail-fav-btn',
     'detail-status',
     'detail-readme',
     'detail-git-info',
@@ -239,8 +238,6 @@ test('仓库详情渲染保留项目、收藏和 Git 状态语义，并转义外
   assert.equal(elements.get('detail-project-settings').textContent, '项目设置');
   assert.equal(elements.get('detail-relationship-board').dataset.relationshipKind, 'project');
   assert.equal(elements.get('detail-relationship-board').dataset.relationshipRef, 'project_1');
-  assert.equal(elements.get('detail-fav-btn').textContent, '★');
-  assert.ok(elements.get('detail-fav-btn').classList.values.has('active'));
   assert.match(elements.get('detail-status').innerHTML, /detail-status-badge dirty/);
   assert.match(elements.get('detail-status').innerHTML, /&lt;branch&gt;/);
   assert.doesNotMatch(elements.get('detail-status').innerHTML, /<branch>/);

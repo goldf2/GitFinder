@@ -69,6 +69,7 @@ const AppState = {
   detailSectionOrder: null, // 区域排列顺序(null=默认)
   sidebarSectionOrder: null, // 侧栏 section 排列顺序(null=默认)
   sidebarCollapsedSections: new Set(), // 侧栏 section 折叠状态(存储 section-id)
+  sidebarNavigationMode: 'directories',
   searchQuery: '',
   searchScope: 'current',
   globalSearchMode: 'metadata',
@@ -217,7 +218,6 @@ const App = {
       Terminal.init();
     }
     await this.loadTheme();
-    await this.fileLabelController.load();
     const savedCardStyle = await window.gitFinder.config.get('cardStyle').catch(() => null);
     if (['card', 'list', 'column', 'gallery'].includes(savedCardStyle)) AppState.cardStyle = savedCardStyle;
     AppState.defaultCardStyle = AppState.cardStyle;
@@ -537,6 +537,7 @@ const App = {
     this.relationshipBoardController = new window.RelationshipBoardController.Controller({
       bridge: window.gitFinder,
       notify: (message, type) => this._showStatusMessage(message, type),
+      onOpenDirectory: directory => this.openLocalProject(directory),
       onSummaryChanged: summary => {
         AppState.relationshipSummary = summary;
         if (AppState.currentMode === 'relationships') this.updateStatusBar();
@@ -721,8 +722,6 @@ const App = {
     document.getElementById('file-move')?.addEventListener('click', () => this.moveSelectedItems());
     document.getElementById('file-open-terminal')?.addEventListener('click', () => this.openSelectedInTerminal());
     document.getElementById('file-open-editor')?.addEventListener('click', () => this.openSelectedInEditor());
-    document.getElementById('file-labels')?.addEventListener('click', () => this.openSelectedFileLabels());
-    document.getElementById('file-favorite')?.addEventListener('click', () => this.toggleSelectedFavorite());
     document.getElementById('file-trash')?.addEventListener('click', () => this.trashSelectedItems());
     document.getElementById('file-project-settings')?.addEventListener('click', () => this.openSelectedProjectSettings());
     document.getElementById('file-undo')?.addEventListener('click', () => this.undoLastFileOperation());
@@ -795,7 +794,6 @@ const App = {
       if (action === 'tree-mode') this.switchMode('tree');
       if (action === 'open-local-project') this.openLocalProject(event.target.closest('[data-project-path]')?.dataset.projectPath);
       if (action === 'edit-local-project') this.openLocalProjectDialog(event.target.closest('[data-project-path]')?.dataset.projectPath);
-      if (action === 'manage-file-labels') this.fileLabelController.open([]);
       if (action === 'show-relationship-resource') {
         const button = event.target.closest('[data-relationship-kind]');
         this.showResourceInRelationshipBoard({
@@ -997,7 +995,6 @@ const App = {
       });
     });
 
-    document.getElementById('add-favorite-btn')?.addEventListener('click', () => this.addCurrentFavorite());
 
     document.getElementById('add-group-bottom-btn')?.addEventListener('click', () => {
       const dropdown = document.getElementById('category-filter-dropdown');
@@ -1085,9 +1082,6 @@ const App = {
       document.getElementById('new-group-modal').style.display = 'none';
     });
 
-    document.getElementById('detail-fav-btn')?.addEventListener('click', () => {
-      if (AppState.selectedRepo?.path) this.toggleFavoritePath(AppState.selectedRepo.path);
-    });
     document.getElementById('detail-project-settings')?.addEventListener('click', () => {
       if (AppState.selectedRepo?.path) this.openLocalProjectDialog(AppState.selectedRepo.path);
     });
@@ -1335,10 +1329,6 @@ const App = {
               <span><strong>显示隐藏项目</strong><small>在目录页和左侧目录树中显示以“.”开头的文件与文件夹</small></span>
               <input class="app-settings-toggle" id="settings-show-hidden" type="checkbox"${AppState.showHiddenFiles ? ' checked' : ''}>
             </label>
-            <div class="app-settings-row">
-              <span><strong>文件标签</strong><small>已创建 ${AppState.fileLabels.labels.length} 个；只保存在本机，不会写入项目或 Git</small></span>
-              <button class="btn" data-app-action="manage-file-labels" type="button">管理标签…</button>
-            </div>
           </div>
         </section>
 
@@ -1349,7 +1339,7 @@ const App = {
           </div>
           <div class="app-settings-controls">
             <label class="app-settings-row" for="settings-show-project-shortcuts">
-              <span><strong>显示项目快捷入口</strong><small>在左侧显示“所有项目”、已固定项目和最近项目</small></span>
+              <span><strong>显示项目快捷入口</strong><small>在“项目”导航中显示已固定和最近项目；“所有项目”入口始终保留</small></span>
               <input class="app-settings-toggle" id="settings-show-project-shortcuts" type="checkbox"${projectShortcutPreferences.visible ? ' checked' : ''}>
             </label>
             <label class="app-settings-row" for="settings-show-recent-projects">
@@ -3250,7 +3240,7 @@ const App = {
     if (!sidebar) return;
     sidebar.querySelectorAll('.sidebar-section[data-section-id]').forEach(section => {
       const id = section.dataset.sectionId;
-      section.classList.toggle('collapsed', AppState.sidebarCollapsedSections.has(id));
+      section.classList.toggle('collapsed', id !== 'board-components' && AppState.sidebarCollapsedSections.has(id));
     });
   },
 
@@ -3381,7 +3371,6 @@ const App = {
   },
 
   async loadSidebarData() {
-    this.loadFavorites();
     await this.initSidebarTree();
   },
 
@@ -3548,14 +3537,14 @@ const App = {
   },
 
   async loadFavorites() {
+    const container = document.getElementById('favorites-list');
+    if (!container) return;
     try {
       const [favorites, quickLocs, hiddenQuickLocs] = await Promise.all([
         window.gitFinder.config.getFavorites(),
         window.gitFinder.fs.getQuickLocations(),
         window.gitFinder.config.get('hiddenQuickLocations')
       ]);
-      const container = document.getElementById('favorites-list');
-      if (!container) return;
       const hiddenSet = new Set(hiddenQuickLocs || []);
       const pathKey = value => this.favoritePathKey(value);
       const quickKeys = new Set((quickLocs || []).map(location => pathKey(location.path)));
@@ -5118,8 +5107,6 @@ const App = {
       recursive: false
     });
     if (!this.isDirectoryRenderContextCurrent(context)) return;
-    await this.fileLabelController.enrichItems(items);
-    if (!this.isDirectoryRenderContextCurrent(context)) return;
     this.directoryPerformanceController.markRead(context, items.length);
     this.unavailableLocationController.clear();
 
@@ -5217,7 +5204,6 @@ const App = {
           <span class="file-label-collection-empty-dot" aria-hidden="true"></span>
           <strong>${assignedCount ? '没有符合当前内容条件的项目' : '这个标签还没有项目'}</strong>
           <span>${assignedCount ? '可清除文件类型、扩展名、大小或时间条件。' : '在任意目录中选择文件或文件夹，然后通过“操作 → 标签…”分配。'}</span>
-          <button class="btn" data-app-action="manage-file-labels" type="button">管理标签…</button>
         </div>`;
       } else if (AppState.cardStyle === 'column') {
         this.renderFileLabelColumnView(items, contentArea);
@@ -5249,7 +5235,6 @@ const App = {
       contentArea.innerHTML = `<div class="file-label-collection-empty is-error">
         <strong>文件标签集合加载失败</strong>
         <span>${this.escapeHtml(error?.message || String(error))}</span>
-        <button class="btn" data-app-action="manage-file-labels" type="button">管理标签…</button>
       </div>`;
       this.updateFileActionBar();
       this.updateStatusBar();

@@ -13,6 +13,11 @@ const project = {
 
 function createHarness() {
   const section = { hidden: true };
+  const locations = { hidden: false };
+  const tabs = Object.fromEntries(['projects', 'directories'].map(mode => [mode, {
+    dataset: { sidebarNavigation: mode }, attributes: {},
+    setAttribute(key, value) { this.attributes[key] = value; }
+  }]));
   const container = {
     innerHTML: '',
     addEventListener() {}
@@ -35,6 +40,8 @@ function createHarness() {
       getElementById(id) {
         if (id === 'project-shortcuts-sidebar-section') return section;
         if (id === 'project-shortcuts-list') return container;
+        if (id === 'locations-sidebar-section') return locations;
+        if (id === 'sidebar-navigation') return { querySelectorAll: () => Object.values(tabs) };
         return null;
       }
     },
@@ -58,7 +65,7 @@ function createHarness() {
       _showStatusMessage() {}
     }
   });
-  return { controller, state, section, container, writes };
+  return { controller, state, section, locations, tabs, container, writes };
 }
 
 test('项目快捷控制器加载本机偏好并按设置隐藏侧边栏', async () => {
@@ -68,7 +75,8 @@ test('项目快捷控制器加载本机偏好并按设置隐藏侧边栏', async
 
   assert.equal(state.projectShortcutPreferences.visible, false);
   assert.equal(section.hidden, true);
-  assert.equal(container.innerHTML, '');
+  assert.match(container.innerHTML, /所有项目/);
+  assert.doesNotMatch(container.innerHTML, /project-shortcut-heading">最近/);
 });
 
 test('修改项目区偏好立即更新侧边栏，清除最近记录保留其他数据', async () => {
@@ -76,6 +84,7 @@ test('修改项目区偏好立即更新侧边栏，清除最近记录保留其�
   await controller.load();
 
   await controller.savePreferences({ visible: true, showRecent: true, recentLimit: 3 });
+  await controller.setNavigationMode('projects');
   assert.equal(section.hidden, false);
   assert.match(container.innerHTML, /所有项目/);
   assert.match(container.innerHTML, /最近/);
@@ -85,4 +94,31 @@ test('修改项目区偏好立即更新侧边栏，清除最近记录保留其�
   assert.deepEqual(state.projectShortcuts.recent, []);
   assert.ok(writes.some(([key]) => key === 'projectShortcutPreferences'));
   assert.ok(writes.some(([key]) => key === 'projectShortcuts'));
+});
+
+test('项目与目录只切换侧栏，记住选择且空项目保留所有项目入口', async () => {
+  const { controller, state, section, locations, tabs, container, writes } = createHarness();
+  await controller.load();
+  assert.equal(state.sidebarNavigationMode, 'directories');
+  assert.equal(locations.hidden, false);
+  await controller.setNavigationMode('projects');
+  assert.equal(section.hidden, false);
+  assert.equal(locations.hidden, true);
+  assert.equal(tabs.projects.attributes['aria-selected'], 'true');
+  assert.equal(tabs.projects.tabIndex, 0);
+  assert.equal(tabs.directories.tabIndex, -1);
+  assert.equal(state.currentPath, project.path);
+  await controller.load();
+  assert.equal(state.sidebarNavigationMode, 'projects');
+  assert.ok(writes.some(([key, value]) => key === 'sidebarNavigationMode' && value === 'projects'));
+  state.localProjects = [];
+  state.projectShortcuts = ProjectShortcuts.defaultStore();
+  controller.render();
+  assert.equal(section.hidden, false);
+  assert.match(container.innerHTML, /所有项目/);
+  await controller.setNavigationMode('directories');
+  assert.equal(section.hidden, true);
+  assert.equal(locations.hidden, false);
+  await controller.setNavigationMode('invalid');
+  assert.equal(state.sidebarNavigationMode, 'directories');
 });

@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="zh-CN" data-effective-mode="light" data-scheme="github">
+<meta charset="utf-8">
+<title>正式白板 · 群组交互验证</title>
+<link rel="stylesheet" href="../../src/renderer/styles/main.css">
+<link rel="stylesheet" href="../../src/renderer/styles/sidebar.css">
+<link rel="stylesheet" href="../../src/renderer/styles/relationships.css?group-routing=1">
+<link rel="stylesheet" href="../../src/renderer/styles/theme.css">
+<style>
+  html, body { height: 100%; } body { display: flex; flex-direction: column; }
+  .fixture-controls { display: flex; gap: 12px; align-items: center; padding: 10px; flex-shrink: 0; font: 13px system-ui; }
+  .fixture-workspace { display: flex; flex: 1; min-height: 0; }
+  .fixture-sidebar { width: 200px; flex-shrink: 0; overflow: auto; }
+  #board { flex: 1; min-height: 0; min-width: 0; } #saved-state { max-height: 90px; overflow: auto; margin: 0; padding: 8px; font: 11px monospace; }
+</style>
+<div class="fixture-controls"><strong>正式控制器 · 隔离数据，不改用户白板</strong><button id="select-cards">选中两张测试卡片</button><button id="reload-layout">重新读取已保存布局</button><button id="load-coolify">载入 Coolify 项目示例</button><button id="load-routing">载入拓扑与避障示例</button><span id="notice" role="status"></span></div>
+<div class="fixture-workspace"><aside class="sidebar fixture-sidebar">
+  <section class="sidebar-section"><div class="sidebar-title"><span class="sidebar-title-text">项目</span><span class="sidebar-toggle">▼</span></div><div class="sidebar-item">所有项目</div></section>
+  <section class="sidebar-section" id="relationship-resource-sidebar-section"><div id="relationship-resource-sidebar-content" class="relationship-panel-dock" data-panel-dock="left"></div></section>
+  <section class="sidebar-section"><div class="sidebar-title"><span class="sidebar-title-text">文件标签</span><span class="sidebar-toggle">▼</span></div></section>
+</aside><div id="board"></div></div>
+<pre id="saved-state" aria-label="已保存的群组布局"></pre>
+<script src="../../src/shared/relationshipGraphModel.js?layout=26-center"></script>
+<script src="../../src/shared/repositoryAssociation.js"></script>
+<script src="../../src/shared/panelTopologyProjection.js?group-routing=1"></script>
+<script src="../../src/renderer/scripts/relationshipBoardController.js?group-routing=1"></script>
+<script src="relationship-groups.js?group-routing=1"></script>
+</html>

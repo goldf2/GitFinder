@@ -51,7 +51,16 @@ fs.mkdirSync(distDir, { recursive: true });
 const builderExecutable = require.resolve('electron-builder/out/cli/cli.js');
 const environment = { ...process.env };
 if (!environment.CSC_LINK && !environment.WIN_CSC_LINK) environment.CSC_IDENTITY_AUTO_DISCOVERY = 'false';
-const build = spawnSync(process.execPath, [builderExecutable, '--win', 'nsis', 'zip', '--x64', '--publish', 'never'], {
+const builderArguments = [builderExecutable, '--win', 'nsis', 'zip', '--x64', '--publish', 'never'];
+// A verified local runtime avoids downloading the same large dependency again in a VM.
+if (environment.GITFINDER_ELECTRON_ZIP) {
+  const electronZip = path.resolve(environment.GITFINDER_ELECTRON_ZIP);
+  const electronVersion = require('electron/package.json').version;
+  const expected = require('electron/checksums.json')[`electron-v${electronVersion}-win32-x64.zip`];
+  if (!expected || sha256(electronZip) !== expected) throw new Error('Windows Electron 运行包版本或校验值不匹配');
+  builderArguments.push(`--config.electronDist=${electronZip}`);
+}
+const build = spawnSync(process.execPath, builderArguments, {
   cwd: projectRoot,
   env: environment,
   stdio: 'inherit'

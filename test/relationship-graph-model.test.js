@@ -261,7 +261,7 @@ test('视觉分组成员关系只保存在同一白板布局中', () => {
   assert.equal(normalized.entities.find(entity => entity.id === 'entity_group001').type, 'group');
 });
 
-test('视觉分组拒绝悬空引用、非分组目标和嵌套分组', () => {
+test('视觉分组拒绝悬空引用和非分组目标，允许无环嵌套', () => {
   const missing = validStore();
   missing.boards[0].placements[0].groupId = 'entity_missing1';
   assert.throws(() => RelationshipGraphModel.assertValidStore(missing), /groupId.*不存在|分组.*当前白板/);
@@ -279,7 +279,40 @@ test('视觉分组拒绝悬空引用、非分组目标和嵌套分组', () => {
     { entityId: 'entity_group001', x: 0, y: 160, groupId: 'entity_group002' },
     { entityId: 'entity_group002', x: 320, y: 160 }
   );
-  assert.throws(() => RelationshipGraphModel.assertValidStore(nested), /分组节点不能归入其他分组/);
+  assert.equal(RelationshipGraphModel.assertValidStore(nested).boards[0].placements.at(-2).groupId, 'entity_group002');
+  nested.boards[0].placements.at(-1).groupId = 'entity_group001';
+  assert.throws(() => RelationshipGraphModel.assertValidStore(nested), /循环嵌套/);
+  nested.boards[0].placements.at(-1).groupId = 'entity_group002';
+  assert.throws(() => RelationshipGraphModel.assertValidStore(nested), /自身|循环嵌套/);
+});
+
+test('群组配色保存在白板布局，拒绝非法颜色和普通卡片的群组样式', () => {
+  const store = validStore();
+  store.entities.push({ id: 'entity_group001', type: 'group', name: '生产链路', details: {} });
+  store.boards[0].placements.push({ entityId: 'entity_group001', x: 10, y: 10, groupBackground: '#ABCDEF', groupBorder: '#123456' });
+  const normalized = RelationshipGraphModel.assertValidStore(store);
+  assert.equal(normalized.boards[0].placements.at(-1).groupBackground, '#abcdef');
+  assert.equal(normalized.boards[0].placements.at(-1).groupBorder, '#123456');
+  store.boards[0].placements.at(-1).groupBorder = 'red; background:url(x)';
+  assert.throws(() => RelationshipGraphModel.assertValidStore(store), /十六进制颜色/);
+  delete store.boards[0].placements.at(-1).groupBorder;
+  store.boards[0].placements[0].groupBackground = '#123456';
+  assert.throws(() => RelationshipGraphModel.assertValidStore(store), /分组.*颜色/);
+});
+
+test('群组排列方式和尺寸可保存并校验，普通卡片不能使用群组字段', () => {
+  const store = validStore();
+  store.entities.push({ id: 'entity_group001', type: 'group', name: '生产环境', details: {} });
+  const group = { entityId: 'entity_group001', x: 10, y: 20, groupLayout: 'auto', groupWidth: 800, groupHeight: 600 };
+  store.boards[0].placements.push(group);
+  assert.deepEqual(RelationshipGraphModel.assertValidStore(store).boards[0].placements.at(-1), group);
+  for (const [key, value] of [['groupLayout', 'other'], ['groupWidth', 100], ['groupHeight', Infinity]]) {
+    const invalid = structuredClone(store);
+    invalid.boards[0].placements.at(-1)[key] = value;
+    assert.throws(() => RelationshipGraphModel.assertValidStore(invalid), new RegExp(key));
+  }
+  store.boards[0].placements[0].groupLayout = 'auto';
+  assert.throws(() => RelationshipGraphModel.assertValidStore(store), /groupLayout/);
 });
 
 test('事实来源和验证时间使用受控值并规范化为 ISO 时间', () => {

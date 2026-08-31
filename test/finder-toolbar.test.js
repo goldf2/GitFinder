@@ -101,8 +101,8 @@ test('更多筛选使用独立可访问弹窗并在标签页内保存高级条�
   assert.match(html, /id="content-filter-size"/);
   assert.match(html, /id="content-filter-size-min"[^>]+type="number"/);
   assert.match(html, /id="content-filter-size-max"[^>]+type="number"/);
-  assert.match(html, /id="content-filter-file-label-section"/);
-  assert.match(html, /id="content-filter-file-labels"/);
+  assert.doesNotMatch(html, /id="content-filter-file-label-section"/);
+  assert.doesNotMatch(html, /id="content-filter-file-labels"/);
   assert.ok(html.indexOf('scripts/contentFilterController.js') < html.indexOf('scripts/app.js'));
   assert.match(appSource, /setupContentFilterController\(\)/);
   assert.match(appSource, /advancedFilterCount\(query\)/);
@@ -110,22 +110,13 @@ test('更多筛选使用独立可访问弹窗并在标签页内保存高级条�
   assert.match(appSource, /filtered = filtered\.filter\(repo => window\.ContentQuery\.matchesAttributes/);
 });
 
-test('文件标签从目录操作进入并与仓库标签、项目颜色保持独立', () => {
-  assert.match(html, /id="file-labels"[^>]+>\s*<span>分配标签…<\/span>/);
-  assert.match(html, /data-context-action="labels"/);
-  assert.match(html, /id="file-label-modal"[^>]+aria-hidden="true"[^>]+inert/);
-  assert.match(appSource, /data-app-action="manage-file-labels"/);
-  assert.ok(html.indexOf('../shared/fileLabels.js') < html.indexOf('scripts/fileLabelController.js'));
-  assert.ok(html.indexOf('scripts/fileLabelController.js') < html.indexOf('scripts/app.js'));
-  assert.match(appSource, /fileLabelController\.enrichItems\(items\)/);
-  assert.match(appSource, /getFileLabelDotsHtml\(item/);
-  assert.match(html, /id="file-labels-sidebar-section"[^>]+data-section-id="file-labels"/);
-  assert.match(html, /id="file-labels-sidebar-list"/);
-  assert.match(appSource, /openFileLabelCollection\(labelId\)/);
-  assert.match(appSource, /fileLabels\.getCollection\(query\.fileLabelIds\)/);
-  assert.match(appSource, /renderFileLabelColumnView\(items, contentArea\)/);
-  assert.match(contentCss, /\.file-label-dot/);
-  assert.match(mainCss, /\.file-label-modal/);
+test('移除未使用的文件标签入口，仓库标签保持独立', () => {
+  assert.doesNotMatch(html, /id="file-labels"|data-context-action="labels"|id="file-label-modal"/);
+  assert.doesNotMatch(html, /id="file-labels-sidebar-(?:section|list)"/);
+  assert.doesNotMatch(appSource, /data-app-action="manage-file-labels"/);
+  assert.doesNotMatch(appSource, /await this\.fileLabelController\.(?:load|enrichItems)\(/);
+  assert.match(html, /id="tags-sidebar-section"/);
+  assert.match(html, /仓库标签/);
 });
 
 test('全部仓库状态条件写入当前标签查询，仪表盘临时筛选保持隔离', () => {

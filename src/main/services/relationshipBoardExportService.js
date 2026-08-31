@@ -43,7 +43,7 @@ class RelationshipBoardExportService {
     const exportedAt = new Date(this.now());
     return {
       format: EXPORT_FORMAT,
-      formatVersion: EXPORT_FORMAT_VERSION,
+      formatVersion: store.entities.some(item => ['text', 'image', 'attachment'].includes(item.type)) ? 2 : EXPORT_FORMAT_VERSION,
       exportedAt: Number.isFinite(exportedAt.getTime()) ? exportedAt.toISOString() : new Date().toISOString(),
       store
     };
@@ -68,7 +68,7 @@ class RelationshipBoardExportService {
     const envelope = this.createEnvelope(rawStore);
     const serialized = `${JSON.stringify(envelope, null, 2)}\n`;
     const bytes = Buffer.byteLength(serialized, 'utf8');
-    if (bytes > MAX_EXPORT_BYTES) throw new Error('关系白板导出文件超过 2 MB 安全限制');
+    if (bytes > MAX_EXPORT_BYTES) throw new Error('关系白板导出文件超过 32 MB 安全限制');
 
     const temporaryPath = path.join(parentPath, `.${path.basename(destinationPath)}.${process.pid}.${this.randomUUID()}.tmp`);
     const previousPath = path.join(parentPath, `.${path.basename(destinationPath)}.${process.pid}.${this.randomUUID()}.previous`);

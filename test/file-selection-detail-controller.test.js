@@ -80,7 +80,7 @@ test('单项简介复用统一语义图标并保留项目、Git 和生命周期�
   assert.match(harness.empty.innerHTML, /data-kind="project"/);
   assert.match(harness.empty.innerHTML, /&lt;project&gt;/);
   assert.match(harness.empty.innerHTML, /进行中 · 多仓库项目/);
-  assert.match(harness.empty.innerHTML, /从收藏夹移除/);
+  assert.doesNotMatch(harness.empty.innerHTML, /收藏夹|toggle-favorite/);
   assert.match(harness.empty.innerHTML, /项目设置/);
   assert.match(harness.empty.innerHTML, /关系白板/);
   assert.doesNotMatch(harness.empty.innerHTML, /📁|📄/);
