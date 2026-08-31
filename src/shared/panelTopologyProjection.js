@@ -95,8 +95,11 @@
     const preferred = Math.abs(dx) / Math.max(1, source.width + target.width)
       >= Math.abs(dy) / Math.max(1, source.height + target.height) ? horizontal : vertical;
     const pairs = [preferred, preferred === horizontal ? vertical : horizontal,
-      [...horizontal].reverse(), [...vertical].reverse()].filter(pair => !options.sourceSide || pair[0] === options.sourceSide);
-    if (!pairs.length) pairs.push([options.sourceSide, horizontal[1]]);
+      [horizontal[0], vertical[1]], [vertical[0], horizontal[1]]];
+    for (const a of Object.keys(normals)) for (const b of Object.keys(normals)) {
+      if (!pairs.some(pair => pair[0] === a && pair[1] === b)) pairs.push([a, b]);
+    }
+    if (options.sourceSide) pairs.splice(0, pairs.length, ...pairs.filter(pair => pair[0] === options.sourceSide));
     const others = obstacles.map(r => expand(r, padding));
     const curveObstacles = [...others, expand(source, -2), expand(target, -2)].filter(r => r.width > 0 && r.height > 0);
     const midpoint = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
@@ -129,17 +132,25 @@
         labelX: label.x, labelY: label.y - 8, obstructed };
     };
     let fallback;
+    const candidates = [];
     for (const [sourceSide, targetSide] of pairs) {
       const a = port(source, sourceSide), b = port(target, targetSide);
       const normalA = normals[sourceSide], normalB = normals[targetSide];
-      const bend = Math.max(28, Math.abs(normalA[0] ? b.x - a.x : b.y - a.y) / 2);
-      const c = { x: a.x + normalA[0] * bend, y: a.y + normalA[1] * bend };
-      const d = { x: b.x + normalB[0] * bend, y: b.y + normalB[1] * bend };
-      const path = `M ${a.x} ${a.y} C ${c.x} ${c.y}, ${d.x} ${d.y}, ${b.x} ${b.y}`;
-      const points = [a, c, d, b];
-      fallback ||= result(path, sampleCurve(points), sourceSide, targetSide, true);
-      if (curveClear(points, curveObstacles)) return result(path, sampleCurve(points), sourceSide, targetSide);
+      for (const tension of [0.25, 0.5, 0.85]) {
+        const bend = Math.max(28, (Math.abs(b.x - a.x) + Math.abs(b.y - a.y)) * tension);
+        const c = { x: a.x + normalA[0] * bend, y: a.y + normalA[1] * bend };
+        const d = { x: b.x + normalB[0] * bend, y: b.y + normalB[1] * bend };
+        const path = `M ${a.x} ${a.y} C ${c.x} ${c.y}, ${d.x} ${d.y}, ${b.x} ${b.y}`;
+        const points = [a, c, d, b];
+        const sampled = sampleCurve(points);
+        const length = sampled.slice(1).reduce((sum, point, i) => sum + Math.hypot(point.x - sampled[i].x, point.y - sampled[i].y), 0);
+        fallback ||= result(path, sampled, sourceSide, targetSide, true);
+        candidates.push({ path, points, sampled, sourceSide, targetSide, length });
+      }
     }
+    candidates.sort((a, b) => a.length - b.length);
+    const curve = candidates.find(candidate => curveClear(candidate.points, curveObstacles));
+    if (curve) return result(curve.path, curve.sampled, curve.sourceSide, curve.targetSide);
     // Only blocked curves need a channel search. The grid is lazy and the search
     // is bounded so a dense board cannot monopolize the drag event loop.
     const boxes = [...others, expand(source, padding), expand(target, padding)];
@@ -147,7 +158,10 @@
     const clear = (a, b, rects = boxes) => !rects.some(r => a.x === b.x
       ? a.x > r.x + 0.01 && a.x < r.x + r.width - 0.01 && Math.max(a.y, b.y) > r.y + 0.01 && Math.min(a.y, b.y) < r.y + r.height - 0.01
       : a.y > r.y + 0.01 && a.y < r.y + r.height - 0.01 && Math.max(a.x, b.x) > r.x + 0.01 && Math.min(a.x, b.x) < r.x + r.width - 0.01);
-    for (const [sourceSide, targetSide] of pairs) {
+    const channelPairs = candidates.filter((item, index) => candidates.findIndex(other => (
+      other.sourceSide === item.sourceSide && other.targetSide === item.targetSide
+    )) === index).slice(0, 4);
+    for (const { sourceSide, targetSide } of channelPairs) {
       const a = port(source, sourceSide), b = port(target, targetSide), na = normals[sourceSide], nb = normals[targetSide];
       const stub = padding + inset + 1;
       const start = { x: a.x + na[0] * stub, y: a.y + na[1] * stub }, end = { x: b.x + nb[0] * stub, y: b.y + nb[1] * stub };

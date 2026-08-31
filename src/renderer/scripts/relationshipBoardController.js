@@ -2606,12 +2606,21 @@
         this._renderGraph();
         return;
       }
-      this._updateSelectionCss({ preserveDirtyInspector: true });
-      const panel = this._panelElement('.relationship-inspector-panel');
       const fact = this._selectedFact()?.value;
       const group = fact?.type === 'group' && !fact.transient;
       const selector = action === 'rename' ? (group ? '[name="name"]' : '[name="placementTitleText"]')
-        : action === 'annotations' ? '[name="placementNote"]' : 'input, select, button';
+        : action === 'annotations' ? '[name="placementNote"]' : 'form input, form select, [data-edit-canvas-element]';
+      this._revealInspector(selector);
+    }
+
+    _revealInspector(selector = 'form input, form select, [data-edit-canvas-element]') {
+      if (this.panelLayout.inspector?.collapsed) {
+        this.panelLayout.inspector = { ...this.panelLayout.inspector, collapsed: false };
+        this._savePanelLayout();
+      }
+      this._updateSelectionCss({ preserveDirtyInspector: true });
+      this._placePanelComponents();
+      const panel = this._panelElement('.relationship-inspector-panel');
       const field = panel?.querySelector(selector);
       const details = field?.closest('details');
       if (details) details.open = true;
@@ -2956,7 +2965,8 @@
         this._selectOnlyEntity(cardDetailId);
         if (this._allEntitiesById().get(cardDetailId)?.type === 'group') {
           this.inspectorPinned = false;
-          this._updateSelectionCss();
+          const entity = this._allEntitiesById().get(cardDetailId);
+          this._revealInspector(entity.transient ? '[name="placementTitleText"]' : '[name="name"]');
         } else {
           if (this.expandedCardIds.has(cardDetailId)) this.expandedCardIds.delete(cardDetailId);
           else this.expandedCardIds.add(cardDetailId);

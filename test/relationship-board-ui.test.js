@@ -1923,6 +1923,28 @@ test('菜单展开仅作用于所选卡片，全选不包含筛选隐藏项', ()
   assert.deepEqual([...controller._entitySelectionIds()], ['entity_local002']);
 });
 
+test('属性与重命名命令展开已折叠详情，保留停靠侧与未保存输入', () => {
+  for (const action of ['inspector', 'rename', 'annotations']) {
+    const { controller } = nestedGroupFixture();
+    controller._selectOnlyEntity('entity_outer001');
+    controller.panelLayout.inspector = { side: 'left', order: 3, collapsed: true };
+    const calls = [];
+    const field = { closest: () => null, scrollIntoView: () => calls.push('scroll'), focus: () => calls.push('focus') };
+    const panel = { querySelector: selector => { calls.push(selector); return field; } };
+    controller._panelElement = () => panel;
+    controller._closeContextMenu = () => {};
+    controller._updateSelectionCss = options => assert.equal(options.preserveDirtyInspector, true);
+    controller._placePanelComponents = () => calls.push('place');
+    controller._savePanelLayout = () => calls.push('save-layout');
+    const before = JSON.stringify(controller.store);
+    controller._runContextAction(action);
+    assert.deepEqual(controller.panelLayout.inspector, { side: 'left', order: 3, collapsed: false });
+    assert.ok(calls.includes('place'));
+    assert.ok(calls.includes('focus'));
+    assert.equal(JSON.stringify(controller.store), before);
+  }
+});
+
 test('空白右键添加节点使用点击处的世界坐标，菜单不随画布缩放或筛选变淡', async () => {
   const { controller } = nestedGroupFixture();
   controller._openFormDialog = async () => ({ name: '右键主机' });

@@ -46,3 +46,28 @@ test('密集障碍使用有界折线路由，重叠时不声称路径可通行',
   assert.equal(blocked.obstructed, true);
   assert.ok(blocked.path.startsWith('M '));
 });
+
+test('对角相邻卡片允许上下与左右混合端口，不强制一对反向端口', () => {
+  const route = routeRelationship(rect(0, 0, 320, 190), rect(400, 400, 320, 190), [], { portOffsetY: 59.5 });
+  assert.deepEqual([route.sourceSide, route.targetSide], ['bottom', 'left']);
+  assert.equal(route.obstructed, false);
+});
+
+test('被上排卡片挡住时可从同侧平滑绕开，不直接退化成长直角通道', () => {
+  const obstacle = rect(400, 0, 320, 190);
+  const route = routeRelationship(rect(400, 270, 320, 190), rect(500, -400, 320, 190), [obstacle], { portOffsetY: 59.5 });
+  assert.match(route.path, / C /);
+  assert.deepEqual([route.sourceSide, route.targetSide], ['left', 'left']);
+  assert.equal(route.obstructed, false);
+  assert.ok(route.points.every(p => !(p.x > obstacle.x && p.x < obstacle.x + obstacle.width && p.y > obstacle.y && p.y < obstacle.y + obstacle.height)));
+  const length = route.points.slice(1).reduce((sum, p, i) => sum + Math.hypot(p.x - route.points[i].x, p.y - route.points[i].y), 0);
+  assert.ok(length < 850, '比较候选曲线，避免先找到可行路线就接受过大的绕行');
+});
+
+test('多排部署汇聚到主机时路由保持可通行，并保留可用的曲线', () => {
+  const cards = Array.from({ length: 36 }, (_, i) => rect(i % 9 * 400, Math.floor(i / 9) * 270, 320, 190));
+  const host = rect(500, -400, 320, 190);
+  const routes = cards.map((card, i) => routeRelationship(card, host, cards.filter((_, j) => i !== j), { portOffsetY: 59.5 }));
+  assert.ok(routes.every(route => !route.obstructed));
+  assert.ok(routes.filter(route => route.path.includes(' C ')).length >= 12);
+});
