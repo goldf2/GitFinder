@@ -1,4 +1,4 @@
-const { dialog } = require('electron');
+const { dialog, shell } = require('electron');
 const { registerTrustedHandler } = require('./security');
 const fileService = require('../services/fileService');
 const configService = require('../services/configService');
@@ -146,6 +146,13 @@ function registerFilesystemIPC() {
   ipcMain.handle('fs:showInFinder', async (event, candidatePath) => {
     const safePath = assertManagedWorkspacePath(candidatePath, ['file', 'directory']);
     return fileService.showInFinder(safePath);
+  });
+
+  ipcMain.handle('fs:openDirectory', async (event, candidatePath) => {
+    const safePath = assertManagedWorkspacePath(candidatePath, ['directory']);
+    const error = await shell.openPath(safePath);
+    if (error) throw new Error(error);
+    return true;
   });
 
   ipcMain.handle('fs:openFile', async (event, candidatePath) => {

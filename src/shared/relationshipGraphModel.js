@@ -187,6 +187,8 @@
       mode: 'full',
       projection: 'facts',
       topologyLayout: 'lanes',
+      treeLayout: 'right',
+      projectGroupIncludesEndpoints: true,
       showRepositoryRelations: false,
       snapMode: 'smart',
       cardScale: 1,
@@ -227,6 +229,7 @@
     const mode = String(view.mode || 'full');
     const projection = String(view.projection || 'facts');
     const topologyLayout = String(view.topologyLayout || 'lanes');
+    const treeLayout = String(view.treeLayout || 'right');
     const snapMode = String(view.snapMode || 'smart');
     const cardAppearance = String(view.cardAppearance || 'elevated');
     const cardTitleSource = String(view.cardTitleSource || 'name');
@@ -247,6 +250,8 @@
     if (!BOARD_VIEW_MODES.includes(mode)) issues.push(`${pathPrefix}.mode 无效`);
     if (!BOARD_PROJECTIONS.includes(projection)) issues.push(`${pathPrefix}.projection 无效`);
     if (!['lanes', 'coolify-projects', 'selection-centered', 'server-centered', 'server-tree'].includes(topologyLayout)) issues.push(`${pathPrefix}.topologyLayout 无效`);
+    if (!['right', 'down', 'bilateral', 'radial'].includes(treeLayout)) issues.push(`${pathPrefix}.treeLayout 无效`);
+    if (strict && view.projectGroupIncludesEndpoints != null && typeof view.projectGroupIncludesEndpoints !== 'boolean') issues.push(`${pathPrefix}.projectGroupIncludesEndpoints 必须是布尔值`);
     if (!BOARD_SNAP_MODES.includes(snapMode)) issues.push(`${pathPrefix}.snapMode 无效`);
     if (!BOARD_CARD_APPEARANCES.includes(cardAppearance)) issues.push(`${pathPrefix}.cardAppearance 无效`);
     if (!BOARD_CARD_TITLE_SOURCES.includes(cardTitleSource)) issues.push(`${pathPrefix}.cardTitleSource 无效`);
@@ -264,7 +269,7 @@
     if (strict && view.runtimeStates != null && (!Array.isArray(view.runtimeStates) || view.runtimeStates.some(value => !RUNTIME_FILTERS.includes(String(value))))) issues.push(`${pathPrefix}.runtimeStates 无效`);
     if (strict) {
       for (const key of Object.keys(view)) {
-        if (!['mode', 'projection', 'topologyLayout', 'showRepositoryRelations', 'snapMode', 'cardScale', 'cardWidth', 'cardHeight', 'textScale', 'horizontalSpacing', 'verticalSpacing', 'cardAppearance', 'showGrid', 'showEdgeLabels', 'cardTitleSource', 'showRuntimeStatus', 'unmatchedDisplay', 'filterContextOpacity', 'filterMutedOpacity', 'filterMutedSaturation', 'filterContextEdgeOpacity', 'filterMutedEdgeOpacity', 'filterMatchHaloOpacity', 'statusTintOpacity', 'query', 'entityType', 'entityTypes', 'environment', 'verification', 'annotation', 'task', 'taskFilters', 'runtimeStates', 'label'].includes(key)) {
+        if (!['mode', 'projection', 'topologyLayout', 'treeLayout', 'projectGroupIncludesEndpoints', 'showRepositoryRelations', 'snapMode', 'cardScale', 'cardWidth', 'cardHeight', 'textScale', 'horizontalSpacing', 'verticalSpacing', 'cardAppearance', 'showGrid', 'showEdgeLabels', 'cardTitleSource', 'showRuntimeStatus', 'unmatchedDisplay', 'filterContextOpacity', 'filterMutedOpacity', 'filterMutedSaturation', 'filterContextEdgeOpacity', 'filterMutedEdgeOpacity', 'filterMatchHaloOpacity', 'statusTintOpacity', 'query', 'entityType', 'entityTypes', 'environment', 'verification', 'annotation', 'task', 'taskFilters', 'runtimeStates', 'label'].includes(key)) {
           issues.push(`${pathPrefix}.${key} 不是允许的字段`);
         }
       }
@@ -273,6 +278,8 @@
       mode: BOARD_VIEW_MODES.includes(mode) ? mode : 'full',
       projection: BOARD_PROJECTIONS.includes(projection) ? projection : 'facts',
       topologyLayout: ['lanes', 'coolify-projects', 'selection-centered', 'server-centered', 'server-tree'].includes(topologyLayout) ? topologyLayout : 'lanes',
+      treeLayout: ['right', 'down', 'bilateral', 'radial'].includes(treeLayout) ? treeLayout : 'right',
+      projectGroupIncludesEndpoints: view.projectGroupIncludesEndpoints !== false,
       showRepositoryRelations: view.showRepositoryRelations === true,
       snapMode: BOARD_SNAP_MODES.includes(snapMode) ? snapMode : 'smart',
       cardScale: finiteNumber(view.cardScale, 1, 0.8, 1.4),
@@ -532,7 +539,7 @@
     if (groupId && group && group.type !== 'group') issues.push(`${prefix}.groupId 必须引用分组节点`);
     if (strict) {
       for (const key of Object.keys(raw)) {
-        if (!['entityId', 'x', 'y', 'groupId', 'groupBackground', 'groupBorder', 'groupLayout', 'groupWidth', 'groupHeight', 'titleMode', 'titleText', 'titleSource', 'statusVisibility', 'labels', 'note', 'todos', 'locked', 'expanded'].includes(key)) issues.push(`${prefix}.${key} 不是允许的字段`);
+        if (!['entityId', 'x', 'y', 'groupId', 'groupBackground', 'groupBorder', 'groupLayout', 'groupWidth', 'groupHeight', 'titleMode', 'titleText', 'titleSource', 'statusVisibility', 'labels', 'note', 'todos', 'locked', 'expanded', 'archived'].includes(key)) issues.push(`${prefix}.${key} 不是允许的字段`);
       }
       if (!Number.isFinite(Number(raw.x)) || !Number.isFinite(Number(raw.y))) {
         issues.push(`${prefix} 坐标必须是有限数字`);
@@ -545,6 +552,10 @@
     };
     if (raw.locked === true) placement.locked = true;
     if (raw.expanded === true) placement.expanded = true;
+    if (raw.archived === true) {
+      if (entity?.type !== 'deployment') issues.push(`${prefix}.archived 仅适用于部署`);
+      else placement.archived = true;
+    }
     if (raw.groupLayout != null) {
       if (entity?.type !== 'group' || !['auto', 'manual'].includes(raw.groupLayout)) issues.push(`${prefix}.groupLayout 必须是分组的 auto 或 manual`);
       else placement.groupLayout = raw.groupLayout;

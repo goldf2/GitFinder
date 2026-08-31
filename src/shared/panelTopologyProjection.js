@@ -619,41 +619,156 @@
       placements: placements.filter(p => visible.has(p.entityId)),
       relationships: relationships.filter(edge => visible.has(edge.sourceId) && visible.has(edge.targetId)
         && !['runs_on', 'hosts'].includes(edge.type)),
-      summaryRelationships: [...hierarchy.values(), ...correlations.values()],
+      summaryRelationships: [...hierarchy.values()].filter(edge => byId.get(edge.sourceId)?.type !== 'group').concat([...correlations.values()]),
       hierarchy: [...hierarchy.values(), ...endpoints.map(([sourceId, targetId]) => ({ sourceId, targetId }))],
       repositoryNames
     };
   }
 
-  function arrangeServerTree(graph, options = {}) {
-    const tree = serverTreeGraph(graph), layout = normalizeLayout(options);
-    const byId = new Map(tree.placements.map(item => [item.entityId, item]));
-    const children = new Map(tree.placements.map(item => [item.entityId, []])), parent = new Map();
-    for (const edge of tree.hierarchy) {
+  // Lay out measured rectangles. Used both inside a Project and between Projects.
+  function arrangeTreeUnits(items, edges, layout, style) {
+    const byId = new Map(items.map(item => [item.entityId, item]));
+    const children = new Map(items.map(item => [item.entityId, []])), parent = new Map();
+    for (const edge of edges) {
       if (!byId.has(edge.sourceId) || !byId.has(edge.targetId) || parent.has(edge.targetId)) continue;
+      let ancestor = edge.sourceId;
+      while (ancestor && ancestor !== edge.targetId) ancestor = parent.get(ancestor);
+      if (ancestor === edge.targetId) continue;
       parent.set(edge.targetId, edge.sourceId); children.get(edge.sourceId).push(edge.targetId);
     }
-    const height = id => Number(byId.get(id).height) || layout.height;
     const compare = (a, b) => byId.get(a).y - byId.get(b).y || byId.get(a).x - byId.get(b).x || a.localeCompare(b);
+    for (const ids of children.values()) ids.sort(compare);
+    const size = (id, axis) => Number(byId.get(id)[axis]) || layout[axis];
     const regions = [];
     for (const root of [...byId.keys()].filter(id => !parent.has(id)).sort(compare)) {
-      const members = [];
-      const place = (id, depth, top) => {
-        const childIds = children.get(id).sort(compare);
-        let bottom = top;
-        for (const child of childIds) bottom = place(child, depth + 1, bottom) + layout.verticalSpacing;
-        const span = Math.max(height(id), childIds.length ? bottom - top - layout.verticalSpacing : height(id));
-        const item = byId.get(id);
-        item.x = depth * (layout.width + Math.max(80, layout.horizontalSpacing));
-        item.y = top + (span - height(id)) / 2;
-        members.push(item);
-        return top + span;
+      const members = [], levels = [], depthOf = new Map();
+      const visit = (id, depth) => {
+        members.push(byId.get(id)); depthOf.set(id, depth);
+        (levels[depth] ||= []).push(id);
+        for (const child of children.get(id)) visit(child, depth + 1);
       };
-      const span = place(root, 0, 0);
-      regions.push({ members, height: span, width: Math.max(...members.map(item => item.x + layout.width)) });
+      visit(root, 0);
+      const down = style === 'down', breadth = down ? 'width' : 'height', length = down ? 'height' : 'width';
+      const crossGap = down ? layout.horizontalSpacing : layout.verticalSpacing;
+      const depthGap = down ? layout.verticalSpacing : layout.horizontalSpacing;
+      const starts = [0], spans = new Map();
+      levels.forEach((ids, depth) => { starts[depth + 1] = starts[depth] + Math.max(...ids.map(id => size(id, length))) + depthGap; });
+      const span = id => {
+        const ids = children.get(id);
+        const value = Math.max(size(id, breadth), ids.reduce((sum, child) => sum + span(child), 0) + Math.max(0, ids.length - 1) * crossGap);
+        spans.set(id, value); return value;
+      };
+      span(root);
+      const place = (id, depth, top) => {
+        const ids = children.get(id), item = byId.get(id), extent = spans.get(id);
+        item[down ? 'y' : 'x'] = starts[depth];
+        item[down ? 'x' : 'y'] = top + (extent - size(id, breadth)) / 2;
+        const total = ids.reduce((sum, child) => sum + spans.get(child), 0) + Math.max(0, ids.length - 1) * crossGap;
+        let cursor = top + (extent - total) / 2;
+        for (const child of ids) { place(child, depth + 1, cursor); cursor += spans.get(child) + crossGap; }
+      };
+      if (style === 'bilateral') {
+        const sides = [[], []], totals = [0, 0];
+        for (const child of children.get(root)) {
+          const side = totals[0] <= totals[1] ? 0 : 1;
+          sides[side].push(child); totals[side] += spans.get(child) + crossGap;
+        }
+        byId.get(root).x = 0; byId.get(root).y = -size(root, 'height') / 2;
+        sides.forEach((ids, side) => {
+          let cursor = -(totals[side] - (ids.length ? crossGap : 0)) / 2;
+          for (const child of ids) {
+            place(child, 1, cursor); cursor += spans.get(child) + crossGap;
+            if (side) {
+              const mirror = id => { const item = byId.get(id); item.x = size(root, 'width') - item.x - size(id, 'width'); children.get(id).forEach(mirror); };
+              mirror(child);
+            }
+          }
+        });
+      } else if (style === 'radial') {
+        const weights = new Map(), angles = new Map([[root, 0]]);
+        const weigh = id => { const weight = Math.max(1, children.get(id).reduce((sum, child) => sum + weigh(child), 0)); weights.set(id, weight); return weight; };
+        weigh(root);
+        const fan = (id, angle, sweep) => {
+          angles.set(id, angle);
+          const ids = children.get(id), total = ids.reduce((sum, child) => sum + weights.get(child), 0);
+          let start = angle - sweep / 2;
+          for (const child of ids) { const part = sweep * weights.get(child) / total; fan(child, start + part / 2, part * 0.88); start += part; }
+        };
+        const branches = children.get(root);
+        branches.forEach((id, index) => fan(id, index * Math.PI * 2 / branches.length, Math.min(Math.PI * 0.75, Math.PI * 2 / branches.length * 0.88)));
+        const radiusOf = id => Math.hypot(size(id, 'width'), size(id, 'height')) / 2;
+        const gap = Math.max(layout.horizontalSpacing, layout.verticalSpacing);
+        const radii = [0];
+        levels.forEach((ids, depth) => {
+          if (!depth) return;
+          let radius = radii[depth - 1] + Math.max(...levels[depth - 1].map(radiusOf)) + Math.max(...ids.map(radiusOf)) + gap;
+          for (let i = 0; i < ids.length; i++) for (let j = i + 1; j < ids.length; j++) {
+            const chord = 2 * Math.abs(Math.sin((angles.get(ids[i]) - angles.get(ids[j])) / 2));
+            radius = Math.max(radius, (radiusOf(ids[i]) + radiusOf(ids[j]) + gap) / Math.max(0.001, chord));
+          }
+          radii[depth] = radius;
+        });
+        for (const item of members) {
+          const angle = angles.get(item.entityId), radius = radii[depthOf.get(item.entityId)];
+          item.x = Math.cos(angle) * radius - size(item.entityId, 'width') / 2;
+          item.y = Math.sin(angle) * radius - size(item.entityId, 'height') / 2;
+        }
+      } else place(root, 0, 0);
+      const left = Math.min(...members.map(item => item.x)), top = Math.min(...members.map(item => item.y));
+      regions.push({ members, left, top,
+        width: Math.max(...members.map(item => item.x + size(item.entityId, 'width'))) - left,
+        height: Math.max(...members.map(item => item.y + size(item.entityId, 'height'))) - top });
     }
     const positions = packRegions(regions, layout.viewportAspectRatio, Math.max(100, layout.verticalSpacing * 2));
-    regions.forEach((region, i) => region.members.forEach(item => { item.x += positions[i].x; item.y += positions[i].y; }));
+    regions.forEach((region, i) => region.members.forEach(item => { item.x += positions[i].x - region.left; item.y += positions[i].y - region.top; }));
+    return parent;
+  }
+
+  function arrangeServerTree(graph, options = {}) {
+    const tree = serverTreeGraph(graph), layout = normalizeLayout(options), style = options.treeLayout || 'right';
+    const byId = new Map(tree.placements.map(item => [item.entityId, item]));
+    const types = new Map(graph.entities.map(entity => [entity.id, entity.type]));
+    const owner = new Map(), projects = new Map();
+    for (const item of tree.placements) if (types.get(item.entityId) === 'deployment' && byId.has(item.groupId)) owner.set(item.entityId, item.groupId);
+    // A shared endpoint remains outside all Project containers, with every fact link intact.
+    const endpointOwners = new Map();
+    for (const edge of tree.hierarchy) if (types.get(edge.targetId) === 'endpoint') {
+      if (!endpointOwners.has(edge.targetId)) endpointOwners.set(edge.targetId, new Set());
+      endpointOwners.get(edge.targetId).add(owner.get(edge.sourceId) || '');
+    }
+    for (const [id, groups] of endpointOwners) if (groups.size === 1 && !groups.has('')) owner.set(id, [...groups][0]);
+    const size = item => ({ width: Number(item.width) || layout.width, height: Number(item.height) || layout.height });
+    for (const group of tree.placements.filter(item => types.get(item.entityId) === 'group')) {
+      const members = tree.placements.filter(item => owner.get(item.entityId) === group.entityId).map(item => ({ ...item, ...size(item) }));
+      if (!members.length) continue;
+      arrangeTreeUnits(members, tree.hierarchy, layout, style === 'down' ? 'down' : 'right');
+      const left = Math.min(...members.map(item => item.x)), top = Math.min(...members.map(item => item.y));
+      for (const item of members) { item.x += 28 - left; item.y += 54 - top; }
+      projects.set(group.entityId, { entityId: group.entityId, x: group.x, y: group.y, members,
+        width: Math.max(...members.map(item => item.x + item.width)) + 28,
+        height: Math.max(...members.map(item => item.y + item.height)) + 28 });
+    }
+    const units = tree.placements.filter(item => !owner.has(item.entityId)).map(item => projects.get(item.entityId) || { ...item, ...size(item) });
+    const unitEdges = tree.hierarchy.map(edge => ({ sourceId: owner.get(edge.sourceId) || edge.sourceId, targetId: owner.get(edge.targetId) || edge.targetId }));
+    const parents = arrangeTreeUnits(units, unitEdges, layout, style), unitById = new Map(units.map(item => [item.entityId, item]));
+    for (const unit of units) {
+      const original = byId.get(unit.entityId);
+      if (!unit.members) { original.x = unit.x; original.y = unit.y; if (types.get(unit.entityId) === 'endpoint') delete original.groupId; continue; }
+      const parent = unitById.get(parents.get(unit.entityId));
+      const mirror = ['bilateral', 'radial'].includes(style) && parent && unit.x + unit.width / 2 < parent.x + parent.width / 2;
+      for (const item of unit.members) {
+        const target = byId.get(item.entityId);
+        target.x = unit.x + (mirror ? unit.width - item.x - item.width : item.x); target.y = unit.y + item.y;
+        if (types.get(item.entityId) !== 'endpoint' || options.projectGroupIncludesEndpoints !== false) target.groupId = unit.entityId;
+        else delete target.groupId;
+      }
+      const contained = unit.members.filter(item => byId.get(item.entityId).groupId === unit.entityId);
+      const left = Math.min(...contained.map(item => byId.get(item.entityId).x)) - 28;
+      const top = Math.min(...contained.map(item => byId.get(item.entityId).y)) - 54;
+      Object.assign(original, { x: left, y: top, groupLayout: 'manual',
+        groupWidth: Math.max(...contained.map(item => byId.get(item.entityId).x + item.width)) + 28 - left,
+        groupHeight: Math.max(...contained.map(item => byId.get(item.entityId).y + item.height)) + 28 - top });
+    }
     return tree;
   }
 
@@ -901,7 +1016,7 @@
 
     arrangeTopologyLanes({ entities, existingEntities, relationships, placements }, layout);
     if (options.groupByProject || options.serverTree) groupTopologyByProjects({ entities, existingEntities, relationships, placements }, layout, options.serverTree);
-    if (options.serverTree) arrangeServerTree({ entities: [...existingEntities, ...entities], relationships, placements }, layout);
+    if (options.serverTree) arrangeServerTree({ entities: [...existingEntities, ...entities], relationships, placements }, { ...options.layout, ...layout });
     return {
       entities,
       relationships,

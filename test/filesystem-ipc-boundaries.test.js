@@ -63,6 +63,7 @@ test('所有接收渲染层路径的旧文件系统入口统一经过真实路�
     'fs:getFileInfo',
     'fs:getReadmePreview',
     'fs:showInFinder',
+    'fs:openDirectory',
     'fs:openFile',
     'fs:autoDetectTags',
     'fs:getDirSize'

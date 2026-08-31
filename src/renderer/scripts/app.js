@@ -537,7 +537,7 @@ const App = {
     this.relationshipBoardController = new window.RelationshipBoardController.Controller({
       bridge: window.gitFinder,
       notify: (message, type) => this._showStatusMessage(message, type),
-      onOpenDirectory: directory => this.openLocalProject(directory),
+      onOpenDirectory: directory => this.createWorkspaceTab(directory),
       onSummaryChanged: summary => {
         AppState.relationshipSummary = summary;
         if (AppState.currentMode === 'relationships') this.updateStatusBar();
@@ -2614,15 +2614,17 @@ const App = {
     await this.persistWorkspaceTabs();
   },
 
-  createWorkspaceTab() {
+  createWorkspaceTab(directoryPath) {
     const session = AppState.workspaceSession;
     if (!session) return;
     this.captureActiveWorkspaceTab();
+    const directory = typeof directoryPath === 'string' && directoryPath ? directoryPath : '';
+    const tabPath = directory || AppState.currentPath;
     const next = window.WorkspaceTabs.addTab(session, {
-      path: AppState.currentPath,
-      mode: AppState.currentMode,
-      history: AppState.currentPath ? [AppState.currentPath] : [],
-      historyIndex: AppState.currentPath ? 0 : -1,
+      path: tabPath,
+      mode: directory ? 'tree' : AppState.currentMode,
+      history: tabPath ? [tabPath] : [],
+      historyIndex: tabPath ? 0 : -1,
       searchScope: 'current',
       searchQuery: '',
       globalSearchMode: 'metadata',

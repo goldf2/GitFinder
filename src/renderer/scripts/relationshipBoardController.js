@@ -204,7 +204,8 @@
       ...(['auto', 'manual'].includes(value.groupLayout) ? { groupLayout: value.groupLayout } : {}),
       ...(Number.isFinite(Number(value.groupWidth)) && Number(value.groupWidth) >= GROUP_MIN_WIDTH ? { groupWidth: Math.min(100000, Math.round(Number(value.groupWidth))) } : {}),
       ...(Number.isFinite(Number(value.groupHeight)) && Number(value.groupHeight) >= GROUP_MIN_HEIGHT ? { groupHeight: Math.min(100000, Math.round(Number(value.groupHeight))) } : {}),
-      ...(value.locked === true ? { locked: true } : {}), ...(value.expanded === true ? { expanded: true } : {})
+      ...(value.locked === true ? { locked: true } : {}), ...(value.expanded === true ? { expanded: true } : {}),
+      ...(value.archived === true ? { archived: true } : {})
     };
   }
 
@@ -420,9 +421,10 @@
         this.root?.classList?.remove('pan-ready', 'box-selecting');
         if (['box', 'node', 'resize', 'group-resize', 'pan'].includes(this.pointerAction?.type)) this._cancelPointerAction(false);
       };
-      this._boundResize = () => { this._closeContextMenu(); this._applyResourcePanelPosition(); this._applyViewport(); };
+      this._boundResize = () => { this._closeContextMenu(); this._closeLayoutMenu(); this._applyResourcePanelPosition(); this._applyViewport(); };
       this._boundContextDismiss = event => {
         if (!event.target.closest?.('.relationship-context-menu')) this._closeContextMenu();
+        if (!event.target.closest?.('.relationship-layout-host')) this._closeLayoutMenu();
       };
     }
 
@@ -675,24 +677,35 @@
       return true;
     }
 
-    _isServerTree() { return this._boardView().topologyLayout === 'server-tree'; }
+    _isServerTree() { return Boolean(this.store && this._boardView().topologyLayout === 'server-tree'); }
 
     _arrangeServerTree() {
-      const placements = this._combinedPlacements();
+      const placements = this._unarchivedPlacements();
       const geometry = this._displayGeometryMap(placements);
       const sized = placements.map(item => ({ ...item, ...geometry.get(item.entityId) }));
       PanelTopologyProjection.arrangeServerTree({ entities: this._combinedEntities(),
         relationships: this._combinedRelationships(placements), placements: sized }, {
         ...this._nodeDimensions(), ...this._displayViewSettings(),
+        treeLayout: this._boardView().treeLayout,
+        projectGroupIncludesEndpoints: this._boardView().projectGroupIncludesEndpoints,
         viewportAspectRatio: this.root?.querySelector('.relationship-canvas')?.clientWidth / this.root?.querySelector('.relationship-canvas')?.clientHeight || 1.6
       });
       const byId = new Map(sized.map(item => [item.entityId, item]));
-      for (const item of placements) { const position = byId.get(item.entityId); item.x = position.x; item.y = position.y; }
+      const entities = this._allEntitiesById();
+      for (const item of placements) {
+        const position = byId.get(item.entityId); item.x = position.x; item.y = position.y;
+        if (entities.get(item.entityId)?.type === 'group') {
+          for (const key of ['groupWidth', 'groupHeight', 'groupLayout']) if (position[key] != null) item[key] = position[key];
+        }
+        if (entities.get(item.entityId)?.type === 'endpoint') {
+          if (position.groupId) item.groupId = position.groupId; else delete item.groupId;
+        }
+      }
       this._saveDynamicPlacementOverrides(placements.filter(item => item.dynamic).map(item => item.entityId));
       this._persistSoon(0);
     }
 
-    _createServerTree() {
+    _createServerTree(treeLayout = 'right') {
       if (this._isServerTree()) return false;
       if (this.documentRecord) {
         this.notify('请先切回“本机白板”创建树状视图；当前白板文件不会被改写', 'info'); return false;
@@ -703,19 +716,54 @@
       this._recordMutation();
       const original = activeBoard(this.store);
       const board = { ...clone(original), id: makeId('board'), name: `${original.name} · 服务器树状图`,
-        view: { ...this._boardView(), topologyLayout: 'server-tree', projection: 'facts', showRepositoryRelations: false } };
+        view: { ...this._boardView(), topologyLayout: 'server-tree', treeLayout, projection: 'facts', showRepositoryRelations: false } };
       const previousDynamic = clone(this._dynamicLayoutForActiveBoard() || {});
       this.store.boards.push(board); this.store.activeBoardId = board.id;
       this.dynamicLayoutStore.boards[board.id] = previousDynamic;
       this._setPanelTopology(this.panelTopologyResult);
-      this._arrangeServerTree();
-      this.render(); this.fitContent(); this._refreshHistoryButtons();
+      this.render(); this._arrangeServerTree(); this._renderGraph(); this.fitContent(); this._refreshHistoryButtons();
       this.notify('已创建独立树状白板，原白板布局保留；可通过白板列表切回', 'success');
       return true;
     }
 
+    _setTreeLayout(style) {
+      if (!['right', 'down', 'bilateral', 'radial'].includes(style)) return false;
+      if (!this._isServerTree()) return this._createServerTree(style);
+      this._recordMutation();
+      this._boardView().treeLayout = style;
+      this.render(); this._arrangeServerTree(); this._renderGraph(); this.fitContent(); this._refreshHistoryButtons();
+      return true;
+    }
+
+    _layoutMenuHtml() {
+      const view = this._boardView(), tree = this._isServerTree();
+      const styles = [
+        ['right', '向右树状', '从左向右逐级展开', 'M5 16H14M14 6V26M14 6H26M14 16H26M14 26H26'],
+        ['down', '向下树状', '从上向下逐级展开', 'M16 4V13M5 13H27M5 13V26M16 13V26M27 13V26'],
+        ['bilateral', '左右分叉', '主机居中，项目分向两侧', 'M16 16H23M23 7V25M23 7H29M23 25H29M16 16H9M9 7V25M9 7H3M9 25H3'],
+        ['radial', '环绕放射', '项目分支围绕主机展开', 'M16 16L5 5M16 16L27 5M16 16L27 27M16 16L5 27M16 16V2M16 16V30']
+      ];
+      const current = tree ? styles.find(([key]) => key === view.treeLayout)?.[1]
+        : ({ lanes: '按类别分列', 'coolify-projects': '项目分组', 'server-centered': '服务器为中心', 'selection-centered': '围绕选中元素' }[view.topologyLayout] || '自由排列');
+      return `<div class="relationship-layout-host">
+        <button class="relationship-tool-button relationship-layout-trigger" data-relationship-action="toggle-layout-menu" type="button" aria-label="视图与布局" aria-haspopup="menu" aria-expanded="false" title="选择树状、双侧、环绕或分列布局">${toolbarIcon('layout')}<span>视图与布局</span><span aria-hidden="true">⌄</span></button>
+        <div class="relationship-layout-menu" role="menu" aria-label="视图与布局" hidden>
+          <header><strong>视图与布局</strong><small>当前：${escapeHtml(current)}</small></header>
+          <p>${tree ? '树状排列 · 服务器 → 项目容器 → 部署与访问点' : '树状排列 · 首次选择会创建副本，保留原白板'}</p>
+          <div class="relationship-layout-options">${styles.map(([key, label, hint, path]) => `<button type="button" role="menuitemradio" aria-checked="${tree && view.treeLayout === key}" aria-label="${label}" data-tree-layout="${key}"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="${path}"/><circle cx="16" cy="16" r="2.5"/></svg><span><b>${label}</b><small>${hint}</small></span><span class="relationship-layout-check" aria-hidden="true">${tree && view.treeLayout === key ? '✓' : ''}</span></button>`).join('')}</div>
+          <div class="relationship-menu-separator" role="separator"></div>
+          <p>其它排列</p>
+          ${[['arrange-by-category', '按类别分列'], ['arrange-around-servers', '服务器为中心'], ['arrange-around-selection', '围绕选中元素']].map(([action, label]) => `<button type="button" role="menuitem" data-relationship-action="${action}">${label}</button>`).join('')}
+          <div class="relationship-menu-separator" role="separator"></div>
+          <button type="button" role="menuitem" data-relationship-action="reset-dynamic-layout">整理当前布局</button>
+          <button type="button" role="menuitem" data-relationship-action="arrange-by-coolify-projects" title="一次性初始化并保存，可撤销">初始化 Coolify 项目分组</button>
+          <button type="button" role="menuitem" data-relationship-action="deployment-archive">归档的部署（${this._combinedPlacements().filter(item => item.archived).length}）</button>
+          ${tree ? `<div class="relationship-menu-separator" role="separator"></div><button type="button" role="menuitemcheckbox" aria-checked="${view.showRepositoryRelations}" data-relationship-action="repository-relations"><span aria-hidden="true">${view.showRepositoryRelations ? '✓' : '○'}</span> 显示仓库相关性</button>` : ''}
+        </div></div>`;
+    }
+
     _packCurrentLayout(dynamicOnly = false) {
-      const allPlacements = this._combinedPlacements();
+      const allPlacements = this._unarchivedPlacements();
       const placements = dynamicOnly ? allPlacements.filter(item => item.dynamic) : allPlacements;
       const geometry = this._displayGeometryMap(placements);
       const byId = new Map(placements.map(item => [item.entityId, item]));
@@ -906,6 +954,8 @@
         serverTree: this.store && activeBoard(this.store)?.view?.topologyLayout === 'server-tree',
         layout: {
           ...this._nodeDimensions(),
+          treeLayout: activeBoard(this.store)?.view?.treeLayout,
+          projectGroupIncludesEndpoints: activeBoard(this.store)?.view?.projectGroupIncludesEndpoints,
           viewportAspectRatio: canvas?.clientWidth && canvas?.clientHeight ? canvas.clientWidth / canvas.clientHeight : 1.6,
           horizontalSpacing: this._displayViewSettings().horizontalSpacing,
           verticalSpacing: this._displayViewSettings().verticalSpacing
@@ -1187,6 +1237,87 @@
         || null;
     }
 
+    _unarchivedPlacements() {
+      const placements = this._combinedPlacements();
+      const hidden = new Set(placements.filter(item => item.archived).map(item => item.entityId));
+      if (!hidden.size) return placements;
+      const owners = new Map();
+      for (const edge of this._combinedRelationships(placements)) {
+        const pair = edge.type === 'exposes' ? [edge.sourceId, edge.targetId]
+          : edge.type === 'exposed_by' ? [edge.targetId, edge.sourceId] : null;
+        if (!pair) continue;
+        if (!owners.has(pair[1])) owners.set(pair[1], []);
+        owners.get(pair[1]).push(pair[0]);
+      }
+      for (const [endpointId, deployments] of owners) {
+        if (deployments.every(id => hidden.has(id))) hidden.add(endpointId);
+      }
+      return placements.filter(item => !hidden.has(item.entityId));
+    }
+
+    _setDeploymentArchived(entityId, archived) {
+      const entity = this._allEntitiesById().get(entityId), placement = this._placementForEntity(entityId);
+      if (entity?.type !== 'deployment' || !placement || Boolean(placement.archived) === archived) return false;
+      this._recordMutation();
+      const board = activeBoard(this.store);
+      let stored = board.placements.find(item => item.entityId === entityId);
+      const dynamic = this.panelProjection?.placements?.find(item => item.entityId === entityId);
+      if (archived && !stored) {
+        // Keep a credential-free snapshot even when this data source is offline.
+        if (!this.store.entities.some(item => item.id === entityId)) this.store.entities.push(this._portableEntity(entity));
+        stored = { entityId, x: placement.x, y: placement.y, ...normalizePlacementAnnotations(placement) };
+        board.placements.push(stored);
+      }
+      if (archived) stored.archived = true;
+      else {
+        delete stored.archived;
+        if (dynamic && !this.documentRecord) {
+          Object.assign(dynamic, { x: stored.x, y: stored.y }, normalizePlacementAnnotations(stored));
+          delete dynamic.archived;
+          board.placements = board.placements.filter(item => item !== stored);
+          this._saveDynamicPlacementOverrides([entityId]);
+        }
+      }
+      this.selectedEntityIds.delete(entityId);
+      if (this.selectedEntityId === entityId) this.selectedEntityId = null;
+      this._persistSoon(0); this.render();
+      this.notify(archived ? '已归档到当前白板；未停止或删除远端部署' : '已还原到白板；未启动或修改远端部署', 'success');
+      return true;
+    }
+
+    _openDeploymentArchive() {
+      const overlay = document.createElement('div');
+      overlay.className = 'relationship-dialog-overlay';
+      overlay.innerHTML = `<section class="relationship-dialog" role="dialog" aria-modal="true" aria-labelledby="deployment-archive-title"><header><h3 id="deployment-archive-title">归档的部署</h3><button type="button" data-dialog-cancel aria-label="关闭归档">×</button></header><div class="relationship-dialog-body"><p>仅影响当前白板。归档保留本地快照、备注和待办，不会停止或删除 Coolify 服务。共享访问点继续显示。</p><div data-archive-list></div></div><footer><button type="button" class="btn" data-dialog-cancel>关闭</button></footer></section>`;
+      const populate = () => {
+        const entities = this._allEntitiesById();
+        const items = this._combinedPlacements().filter(item => item.archived && entities.get(item.entityId)?.type === 'deployment');
+        overlay.querySelector('[data-archive-list]').innerHTML = items.map(item => {
+          const entity = entities.get(item.entityId);
+          const facts = DETAIL_FIELD_DEFINITIONS.deployment.filter(field => entity.details?.[field.key]);
+          return `<article class="relationship-archive-item"><div class="relationship-archive-row"><strong>${escapeHtml(this._entityDisplayName(entity))}</strong><button type="button" class="btn" data-restore-deployment="${escapeHtml(entity.id)}">还原到白板</button></div><details><summary>查看归档详情</summary><p>以下为本地快照，不代表当前运行状态。</p><dl>${facts.map(field => `<dt>${escapeHtml(field.label)}</dt><dd>${escapeHtml(entity.details[field.key])}</dd>`).join('')}</dl>${item.note ? `<p>备注：${escapeHtml(item.note)}</p>` : ''}<p>待办：${(item.todos || []).length}</p><ul>${(item.todos || []).map(todo => `<li>${todo.completed ? '已完成' : '未完成'} · ${escapeHtml(todo.title)}</li>`).join('')}</ul></details></article>`;
+        }).join('') || '<p>当前白板没有归档的部署。</p>';
+      };
+      const finish = () => { document.removeEventListener('keydown', onKeydown, true); overlay.remove(); this.root?.querySelector('.relationship-layout-trigger')?.focus(); };
+      const onKeydown = event => {
+        if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); finish(); }
+        if (event.key === 'Tab') {
+          const targets = [...overlay.querySelectorAll('button, summary')];
+          const index = targets.indexOf(document.activeElement);
+          if (event.shiftKey && index <= 0 || !event.shiftKey && index === targets.length - 1) {
+            event.preventDefault(); targets[event.shiftKey ? targets.length - 1 : 0].focus();
+          }
+        }
+      };
+      overlay.addEventListener('click', event => {
+        if (event.target.closest('[data-dialog-cancel]')) finish();
+        const restore = event.target.closest('[data-restore-deployment]');
+        if (restore) { this._setDeploymentArchived(restore.dataset.restoreDeployment, false); populate(); overlay.querySelector('[data-restore-deployment], [data-dialog-cancel]').focus(); }
+      });
+      populate(); document.body.appendChild(overlay); document.addEventListener('keydown', onKeydown, true);
+      overlay.querySelector('[data-dialog-cancel]').focus();
+    }
+
     _combinedRelationships(placements = this._combinedPlacements()) {
       const placedIds = new Set(placements.map(placement => placement.entityId));
       const relationships = [];
@@ -1408,13 +1539,13 @@
       }
 
       if (this._hasActiveFilters(board.view)) {
-        const { mode, projection, snapMode, topologyLayout } = this._boardView();
+        const { mode, projection, snapMode, topologyLayout, treeLayout, projectGroupIncludesEndpoints, showRepositoryRelations } = this._boardView();
         board.view = {
           ...Model.defaultBoardView(),
           ...this._displayViewSettings(),
           mode,
           projection: projection || 'facts',
-          snapMode, topologyLayout
+          snapMode, topologyLayout, treeLayout, projectGroupIncludesEndpoints, showRepositoryRelations
         };
       }
       this._selectOnlyEntity(entity.id);
@@ -1612,6 +1743,7 @@
 
     _displayGeometryMap(placements = []) {
       const allPlacements = this._combinedPlacements();
+      if (this._isServerTree()) placements = PanelTopologyProjection.serverTreeGraph({ entities: this._combinedEntities(), relationships: this._combinedRelationships(placements), placements }).placements;
       if (!this._isServerTree() && placements.length < allPlacements.length && allPlacements.some(item => item.groupLayout === 'auto')) {
         const geometry = this._displayGeometryMap(allPlacements);
         return new Map(placements.filter(item => geometry.has(item.entityId)).map(item => [item.entityId, geometry.get(item.entityId)]));
@@ -1628,7 +1760,7 @@
       const spacing = this._displayViewSettings();
       const placementsById = new Map(placements.map(item => [item.entityId, item]));
       const regular = placements
-        .filter(placement => this._isServerTree() || entitiesById.get(placement.entityId)?.type !== 'group')
+        .filter(placement => entitiesById.get(placement.entityId)?.type !== 'group')
         .slice()
         .sort((left, right) => left.y - right.y || left.x - right.x);
       const resolved = [];
@@ -1644,7 +1776,7 @@
         const cardHeight = this.cardHeights.get(placement.entityId)
           || (expanded ? this._expandedNodeHeight(placement) : height);
         for (const previous of resolved) {
-          if (placementsById.get(placement.groupId)?.groupLayout) break;
+          if (placementsById.get(placement.groupId)?.groupLayout && !this._isServerTree()) break;
           if ((placement.groupId || '') !== previous.groupId) continue;
           const horizontalOverlap = placement.x < previous.x + width
             && placement.x + width > previous.x;
@@ -1655,8 +1787,10 @@
         resolved.push(geometry);
         geometryById.set(placement.entityId, geometry);
       }
-      const groups = placements.filter(item => !this._isServerTree() && entitiesById.get(item.entityId)?.type === 'group')
+      const groups = placements.filter(item => entitiesById.get(item.entityId)?.type === 'group')
         .sort((a, b) => this._groupDepth(b.entityId, placements) - this._groupDepth(a.entityId, placements));
+      if (this._isServerTree()) groups.sort((a, b) => a.y - b.y || a.x - b.x);
+      const resolvedGroups = [];
       for (const group of groups) {
         const members = placements.filter(item => item.groupId === group.entityId);
         const descendants = this._groupDescendants(group.entityId, placements);
@@ -1678,6 +1812,25 @@
           }
         }
         const bounds = this._placementGeometry(group, placements, new Set(), geometryById);
+        if (this._isServerTree()) {
+          const union = members.map(item => geometryById.get(item.entityId)).filter(Boolean);
+          if (union.length) {
+            const right = Math.max(bounds.x + bounds.width, ...union.map(r => r.x + r.width + GROUP_PADDING_X));
+            const bottom = Math.max(bounds.y + bounds.height, ...union.map(r => r.y + r.height + GROUP_PADDING_BOTTOM));
+            bounds.x = Math.min(bounds.x, ...union.map(r => r.x - GROUP_PADDING_X));
+            bounds.y = Math.min(bounds.y, ...union.map(r => r.y - GROUP_HEADER_HEIGHT));
+            bounds.width = right - bounds.x; bounds.height = bottom - bounds.y;
+          }
+          const originalY = bounds.y;
+          for (const previous of resolvedGroups) if (bounds.x < previous.x + previous.width && bounds.x + bounds.width > previous.x && originalY > previous.originalY) {
+            bounds.y = Math.max(bounds.y, previous.y + previous.height + Math.max(60, spacing.verticalSpacing));
+          }
+          const dy = bounds.y - originalY;
+          if (dy) for (const item of descendants) {
+            const child = geometryById.get(item.entityId); if (child) geometryById.set(item.entityId, { ...child, y: child.y + dy });
+          }
+          resolvedGroups.push({ ...bounds, originalY });
+        }
         if (group.groupLayout === 'auto') {
           bounds.width = Math.max(bounds.width, ...members.map(item => (geometryById.get(item.entityId)?.x || group.x) + (geometryById.get(item.entityId)?.width || 0) - group.x + GROUP_PADDING_X));
           bounds.height = Math.max(bounds.height, ...members.map(item => (geometryById.get(item.entityId)?.y || group.y) + (geometryById.get(item.entityId)?.height || 0) - group.y + GROUP_PADDING_BOTTOM));
@@ -1744,7 +1897,7 @@
     _placementGeometry(placement, placements = this._combinedPlacements(), ancestors = new Set(), displayGeometry = null) {
       const entitiesById = this._allEntitiesById();
       const entity = entitiesById.get(placement?.entityId);
-      if (entity?.type !== 'group' || this._isServerTree()) {
+      if (entity?.type !== 'group') {
         const { width, height } = this._nodeDimensions();
         return displayGeometry?.get(placement.entityId) || { x: placement.x, y: placement.y, width, height };
       }
@@ -2092,7 +2245,7 @@
       if (!board) return { placements: [], relationships: [], summaryRelationships: [], directIds: new Set(), contextualIds: new Set(), mutedIds: new Set(), filterActive: false };
       const view = this._boardView();
       const entitiesById = this._allEntitiesById();
-      const placements = this._combinedPlacements(board);
+      const placements = this._unarchivedPlacements();
       const boardRelationships = this._combinedRelationships(placements);
       const filterActive = this._hasActiveFilters(view);
       const directIds = new Set();
@@ -2254,6 +2407,7 @@
                   <label class="relationship-display-select"><span>卡片层次</span><select name="cardAppearance"><option value="elevated"${displayView.cardAppearance === 'elevated' ? ' selected' : ''}>层次阴影</option><option value="flat"${displayView.cardAppearance === 'flat' ? ' selected' : ''}>简洁平面</option></select></label>
                   <label class="relationship-display-select"><span>默认标题内容</span><select name="cardTitleSource"><option value="name"${displayView.cardTitleSource === 'name' ? ' selected' : ''}>资源名称</option><option value="note"${displayView.cardTitleSource === 'note' ? ' selected' : ''}>卡片备注</option></select></label>
                   <div class="relationship-display-toggles">
+                    ${this._isServerTree() ? `<label><input name="projectGroupIncludesEndpoints" data-project-endpoints type="checkbox"${board.view.projectGroupIncludesEndpoints ? ' checked' : ''}><span>项目组包含访问点</span></label><small>共享访问点保持独立；此操作会重新整理当前树状布局。</small>` : ''}
                     <label><input name="showGrid" type="checkbox"${displayView.showGrid ? ' checked' : ''}><span>显示画布网格</span></label>
                     <label><input name="showEdgeLabels" type="checkbox"${displayView.showEdgeLabels ? ' checked' : ''}><span>显示关系文字</span></label>
                     <label><input name="showRuntimeStatus" type="checkbox"${displayView.showRuntimeStatus ? ' checked' : ''}><span>显示服务状态</span></label>
@@ -2315,17 +2469,7 @@
             <button class="relationship-tool-button" data-relationship-action="undo" type="button" title="撤销 (⌘Z)" ${this.undoStack.length ? '' : 'disabled'}>↶</button>
             <button class="relationship-tool-button" data-relationship-action="redo" type="button" title="重做 (⇧⌘Z)" ${this.redoStack.length ? '' : 'disabled'}>↷</button>
             <button class="relationship-tool-button relationship-icon-tool" data-relationship-action="fit" type="button" aria-label="适合内容" title="适合内容：将整个白板放入视图">${toolbarIcon('fit')}</button>
-            <button class="relationship-tool-button relationship-icon-tool${this._isServerTree() ? ' is-active' : ''}" data-relationship-action="server-tree" type="button" aria-label="服务器树状图" aria-pressed="${this._isServerTree()}" title="创建服务器 → Project → 部署 → 访问点树状白板，保留原白板布局">${toolbarIcon('layout')}</button>
-            ${this._isServerTree() ? `<button class="relationship-tool-button relationship-icon-tool${board.view.showRepositoryRelations ? ' is-active' : ''}" data-relationship-action="repository-relations" type="button" aria-label="显示仓库相关性" aria-pressed="${board.view.showRepositoryRelations}" title="显示仓库相关性：以虚线关联不同分支中的同源部署，不表示依赖">⌁</button>` : ''}
-            <button class="relationship-tool-button relationship-icon-tool" data-relationship-action="reset-dynamic-layout" type="button" aria-label="整理布局" title="按拓扑与原有位置整理，保留群组归属与组内相对位置">${toolbarIcon('layout')}</button>
-            <button class="relationship-tool-button relationship-icon-tool" data-relationship-action="arrange-by-coolify-projects" type="button" aria-label="初始化分组" title="按 Coolify Projects 初始化分组并保存；一次性操作，再次点击会重新整理，支持撤销">${toolbarIcon('group')}</button>
-            <select class="relationship-layout-select" data-relationship-layout aria-label="整理操作" title="执行一次整理并保存结果，不是持续显示模式">
-              <option value="" selected disabled>整理…</option>
-              <option value="lanes">按类别分列</option>
-              <option value="coolify-projects">初始化 Coolify Projects 分组</option>
-              <option value="selection-centered">围绕我（选中卡片）</option>
-              <option value="server-centered">服务器为中心</option>
-            </select>
+            ${this._layoutMenuHtml()}
             <span class="relationship-save-state" data-state="${this.saveState}" role="status">${this._saveLabel()}</span>
           </header>
           <div class="relationship-body">
@@ -2575,6 +2719,7 @@
         else if (single) items.push(context(single.type === 'group' ? '重命名群组…' : '重命名 / 显示别名…', 'rename'), context('备注、标签与待办…', 'annotations'));
         if (single && !(single.type === 'group' && single.transient)) items.push(command('围绕我布局', 'arrange-around-selection'));
         if (cards.length) items.push(context(allExpanded ? '收起所选卡片详情' : '展开所选卡片详情', 'details'));
+        if (single?.type === 'deployment') items.push(command('归档部署（仅当前白板）', 'archive-selected-deployment'));
         items.push(null, command('将所选卡片组成群组…', 'create-group-from-selection', this._selectedMemberPlacements().length < 2));
         if (this._selectedMemberPlacements().some(item => item.groupId)) items.push(command('移出所属群组', 'remove-selection-group'));
         // Live topology is read-only: never offer a partially effective mixed-selection deletion.
@@ -2720,6 +2865,26 @@
       const contextPoint = event.target.closest('.relationship-context-menu') ? this.contextMenuPoint : null;
       this._closeContextMenu(Boolean(contextPoint));
       const action = event.target.closest('[data-relationship-action]')?.dataset.relationshipAction;
+      const treeStyle = event.target.closest('[data-tree-layout]')?.dataset.treeLayout;
+      if (treeStyle) { this._closeLayoutMenu(); this._setTreeLayout(treeStyle); this.root?.querySelector('.relationship-layout-trigger')?.focus(); return; }
+      if (action !== 'toggle-layout-menu') this._closeLayoutMenu();
+      if (action === 'toggle-layout-menu') {
+        const menu = this.root.querySelector('.relationship-layout-menu'), trigger = this.root.querySelector('.relationship-layout-trigger');
+        menu.hidden = !menu.hidden; trigger.setAttribute('aria-expanded', String(!menu.hidden));
+        if (!menu.hidden) {
+          this._closeAddMenu(); this._closeFilterPopover(); this._closeDisplayPopover();
+          menu.style.transform = '';
+          const rect = menu.getBoundingClientRect(), view = menu.ownerDocument.defaultView;
+          const workspace = this.root.getBoundingClientRect();
+          menu.style.transform = `translateX(${Math.max(Math.max(12, workspace.left + 8) - rect.left, Math.min(0, Math.min(view.innerWidth - 12, workspace.right - 8) - rect.right))}px)`;
+          menu.style.maxHeight = `${Math.max(160, view.innerHeight - rect.top - 12)}px`;
+          (menu.querySelector('button[aria-checked="true"]') || menu.querySelector('button'))?.focus();
+        }
+        return;
+      }
+      if (action === 'deployment-archive') { this._openDeploymentArchive(); return; }
+      const archiveId = event.target.closest('[data-archive-deployment]')?.dataset.archiveDeployment;
+      if (archiveId || action === 'archive-selected-deployment') { this._setDeploymentArchived(archiveId || this.selectedEntityId, true); return; }
       const documentButton = event.target.closest('[data-open-document]');
       if (documentButton) { void this._openDocument(documentButton.dataset.openDocument); return; }
       if (event.target.closest('[data-document-home]')) { void this._showLocalWorkspace(); return; }
@@ -2783,13 +2948,13 @@
       }
       if (action === 'clear-filters') {
         const board = activeBoard(this.store);
-        const { mode, projection, snapMode, topologyLayout } = this._boardView();
+        const { mode, projection, snapMode, topologyLayout, treeLayout, projectGroupIncludesEndpoints, showRepositoryRelations } = this._boardView();
         board.view = {
           ...Model.defaultBoardView(),
           ...this._displayViewSettings(),
           mode,
           projection: projection || 'facts',
-          snapMode, topologyLayout
+          snapMode, topologyLayout, treeLayout, projectGroupIncludesEndpoints, showRepositoryRelations
         };
         const form = this.root.querySelector('[data-relationship-filter-form]');
         if (form) {
@@ -2876,6 +3041,9 @@
       }
       if (action === 'arrange-around-selection') this._arrangeAround('selection-centered');
       if (action === 'arrange-around-servers') this._arrangeAround('server-centered');
+      if (['arrange-by-category', 'arrange-by-coolify-projects', 'arrange-around-selection', 'arrange-around-servers'].includes(action)) {
+        this.render(); this.root?.querySelector('.relationship-layout-trigger')?.focus(); return;
+      }
       if (action === 'refresh-panel') {
         this._refreshPanelTopology({ announce: true });
         return;
@@ -2971,17 +3139,14 @@
 
       const revealRepositoryId = event.target.closest('[data-panel-reveal-repository]')?.dataset.panelRevealRepository;
       if (revealRepositoryId) {
-        this.revealResource('repository', revealRepositoryId);
-        this._setPanelTopology(this.panelTopologyResult);
+        this._locateRepositoryOnBoard(revealRepositoryId, event.target.closest('[data-panel-reveal-repository]').dataset.deploymentId);
         return;
       }
 
       const openRepositoryId = event.target.closest('[data-panel-open-repository]')?.dataset.panelOpenRepository;
-      if (openRepositoryId) {
-        const repository = this.panelRepositories.find(item => item.id === openRepositoryId && !item.archived && item.available !== false);
-        if (!repository?.path) { this.notify('本地目录已不可用，请重新扫描', 'warning'); return; }
-        void this._persistNow().then(() => this.onOpenDirectory ? this.onOpenDirectory(repository.path) : this.bridge.fs?.showInFinder(repository.path))
-          .catch(error => this.notify(`无法打开目录：${error.message}`, 'error'));
+      const systemRepositoryId = event.target.closest('[data-panel-system-repository]')?.dataset.panelSystemRepository;
+      if (openRepositoryId || systemRepositoryId) {
+        void this._openRepositoryDirectory(openRepositoryId || systemRepositoryId, Boolean(systemRepositoryId));
         return;
       }
 
@@ -3095,11 +3260,10 @@
         event.target.value = '';
         return;
       }
-      if (event.target.matches('[data-relationship-layout]')) {
-        if (event.target.value === 'coolify-projects') this._arrangeByCoolifyProjects();
-        else if (['selection-centered', 'server-centered'].includes(event.target.value)) this._arrangeAround(event.target.value);
-        else this._arrangeByCategory();
-        event.target.value = '';
+      if (event.target.matches('[data-project-endpoints]')) {
+        this._recordMutation();
+        this._boardView().projectGroupIncludesEndpoints = event.target.checked;
+        this._arrangeServerTree(); this._renderGraph(); this._refreshHistoryButtons();
         return;
       }
       if (event.target.matches('[data-relationship-snap-mode]')) {
@@ -3134,6 +3298,7 @@
     }
 
     _handleInput(event) {
+      if (event.target.matches('[data-project-endpoints]')) return;
       const displayForm = event.target.closest('[data-relationship-display-form]');
       if (displayForm) {
         this._updateBoardDisplayFromForm(displayForm);
@@ -3163,6 +3328,14 @@
       const trigger = this.root?.querySelector('.relationship-filter-trigger');
       if (popover) popover.hidden = true;
       trigger?.setAttribute('aria-expanded', 'false');
+    }
+
+    _closeLayoutMenu(restoreFocus = false) {
+      const menu = this.root?.querySelector('.relationship-layout-menu');
+      if (menu) menu.hidden = true;
+      const trigger = this.root?.querySelector('.relationship-layout-trigger');
+      trigger?.setAttribute('aria-expanded', 'false');
+      if (restoreFocus) trigger?.focus();
     }
 
     _closeAddMenu() {
@@ -3595,6 +3768,7 @@
           ${entity.type === 'deployment' && entity.runtime ? this._repositoryAssociationHtml(entity) : ''}
           ${this._endpointCheckHtml(entity)}
           ${annotations.note ? `<section class="relationship-card-note"><strong>备注</strong><p>${escapeHtml(annotations.note)}</p></section>` : ''}
+          ${entity.type === 'deployment' ? `<button type="button" class="relationship-archive-button" data-archive-deployment="${escapeHtml(entity.id)}" title="仅从当前白板收起，保留快照；不停止远端服务">归档部署</button>` : ''}
         </div>`;
     }
 
@@ -3615,9 +3789,9 @@
         this.selectedRelationshipId = '';
       }
       const entitiesById = this._allEntitiesById();
-      const groupFrames = graph.placements.filter(placement => !this._isServerTree() && entitiesById.get(placement.entityId)?.type === 'group')
+      const groupFrames = graph.placements.filter(placement => entitiesById.get(placement.entityId)?.type === 'group')
         .sort((a, b) => this._groupDepth(a.entityId, graph.placements) - this._groupDepth(b.entityId, graph.placements));
-      const regularNodes = graph.placements.filter(placement => this._isServerTree() || entitiesById.get(placement.entityId)?.type !== 'group');
+      const regularNodes = graph.placements.filter(placement => entitiesById.get(placement.entityId)?.type !== 'group');
       let geometryById = this._displayGeometryMap(graph.placements);
       this._syncExpandAllButton(regularNodes.map(placement => placement.entityId));
       nodeLayer.innerHTML = groupFrames.map(placement => {
@@ -3969,12 +4143,13 @@
         this.notify('该关联节点未放在当前白板中', 'warning');
         return false;
       }
-      const { mode } = this._boardView();
+      const { mode, topologyLayout, treeLayout, projectGroupIncludesEndpoints, showRepositoryRelations } = this._boardView();
       if (this._hasActiveFilters(board.view) || board.view.projection !== 'facts') {
         board.view = {
           ...Model.defaultBoardView(),
           ...this._displayViewSettings(),
           mode,
+          topologyLayout, treeLayout, projectGroupIncludesEndpoints, showRepositoryRelations,
           projection: 'facts'
         };
       }
@@ -4276,6 +4451,33 @@
       return labels[mode] || labels.unmatched;
     }
 
+    async _openRepositoryDirectory(repositoryId, inSystem) {
+      const repository = this.panelRepositories.find(item => item.id === repositoryId && !item.archived && item.available !== false);
+      if (!repository?.path) { this.notify('本地目录已不可用，请重新扫描', 'warning'); return false; }
+      try {
+        if (inSystem) {
+          if (!this.bridge.fs?.openDirectory) throw new Error('当前环境不支持系统文件管理器');
+          const opened = await this.bridge.fs.openDirectory(repository.path);
+          if (opened === false) throw new Error('系统文件管理器未打开目录');
+        } else {
+          if (!this.onOpenDirectory) throw new Error('当前预览不支持应用标签页，请在 GitFinder 中打开');
+          await this._persistNow();
+          await this.onOpenDirectory(repository.path);
+        }
+        return true;
+      } catch (error) { this.notify(`无法打开目录：${error.message}`, 'error'); return false; }
+    }
+
+    _locateRepositoryOnBoard(repositoryId, deploymentId) {
+      const entities = this._allEntitiesById(), visible = this._filteredGraph().placements;
+      const match = this._isServerTree()
+        ? visible.find(p => p.entityId === deploymentId && entities.get(p.entityId)?.runtime?.repositoryIds?.includes(repositoryId))
+          || visible.find(p => entities.get(p.entityId)?.type === 'deployment' && entities.get(p.entityId)?.runtime?.repositoryIds?.includes(repositoryId))
+        : visible.find(p => entities.get(p.entityId)?.type === 'repository' && entities.get(p.entityId)?.refId === repositoryId);
+      if (!match) { this.notify('当前白板没有可定位的关联卡片；可从资源库添加，不会自动创建节点', 'info'); return false; }
+      return this._focusEntityOnBoard(match.entityId);
+    }
+
     _repositoryAssociationHtml(fact) {
       const runtime = fact.runtime || {};
       const association = runtime.repositoryAssociation || { mode: 'unmatched' };
@@ -4292,7 +4494,7 @@
             const resource = this.resourceMap.get(`repository:${repositoryId}`);
             return `<li data-state="${missingIds.has(repositoryId) ? 'missing' : 'ready'}">
               <div><strong>${escapeHtml(resource?.name || '仓库暂不可用')}</strong><small title="${escapeHtml(resource?.path || '')}">${escapeHtml(resource?.path || '本机尚无该仓库')}</small>${missingIds.has(repositoryId) ? '<small>目录缺失，保留原有关联</small>' : ''}</div>
-              ${resource && !missingIds.has(repositoryId) ? `<div class="relationship-repository-jumps"><button type="button" data-panel-open-repository="${escapeHtml(repositoryId)}">打开目录</button><button type="button" data-panel-reveal-repository="${escapeHtml(repositoryId)}">白板定位</button></div>` : ''}
+              ${resource && !missingIds.has(repositoryId) ? `<div class="relationship-repository-jumps"><button type="button" data-panel-open-repository="${escapeHtml(repositoryId)}" title="保留当前白板，在 GitFinder 新标签页打开目录">新标签页打开目录</button><button type="button" data-panel-system-repository="${escapeHtml(repositoryId)}">${this.bridge.platform === 'darwin' ? '在访达打开' : this.bridge.platform === 'win32' ? '在资源管理器打开' : '在文件管理器打开'}</button><button type="button" data-panel-reveal-repository="${escapeHtml(repositoryId)}" data-deployment-id="${escapeHtml(fact.id)}" title="${this._isServerTree() ? '定位使用此仓库的部署卡片，不添加仓库节点' : '移到当前白板已有的仓库卡片，不添加节点'}">${this._isServerTree() ? '定位关联部署' : '白板定位'}</button></div>` : ''}
             </li>`;
           }).join('') : candidates.length ? candidates.map(repositoryId => {
             const resource = this.resourceMap.get(`repository:${repositoryId}`);
@@ -4315,6 +4517,7 @@
       const runtime = entity.runtime;
       if (!['choose', 'automatic', 'disabled', 'match'].includes(action)) return;
       this.repositoryAssociationSaving = true;
+      this.root?.querySelectorAll?.('[data-panel-association-action]').forEach(button => { button.disabled = true; });
       try {
         if (action !== 'match') {
           const repositoryIds = action === 'choose' ? await this._openRepositoryAssociationDialog(entity) : [];
@@ -4327,7 +4530,6 @@
         }
         this._setPanelTopology(this.panelTopologyResult);
         this._renderResources();
-        this._renderGraph();
         this._updateSummary();
         const resolved = this._allEntitiesById().get(entityId)?.runtime;
         this.notify(action === 'disabled' ? '已解除关联，刷新时不会自动重连' : (action === 'choose' ? '本地仓库关联已保存' : this._repositoryAssociationMessage(resolved)), resolved?.repositoryIds?.length || ['choose', 'disabled'].includes(action) ? 'success' : 'warning');
@@ -4335,6 +4537,7 @@
         this.notify(`仓库关联失败：${error?.message || String(error)}`, 'error');
       } finally {
         this.repositoryAssociationSaving = false;
+        this._renderGraph();
         this._renderInspector();
       }
     }
@@ -4772,7 +4975,7 @@
         const entities = this._allEntitiesById();
         const previous = this.edgeRoutingContext?.portOffsetY === portOffsetY && this.edgeRoutingContext?.scale === scale
           ? this.edgeRoutingContext : null;
-        const obstacles = [...displayGeometry].filter(([id]) => this._isServerTree() || entities.get(id)?.type !== 'group');
+        const obstacles = [...displayGeometry].filter(([id]) => entities.get(id)?.type !== 'group');
         const before = new Map(previous?.obstacles || []), after = new Map(obstacles);
         const same = (a, b) => a && b && ['x', 'y', 'width', 'height'].every(key => a[key] === b[key]);
         const changed = [...new Set([...before.keys(), ...after.keys()])]
@@ -6218,6 +6421,17 @@
     _handleKeydown(event) {
       if (!this.root?.isConnected || event.defaultPrevented || event.isComposing || event.keyCode === 229) return;
       if (this._handleContextMenuKeydown(event)) return;
+      const layoutMenu = this.root.querySelector('.relationship-layout-menu');
+      if (layoutMenu && !layoutMenu.hidden) {
+        if (event.key === 'Escape') { event.preventDefault(); this._closeLayoutMenu(true); return; }
+        if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
+          event.preventDefault();
+          const buttons = [...layoutMenu.querySelectorAll('button:not(:disabled)')], current = buttons.indexOf(this.root.ownerDocument.activeElement);
+          const index = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1 : (current + (event.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length;
+          buttons[index]?.focus(); return;
+        }
+        if (event.key === 'Tab') this._closeLayoutMenu();
+      }
       const editing = event.target?.isContentEditable
         || event.target?.closest?.('input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"]');
       const mod = event.metaKey || event.ctrlKey;

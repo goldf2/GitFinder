@@ -205,6 +205,39 @@ test('资源库直接显示分类搜索，不再显示范围切换按钮或外�
   assert.match(relationshipCss, /\.relationship-resource-section-trigger\s*\{/);
 });
 
+test('连续关联、取消选择和失败后卡片按钮都恢复可点击', async () => {
+  let fail = false, choose = ['repo_one'];
+  const controller = new Controller({ bridge: { panel: { setRepositoryAssociation: async () => { if (fail) throw new Error('失败'); return []; } } } });
+  const entity = { id: 'entity_app', type: 'deployment', runtime: { providerId: 'provider', resourceUuid: 'app', repositoryAssociation: { mode: 'automatic' } } };
+  controller._allEntitiesById = () => new Map([[entity.id, entity]]);
+  controller._setPanelTopology = controller._renderResources = controller._updateSummary = controller._renderInspector = () => {};
+  controller._openRepositoryAssociationDialog = async () => choose;
+  let rendered;
+  controller._renderGraph = () => { rendered = controller._repositoryAssociationHtml(entity); };
+  for (const action of ['match', 'choose', 'disabled', 'automatic', 'choose', 'choose']) {
+    if (action === 'automatic') fail = true;
+    if (action === 'choose' && fail) choose = null;
+    await controller._changeRepositoryAssociation(entity.id, action);
+    assert.equal(controller.repositoryAssociationSaving, false);
+    assert.doesNotMatch(rendered, /data-panel-association-action="[^"]+"[^>]*disabled/);
+  }
+});
+
+test('仓库跳转区分新标签和系统文件管理器，标签按平台显示', async () => {
+  for (const [platform, label] of [['darwin', '在访达打开'], ['win32', '在资源管理器打开']]) {
+    const calls = [];
+    const controller = new Controller({ bridge: { platform, fs: { openDirectory: async p => { calls.push(['system', p]); return true; } } }, onOpenDirectory: async p => calls.push(['tab', p]) });
+    controller.panelRepositories = [{ id: 'repo_one', path: '/workspace/repo', name: 'repo' }];
+    controller.resourceMap.set('repository:repo_one', controller.panelRepositories[0]);
+    controller._persistNow = async () => { calls.push(['save']); };
+    const html = controller._repositoryAssociationHtml({ id: 'app', runtime: { repositoryIds: ['repo_one'] } });
+    assert.match(html, /新标签页打开目录/); assert.ok(html.includes(label));
+    await controller._openRepositoryDirectory('repo_one', false);
+    await controller._openRepositoryDirectory('repo_one', true);
+    assert.deepEqual(calls, [['save'], ['tab', '/workspace/repo'], ['system', '/workspace/repo']]);
+  }
+});
+
 test('全局导航保留，资源库及详情作为可折叠、左右停靠的独立组件', () => {
   assert.doesNotMatch(relationshipCss, /relationships-mode\s+\.sidebar/);
   assert.doesNotMatch(relationshipCss, /relationships-mode\s+#resize-handle-left/);
@@ -705,7 +738,7 @@ test('Coolify 动态节点可移动且布局覆盖只保存在本机偏好中', 
   });
   assert.match(controllerSource, /relationshipDynamicLayouts/);
   assert.match(controllerSource, /data-relationship-action="reset-dynamic-layout"/);
-  assert.match(controllerSource, /data-relationship-layout aria-label="整理操作"/);
+  assert.match(controllerSource, /data-relationship-action="toggle-layout-menu"/);
   assert.match(controllerSource, /command\('按类别分列', 'arrange-by-category'\)/);
   assert.match(controllerSource, /_saveDynamicPlacementOverrides/);
   assert.match(relationshipCss, /\.relationship-node\.panel-dynamic\s*\{[^}]*cursor:\s*grab/s);
@@ -1654,9 +1687,9 @@ test('删除视觉分组会安全解组但保留成员节点', () => {
 
 test('自动分组在工具栏和空白右键菜单都有明确入口，并复用 Coolify Projects 操作', () => {
   const { controller } = nestedGroupFixture();
-  assert.match(controllerSource, /<button[^>]*data-relationship-action="arrange-by-coolify-projects"[^>]*aria-label="初始化分组"/);
-  assert.match(controllerSource, /一次性操作/);
-  assert.match(controllerSource, /<option value="" selected disabled>整理…/);
+  assert.match(controller._layoutMenuHtml(), /role="menuitem" data-relationship-action="arrange-by-coolify-projects"/);
+  assert.match(controller._layoutMenuHtml(), /一次性初始化/);
+  assert.doesNotMatch(controllerSource, /data-relationship-layout aria-label="整理操作"/);
   assert.ok(controller._contextMenuItems('canvas').some(item => item?.action === 'arrange-by-coolify-projects' && item.label === '初始化分组（Coolify Projects）'));
 });
 
@@ -1875,7 +1908,7 @@ test('右键输入区保留原生文字菜单，菜单外点击与窗口失焦�
   controller._handleContextMenu({ target: { closest: () => ({}) }, preventDefault: () => { prevented = true; } });
   assert.equal(prevented, false);
   const menu = { hidden: false };
-  controller.root = { querySelector: () => menu };
+  controller.root = { querySelector: selector => selector === '.relationship-context-menu' ? menu : null };
   controller._boundContextDismiss({ target: { closest: () => ({}) } });
   assert.equal(menu.hidden, false);
   controller._boundContextDismiss({ target: { closest: () => null } });
@@ -2422,7 +2455,7 @@ test('输入、菜单、弹窗、组合输入和非画布焦点不会触发平�
   for (const blocker of ['dialog', 'popover', 'drag', 'connection', 'closed']) {
     const { controller, key, viewport } = keyboardPanFixture();
     if (blocker === 'dialog') controller.root.ownerDocument = { querySelectorAll: () => [{ getClientRects: () => [{}] }] };
-    if (blocker === 'popover') controller.root.querySelector = selector => selector === '.relationship-context-menu' ? null : ({});
+    if (blocker === 'popover') controller.root.querySelector = selector => ['.relationship-context-menu', '.relationship-layout-menu'].includes(selector) ? null : ({});
     if (blocker === 'drag') controller.pointerAction = { type: 'node' };
     if (blocker === 'connection') controller.keyboardConnectSourceId = 'entity_one';
     if (blocker === 'closed') controller.root.isConnected = false;
@@ -2605,7 +2638,7 @@ test('创建独立服务器树状白板保留原布局，仓库相关性按钮�
   assert.equal(JSON.stringify(controller.store.boards[0]), before);
   assert.equal(controller.store.boards.length, 2);
   assert.equal(controller._isServerTree(), true);
-  assert.equal(controller._filteredGraph().summaryRelationships.length, 2);
+  assert.equal(controller._filteredGraph().summaryRelationships.length, 1);
   assert.equal(controller._createServerTree(), false, '重复点击不增加新白板');
   const click = () => controller._handleClick({ target: { closest: selector => selector === '[data-relationship-action]'
     ? { dataset: { relationshipAction: 'repository-relations' } } : null } });

@@ -4,6 +4,24 @@ const assert = require('node:assert/strict');
 const WorkspaceTabs = require('../src/renderer/scripts/workspaceTabs');
 const ContentQuery = require('../src/renderer/scripts/contentQuery');
 
+test('从仓库打开目录创建新标签，不覆盖当前白板标签与历史', () => {
+  const source = require('node:fs').readFileSync(require('node:path').join(__dirname, '../src/renderer/scripts/app.js'), 'utf8');
+  const body = source.split('  createWorkspaceTab(directoryPath) {')[1].split('\n  closeWorkspaceTab(')[0].replace(/\n  },\s*$/, '');
+  const state = { workspaceSession: WorkspaceTabs.normalizeSession({ tabs: [{ id: 'tab-board', mode: 'relationships', path: '/workspace', history: ['/workspace'], historyIndex: 0 }], activeTabId: 'tab-board' }, '/workspace'), currentMode: 'relationships', currentPath: '/workspace' };
+  const board = structuredClone(state.workspaceSession.tabs[0]);
+  let captured = 0, applied;
+  const app = { captureActiveWorkspaceTab: () => captured++, getActiveWorkspaceTab: () => state.workspaceSession.tabs.find(tab => tab.id === state.workspaceSession.activeTabId),
+    applyWorkspaceTabState: tab => { applied = tab; }, renderWorkspaceTabs() {}, scheduleWorkspaceTabsPersist() {} };
+  const open = new Function('AppState', 'window', `return function(directoryPath) {${body}}`)(state, { WorkspaceTabs, ContentQuery });
+  open.call(app, '/workspace/repository');
+  assert.equal(captured, 1);
+  assert.equal(state.workspaceSession.tabs.length, 2);
+  assert.deepEqual(state.workspaceSession.tabs[0], board);
+  assert.equal(applied.mode, 'tree');
+  assert.equal(applied.path, '/workspace/repository');
+  assert.deepEqual(applied.history, ['/workspace/repository']);
+});
+
 function idFactory() {
   let sequence = 0;
   return () => `tab-test-${++sequence}`;

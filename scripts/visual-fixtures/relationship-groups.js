@@ -17,6 +17,8 @@ let savedGroups = window.RelationshipGraphModel.assertValidStore({
 });
 const copyGroups = value => JSON.parse(JSON.stringify(value));
 const savedPanelPreferences = {};
+let fixtureAssociations = [];
+let fixtureRepositories = [];
 const showSavedGroups = () => {
   document.querySelector('#saved-state').textContent = JSON.stringify(savedGroups.boards[0].placements.map(item => ({
     name: savedGroups.entities.find(entity => entity.id === item.entityId)?.name,
@@ -26,12 +28,17 @@ const showSavedGroups = () => {
   })));
 };
 const groupController = new window.RelationshipBoardController.Controller({ bridge: {
+  platform: 'darwin',
+  panel: { setRepositoryAssociation: async value => {
+    fixtureAssociations = fixtureAssociations.filter(item => item.providerId !== value.providerId || item.resourceUuid !== value.resourceUuid).concat([copyGroups(value)]);
+    return copyGroups(fixtureAssociations);
+  } },
   config: { get: async key => copyGroups(savedPanelPreferences[key] ?? null), set: async (key, value) => { savedPanelPreferences[key] = copyGroups(value); } },
   relationshipBoards: {
     get: async () => ({ store: copyGroups(savedGroups) }),
     save: async store => { savedGroups = copyGroups(store); showSavedGroups(); return { store }; }
   },
-  repos: { getRegistry: async () => ({ repos: [] }) },
+  repos: { getRegistry: async () => ({ repos: copyGroups(fixtureRepositories) }) },
   localProjects: { list: async () => [] }
 }, notify: message => { document.querySelector('#notice').textContent = message; } });
 document.querySelector('#select-cards').addEventListener('click', () => {
@@ -46,6 +53,27 @@ document.querySelector('#reload-layout').addEventListener('click', async () => {
 });
 showSavedGroups();
 groupController.open(document.querySelector('#board'));
+document.querySelector('#load-tree').addEventListener('click', () => {
+  groupController.store = window.RelationshipGraphModel.assertValidStore({ schemaVersion: 1, activeBoardId: 'board_treepreview', entities: [], relationships: [],
+    boards: [{ id: 'board_treepreview', name: '服务器项目树', placements: [], viewport: { x: 0, y: 0, zoom: 1 },
+      view: { topologyLayout: 'server-tree', treeLayout: 'bilateral' } }] });
+  groupController.expandedCardIds.clear();
+  groupController.cardHeights.clear();
+  groupController.dynamicLayoutStore = { version: 1, boards: {} };
+  fixtureRepositories = [{ id: 'repo_demo_shared', name: 'shared-source', path: '/workspace/shared-source', originUrl: 'https://github.com/example/shared-source.git' }];
+  groupController.panelRepositories = copyGroups(fixtureRepositories);
+  const repo = groupController.panelRepositories[0];
+  groupController._setResources([], groupController.panelRepositories);
+  groupController._setPanelTopology({ state: 'ready', provider: { providerId: 'coolify_tree_demo', label: '演示' }, topology: {
+    generatedAt: new Date().toISOString(), servers: [{ nodeId: 'tree_host', name: '生产主机', status: 'online', latencyMs: 8, observedAt: new Date().toISOString() }],
+    deployments: ['订单', '企业官网', '数据工具', '内容站点'].map((name, index) => ({ resourceUuid: `tree_app_${index}`, nodeId: 'tree_host',
+      projectUuid: `tree_project_${index}`, projectName: name, name: `${name}部署`, repositoryUrl: repo.originUrl,
+      environmentName: 'production', status: index === 2 ? 'exited' : 'running:healthy', latencyMs: 12, observedAt: new Date().toISOString(),
+      domains: [`https://site${index}.example.com`, ...(index === 0 ? ['https://api.example.com'] : [])] }))
+  } });
+  groupController._clearEntitySelection();
+  groupController.render(); groupController._arrangeServerTree(); groupController._renderGraph(); groupController.fitContent();
+});
 document.querySelector('#load-coolify').addEventListener('click', () => {
   groupController._setPanelTopology({ state: 'ready', provider: { providerId: 'coolify_demo', label: 'Demo' }, topology: {
     servers: [{ nodeId: 'host_1', name: '主机一', status: 'online' }, { nodeId: 'host_2', name: '主机二', status: 'online' }],

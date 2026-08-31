@@ -27,6 +27,7 @@ contextBridge.exposeInMainWorld('gitFinder', {
     saveProjectControlFile: (repoPath, fileName, content) => ipcRenderer.invoke('fs:saveProjectControlFile', repoPath, fileName, content),
     syncProjectControlAgentRules: (repoPath, selections) => ipcRenderer.invoke('fs:syncProjectControlAgentRules', repoPath, selections),
     showInFinder: (path) => ipcRenderer.invoke('fs:showInFinder', path),
+    openDirectory: (path) => ipcRenderer.invoke('fs:openDirectory', path),
     openFile: (path) => ipcRenderer.invoke('fs:openFile', path),
     getDefaultPath: () => ipcRenderer.invoke('fs:getDefaultPath'),
     getQuickLocations: () => ipcRenderer.invoke('fs:getQuickLocations'),
