@@ -69,5 +69,34 @@ test('多排部署汇聚到主机时路由保持可通行，并保留可用的�
   const host = rect(500, -400, 320, 190);
   const routes = cards.map((card, i) => routeRelationship(card, host, cards.filter((_, j) => i !== j), { portOffsetY: 59.5 }));
   assert.ok(routes.every(route => !route.obstructed));
-  assert.ok(routes.filter(route => route.path.includes(' C ')).length >= 12);
+  assert.ok(routes.every(route => / [CQ] /.test(route.path)), '直连和绕障转角均保留平滑曲线');
+});
+
+test('跨群组长连线不因避障向画布外绕出巨大弧圈', () => {
+  const cards = Array.from({ length: 15 }, (_, i) => rect(i % 6 * 480, Math.floor(i / 6) * 350, 390, 260));
+  const host = rect(3600, 5000, 390, 260);
+  for (const [i, card] of cards.entries()) {
+    const route = routeRelationship(card, host, cards.filter((_, j) => i !== j), { portOffsetY: 59.5 });
+    assert.equal(route.obstructed, false, `card ${i}`);
+    const overshoot = Math.max(...route.points.flatMap(p => [card.x - p.x, card.y - p.y,
+      p.x - host.x - host.width, p.y - host.y - host.height]));
+    assert.ok(overshoot < 180, `card ${i} 绕行超过局部范围: ${overshoot}`);
+    for (let j = 1; j < route.points.length; j++) {
+      const a = route.points[j - 1], b = route.points[j];
+      const steps = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 3));
+      for (let step = 0; step <= steps; step++) {
+        const x = a.x + (b.x - a.x) * step / steps, y = a.y + (b.y - a.y) * step / steps;
+        assert.ok(!cards.some((other, k) => k !== i && x > other.x && x < other.x + other.width
+          && y > other.y && y < other.y + other.height), `card ${i} 绕障后仍穿过卡片`);
+      }
+    }
+  }
+});
+
+test('远距离空白区走线接近直连，保留端口切线而非随距离膨胀的弯曲', () => {
+  const route = routeRelationship(rect(0, 0), rect(4000, 5000));
+  const a = route.sourcePoint, b = route.targetPoint, length = Math.hypot(b.x - a.x, b.y - a.y);
+  const deviation = Math.max(...route.points.map(p => Math.abs((p.x - a.x) * (b.y - a.y) - (p.y - a.y) * (b.x - a.x)) / length));
+  assert.ok(deviation < 100, `偏离直连 ${deviation}`);
+  assert.equal(route.obstructed, false);
 });

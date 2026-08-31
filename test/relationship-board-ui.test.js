@@ -2556,6 +2556,67 @@ test('Ctrl 和 Cmd 滚轮均围绕鼠标缩放，不改变卡片坐标', () => {
   }
 });
 
+test('缩放入口支持 5% 到 800%，保持鼠标锚点且不改卡片坐标', () => {
+  const { controller, viewport } = keyboardPanFixture();
+  const before = structuredClone(controller.store.boards[0].placements);
+  for (const [requested, expected] of [[0.001, 0.05], [0.1, 0.1], [4, 4], [10, 8], [1, 1]]) {
+    const worldX = (200 - viewport.x) / viewport.zoom;
+    const worldY = (100 - viewport.y) / viewport.zoom;
+    controller._zoomViewport(requested, 200, 100);
+    assert.equal(viewport.zoom, expected);
+    assert.ok(Math.abs((200 - viewport.x) / viewport.zoom - worldX) < 1e-8);
+    assert.ok(Math.abs((100 - viewport.y) / viewport.zoom - worldY) < 1e-8);
+  }
+  assert.deepEqual(controller.store.boards[0].placements, before);
+});
+
+test('适合内容可缩小到 25% 以下，网格不会缩成密集噪点', () => {
+  const { controller, viewport, grid } = keyboardPanFixture();
+  const placements = [{ entityId: 'entity_one', x: 0, y: 0, width: 6000, height: 4000 }];
+  controller._filteredGraph = () => ({ placements });
+  controller._displayGeometryMap = () => new Map();
+  controller._placementGeometry = item => item;
+  controller.fitContent();
+  assert.ok(viewport.zoom < 0.25 && viewport.zoom >= 0.05);
+  assert.ok(6000 * viewport.zoom <= 680 && 4000 * viewport.zoom <= 480);
+  for (const zoom of [0.05, 0.1, 0.25, 0.5, 1]) {
+    viewport.zoom = zoom;
+    controller._applyViewport();
+    assert.ok(parseFloat(grid['--relationship-grid-size']) >= 16);
+  }
+});
+
+test('创建独立服务器树状白板保留原布局，仓库相关性按钮可切换与撤销', () => {
+  const { controller } = keyboardPanFixture();
+  const board = controller.store.boards[0];
+  controller.store.entities = [
+    { id: 'entity_one', type: 'server', name: 'host', details: {} },
+    { id: 'entity_tree_group', type: 'group', name: 'Project', details: {} },
+    { id: 'entity_tree_app', type: 'deployment', name: 'app', details: {} }
+  ];
+  board.placements.push({ entityId: 'entity_tree_group', x: 500, y: 400 },
+    { entityId: 'entity_tree_app', x: 600, y: 500, groupId: 'entity_tree_group' });
+  controller.store.relationships = [{ id: 'relationship_tree_host', sourceId: 'entity_tree_app', targetId: 'entity_one', type: 'runs_on' }];
+  controller._boardView();
+  const before = JSON.stringify(board);
+  controller.render = controller._renderGraph = controller.fitContent = controller._refreshHistoryButtons = () => {};
+  controller._persistDynamicLayoutsSoon = () => {};
+  assert.equal(controller._createServerTree(), true);
+  assert.equal(JSON.stringify(controller.store.boards[0]), before);
+  assert.equal(controller.store.boards.length, 2);
+  assert.equal(controller._isServerTree(), true);
+  assert.equal(controller._filteredGraph().summaryRelationships.length, 2);
+  assert.equal(controller._createServerTree(), false, '重复点击不增加新白板');
+  const click = () => controller._handleClick({ target: { closest: selector => selector === '[data-relationship-action]'
+    ? { dataset: { relationshipAction: 'repository-relations' } } : null } });
+  click();
+  assert.equal(controller._boardView().showRepositoryRelations, true);
+  click();
+  assert.equal(controller._boardView().showRepositoryRelations, false);
+  controller._restoreHistorySnapshot(controller.undoStack.at(-1));
+  assert.equal(controller._boardView().showRepositoryRelations, true);
+});
+
 test('画布空白框选、群组空白拖动、标题仅点击，中键及空格只平移', () => {
   for (const [area, modifiers, expected] of [
     ['blank', {}, 'box'], ['blank', { shiftKey: true }, 'box'],

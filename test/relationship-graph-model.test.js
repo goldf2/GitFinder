@@ -54,6 +54,16 @@ test('关系模型接受项目到仓库再到部署和服务器的受约束链�
   });
 });
 
+test('白板保存和重新读取保留 5% 到 800% 缩放范围', () => {
+  for (const zoom of [0.05, 0.1, 0.25, 1, 4, 8]) {
+    const store = validStore();
+    store.boards[0].viewport.zoom = zoom;
+    const saved = RelationshipGraphModel.assertValidStore(store);
+    assert.equal(saved.boards[0].viewport.zoom, zoom);
+    assert.equal(RelationshipGraphModel.assertValidStore(JSON.parse(JSON.stringify(saved))).boards[0].viewport.zoom, zoom);
+  }
+});
+
 test('关系白板按白板保存卡片、文字和画布显示偏好', () => {
   const store = validStore();
   store.boards[0].view = {

@@ -7,6 +7,8 @@
   const MAX_BOARDS = 20;
   const MAX_ENTITIES = 200;
   const MAX_RELATIONSHIPS = 400;
+  const MIN_VIEWPORT_ZOOM = 0.05;
+  const MAX_VIEWPORT_ZOOM = 8;
   const ENTITY_TYPES = Object.freeze(['server', 'deployment', 'project', 'repository', 'endpoint', 'group', 'text', 'image', 'attachment']);
   const RELATIONSHIP_TYPES = Object.freeze([
     'contains',
@@ -52,7 +54,7 @@
   const SENSITIVE_KEY_PATTERN = /(password|passwd|secret|token|credential|private.?key|access.?key)/i;
   const DETAILS_KEYS = Object.freeze({
     server: new Set(['environment', 'hostLabel', 'notes']),
-    deployment: new Set(['environment', 'version', 'branch', 'revision', 'status', 'notes']),
+    deployment: new Set(['environment', 'version', 'branch', 'revision', 'status', 'notes', 'repositoryKey']),
     project: new Set(),
     repository: new Set(),
     endpoint: new Set(['urlLabel', 'notes']),
@@ -185,6 +187,7 @@
       mode: 'full',
       projection: 'facts',
       topologyLayout: 'lanes',
+      showRepositoryRelations: false,
       snapMode: 'smart',
       cardScale: 1,
       cardWidth: 280,
@@ -243,12 +246,13 @@
       : [];
     if (!BOARD_VIEW_MODES.includes(mode)) issues.push(`${pathPrefix}.mode 无效`);
     if (!BOARD_PROJECTIONS.includes(projection)) issues.push(`${pathPrefix}.projection 无效`);
-    if (!['lanes', 'coolify-projects', 'selection-centered', 'server-centered'].includes(topologyLayout)) issues.push(`${pathPrefix}.topologyLayout 无效`);
+    if (!['lanes', 'coolify-projects', 'selection-centered', 'server-centered', 'server-tree'].includes(topologyLayout)) issues.push(`${pathPrefix}.topologyLayout 无效`);
     if (!BOARD_SNAP_MODES.includes(snapMode)) issues.push(`${pathPrefix}.snapMode 无效`);
     if (!BOARD_CARD_APPEARANCES.includes(cardAppearance)) issues.push(`${pathPrefix}.cardAppearance 无效`);
     if (!BOARD_CARD_TITLE_SOURCES.includes(cardTitleSource)) issues.push(`${pathPrefix}.cardTitleSource 无效`);
     if (strict && view.showGrid != null && typeof view.showGrid !== 'boolean') issues.push(`${pathPrefix}.showGrid 必须是布尔值`);
     if (strict && view.showEdgeLabels != null && typeof view.showEdgeLabels !== 'boolean') issues.push(`${pathPrefix}.showEdgeLabels 必须是布尔值`);
+    if (strict && view.showRepositoryRelations != null && typeof view.showRepositoryRelations !== 'boolean') issues.push(`${pathPrefix}.showRepositoryRelations 必须是布尔值`);
     if (strict && view.showRuntimeStatus != null && typeof view.showRuntimeStatus !== 'boolean') issues.push(`${pathPrefix}.showRuntimeStatus 必须是布尔值`);
     if (entityType !== 'all' && !ENTITY_TYPES.includes(entityType)) issues.push(`${pathPrefix}.entityType 无效`);
     if (!VERIFICATION_FILTERS.includes(verification)) issues.push(`${pathPrefix}.verification 无效`);
@@ -260,7 +264,7 @@
     if (strict && view.runtimeStates != null && (!Array.isArray(view.runtimeStates) || view.runtimeStates.some(value => !RUNTIME_FILTERS.includes(String(value))))) issues.push(`${pathPrefix}.runtimeStates 无效`);
     if (strict) {
       for (const key of Object.keys(view)) {
-        if (!['mode', 'projection', 'topologyLayout', 'snapMode', 'cardScale', 'cardWidth', 'cardHeight', 'textScale', 'horizontalSpacing', 'verticalSpacing', 'cardAppearance', 'showGrid', 'showEdgeLabels', 'cardTitleSource', 'showRuntimeStatus', 'unmatchedDisplay', 'filterContextOpacity', 'filterMutedOpacity', 'filterMutedSaturation', 'filterContextEdgeOpacity', 'filterMutedEdgeOpacity', 'filterMatchHaloOpacity', 'statusTintOpacity', 'query', 'entityType', 'entityTypes', 'environment', 'verification', 'annotation', 'task', 'taskFilters', 'runtimeStates', 'label'].includes(key)) {
+        if (!['mode', 'projection', 'topologyLayout', 'showRepositoryRelations', 'snapMode', 'cardScale', 'cardWidth', 'cardHeight', 'textScale', 'horizontalSpacing', 'verticalSpacing', 'cardAppearance', 'showGrid', 'showEdgeLabels', 'cardTitleSource', 'showRuntimeStatus', 'unmatchedDisplay', 'filterContextOpacity', 'filterMutedOpacity', 'filterMutedSaturation', 'filterContextEdgeOpacity', 'filterMutedEdgeOpacity', 'filterMatchHaloOpacity', 'statusTintOpacity', 'query', 'entityType', 'entityTypes', 'environment', 'verification', 'annotation', 'task', 'taskFilters', 'runtimeStates', 'label'].includes(key)) {
           issues.push(`${pathPrefix}.${key} 不是允许的字段`);
         }
       }
@@ -268,7 +272,8 @@
     return {
       mode: BOARD_VIEW_MODES.includes(mode) ? mode : 'full',
       projection: BOARD_PROJECTIONS.includes(projection) ? projection : 'facts',
-      topologyLayout: ['lanes', 'coolify-projects', 'selection-centered', 'server-centered'].includes(topologyLayout) ? topologyLayout : 'lanes',
+      topologyLayout: ['lanes', 'coolify-projects', 'selection-centered', 'server-centered', 'server-tree'].includes(topologyLayout) ? topologyLayout : 'lanes',
+      showRepositoryRelations: view.showRepositoryRelations === true,
       snapMode: BOARD_SNAP_MODES.includes(snapMode) ? snapMode : 'smart',
       cardScale: finiteNumber(view.cardScale, 1, 0.8, 1.4),
       cardWidth: finiteNumber(view.cardWidth, 280, 220, 600),
@@ -639,7 +644,7 @@
       viewport: {
         x: finiteNumber(viewport.x, 0, -100000, 100000),
         y: finiteNumber(viewport.y, 0, -100000, 100000),
-        zoom: finiteNumber(viewport.zoom, 1, 0.25, 4)
+        zoom: finiteNumber(viewport.zoom, 1, MIN_VIEWPORT_ZOOM, MAX_VIEWPORT_ZOOM)
       },
       view: normalizeBoardView(raw.view, issues, `${prefix}.view`, strict),
       placements
@@ -744,6 +749,8 @@
     MAX_BOARDS,
     MAX_ENTITIES,
     MAX_RELATIONSHIPS,
+    MIN_VIEWPORT_ZOOM,
+    MAX_VIEWPORT_ZOOM,
     ENTITY_TYPES,
     RELATIONSHIP_TYPES,
     FACT_SOURCES,

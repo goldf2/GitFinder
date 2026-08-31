@@ -48,11 +48,11 @@ showSavedGroups();
 groupController.open(document.querySelector('#board'));
 document.querySelector('#load-coolify').addEventListener('click', () => {
   groupController._setPanelTopology({ state: 'ready', provider: { providerId: 'coolify_demo', label: 'Demo' }, topology: {
-    servers: [{ nodeId: 'host_1', name: '共享主机', status: 'online' }],
+    servers: [{ nodeId: 'host_1', name: '主机一', status: 'online' }, { nodeId: 'host_2', name: '主机二', status: 'online' }],
     deployments: [
-      { resourceUuid: 'app_one', nodeId: 'host_1', projectUuid: 'mes_project', projectName: 'MES', name: '生产部署', environmentName: 'production', status: 'running:healthy', domains: ['https://mes.example.com'] },
+      { resourceUuid: 'app_one', nodeId: 'host_1', projectUuid: 'mes_project', projectName: 'MES', name: '生产部署', repositoryUrl: 'https://github.com/example/shared-source.git', environmentName: 'production', status: 'running:healthy', domains: ['https://mes.example.com', 'https://api.mes.example.com'] },
       { resourceUuid: 'app_two', nodeId: 'host_1', projectUuid: 'mes_project', projectName: 'MES', name: '测试部署', environmentName: 'staging', status: 'exited', domains: [] },
-      { resourceUuid: 'app_three', nodeId: 'host_1', projectUuid: 'tools_project', projectName: '工具', name: '工具站点', environmentName: 'production', status: 'running:healthy', domains: ['https://tools.example.com'] }
+      { resourceUuid: 'app_three', nodeId: 'host_2', projectUuid: 'tools_project', projectName: '工具', name: '工具站点', repositoryUrl: 'git@github.com:example/shared-source.git', environmentName: 'production', status: 'running:healthy', domains: ['https://tools.example.com'] }
     ]
   } });
   groupController._renderResources();
@@ -77,6 +77,31 @@ document.querySelector('#load-routing').addEventListener('click', () => {
       .map(([from, to, type], index) => ({ id: `relationship_routing${index}`, sourceId: id(from), targetId: id(to), type })),
     boards: [{ id: 'board_routingdemo', name: '拓扑与避障验证', viewport: { x: 30, y: 30, zoom: 0.65 },
       placements: nodes.map(([, , x, y], index) => ({ entityId: id(index), x, y })) }]
+  });
+  groupController._setPanelTopology({ state: 'unconfigured', topology: {} });
+  groupController._clearEntitySelection();
+  groupController.render();
+  groupController.fitContent();
+});
+
+document.querySelector('#load-long-routing').addEventListener('click', () => {
+  const entities = [{ id: 'entity_longhost', type: 'server', name: '共享主机', details: {} }];
+  const placements = [{ entityId: 'entity_longhost', x: 3600, y: 5000 }];
+  const relationships = [];
+  for (const [group, count, x, y] of [[0, 15, 0, 0], [1, 3, 4000, 400], [2, 3, 4800, 3000]]) {
+    const groupId = `entity_longgroup${group}`;
+    entities.push({ id: groupId, type: 'group', name: `项目组 ${group + 1}`, details: {} });
+    placements.push({ entityId: groupId, x: x - 24, y: y - 56, groupBackground: '#8b5cf6' });
+    for (let i = 0; i < count; i++) {
+      const id = `entity_longcard${group}_${i}`;
+      entities.push({ id, type: 'deployment', name: `部署 ${group + 1}-${i + 1}`, details: { status: 'running' } });
+      placements.push({ entityId: id, x: x + i % 6 * 480, y: y + Math.floor(i / 6) * 350, groupId });
+      relationships.push({ id: `relationship_longroute${group}_${i}`, sourceId: id, targetId: 'entity_longhost', type: 'runs_on' });
+    }
+  }
+  groupController.store = window.RelationshipGraphModel.assertValidStore({
+    schemaVersion: 1, activeBoardId: 'board_longrouting', entities, relationships,
+    boards: [{ id: 'board_longrouting', name: '跨群组长连线验证', viewport: { x: 30, y: 30, zoom: 0.1 }, placements }]
   });
   groupController._setPanelTopology({ state: 'unconfigured', topology: {} });
   groupController._clearEntitySelection();

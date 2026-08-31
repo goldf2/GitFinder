@@ -136,8 +136,11 @@
     for (const [sourceSide, targetSide] of pairs) {
       const a = port(source, sourceSide), b = port(target, targetSide);
       const normalA = normals[sourceSide], normalB = normals[targetSide];
-      for (const tension of [0.25, 0.5, 0.85]) {
-        const bend = Math.max(28, (Math.abs(b.x - a.x) + Math.abs(b.y - a.y)) * tension);
+      // Tangents stay local to the cards. Growing them with a distant target
+      // creates huge loops when a card in the first row must escape backwards.
+      const bends = new Set([0.25, 0.5, 0.85].map(tension => Math.min(240,
+        Math.max(28, (Math.abs(b.x - a.x) + Math.abs(b.y - a.y)) * tension))));
+      for (const bend of bends) {
         const c = { x: a.x + normalA[0] * bend, y: a.y + normalA[1] * bend };
         const d = { x: b.x + normalB[0] * bend, y: b.y + normalB[1] * bend };
         const path = `M ${a.x} ${a.y} C ${c.x} ${c.y}, ${d.x} ${d.y}, ${b.x} ${b.y}`;
@@ -213,18 +216,52 @@
       const points = [b];
       for (let current = finish; current; current = parents.get(current.key)) points.push({ x: xs[current.x], y: ys[current.y] });
       points.push(a); points.reverse();
-      for (let i = points.length - 2; i > 0; i--) if ((points[i - 1].x === points[i].x && points[i].x === points[i + 1].x)
-        || (points[i - 1].y === points[i].y && points[i].y === points[i + 1].y)) points.splice(i, 1);
+      // The grid finds a safe corridor; it needn't dictate the visible line.
+      // Pull it taut across clear space, keeping the endpoint stubs for normals.
+      const visible = (from, to) => !boxes.some(r => {
+        let enter = 0, leave = 1;
+        for (const [axis, size] of [['x', 'width'], ['y', 'height']]) {
+          const delta = to[axis] - from[axis], min = r[axis] + 0.01, max = r[axis] + r[size] - 0.01;
+          if (Math.abs(delta) < 1e-9) { if (from[axis] <= min || from[axis] >= max) return false; }
+          else {
+            const t1 = (min - from[axis]) / delta, t2 = (max - from[axis]) / delta;
+            enter = Math.max(enter, Math.min(t1, t2)); leave = Math.min(leave, Math.max(t1, t2));
+            if (enter >= leave) return false;
+          }
+        }
+        return enter < leave;
+      });
+      const pulled = [a, start];
+      for (let i = 1; i < points.length - 2;) {
+        let next = points.length - 2;
+        while (next > i + 1 && !visible(points[i], points[next])) next--;
+        pulled.push(points[next]); i = next;
+      }
+      pulled.push(b);
+      const smoothingObstacles = [...obstacles.map(r => expand(r, 2)), expand(source, -2), expand(target, -2)]
+        .filter(r => r.width > 0 && r.height > 0);
       let path = `M ${a.x} ${a.y}`;
-      for (let i = 1; i < points.length - 1; i++) {
-        const p = points[i], prev = points[i - 1], next = points[i + 1];
-        const radius = Math.min(8, Math.hypot(p.x - prev.x, p.y - prev.y) / 2, Math.hypot(p.x - next.x, p.y - next.y) / 2);
-        const before = { x: p.x + Math.sign(prev.x - p.x) * radius, y: p.y + Math.sign(prev.y - p.y) * radius };
-        const after = { x: p.x + Math.sign(next.x - p.x) * radius, y: p.y + Math.sign(next.y - p.y) * radius };
-        path += ` L ${before.x} ${before.y} Q ${p.x} ${p.y} ${after.x} ${after.y}`;
+      const sampled = [a];
+      for (let i = 1; i < pulled.length - 1; i++) {
+        const p = pulled[i], prev = pulled[i - 1], next = pulled[i + 1];
+        const incoming = Math.hypot(p.x - prev.x, p.y - prev.y), outgoing = Math.hypot(p.x - next.x, p.y - next.y);
+        let radius = Math.min(24, incoming / 2, outgoing / 2), rounded;
+        while (radius >= 0.5) {
+          const before = { x: p.x + (prev.x - p.x) * radius / incoming, y: p.y + (prev.y - p.y) * radius / incoming };
+          const after = { x: p.x + (next.x - p.x) * radius / outgoing, y: p.y + (next.y - p.y) * radius / outgoing };
+          const controls = [before, { x: (before.x + 2 * p.x) / 3, y: (before.y + 2 * p.y) / 3 },
+            { x: (after.x + 2 * p.x) / 3, y: (after.y + 2 * p.y) / 3 }, after];
+          if (curveClear(controls, smoothingObstacles)) { rounded = { before, after, controls }; break; }
+          radius /= 2;
+        }
+        if (rounded) {
+          path += ` L ${rounded.before.x} ${rounded.before.y} Q ${p.x} ${p.y} ${rounded.after.x} ${rounded.after.y}`;
+          sampled.push(...sampleCurve(rounded.controls));
+        } else { path += ` L ${p.x} ${p.y}`; sampled.push(p); }
       }
       path += ` L ${b.x} ${b.y}`;
-      return result(path, points, sourceSide, targetSide);
+      sampled.push(b);
+      return result(path, sampled, sourceSide, targetSide);
     }
     return fallback;
   }
@@ -412,14 +449,15 @@
     return true;
   }
 
-  function groupTopologyByProjects({ entities, existingEntities, relationships, placements }, layout) {
+  function groupTopologyByProjects({ entities, existingEntities, relationships, placements }, layout, byServer = false) {
     const byId = new Map([...existingEntities, ...entities].map(entity => [entity.id, entity]));
     const memberships = new Map();
     const groups = new Map();
     for (const entity of entities.filter(item => item.type === 'deployment')) {
       const runtime = entity.runtime || {};
       const projectUuid = runtime.projectUuid === 'project_unknown' ? '' : runtime.projectUuid;
-      const key = dynamicEntityId('projectgroup', runtime.providerId, projectUuid || 'unassigned');
+      const key = dynamicEntityId('projectgroup', runtime.providerId,
+        `${projectUuid || 'unassigned'}${byServer ? `:${runtime.nodeId || 'unknown-host'}` : ''}`);
       if (!groups.has(key)) groups.set(key, {
         id: key, type: 'group', transient: true, source: 'observed',
         name: `${runtime.providerLabel || runtime.providerId} · ${runtime.projectName || (projectUuid ? `Project ${projectUuid}` : '未分配项目')}`,
@@ -511,6 +549,112 @@
       const y = 80 + best.heights.slice(0, row).reduce((sum, size) => sum + size + gap, 0);
       return { x, y };
     });
+  }
+
+  // A display projection only: source facts and the many-to-many links survive.
+  function serverTreeGraph({ entities, relationships, placements }, showRepositoryRelations = false) {
+    const byId = new Map(entities.map(entity => [entity.id, entity]));
+    const placed = new Map(placements.map(item => [item.entityId, item]));
+    const groups = new Set();
+    const hierarchy = new Map();
+    const add = (sourceId, targetId, label) => {
+      if (!placed.has(sourceId) || !placed.has(targetId)) return;
+      const key = `${sourceId}:${targetId}`;
+      if (!hierarchy.has(key)) hierarchy.set(key, { id: `tree_${key}`, type: 'tree_hierarchy', sourceId, targetId,
+        label, title: '由实际部署关系与项目归属派生，不修改来源事实', verificationState: 'unverified' });
+    };
+    const hosts = new Map(), endpoints = [];
+    for (const edge of relationships) {
+      const deployment = edge.type === 'runs_on' ? edge.sourceId : edge.type === 'hosts' ? edge.targetId : '';
+      const host = edge.type === 'runs_on' ? edge.targetId : edge.sourceId;
+      if (deployment) { if (!hosts.has(deployment)) hosts.set(deployment, new Set()); hosts.get(deployment).add(host); }
+      if (edge.type === 'exposes') endpoints.push([edge.sourceId, edge.targetId]);
+      if (edge.type === 'exposed_by') endpoints.push([edge.targetId, edge.sourceId]);
+    }
+    for (const item of placements.filter(p => byId.get(p.entityId)?.type === 'deployment')) {
+      const group = byId.get(item.groupId)?.type === 'group' && item.groupId !== 'entity_panel_shared_resources' ? item.groupId : '';
+      if (group) { groups.add(group); add(group, item.entityId, '部署'); }
+      for (const host of hosts.get(item.entityId) || []) add(host, group || item.entityId, group ? 'Project' : '部署');
+    }
+    const visible = new Set(placements.filter(p => {
+      const type = byId.get(p.entityId)?.type;
+      return !['repository', 'project'].includes(type) && (type !== 'group' || groups.has(p.entityId));
+    }).map(p => p.entityId));
+    const correlations = new Map(), repositoryNames = new Map(), repositoryMembers = new Map();
+    const sources = new Map();
+    for (const edge of relationships) {
+      const repository = edge.type === 'source_of' ? edge.sourceId : edge.type === 'deployed_from' ? edge.targetId : '';
+      const deployment = edge.type === 'source_of' ? edge.targetId : edge.sourceId;
+      if (!repository || byId.get(repository)?.type !== 'repository') continue;
+      if (!sources.has(deployment)) sources.set(deployment, []);
+      sources.get(deployment).push(byId.get(repository));
+    }
+    for (const item of placements.filter(p => byId.get(p.entityId)?.type === 'deployment')) {
+      const entity = byId.get(item.entityId);
+      const remote = RepositoryAssociation.repositoryKey(entity.runtime?.repositoryUrl)
+        || RepositoryAssociation.repositoryKey(entity.details?.repositoryKey ? `https://${entity.details.repositoryKey}` : '');
+      const repos = sources.get(entity.id) || [];
+      repositoryNames.set(entity.id, remote || repos.map(repo => repo.name).join('、'));
+      const keys = remote ? [`remote:${remote}`] : repos.map(repo => `local:${repo.refId || repo.id}`);
+      for (const key of new Set(keys)) {
+        if (!repositoryMembers.has(key)) repositoryMembers.set(key, []);
+        repositoryMembers.get(key).push(item);
+      }
+    }
+    if (showRepositoryRelations) for (const [key, members] of repositoryMembers) {
+      // One representative per branch and n-1 undirected links, never an n² mesh.
+      const branches = new Map();
+      for (const item of members.slice().sort((a, b) => a.y - b.y || a.x - b.x || a.entityId.localeCompare(b.entityId))) {
+        const branch = `${item.groupId || ''}:${[...(hosts.get(item.entityId) || [])].sort().join(',')}`;
+        if (!branches.has(branch)) branches.set(branch, item);
+      }
+      const representatives = [...branches.values()];
+      for (const other of representatives.slice(1)) {
+        const first = representatives[0], id = `repository_${first.entityId}:${other.entityId}`;
+        correlations.set(id, { id, type: 'repository_correlation', sourceId: first.entityId, targetId: other.entityId,
+          label: '同源仓库', title: `${repositoryNames.get(first.entityId) || key} · ${members.length} 个部署，共享来源，不表示部署依赖`, verificationState: 'unverified' });
+      }
+    }
+    return {
+      placements: placements.filter(p => visible.has(p.entityId)),
+      relationships: relationships.filter(edge => visible.has(edge.sourceId) && visible.has(edge.targetId)
+        && !['runs_on', 'hosts'].includes(edge.type)),
+      summaryRelationships: [...hierarchy.values(), ...correlations.values()],
+      hierarchy: [...hierarchy.values(), ...endpoints.map(([sourceId, targetId]) => ({ sourceId, targetId }))],
+      repositoryNames
+    };
+  }
+
+  function arrangeServerTree(graph, options = {}) {
+    const tree = serverTreeGraph(graph), layout = normalizeLayout(options);
+    const byId = new Map(tree.placements.map(item => [item.entityId, item]));
+    const children = new Map(tree.placements.map(item => [item.entityId, []])), parent = new Map();
+    for (const edge of tree.hierarchy) {
+      if (!byId.has(edge.sourceId) || !byId.has(edge.targetId) || parent.has(edge.targetId)) continue;
+      parent.set(edge.targetId, edge.sourceId); children.get(edge.sourceId).push(edge.targetId);
+    }
+    const height = id => Number(byId.get(id).height) || layout.height;
+    const compare = (a, b) => byId.get(a).y - byId.get(b).y || byId.get(a).x - byId.get(b).x || a.localeCompare(b);
+    const regions = [];
+    for (const root of [...byId.keys()].filter(id => !parent.has(id)).sort(compare)) {
+      const members = [];
+      const place = (id, depth, top) => {
+        const childIds = children.get(id).sort(compare);
+        let bottom = top;
+        for (const child of childIds) bottom = place(child, depth + 1, bottom) + layout.verticalSpacing;
+        const span = Math.max(height(id), childIds.length ? bottom - top - layout.verticalSpacing : height(id));
+        const item = byId.get(id);
+        item.x = depth * (layout.width + Math.max(80, layout.horizontalSpacing));
+        item.y = top + (span - height(id)) / 2;
+        members.push(item);
+        return top + span;
+      };
+      const span = place(root, 0, 0);
+      regions.push({ members, height: span, width: Math.max(...members.map(item => item.x + layout.width)) });
+    }
+    const positions = packRegions(regions, layout.viewportAspectRatio, Math.max(100, layout.verticalSpacing * 2));
+    regions.forEach((region, i) => region.members.forEach(item => { item.x += positions[i].x; item.y += positions[i].y; }));
+    return tree;
   }
 
   function endpointHealthFields(check = {}) {
@@ -680,6 +824,7 @@
           branch: deployment.branch || '',
           revision: deployment.commit || '',
           status: deployment.status || '',
+          repositoryKey: RepositoryAssociation.repositoryKey(deployment.repositoryUrl),
           provider: deployment.providerLabel || ''
         },
         source: 'observed',
@@ -755,7 +900,8 @@
     });
 
     arrangeTopologyLanes({ entities, existingEntities, relationships, placements }, layout);
-    if (options.groupByProject) groupTopologyByProjects({ entities, existingEntities, relationships, placements }, layout);
+    if (options.groupByProject || options.serverTree) groupTopologyByProjects({ entities, existingEntities, relationships, placements }, layout, options.serverTree);
+    if (options.serverTree) arrangeServerTree({ entities: [...existingEntities, ...entities], relationships, placements }, layout);
     return {
       entities,
       relationships,
@@ -773,5 +919,5 @@
     };
   }
 
-  return { stableHash, dynamicEntityId, dynamicRelationshipId, orderByTopologyAndPosition, routeRelationship, arrangeTopologyLanes, arrangeAroundCenters, groupTopologyByProjects, packRegions, endpointHealthFields, buildProjection };
+  return { stableHash, dynamicEntityId, dynamicRelationshipId, orderByTopologyAndPosition, routeRelationship, arrangeTopologyLanes, arrangeAroundCenters, groupTopologyByProjects, packRegions, serverTreeGraph, arrangeServerTree, endpointHealthFields, buildProjection };
 });

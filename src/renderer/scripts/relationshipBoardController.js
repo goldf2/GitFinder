@@ -152,6 +152,7 @@
       { key: 'version', label: '版本', maxLength: 240 },
       { key: 'branch', label: '分支', maxLength: 240 },
       { key: 'revision', label: '提交', maxLength: 240 },
+      { key: 'repositoryKey', label: '仓库来源（主机/所有者/仓库）', maxLength: 240 },
       { key: 'status', label: '声明状态', maxLength: 240 },
       { key: 'notes', label: '备注', maxLength: 1000, multiline: true }
     ],
@@ -662,11 +663,54 @@
     _resetDynamicLayout() {
       if (!activeBoard(this.store)) return false;
       this._recordMutation();
+      if (this._isServerTree()) {
+        this._arrangeServerTree(); this._renderGraph(); this.fitContent(); this._refreshHistoryButtons();
+        return true;
+      }
       this._packCurrentLayout();
       this._renderGraph();
-      this.fitContent({ minZoom: 0.25 });
+      this.fitContent();
       this._refreshHistoryButtons();
       this.notify('已按拓扑与原有位置整理，保留群组归属和组内相对位置', 'success');
+      return true;
+    }
+
+    _isServerTree() { return this._boardView().topologyLayout === 'server-tree'; }
+
+    _arrangeServerTree() {
+      const placements = this._combinedPlacements();
+      const geometry = this._displayGeometryMap(placements);
+      const sized = placements.map(item => ({ ...item, ...geometry.get(item.entityId) }));
+      PanelTopologyProjection.arrangeServerTree({ entities: this._combinedEntities(),
+        relationships: this._combinedRelationships(placements), placements: sized }, {
+        ...this._nodeDimensions(), ...this._displayViewSettings(),
+        viewportAspectRatio: this.root?.querySelector('.relationship-canvas')?.clientWidth / this.root?.querySelector('.relationship-canvas')?.clientHeight || 1.6
+      });
+      const byId = new Map(sized.map(item => [item.entityId, item]));
+      for (const item of placements) { const position = byId.get(item.entityId); item.x = position.x; item.y = position.y; }
+      this._saveDynamicPlacementOverrides(placements.filter(item => item.dynamic).map(item => item.entityId));
+      this._persistSoon(0);
+    }
+
+    _createServerTree() {
+      if (this._isServerTree()) return false;
+      if (this.documentRecord) {
+        this.notify('请先切回“本机白板”创建树状视图；当前白板文件不会被改写', 'info'); return false;
+      }
+      if (!this._combinedEntities().some(item => item.type === 'server') || this.store.boards.length >= Model.MAX_BOARDS) {
+        this.notify(this.store.boards.length >= Model.MAX_BOARDS ? '白板数量已达上限' : '请先添加服务器或连接 Coolify', 'info'); return false;
+      }
+      this._recordMutation();
+      const original = activeBoard(this.store);
+      const board = { ...clone(original), id: makeId('board'), name: `${original.name} · 服务器树状图`,
+        view: { ...this._boardView(), topologyLayout: 'server-tree', projection: 'facts', showRepositoryRelations: false } };
+      const previousDynamic = clone(this._dynamicLayoutForActiveBoard() || {});
+      this.store.boards.push(board); this.store.activeBoardId = board.id;
+      this.dynamicLayoutStore.boards[board.id] = previousDynamic;
+      this._setPanelTopology(this.panelTopologyResult);
+      this._arrangeServerTree();
+      this.render(); this.fitContent(); this._refreshHistoryButtons();
+      this.notify('已创建独立树状白板，原白板布局保留；可通过白板列表切回', 'success');
       return true;
     }
 
@@ -748,7 +792,7 @@
         try { this.documentRecord = null; this.store = this._buildActiveBoardExportStore(); }
         finally { this.documentRecord = record; }
         this._renderGraph(); this._packCurrentLayout(); this._renderGraph();
-        this.fitContent({ minZoom: 0.25 }); this._refreshHistoryButtons();
+        this.fitContent(); this._refreshHistoryButtons();
         return true;
       }
       const previous = this._dynamicLayoutForActiveBoard();
@@ -762,7 +806,7 @@
       this._renderGraph();
       this._packCurrentLayout(true);
       this._renderGraph();
-      this.fitContent({ minZoom: 0.25 });
+      this.fitContent();
       this._refreshHistoryButtons();
       this.notify('已按 Coolify Projects 分组，共享资源保持唯一节点', 'success');
       return true;
@@ -859,6 +903,7 @@
         repositoryAssociations: this.repositoryAssociations,
         existingEntities: this.store?.entities || [],
         groupByProject: this.store && activeBoard(this.store)?.view?.topologyLayout === 'coolify-projects',
+        serverTree: this.store && activeBoard(this.store)?.view?.topologyLayout === 'server-tree',
         layout: {
           ...this._nodeDimensions(),
           viewportAspectRatio: canvas?.clientWidth && canvas?.clientHeight ? canvas.clientWidth / canvas.clientHeight : 1.6,
@@ -1567,7 +1612,7 @@
 
     _displayGeometryMap(placements = []) {
       const allPlacements = this._combinedPlacements();
-      if (placements.length < allPlacements.length && allPlacements.some(item => item.groupLayout === 'auto')) {
+      if (!this._isServerTree() && placements.length < allPlacements.length && allPlacements.some(item => item.groupLayout === 'auto')) {
         const geometry = this._displayGeometryMap(allPlacements);
         return new Map(placements.filter(item => geometry.has(item.entityId)).map(item => [item.entityId, geometry.get(item.entityId)]));
       }
@@ -1583,7 +1628,7 @@
       const spacing = this._displayViewSettings();
       const placementsById = new Map(placements.map(item => [item.entityId, item]));
       const regular = placements
-        .filter(placement => entitiesById.get(placement.entityId)?.type !== 'group')
+        .filter(placement => this._isServerTree() || entitiesById.get(placement.entityId)?.type !== 'group')
         .slice()
         .sort((left, right) => left.y - right.y || left.x - right.x);
       const resolved = [];
@@ -1610,7 +1655,7 @@
         resolved.push(geometry);
         geometryById.set(placement.entityId, geometry);
       }
-      const groups = placements.filter(item => entitiesById.get(item.entityId)?.type === 'group')
+      const groups = placements.filter(item => !this._isServerTree() && entitiesById.get(item.entityId)?.type === 'group')
         .sort((a, b) => this._groupDepth(b.entityId, placements) - this._groupDepth(a.entityId, placements));
       for (const group of groups) {
         const members = placements.filter(item => item.groupId === group.entityId);
@@ -1699,7 +1744,7 @@
     _placementGeometry(placement, placements = this._combinedPlacements(), ancestors = new Set(), displayGeometry = null) {
       const entitiesById = this._allEntitiesById();
       const entity = entitiesById.get(placement?.entityId);
-      if (entity?.type !== 'group') {
+      if (entity?.type !== 'group' || this._isServerTree()) {
         const { width, height } = this._nodeDimensions();
         return displayGeometry?.get(placement.entityId) || { x: placement.x, y: placement.y, width, height };
       }
@@ -2070,7 +2115,7 @@
       const mutedIds = new Set([...allIds].filter(entityId => !directIds.has(entityId) && !contextualIds.has(entityId)));
       const hideUnmatched = filterActive && this._displayViewSettings(view).unmatchedDisplay === 'hide';
       const visibleIds = hideUnmatched ? directIds : allIds;
-      return this._deploymentSummaryProjection({
+      const graph = {
         placements: placements.filter(placement => visibleIds.has(placement.entityId)),
         relationships: boardRelationships.filter(relationship => (
           visibleIds.has(relationship.sourceId) && visibleIds.has(relationship.targetId)
@@ -2079,7 +2124,12 @@
         contextualIds,
         mutedIds,
         filterActive
-      }, entitiesById);
+      };
+      if (this._isServerTree()) {
+        const tree = PanelTopologyProjection.serverTreeGraph({ ...graph, entities: [...entitiesById.values()] }, view.showRepositoryRelations);
+        return { ...graph, ...tree };
+      }
+      return this._deploymentSummaryProjection(graph, entitiesById);
     }
 
     render() {
@@ -2265,6 +2315,8 @@
             <button class="relationship-tool-button" data-relationship-action="undo" type="button" title="撤销 (⌘Z)" ${this.undoStack.length ? '' : 'disabled'}>↶</button>
             <button class="relationship-tool-button" data-relationship-action="redo" type="button" title="重做 (⇧⌘Z)" ${this.redoStack.length ? '' : 'disabled'}>↷</button>
             <button class="relationship-tool-button relationship-icon-tool" data-relationship-action="fit" type="button" aria-label="适合内容" title="适合内容：将整个白板放入视图">${toolbarIcon('fit')}</button>
+            <button class="relationship-tool-button relationship-icon-tool${this._isServerTree() ? ' is-active' : ''}" data-relationship-action="server-tree" type="button" aria-label="服务器树状图" aria-pressed="${this._isServerTree()}" title="创建服务器 → Project → 部署 → 访问点树状白板，保留原白板布局">${toolbarIcon('layout')}</button>
+            ${this._isServerTree() ? `<button class="relationship-tool-button relationship-icon-tool${board.view.showRepositoryRelations ? ' is-active' : ''}" data-relationship-action="repository-relations" type="button" aria-label="显示仓库相关性" aria-pressed="${board.view.showRepositoryRelations}" title="显示仓库相关性：以虚线关联不同分支中的同源部署，不表示依赖">⌁</button>` : ''}
             <button class="relationship-tool-button relationship-icon-tool" data-relationship-action="reset-dynamic-layout" type="button" aria-label="整理布局" title="按拓扑与原有位置整理，保留群组归属与组内相对位置">${toolbarIcon('layout')}</button>
             <button class="relationship-tool-button relationship-icon-tool" data-relationship-action="arrange-by-coolify-projects" type="button" aria-label="初始化分组" title="按 Coolify Projects 初始化分组并保存；一次性操作，再次点击会重新整理，支持撤销">${toolbarIcon('group')}</button>
             <select class="relationship-layout-select" data-relationship-layout aria-label="整理操作" title="执行一次整理并保存结果，不是持续显示模式">
@@ -2814,6 +2866,14 @@
       if (action === 'reset-dynamic-layout') this._resetDynamicLayout();
       if (action === 'arrange-by-category') this._arrangeByCategory();
       if (action === 'arrange-by-coolify-projects') this._arrangeByCoolifyProjects();
+      if (action === 'server-tree') this._createServerTree();
+      if (action === 'repository-relations') {
+        this._recordMutation();
+        const view = this._boardView();
+        view.showRepositoryRelations = !view.showRepositoryRelations;
+        this._persistSoon(0); this.render(); this._refreshHistoryButtons();
+        return;
+      }
       if (action === 'arrange-around-selection') this._arrangeAround('selection-centered');
       if (action === 'arrange-around-servers') this._arrangeAround('server-centered');
       if (action === 'refresh-panel') {
@@ -3544,6 +3604,7 @@
       if (!board || !nodeLayer) return;
       const graph = this._filteredGraph();
       this.root.dataset.filterActive = String(graph.filterActive);
+      this.root.dataset.serverTree = String(this._isServerTree());
       const visibleIds = new Set(graph.placements.map(placement => placement.entityId));
       const allPlacedIds = new Set(this._combinedPlacements().map(item => item.entityId));
       [...this.expandedCardIds].forEach(entityId => {
@@ -3554,9 +3615,9 @@
         this.selectedRelationshipId = '';
       }
       const entitiesById = this._allEntitiesById();
-      const groupFrames = graph.placements.filter(placement => entitiesById.get(placement.entityId)?.type === 'group')
+      const groupFrames = graph.placements.filter(placement => !this._isServerTree() && entitiesById.get(placement.entityId)?.type === 'group')
         .sort((a, b) => this._groupDepth(a.entityId, graph.placements) - this._groupDepth(b.entityId, graph.placements));
-      const regularNodes = graph.placements.filter(placement => entitiesById.get(placement.entityId)?.type !== 'group');
+      const regularNodes = graph.placements.filter(placement => this._isServerTree() || entitiesById.get(placement.entityId)?.type !== 'group');
       let geometryById = this._displayGeometryMap(graph.placements);
       this._syncExpandAllButton(regularNodes.map(placement => placement.entityId));
       nodeLayer.innerHTML = groupFrames.map(placement => {
@@ -3602,7 +3663,7 @@
         const runtimeStatusView = this._cardShowsRuntimeStatus(placement) ? this._entityRuntimeStatus(entity) : null;
         const annotations = normalizePlacementAnnotations(placement);
         const statusTone = this._entityRuntimeTone(entity);
-        const cardStatusView = runtimeStatusView || (this._cardShowsRuntimeStatus(placement)
+        const cardStatusView = runtimeStatusView || (entity.type !== 'group' && this._cardShowsRuntimeStatus(placement)
           ? {
               state: availability.missing ? 'unknown' : statusTone,
               label: availability.missing
@@ -3613,6 +3674,7 @@
             }
           : null);
         const expanded = this.expandedCardIds.has(entity.id);
+        const kindLabel = entity.type === 'group' && this._isServerTree() ? 'Project 组' : TYPE_LABELS[entity.type];
         const geometry = geometryById.get(entity.id) || { x: placement.x, y: placement.y, ...this._nodeDimensions() };
         return `
           <article class="relationship-node verification-${verification.state}${entity.transient ? ' panel-dynamic' : ''}${recentFailure ? ' panel-recent-failure' : ''}${stale ? ' stale' : ''}${availability.missing ? ' resource-missing' : ''}${expanded ? ' is-detail' : ''}${graph.filterActive && graph.directIds.has(entity.id) ? ' filter-match' : ''}${graph.contextualIds.has(entity.id) ? ' filter-context' : ''}${graph.mutedIds.has(entity.id) ? ' filter-muted' : ''}" data-entity-id="${escapeHtml(entity.id)}" data-entity-type="${entity.type}" data-runtime-status="${escapeHtml(runtimeStatus)}" data-runtime-state="${escapeHtml(runtimeStatusView?.state || '')}" data-status-tone="${statusTone}" data-card-mode="${expanded ? 'detail' : 'compact'}" data-verification-state="${verification.state}" data-resource-state="${availability.missing ? 'missing' : 'ready'}" tabindex="0" role="button" aria-label="${escapeHtml(name)}，${TYPE_LABELS[entity.type]}，${runtimeStatusView ? `${runtimeStatusView.label}，` : ''}${availability.missing ? `${availability.label}，` : ''}${entity.transient ? 'Coolify 只读观测，' : ''}${verification.label}${graph.contextualIds.has(entity.id) ? '，关系上下文' : ''}" aria-pressed="false" style="transform:translate(${geometry.x}px,${geometry.y}px);height:${geometry.height}px">
@@ -3624,7 +3686,7 @@
             <div class="relationship-node-header">
               <span class="relationship-node-icon">${TYPE_ICONS[entity.type]}</span>
               <span class="relationship-node-identity">
-                <span class="relationship-node-kind" data-state="${availability.missing ? 'missing' : 'ready'}" title="${escapeHtml(availability.missing ? `${TYPE_LABELS[entity.type]} · ${availability.label}` : TYPE_LABELS[entity.type])}">${availability.missing ? `${TYPE_LABELS[entity.type]} · 缺失` : TYPE_LABELS[entity.type]}</span>
+                <span class="relationship-node-kind" data-state="${availability.missing ? 'missing' : 'ready'}" title="${escapeHtml(availability.missing ? `${kindLabel} · ${availability.label}` : kindLabel)}">${availability.missing ? `${kindLabel} · 缺失` : kindLabel}</span>
                 <strong class="relationship-node-title" title="${escapeHtml(name)}">${escapeHtml(name)}</strong>
               </span>
               <button class="relationship-card-expand relationship-card-expand-top" data-relationship-card-detail="${escapeHtml(entity.id)}" type="button" aria-expanded="${expanded}" aria-label="${expanded ? '收起' : '展开'} ${escapeHtml(name)} 详情" title="${expanded ? '收起详情' : '展开详情'}"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6.5 8 3.5 3.5L13.5 8"></path></svg></button>
@@ -3637,6 +3699,7 @@
               <span class="relationship-node-subtitle" title="${escapeHtml(details)}">${escapeHtml(cardSummary)}</span>
             </div>
             ${this._deploymentLinkSignalHtml(entity)}
+            ${graph.repositoryNames?.get(entity.id) ? `<div class="relationship-tree-source" title="${escapeHtml(graph.repositoryNames.get(entity.id))}">⑂ ${escapeHtml(graph.repositoryNames.get(entity.id))}</div>` : ''}
             <div class="relationship-node-attention-row">
               ${this._cardAttentionChipsHtml(annotations.todos || [])}
               ${(annotations.labels || []).length ? `<div class="relationship-node-labels">${annotations.labels.slice(0, 2).map((label, index) => `<span data-color-index="${index % 5}">${escapeHtml(label)}</span>`).join('')}${annotations.labels.length > 2 ? `<span>+${annotations.labels.length - 2}</span>` : ''}</div>` : ''}
@@ -3687,14 +3750,14 @@
       }).join('') + graph.summaryRelationships.map(summary => {
         const geometry = this._edgeGeometry(summary, null, geometryById);
         if (!geometry) return '';
-        const verificationLabel = summary.verificationState === 'verified'
+        const verificationLabel = ['tree_hierarchy', 'repository_correlation'].includes(summary.type) ? '派生关系' : summary.verificationState === 'verified'
           ? '已验证'
           : (summary.verificationState === 'stale' ? '待复核' : '待验证');
         const description = summary.title || `${summary.count} 个部署事实链`;
         return `
-          <g class="relationship-edge relationship-edge-summary verification-${summary.verificationState}${graph.filterActive ? ' filter-context' : ''}" data-summary-id="${escapeHtml(summary.id)}" data-verification-state="${summary.verificationState}" aria-label="${escapeHtml(summary.label)}，${verificationLabel}">
+          <g class="relationship-edge relationship-edge-summary verification-${summary.verificationState}${graph.filterActive ? ' filter-context' : ''}" data-summary-id="${escapeHtml(summary.id)}" data-summary-type="${summary.type}" data-verification-state="${summary.verificationState}" aria-label="${escapeHtml(summary.label)}，${verificationLabel}">
             <title>${escapeHtml(description)}</title>
-            <path class="relationship-edge-line" d="${geometry.path}" marker-end="url(#relationship-edge-arrow)"></path>
+            <path class="relationship-edge-line" d="${geometry.path}"${summary.type === 'repository_correlation' ? '' : ' marker-end="url(#relationship-edge-arrow)"'}></path>
             <text x="${geometry.labelX}" y="${geometry.labelY}">${escapeHtml(summary.label)}</text>
           </g>`;
       }).join('');
@@ -4709,7 +4772,7 @@
         const entities = this._allEntitiesById();
         const previous = this.edgeRoutingContext?.portOffsetY === portOffsetY && this.edgeRoutingContext?.scale === scale
           ? this.edgeRoutingContext : null;
-        const obstacles = [...displayGeometry].filter(([id]) => entities.get(id)?.type !== 'group');
+        const obstacles = [...displayGeometry].filter(([id]) => this._isServerTree() || entities.get(id)?.type !== 'group');
         const before = new Map(previous?.obstacles || []), after = new Map(obstacles);
         const same = (a, b) => a && b && ['x', 'y', 'width', 'height'].every(key => a[key] === b[key]);
         const changed = [...new Set([...before.keys(), ...after.keys()])]
@@ -5456,7 +5519,7 @@
       this._stopWheelPan();
       const board = activeBoard(this.store);
       const oldZoom = board.viewport.zoom;
-      const nextZoom = Math.min(2.5, Math.max(0.25, zoom));
+      const nextZoom = Math.min(Model.MAX_VIEWPORT_ZOOM, Math.max(Model.MIN_VIEWPORT_ZOOM, zoom));
       const worldX = (anchorX - board.viewport.x) / oldZoom;
       const worldY = (anchorY - board.viewport.y) / oldZoom;
       board.viewport.zoom = nextZoom;
@@ -5475,7 +5538,9 @@
       world.style.transform = `translate(${x}px,${y}px) scale(${zoom})`;
       canvas.style.setProperty('--relationship-viewport-zoom', String(zoom));
       canvas.style.setProperty('--relationship-inverse-zoom', String(1 / zoom));
-      canvas.style.setProperty('--relationship-grid-size', `${GRID_SIZE * zoom}px`);
+      const gridStep = GRID_SIZE * zoom;
+      const gridMultiple = 2 ** Math.max(0, Math.ceil(Math.log2(16 / gridStep)));
+      canvas.style.setProperty('--relationship-grid-size', `${gridStep * gridMultiple}px`);
       canvas.style.setProperty('--relationship-grid-x', `${x}px`);
       canvas.style.setProperty('--relationship-grid-y', `${y}px`);
       this._positionSelectionToolbar();
@@ -6125,10 +6190,9 @@
       const board = activeBoard(this.store);
       const canvas = this.root?.querySelector('.relationship-canvas');
       if (!board || !canvas) return;
-      const centered = ['selection-centered', 'server-centered'].includes(board.view?.topologyLayout);
       const minZoom = Number.isFinite(Number(options.minZoom))
-        ? Math.min(1, Math.max(0.25, Number(options.minZoom)))
-        : centered ? 0.25 : 0.35;
+        ? Math.min(1, Math.max(Model.MIN_VIEWPORT_ZOOM, Number(options.minZoom)))
+        : Model.MIN_VIEWPORT_ZOOM;
       const placements = this._filteredGraph().placements;
       if (!placements.length) {
         board.viewport = { x: 120, y: 90, zoom: 1 };

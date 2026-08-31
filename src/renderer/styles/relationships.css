@@ -1374,6 +1374,28 @@
   font-weight: 700;
 }
 
+.relationship-edge-summary[data-summary-type="tree_hierarchy"] .relationship-edge-line {
+  stroke: #6e74ad;
+  stroke-width: 2.2px;
+  stroke-dasharray: none;
+}
+
+.relationship-edge-summary[data-summary-type="repository_correlation"] .relationship-edge-line {
+  stroke: #9776bf;
+  stroke-width: 1.5px;
+  stroke-dasharray: 4 5;
+  opacity: 0.7;
+}
+
+.relationship-tree-source {
+  margin-top: 5px;
+  color: var(--text-secondary);
+  font-size: var(--relationship-subtitle-font-size);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 .relationship-node {
   position: absolute;
   width: var(--relationship-card-width);
