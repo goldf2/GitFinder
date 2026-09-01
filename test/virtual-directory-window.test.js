@@ -174,7 +174,10 @@ test('列表与普通图标虚拟化模块在 App 前加载，并保留完整选
   assert.match(appSource, /VirtualDirectoryWindow\.shouldVirtualize/);
   assert.match(appSource, /new window\.VirtualDirectoryWindow\.Controller/);
   assert.match(appSource, /VirtualDirectoryWindow\.canVirtualizeCardItems/);
-  assert.match(appSource, /handleVirtualizedListKeyboardNavigation/);
+  assert.deepEqual(
+    require('../src/renderer/scripts/appControllerRegistry').DELEGATE_MAP.handleVirtualizedListKeyboardNavigation,
+    ['directorySelectionController', 'handleVirtualizedListKeyboardNavigation']
+  );
   assert.match(appSource, /AppState\.fileDisplayOrder/);
   assert.match(appSource, /aria-setsize/);
   assert.match(css, /\.virtual-directory-viewport/);

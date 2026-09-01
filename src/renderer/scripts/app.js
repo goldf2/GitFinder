@@ -1542,10 +1542,6 @@ const App = {
     if (items.length === 1) this.openPathInEditor(items[0].path);
   },
 
-  openSelectedInTerminal() {
-    return this.directoryTerminalController.open();
-  },
-
   setupToolbarMenus() {
     if (this._toolbarMenusBound) return;
     this._toolbarMenusBound = true;
@@ -3057,78 +3053,14 @@ const App = {
     await this.initSidebarTree();
   },
 
-  async loadProjectShortcuts() {
-    return this.projectShortcutsController.load();
-  },
-
-  async loadLocalProjects(forceRefresh = false) {
-    return this.projectShortcutsController.loadLocalProjects(forceRefresh);
-  },
-
-  async refreshProjectShortcuts(forceRefresh = false) {
-    return this.projectShortcutsController.refresh(forceRefresh);
-  },
-
-  async recordProjectVisit(directoryPath) {
-    return this.projectShortcutsController.recordVisit(directoryPath);
-  },
-
-  async toggleProjectShortcutPinned(projectId) {
-    return this.projectShortcutsController.togglePinned(projectId);
-  },
-
-  async openProjectShortcut(projectId) {
-    return this.projectShortcutsController.open(projectId);
-  },
-
-  renderProjectShortcuts() {
-    return this.projectShortcutsController.render();
-  },
-
   // ============ 侧边栏目录树(多根目录,访达式浏览器) ============
 
   _treeRoots: [],
   _treeExpandedPaths: new Set(),
   _treeRootsLoaded: false,
 
-  async initSidebarTree() {
-    return this.sidebarTreeController.init();
-  },
-
-  async loadTreeRoots() {
-    return this.sidebarTreeController.loadRoots();
-  },
-
-  async addTreeRootDialog() {
-    return this.sidebarTreeController.addRootDialog();
-  },
-
-  async addTreeRoot(dirPath, name, grantToken, { navigate = true } = {}) {
-    return this.sidebarTreeController.addRoot(dirPath, name, grantToken, { navigate });
-  },
-
-  async removeTreeRoot(dirPath) {
-    return this.sidebarTreeController.removeRoot(dirPath);
-  },
-
-  async renderSidebarTree() {
-    return this.sidebarTreeController.render();
-  },
-
   async _renderTreeNode(path, name, _icon, isRoot, depth, item = {}) {
     return this.sidebarTreeController.renderNode(path, name, isRoot, depth, item);
-  },
-
-  _bindTreeEvents(container) {
-    return this.sidebarTreeController.bind(container);
-  },
-
-  _syncTreeSelection() {
-    return this.sidebarTreeController.syncSelection();
-  },
-
-  async _syncTreeToCurrentPath() {
-    return this.sidebarTreeController.syncToCurrentPath();
   },
 
   favoritePathKey(candidatePath) {
@@ -4473,34 +4405,6 @@ const App = {
         submit.textContent = '前往';
       }
     }
-  },
-
-  navigateTo(path, replace = false) {
-    return this.directoryNavigationController.navigateTo(path, replace);
-  },
-
-  goBack() {
-    return this.directoryNavigationController.goBack();
-  },
-
-  goForward() {
-    return this.directoryNavigationController.goForward();
-  },
-
-  goUp() {
-    return this.directoryNavigationController.goUp();
-  },
-
-  getParentPath(path) {
-    return this.directoryNavigationController.getParentPath(path);
-  },
-
-  updateBreadcrumbs() {
-    return this.directoryNavigationController.updateBreadcrumbs();
-  },
-
-  updateNavButtons() {
-    return this.directoryNavigationController.updateNavButtons();
   },
 
   cancelDirectoryItemRendering(reason = 'view-changed') {
@@ -6373,18 +6277,6 @@ const App = {
     return parts.join('，');
   },
 
-  reconcileFileKeyboardFocus(items = AppState.visibleItems) {
-    return this.directorySelectionController.reconcileFileKeyboardFocus(items);
-  },
-
-  bindCardEvents(container) {
-    return this.directorySelectionController.bindCardEvents(container);
-  },
-
-  bindCardElements(elements) {
-    return this.directorySelectionController.bindCardElements(elements);
-  },
-
   bindFileDragSource(element) {
     if (!this.isFileBrowsingContext()) return;
     element.setAttribute('draggable', 'true');
@@ -6632,66 +6524,6 @@ const App = {
     banner.classList.remove('invalid', 'internal-copy', 'internal-move');
   },
 
-  transferProgressHtml(preview, status) {
-    return this.fileTransferController.transferProgressHtml(preview, status);
-  },
-
-  transferPlanHtml(preview, options = {}) {
-    return this.fileTransferController.transferPlanHtml(preview, options);
-  },
-
-  async executeTransferWithProgress(preview, applyAction, onStatus) {
-    return this.fileTransferController.executeTransferWithProgress(preview, applyAction, onStatus);
-  },
-
-  async openTransferReview(sourcePaths, destinationDirectory, mode, context = {}) {
-    return this.fileTransferController.openTransferReview(sourcePaths, destinationDirectory, mode, context);
-  },
-
-  async changeTransferConflictPolicy(conflictPolicy) {
-    return this.fileTransferController.changeTransferConflictPolicy(conflictPolicy);
-  },
-
-  setTransferStructureRiskAcknowledged(acknowledged) {
-    return this.fileTransferController.setStructureRiskAcknowledged(acknowledged);
-  },
-
-  renderTransferReview() {
-    return this.fileTransferController.renderTransferReview();
-  },
-
-  async applyReviewedTransfer() {
-    return this.fileTransferController.applyReviewedTransfer();
-  },
-
-  async handleTransferReviewCancel() {
-    return this.fileTransferController.handleTransferReviewCancel();
-  },
-
-  closeTransferReview() {
-    return this.fileTransferController.closeTransferReview();
-  },
-
-  async openExternalImportPreview(sourcePaths, destinationDirectory) {
-    return this.fileTransferController.openExternalImportPreview(sourcePaths, destinationDirectory);
-  },
-
-  renderExternalImportPreview() {
-    return this.fileTransferController.renderExternalImportPreview();
-  },
-
-  async applyExternalImport() {
-    return this.fileTransferController.applyExternalImport();
-  },
-
-  closeExternalImportModal() {
-    return this.fileTransferController.closeExternalImportModal();
-  },
-
-  async handleExternalImportCancel() {
-    return this.fileTransferController.handleExternalImportCancel();
-  },
-
   setupFileContextMenu() {
     if (this._fileContextMenuBound) return;
     this._fileContextMenuBound = true;
@@ -6884,49 +6716,9 @@ const App = {
     }
   },
 
-  handleVirtualizedListKeyboardNavigation(event) {
-    return this.directorySelectionController.handleVirtualizedListKeyboardNavigation(event);
-  },
-
-  handleFileKeyboardNavigation(event) {
-    return this.directorySelectionController.handleFileKeyboardNavigation(event);
-  },
-
-  handleFileSelectionClick(event, element) {
-    return this.directorySelectionController.handleFileSelectionClick(event, element);
-  },
-
-  syncFileSelectionUI() {
-    return this.directorySelectionController.syncFileSelectionUI();
-  },
-
-  syncFileItemElement(element) {
-    return this.directorySelectionController.syncFileItemElement(element);
-  },
-
-  clearFileSelection() {
-    return this.directorySelectionController.clearFileSelection();
-  },
-
-  selectSingleFileItem(itemPath, options) {
-    return this.directorySelectionController.selectSinglePath(itemPath, options);
-  },
-
-  showFileSelectionDetail(items) {
-    return this.fileSelectionDetailController.show(items);
-  },
-
   getSelectedFileItems() {
     const byPath = new Map(AppState.visibleItems.map(item => [item.path, item]));
     return [...AppState.selectedPaths].map(itemPath => byPath.get(itemPath)).filter(Boolean);
-  },
-
-  updateFileActionBar() {
-    return this.fileActionBarController.update();
-  },
-
-  async loadFileOperationHistory() {
-    return this.fileOperationController.loadHistory();
   },
 
   async loadConfigTransactionRecoveryStatus() {
@@ -6943,36 +6735,8 @@ const App = {
     }
   },
 
-  openFileOperationDialog(options) {
-    return this.fileOperationDialogController.open(options);
-  },
-
-  submitFileOperationDialog() {
-    return this.fileOperationDialogController.submit();
-  },
-
   closeFileOperationDialog(value) {
     return this.fileOperationDialogController.close(value);
-  },
-
-  copySelectedItems() {
-    return this.fileOperationController.copySelectedItems();
-  },
-
-  copySelectedPathnames() {
-    return this.fileOperationController.copySelectedPathnames();
-  },
-
-  cutSelectedItems() {
-    return this.fileOperationController.cutSelectedItems();
-  },
-
-  async pasteFileClipboard({ move = false } = {}) {
-    return this.fileOperationController.pasteFileClipboard({ move });
-  },
-
-  async duplicateSelectedItems() {
-    return this.fileOperationController.duplicateSelectedItems();
   },
 
   async createDirectoryFromToolbar() {
@@ -7018,10 +6782,6 @@ const App = {
     const target = operation?.items?.[0]?.target;
     if (!success || !target) return;
     await this.revealCreatedFileOperation(operation, 'file');
-  },
-
-  ensureFileItemVisible(itemPath) {
-    return this.directorySelectionController.ensureFileItemVisible(itemPath);
   },
 
   async revealCreatedFileOperation(operation, directoryType) {
@@ -7101,14 +6861,6 @@ const App = {
     );
   },
 
-  async undoLastFileOperation() {
-    return this.fileOperationController.undoLastFileOperation();
-  },
-
-  async redoLastFileOperation() {
-    return this.fileOperationController.redoLastFileOperation();
-  },
-
   async revealFileOperationHistoryLocation(itemPath) {
     const parentPath = this.getParentPath(itemPath);
     if (!parentPath) {
@@ -7144,22 +6896,6 @@ const App = {
     document.querySelector(`[data-path="${this.cssEscape(itemPath)}"]`)?.scrollIntoView({ block: 'nearest' });
     this._showStatusMessage(`已定位“${item.name}”`, 'success');
     return true;
-  },
-
-  async runFileOperation(action, successMessage) {
-    return this.fileOperationController.run(action, successMessage);
-  },
-
-  getEditActionContext() {
-    return this.fileOperationController.getEditActionContext();
-  },
-
-  handleEditAction(action, { source = 'keyboard' } = {}) {
-    return this.fileOperationController.handleEditAction(action, { source });
-  },
-
-  selectAllVisibleFiles() {
-    return this.directorySelectionController.selectAllVisibleFiles();
   },
 
   handleFileKeyboardShortcut(event) {
@@ -7476,41 +7212,6 @@ const App = {
     this.quickLookController?.close();
   },
 
-  selectRepo(repoPath) {
-    return this.repositoryDetailController.select(repoPath);
-  },
-
-  cancelRepoSelection() {
-    return this.repositoryDetailController.cancel();
-  },
-
-  showDetailError(title, path, message) {
-    return this.repositoryDetailController.showError(title, path, message);
-  },
-
-  // 更新详情面板区域可见性
-  updateDetailSections() {
-    return this.repositoryDetailController.updateSections();
-  },
-
-  // 应用保存的区域排列顺序
-  applyDetailSectionOrder() {
-    return this.repositoryDetailController.applySectionOrder();
-  },
-
-  // 保存区域排列顺序到配置
-  saveDetailSectionOrder() {
-    return this.repositoryDetailController.saveSectionOrder();
-  },
-
-  // 设置详情区域拖拽排序
-  setupDetailSectionDrag() {
-    return this.repositoryDetailController.setupSectionDrag();
-  },
-
-  updateDetailPanel() {
-    return this.repositoryDetailController.render();
-  },
   formatTime(timestamp) {
     if (!timestamp) return '';
     const date = new Date(timestamp * 1000);

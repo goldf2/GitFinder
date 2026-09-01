@@ -224,7 +224,10 @@ test('目录选择控制器在 App 之前加载，主对象仅保留兼容委托
   const appSource = fs.readFileSync(path.join(projectRoot, 'src/renderer/scripts/app.js'), 'utf8');
 
   assert.ok(html.indexOf('scripts/directorySelectionController.js') < html.indexOf('scripts/app.js'));
-  assert.ok(require('../src/renderer/scripts/appControllerRegistry').CONTROLLER_NAMESPACES.includes('DirectorySelectionController'));
-  assert.match(appSource, /handleFileSelectionClick\(event, element\) \{\s*return this\.directorySelectionController\.handleFileSelectionClick\(event, element\);/);
-  assert.match(appSource, /selectAllVisibleFiles\(\) \{\s*return this\.directorySelectionController\.selectAllVisibleFiles\(\);/);
+  const registry = require('../src/renderer/scripts/appControllerRegistry');
+  assert.ok(registry.CONTROLLER_NAMESPACES.includes('DirectorySelectionController'));
+  assert.deepEqual(registry.DELEGATE_MAP.handleFileSelectionClick, ['directorySelectionController', 'handleFileSelectionClick']);
+  assert.deepEqual(registry.DELEGATE_MAP.selectAllVisibleFiles, ['directorySelectionController', 'selectAllVisibleFiles']);
+  assert.doesNotMatch(appSource, /handleFileSelectionClick\(event, element\) \{/);
+  assert.doesNotMatch(appSource, /selectAllVisibleFiles\(\) \{/);
 });

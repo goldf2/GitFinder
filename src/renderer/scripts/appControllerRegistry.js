@@ -29,6 +29,107 @@
     'contentFilterController', 'smartCollectionsController', 'projectShortcutsController',
     'directoryPerformanceController'
   ]);
+  const DELEGATE_MAP = Object.freeze({
+    openSelectedInTerminal: ['directoryTerminalController', 'open'],
+    loadProjectShortcuts: ['projectShortcutsController', 'load'],
+    loadLocalProjects: ['projectShortcutsController', 'loadLocalProjects'],
+    refreshProjectShortcuts: ['projectShortcutsController', 'refresh'],
+    recordProjectVisit: ['projectShortcutsController', 'recordVisit'],
+    toggleProjectShortcutPinned: ['projectShortcutsController', 'togglePinned'],
+    openProjectShortcut: ['projectShortcutsController', 'open'],
+    renderProjectShortcuts: ['projectShortcutsController', 'render'],
+    initSidebarTree: ['sidebarTreeController', 'init'],
+    loadTreeRoots: ['sidebarTreeController', 'loadRoots'],
+    addTreeRootDialog: ['sidebarTreeController', 'addRootDialog'],
+    addTreeRoot: ['sidebarTreeController', 'addRoot'],
+    removeTreeRoot: ['sidebarTreeController', 'removeRoot'],
+    renderSidebarTree: ['sidebarTreeController', 'render'],
+    _bindTreeEvents: ['sidebarTreeController', 'bind'],
+    _syncTreeSelection: ['sidebarTreeController', 'syncSelection'],
+    _syncTreeToCurrentPath: ['sidebarTreeController', 'syncToCurrentPath'],
+    navigateTo: ['directoryNavigationController', 'navigateTo'],
+    goBack: ['directoryNavigationController', 'goBack'],
+    goForward: ['directoryNavigationController', 'goForward'],
+    goUp: ['directoryNavigationController', 'goUp'],
+    getParentPath: ['directoryNavigationController', 'getParentPath'],
+    updateBreadcrumbs: ['directoryNavigationController', 'updateBreadcrumbs'],
+    updateNavButtons: ['directoryNavigationController', 'updateNavButtons'],
+    reconcileFileKeyboardFocus: ['directorySelectionController', 'reconcileFileKeyboardFocus'],
+    bindCardEvents: ['directorySelectionController', 'bindCardEvents'],
+    bindCardElements: ['directorySelectionController', 'bindCardElements'],
+    transferProgressHtml: ['fileTransferController', 'transferProgressHtml'],
+    transferPlanHtml: ['fileTransferController', 'transferPlanHtml'],
+    executeTransferWithProgress: ['fileTransferController', 'executeTransferWithProgress'],
+    openTransferReview: ['fileTransferController', 'openTransferReview'],
+    changeTransferConflictPolicy: ['fileTransferController', 'changeTransferConflictPolicy'],
+    setTransferStructureRiskAcknowledged: ['fileTransferController', 'setStructureRiskAcknowledged'],
+    renderTransferReview: ['fileTransferController', 'renderTransferReview'],
+    applyReviewedTransfer: ['fileTransferController', 'applyReviewedTransfer'],
+    handleTransferReviewCancel: ['fileTransferController', 'handleTransferReviewCancel'],
+    closeTransferReview: ['fileTransferController', 'closeTransferReview'],
+    openExternalImportPreview: ['fileTransferController', 'openExternalImportPreview'],
+    renderExternalImportPreview: ['fileTransferController', 'renderExternalImportPreview'],
+    applyExternalImport: ['fileTransferController', 'applyExternalImport'],
+    closeExternalImportModal: ['fileTransferController', 'closeExternalImportModal'],
+    handleExternalImportCancel: ['fileTransferController', 'handleExternalImportCancel'],
+    handleVirtualizedListKeyboardNavigation: ['directorySelectionController', 'handleVirtualizedListKeyboardNavigation'],
+    handleFileKeyboardNavigation: ['directorySelectionController', 'handleFileKeyboardNavigation'],
+    handleFileSelectionClick: ['directorySelectionController', 'handleFileSelectionClick'],
+    syncFileSelectionUI: ['directorySelectionController', 'syncFileSelectionUI'],
+    syncFileItemElement: ['directorySelectionController', 'syncFileItemElement'],
+    clearFileSelection: ['directorySelectionController', 'clearFileSelection'],
+    selectSingleFileItem: ['directorySelectionController', 'selectSinglePath'],
+    showFileSelectionDetail: ['fileSelectionDetailController', 'show'],
+    updateFileActionBar: ['fileActionBarController', 'update'],
+    loadFileOperationHistory: ['fileOperationController', 'loadHistory'],
+    openFileOperationDialog: ['fileOperationDialogController', 'open'],
+    submitFileOperationDialog: ['fileOperationDialogController', 'submit'],
+    copySelectedItems: ['fileOperationController', 'copySelectedItems'],
+    copySelectedPathnames: ['fileOperationController', 'copySelectedPathnames'],
+    cutSelectedItems: ['fileOperationController', 'cutSelectedItems'],
+    pasteFileClipboard: ['fileOperationController', 'pasteFileClipboard'],
+    duplicateSelectedItems: ['fileOperationController', 'duplicateSelectedItems'],
+    ensureFileItemVisible: ['directorySelectionController', 'ensureFileItemVisible'],
+    undoLastFileOperation: ['fileOperationController', 'undoLastFileOperation'],
+    redoLastFileOperation: ['fileOperationController', 'redoLastFileOperation'],
+    runFileOperation: ['fileOperationController', 'run'],
+    getEditActionContext: ['fileOperationController', 'getEditActionContext'],
+    handleEditAction: ['fileOperationController', 'handleEditAction'],
+    selectAllVisibleFiles: ['directorySelectionController', 'selectAllVisibleFiles'],
+    selectRepo: ['repositoryDetailController', 'select'],
+    cancelRepoSelection: ['repositoryDetailController', 'cancel'],
+    showDetailError: ['repositoryDetailController', 'showError'],
+    updateDetailSections: ['repositoryDetailController', 'updateSections'],
+    applyDetailSectionOrder: ['repositoryDetailController', 'applySectionOrder'],
+    saveDetailSectionOrder: ['repositoryDetailController', 'saveSectionOrder'],
+    setupDetailSectionDrag: ['repositoryDetailController', 'setupSectionDrag'],
+    updateDetailPanel: ['repositoryDetailController', 'render']
+  });
+
+  function installDelegates(app, controllers = app) {
+    const entries = Object.entries(DELEGATE_MAP);
+    for (const [publicName] of entries) {
+      if (publicName in app) {
+        throw new Error(`兼容入口已存在：${publicName}`);
+      }
+    }
+    for (const [, [controllerKey, methodName]] of entries) {
+      if (typeof controllers[controllerKey]?.[methodName] !== 'function') {
+        throw new Error(`兼容入口目标缺失：${controllerKey}.${methodName}`);
+      }
+    }
+    for (const [publicName, [controllerKey, methodName]] of entries) {
+      Object.defineProperty(app, publicName, {
+        configurable: true,
+        enumerable: true,
+        writable: true,
+        value(...args) {
+          return controllers[controllerKey][methodName](...args);
+        }
+      });
+    }
+    return app;
+  }
 
   function create({ app, state, host, document, terminal = null }) {
     const bridge = host.gitFinder;
@@ -92,8 +193,9 @@
       }
     });
     add('workspaceTabOverflowController', 'WorkspaceTabOverflowController', ['document', 'window'], {}, 'mount');
+    installDelegates(app, controllers);
     return controllers;
   }
 
-  return Object.freeze({ CONTROLLER_KEYS, CONTROLLER_NAMESPACES, BOUND_CONTROLLER_KEYS, create });
+  return Object.freeze({ CONTROLLER_KEYS, CONTROLLER_NAMESPACES, BOUND_CONTROLLER_KEYS, DELEGATE_MAP, installDelegates, create });
 });

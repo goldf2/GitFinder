@@ -182,9 +182,12 @@ test('页面先加载名称对话框控制器，App 只保留兼容委托', () =
   const html = fs.readFileSync(path.join(root, 'src/renderer/index.html'), 'utf8');
   const appSource = fs.readFileSync(path.join(root, 'src/renderer/scripts/app.js'), 'utf8');
   assert.ok(html.indexOf('scripts/fileOperationDialogController.js') < html.indexOf('scripts/app.js'));
-  assert.ok(require('../src/renderer/scripts/appControllerRegistry').CONTROLLER_NAMESPACES.includes('FileOperationDialogController'));
-  assert.match(appSource, /return this\.fileOperationDialogController\.open\(options\)/);
-  assert.match(appSource, /return this\.fileOperationDialogController\.submit\(\)/);
-  assert.match(appSource, /return this\.fileOperationDialogController\.close\(value\)/);
+  const registry = require('../src/renderer/scripts/appControllerRegistry');
+  assert.ok(registry.CONTROLLER_NAMESPACES.includes('FileOperationDialogController'));
+  assert.deepEqual(registry.DELEGATE_MAP.openFileOperationDialog, ['fileOperationDialogController', 'open']);
+  assert.deepEqual(registry.DELEGATE_MAP.submitFileOperationDialog, ['fileOperationDialogController', 'submit']);
+  assert.equal(registry.DELEGATE_MAP.closeFileOperationDialog, undefined);
+  assert.doesNotMatch(appSource, /openFileOperationDialog\(options\) \{/);
+  assert.match(appSource, /closeFileOperationDialog\(value\) \{\s*return this\.fileOperationDialogController\.close\(value\);/);
   assert.doesNotMatch(appSource, /_fileOperationDialogResolve/);
 });

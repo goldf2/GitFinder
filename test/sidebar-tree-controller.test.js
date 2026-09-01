@@ -272,7 +272,9 @@ test('控制器在 App 之前加载，主对象只保留位置树兼容委托', 
   const appSource = fs.readFileSync(path.join(projectRoot, 'src/renderer/scripts/app.js'), 'utf8');
 
   assert.match(html, /sidebarTreeController\.js[\s\S]*app\.js/);
-  assert.ok(require('../src/renderer/scripts/appControllerRegistry').CONTROLLER_NAMESPACES.includes('SidebarTreeController'));
-  assert.match(appSource, /renderSidebarTree\(\) \{\s*return this\.sidebarTreeController\.render\(\);/);
+  const registry = require('../src/renderer/scripts/appControllerRegistry');
+  assert.ok(registry.CONTROLLER_NAMESPACES.includes('SidebarTreeController'));
+  assert.deepEqual(registry.DELEGATE_MAP.renderSidebarTree, ['sidebarTreeController', 'render']);
+  assert.doesNotMatch(appSource, /renderSidebarTree\(\) \{/);
   assert.doesNotMatch(appSource, /getMountedVolumes\(\)/);
 });

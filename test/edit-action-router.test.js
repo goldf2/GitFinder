@@ -54,6 +54,7 @@ test('应用菜单、受信原生桥和渲染层文件路由完整连接', () =>
   const html = fs.readFileSync(path.join(projectRoot, 'src/renderer/index.html'), 'utf8');
   const appSource = fs.readFileSync(path.join(projectRoot, 'src/renderer/scripts/app.js'), 'utf8');
   const controllerSource = fs.readFileSync(path.join(projectRoot, 'src/renderer/scripts/fileOperationController.js'), 'utf8');
+  const registry = require('../src/renderer/scripts/appControllerRegistry');
 
   assert.ok(html.indexOf('scripts/editActionRouter.js') < html.indexOf('scripts/app.js'));
   assert.ok(html.indexOf('scripts/fileOperationController.js') < html.indexOf('scripts/app.js'));
@@ -70,9 +71,9 @@ test('应用菜单、受信原生桥和渲染层文件路由完整连接', () =>
   assert.match(fileOperationsIpc, /registerTrustedHandler\('fileOps:redo'/);
   assert.match(appSource, /action\.startsWith\('edit:'\)/);
   assert.match(appSource, /EditActionRouter\.shortcutAction\(event, window\.gitFinder\.platform\)/);
-  assert.match(appSource, /redoLastFileOperation\(\)/);
-  assert.match(appSource, /selectAllVisibleFiles\(\)/);
-  assert.ok(require('../src/renderer/scripts/appControllerRegistry').CONTROLLER_NAMESPACES.includes('FileOperationController'));
+  assert.deepEqual(registry.DELEGATE_MAP.redoLastFileOperation, ['fileOperationController', 'redoLastFileOperation']);
+  assert.deepEqual(registry.DELEGATE_MAP.selectAllVisibleFiles, ['directorySelectionController', 'selectAllVisibleFiles']);
+  assert.ok(registry.CONTROLLER_NAMESPACES.includes('FileOperationController'));
   assert.match(controllerSource, /this\.bridge\.fileOps\.redo\(operation\.id\)/);
   assert.match(controllerSource, /this\.editActionRouter\.route/);
 });
