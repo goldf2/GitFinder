@@ -190,3 +190,16 @@ test('菜单具备浮层、选中态、禁用态和窄窗口自适应样式', ()
   assert.match(css, /\.finder-menu-item:disabled/);
   assert.match(css, /@media\s*\(max-width:\s*900px\)/);
 });
+
+test('排列工具栏复用 Finder 原语，不保留旧并排按钮外观', () => {
+  assert.match(html, /class="finder-toolbar-button" id="btn-refresh"/);
+  assert.match(contentCss, /\.sort-divider\s*\{/);
+  assert.match(contentCss, /\.sort-bar \.finder-menu \.sort-btn/);
+  for (const selector of ['.sort-label', '.sort-options', '.group-options', '.group-btn',
+    '.sort-direction', '.card-style-switch']) {
+    assert.doesNotMatch(contentCss, new RegExp(selector.replace('.', '\\.')));
+  }
+  assert.doesNotMatch(contentCss, /(^|\n)\.dir-btn\s*\{/);
+  assert.doesNotMatch(contentCss, /(^|\n)\.style-btn\s*\{/);
+  assert.doesNotMatch(contentCss, /\.group-btn,\s*\n\.sort-btn\s*\{/);
+});

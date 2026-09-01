@@ -361,10 +361,6 @@
   text-decoration-thickness: 1px;
 }
 
-.sidebar-item .folder-icon {
-  color: var(--accent-primary);
-}
-
 .sidebar-item .repo-icon {
   color: var(--status-clean);
 }
