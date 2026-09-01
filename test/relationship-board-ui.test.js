@@ -1017,7 +1017,7 @@ test('白板筛选采用锚定弹层并在工具栏只保留一个入口', () =>
   assert.match(toolbarViewSource, /name="verification"/);
   assert.match(toolbarViewSource, /name="mode"/);
   assert.match(toolbarViewSource, /name="projection"/);
-  assert.match(relationshipCss, /\.relationship-filter-popover\s*\{[^}]*position:\s*absolute/s);
+  assert.match(relationshipCss, /\.relationship-display-popover,\s*\.relationship-filter-popover\s*\{[^}]*position:\s*absolute/s);
   assert.doesNotMatch(boardRendererSource, /data-relationship-action="filter-(project|repository|server)"/);
 });
 
