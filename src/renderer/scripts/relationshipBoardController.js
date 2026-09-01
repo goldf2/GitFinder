@@ -2278,10 +2278,6 @@
       return [...changed];
     }
 
-    _groupDepth(entityId, placements = this._combinedPlacements(), index = LayoutPrimitives.indexPlacements(placements)) {
-      return index.depth(entityId);
-    }
-
     _canJoinGroup(entityId, groupId, context = {}) {
       if (!groupId) return true;
       const entities = context.entities || this._allEntitiesById();
@@ -4046,6 +4042,7 @@
       const model = globalThis.RelationshipCanvasEngine.toFlowModel(this._flowGraphInput(graph, topologyAlerts), {
         cardWidth: dimensions.width,
         cardHeight: dimensions.height,
+        showRuntimeStatus: this._displayViewSettings().showRuntimeStatus,
         selectedIds: this._entitySelectionIds(),
         selectedRelationshipId: this.selectedRelationshipId,
         directIds: graph.directIds,
@@ -4092,7 +4089,8 @@
       return true;
     }
 
-    _renderGraph() {
+    _renderGraph(before) {
+      if (before) this._reflowDisplayLayout(before);
       if (!this._renderFlowGraph()) {
         throw new Error('React Flow 关系白板引擎未加载');
       }
@@ -4205,13 +4203,6 @@
       if (annotations.titleMode === 'prefix') return `${annotations.titleText} · ${originalName}`;
       if (annotations.titleMode === 'suffix') return `${originalName} · ${annotations.titleText}`;
       return originalName;
-    }
-
-    _cardShowsRuntimeStatus(placement) {
-      const annotations = normalizePlacementAnnotations(placement || {});
-      if (annotations.statusVisibility === 'show') return true;
-      if (annotations.statusVisibility === 'hide') return false;
-      return this._displayViewSettings().showRuntimeStatus;
     }
 
     _entityDisplaySubtitle(entity, subtitle) {
@@ -5165,12 +5156,6 @@
         </div>
         <small>背景以浅色显示，保留卡片可读性。拖动群组会带上全部子群组和卡片。</small>
       </section>`;
-    }
-
-    _zoomViewport(zoom, anchorX, anchorY) {
-      if (!this.flowCanvas?.zoomTo) return;
-      const nextZoom = Math.min(8, Math.max(0.03, zoom));
-      void this.flowCanvas.zoomTo(nextZoom, { duration: 140 });
     }
 
     _applyViewport() {

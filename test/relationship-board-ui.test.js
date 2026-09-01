@@ -792,13 +792,12 @@ test('单卡标题来源和状态可覆盖白板默认且继续支持别名重�
   };
 
   assert.equal(controller._entityDisplayName(controller.store.entities[0]), '生产主站 · 华东');
-  assert.equal(controller._cardShowsRuntimeStatus(controller.store.boards[0].placements[0]), false);
   controller.store.boards[0].placements[0].titleSource = 'name';
   controller.store.boards[0].placements[0].statusVisibility = 'show';
   assert.equal(controller._entityDisplayName(controller.store.entities[0]), 'MES production · 华东');
-  assert.equal(controller._cardShowsRuntimeStatus(controller.store.boards[0].placements[0]), true);
   assert.match(controllerSource, /name="placementTitleSource"/);
   assert.match(controllerSource, /name="placementStatusVisibility"/);
+  assert.match(controllerSource, /showRuntimeStatus: this\._displayViewSettings\(\)\.showRuntimeStatus/);
 });
 
 test('部署节点用结构化版本上下文生成可扫描副标题', () => {

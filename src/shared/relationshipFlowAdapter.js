@@ -21,6 +21,12 @@
     return 'inactive';
   }
 
+  function showsRuntimeStatus(placement = {}, fallback = true) {
+    if (placement.statusVisibility === 'show') return true;
+    if (placement.statusVisibility === 'hide') return false;
+    return fallback !== false;
+  }
+
   function depthOf(placement, byId, seen = new Set()) {
     if (!placement?.groupId || seen.has(placement.entityId)) return 0;
     seen.add(placement.entityId);
@@ -219,6 +225,7 @@
           isProjectContainer: isProjectGroup(entity),
           linkedNodeIds: Array.isArray(linked) ? [...linked] : [placement.entityId],
           tone: statusTone(entity),
+          showRuntimeStatus: showsRuntimeStatus(placement, options.showRuntimeStatus),
           filterState: mutedIds.has(placement.entityId) ? 'muted'
             : (contextualIds.has(placement.entityId) ? 'context' : (directIds.has(placement.entityId) ? 'match' : ''))
         }
@@ -277,6 +284,7 @@
     toFlowModel,
     toPlacements,
     statusTone,
+    showsRuntimeStatus,
     constrainProjectNodes,
     movementRoots,
     applyLinkedDrag,

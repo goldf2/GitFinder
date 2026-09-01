@@ -84,7 +84,10 @@ document.querySelector('#check-toolbar').addEventListener('click', async event =
       for (let frame = 0; frame < 60; frame++) {
         groupController.endpointChecksPending = frame % 3 === 0 ? 18 : frame % 3 === 1 ? 1 : 0;
         groupController._updateEndpointCheckStatus();
-        groupController._zoomViewport(0.05 * 50 ** ((Math.sin(frame / 6) + 1) / 2), canvas.clientWidth / 2, canvas.clientHeight / 2);
+        void groupController.flowCanvas?.zoomTo(
+          Math.min(8, Math.max(0.03, 0.05 * 50 ** ((Math.sin(frame / 6) + 1) / 2))),
+          { duration: 140 }
+        );
         groupController._setSaveState(frame % 2 ? 'saved' : 'saving');
         await new Promise(requestAnimationFrame);
         const current = bounds();

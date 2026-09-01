@@ -42,6 +42,20 @@ test('转换为 React Flow 模型时父容器在子节点之前，子节点使�
   assert.deepEqual(graph, before, '适配不得修改白板数据');
 });
 
+test('运行状态显示继承白板设置并允许单卡覆盖', () => {
+  const graph = fixture();
+  const placement = graph.placements.find(item => item.entityId === 'deployment');
+
+  let node = Adapter.toFlowModel(graph, { showRuntimeStatus: false }).nodes.find(item => item.id === 'deployment');
+  assert.equal(node.data.showRuntimeStatus, false);
+  placement.statusVisibility = 'show';
+  node = Adapter.toFlowModel(graph, { showRuntimeStatus: false }).nodes.find(item => item.id === 'deployment');
+  assert.equal(node.data.showRuntimeStatus, true);
+  placement.statusVisibility = 'hide';
+  node = Adapter.toFlowModel(graph, { showRuntimeStatus: true }).nodes.find(item => item.id === 'deployment');
+  assert.equal(node.data.showRuntimeStatus, false);
+});
+
 test('Project 内部署拖动时吸附到同级对齐线并保持显示设置间距', () => {
   const graph = fixture();
   graph.entities.push({ id: 'deployment-b', type: 'deployment', name: '预览部署', details: {} });

@@ -174,7 +174,7 @@ const RelationshipCard = memo(function RelationshipCard({ id, data, selected }) 
         <small>{entityKind(entity.type)}</small>
         <strong title={entity.name}>{entity.name}</strong>
       </span>
-      <span className="gf-flow-status"><i />{tone === 'healthy' ? '正常' : tone === 'warning' ? '预警' : '停止/未知'}</span>
+      {data.showRuntimeStatus ? <span className="gf-flow-status"><i />{tone === 'healthy' ? '正常' : tone === 'warning' ? '预警' : '停止/未知'}</span> : null}
     </header>
     <p className="gf-flow-card-subtitle" title={subtitle}>{subtitle || '暂无详细信息'}</p>
     {deploymentMeta.length ? <div className="gf-flow-deployment-signals">{deploymentMeta.map(signal => <span key={signal}>{signal}</span>)}</div> : null}
