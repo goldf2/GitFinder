@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const ActionRouter = require('../src/renderer/scripts/relationshipBoardActionRouter');
+const controllerSource = fs.readFileSync(path.join(__dirname, '../src/renderer/scripts/relationshipBoardController.js'), 'utf8');
 globalThis.RelationshipGraphModel = require('../src/shared/relationshipGraphModel');
 const { Controller } = require('../src/renderer/scripts/relationshipBoardController');
 
@@ -35,6 +36,27 @@ test('直接动作复用参数路由且排列后不再额外整页重绘', () =>
   controller._saveDocument = value => calls.push(['save', value]);
   controller._handleClick({ target: clickTarget('save-document-as') });
   assert.deepEqual(calls.at(-1), ['save', true]);
+});
+
+test('控制器只保留点击委托，数据目标由动作路由统一分发', () => {
+  const handler = controllerSource.match(/    _handleClick\(event\) \{[\s\S]*?\n    \}/)?.[0] || '';
+  assert.match(handler, /return ActionRouter\.handleClick\(this, event\)/);
+  assert.doesNotMatch(handler, /data-|querySelector|closest/);
+  assert.equal(typeof ActionRouter.handleClick, 'function');
+
+  const controller = new Controller({ bridge: {} });
+  const calls = [];
+  controller._setPanelSide = (...args) => calls.push(['side', ...args]);
+  controller._handleClick({ target: { closest: selector => selector === '[data-panel-side]'
+    ? { dataset: { panelKey: 'library', panelSide: 'right' } } : null } });
+  assert.deepEqual(calls.pop(), ['side', 'library', 'right']);
+
+  controller._closeContextMenu = controller._closeLayoutMenu = () => {};
+  controller.resourceMap.set('project:one', { key: 'project:one' });
+  controller._addResource = resource => calls.push(['resource', resource.key]);
+  controller._handleClick({ target: { closest: selector => selector === '[data-add-resource]'
+    ? { dataset: { addResource: 'project:one' } } : null } });
+  assert.deepEqual(calls.pop(), ['resource', 'project:one']);
 });
 
 test('正式页面和全部白板夹具均先加载动作路由再加载控制器', () => {
