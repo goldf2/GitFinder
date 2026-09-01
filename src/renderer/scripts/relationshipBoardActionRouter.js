@@ -25,6 +25,14 @@
     'create-group-from-selection': ['_createGroupFromSelection'], 'remove-selection-group': ['_removeSelectionFromGroups']
   });
   const DISMISS_MENU_ACTIONS = new Set(['new-board', 'rename-board', 'undo', 'redo', 'fit', 'reset-dynamic-layout', 'server-tree']);
+  const MOVE_DIRECTIONS = Object.freeze({
+    w: [0, -1], ArrowUp: [0, -1], s: [0, 1], ArrowDown: [0, 1],
+    a: [-1, 0], ArrowLeft: [-1, 0], d: [1, 0], ArrowRight: [1, 0]
+  });
+  const SELECT_ROUTES = Object.freeze([
+    ['select[data-selected-group-shape]', 'selectedGroupShape', '_setGroupShape'],
+    ['select[data-selected-group-appearance]', 'selectedGroupAppearance', '_setGroupAppearance']
+  ]);
 
   function resolve(action) {
     return ACTIONS[String(action || '')] || null;
@@ -43,6 +51,114 @@
     if (!event.target.closest('.relationship-filter-host')) controller._closeFilterPopover();
     if (!event.target.closest('.relationship-menu-host')) controller._closeAddMenu();
     if (!event.target.closest('.relationship-display-host')) controller._closeDisplayPopover();
+  }
+
+  function routeViewForm(controller, event, commitDisplay = false) {
+    const displayForm = event.target.closest('[data-relationship-display-form]');
+    if (displayForm) {
+      controller._updateBoardDisplayFromForm(displayForm);
+      if (commitDisplay) controller.displayLayoutEdit = null; return true;
+    }
+    const filterForm = event.target.closest('[data-relationship-filter-form]');
+    if (!filterForm) return false;
+    controller._updateBoardViewFromForm(filterForm);
+    return true;
+  }
+
+  function handleChange(controller, event) {
+    const target = event.target;
+    const routedSelect = SELECT_ROUTES.find(([selector]) => target.matches(selector));
+    if (routedSelect) {
+      const [, dataKey, method] = routedSelect;
+      controller[method](target.dataset[dataKey], target.value);
+      return;
+    }
+    if (target.matches('[data-project-endpoints]')) {
+      controller._setProjectEndpoints(target.checked); return;
+    }
+    if (target.matches('[data-relationship-snap-mode]')) {
+      const board = activeBoard(controller);
+      if (!board) return;
+      board.view = { ...controller._boardView(), snapMode: String(target.value || 'smart') };
+      controller._persistSoon(0); return;
+    }
+    if (routeViewForm(controller, event, true)) return;
+    if (target.id !== 'relationship-board-select') return;
+    if (!controller.store.boards.some(board => board.id === target.value)) return;
+    controller.store.activeBoardId = target.value;
+    controller.inspectorPinned = false;
+    controller._clearEntitySelection();
+    controller.selectedRelationshipId = '';
+    controller._persistSoon(0); controller._setPanelTopology(controller.panelTopologyResult); controller.render();
+  }
+
+  function handleInput(controller, event) {
+    const target = event.target;
+    if (target.matches('[data-project-endpoints]') || routeViewForm(controller, event)) return;
+    if (target.matches('.relationship-resource-search input')) {
+      controller.resourceSearch = target.value; controller._renderResources(); return;
+    }
+    const form = target.closest('[data-relationship-inspector-form], [data-relationship-annotation-form]');
+    if (!form) return;
+    form.classList.add('is-dirty');
+    const saveButton = form.querySelector('[data-inspector-save]');
+    if (saveButton) saveButton.disabled = false;
+    const error = form.querySelector('.relationship-inspector-error');
+    if (error) error.textContent = '';
+  }
+
+  function handleSubmit(controller, event) {
+    const form = event.target.closest('[data-relationship-inspector-form], [data-relationship-annotation-form]');
+    if (!form) return;
+    event.preventDefault();
+    controller[form.matches('[data-relationship-annotation-form]') ? '_saveAnnotationForm' : '_saveInspectorForm'](form);
+  }
+
+  function handleDragStart(controller, event) {
+    const handle = event.target.closest('[data-panel-drag]');
+    if (handle) {
+      controller.draggedPanelKey = handle.dataset.panelDrag;
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('application/x-gitfinder-panel', controller.draggedPanelKey);
+      controller.root.classList.add('panel-drag-active'); controller.panelSidebarRoot?.classList.add('panel-drag-active'); return;
+    }
+    const item = event.target.closest('[data-resource-key]');
+    if (!item) return;
+    const key = item.dataset.resourceKey;
+    event.dataTransfer.effectAllowed = 'copy';
+    event.dataTransfer.setData('application/x-gitfinder-relationship-resource', key);
+    event.dataTransfer.setData('text/plain', key);
+  }
+
+  function handleDragOver(controller, event) {
+    if (controller.draggedPanelKey && event.target.closest('[data-panel-dock]')) {
+      event.preventDefault(); event.dataTransfer.dropEffect = 'move'; return;
+    }
+    if (!event.target.closest('.relationship-canvas')) return;
+    if (!event.dataTransfer.types.includes('application/x-gitfinder-relationship-resource') && !event.dataTransfer.types.includes('Files')) return;
+    event.preventDefault(); event.dataTransfer.dropEffect = 'copy';
+  }
+
+  function handleDrop(controller, event) {
+    if (controller.draggedPanelKey) {
+      const dock = event.target.closest('[data-panel-dock]');
+      if (dock) {
+        event.preventDefault();
+        controller._setPanelSide(controller.draggedPanelKey, dock.dataset.panelDock, event.target.closest('[data-panel-id]')?.dataset.panelId);
+      }
+      controller._clearPanelDrag(); return;
+    }
+    if (!event.target.closest('.relationship-canvas')) return;
+    if (event.dataTransfer.files?.length) {
+      event.preventDefault(); event.stopPropagation();
+      const paths = [...event.dataTransfer.files].map(file => controller.bridge.fs?.getPathForFile(file)).filter(Boolean);
+      void controller._addFiles(paths, controller._clientToWorld(event.clientX, event.clientY)); return;
+    }
+    const key = event.dataTransfer.getData('application/x-gitfinder-relationship-resource');
+    const resource = controller.resourceMap.get(key);
+    if (!resource) return;
+    event.preventDefault();
+    controller._addResource(resource, controller._clientToWorld(event.clientX, event.clientY));
   }
 
   function handleClick(controller, event) {
@@ -272,5 +388,99 @@
     closeOutsideMenus(controller, event);
   }
 
-  return Object.freeze({ ACTIONS, resolve, dismissesTransientMenus, handleClick });
+  function handleKeydown(controller, event) {
+    if (!controller.root?.isConnected || event.defaultPrevented || event.isComposing || event.keyCode === 229) return;
+    if (controller._handleContextMenuKeydown(event)) return;
+    const layoutMenu = controller.root.querySelector('.relationship-layout-menu:not([hidden])');
+    if (layoutMenu && !layoutMenu.hidden) {
+      if (event.key === 'Escape') { event.preventDefault(); controller._closeLayoutMenu(true); return; }
+      if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
+        event.preventDefault();
+        const buttons = [...layoutMenu.querySelectorAll('button:not(:disabled)')], current = buttons.indexOf(controller.root.ownerDocument.activeElement);
+        const index = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1
+          : (current + (event.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length;
+        buttons[index]?.focus(); return;
+      }
+      if (event.key === 'Tab') controller._closeLayoutMenu();
+    }
+    const editing = event.target?.isContentEditable
+      || event.target?.closest?.('input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"]');
+    const mod = event.metaKey || event.ctrlKey;
+    if (event.key === 'Escape' && !controller.root.querySelector('.relationship-filter-popover')?.hidden) {
+      event.preventDefault();
+      controller._closeFilterPopover();
+      controller.root.querySelector('.relationship-filter-trigger')?.focus();
+      return;
+    }
+    if (mod && event.key.toLowerCase() === 'z' && !editing) {
+      event.preventDefault();
+      if (event.shiftKey) controller.redo(); else controller.undo(); return;
+    }
+    if (mod && event.key.toLowerCase() === 'g' && !editing) {
+      event.preventDefault();
+      if (event.shiftKey) controller._removeSelectionFromGroups(); else controller._createGroupFromSelection(); return;
+    }
+    if (editing) return;
+    if (event.key === 'Escape') {
+      controller._clearEntitySelection();
+      controller.selectedRelationshipId = '';
+      controller._updateSelectionCss();
+      return;
+    }
+    if ((event.key === 'Delete' || event.key === 'Backspace')
+      && (controller._entitySelectionIds().size || controller.selectedRelationshipId)) {
+      event.preventDefault(); controller._deleteSelection(); return;
+    }
+    const canvas = event.target?.closest?.('.relationship-canvas');
+    if (!canvas || mod
+      || event.target?.closest?.('button, a, [role="menu"], [role="menuitem"], [role="slider"]')
+      || controller.root.querySelector('.relationship-display-popover:not([hidden]), .relationship-filter-popover:not([hidden]), .relationship-add-menu:not([hidden])')
+      || Array.from(controller.root.ownerDocument?.querySelectorAll('[role="dialog"][aria-modal="true"]') || [])
+        .some(dialog => dialog.getClientRects().length > 0)) return;
+    const direction = MOVE_DIRECTIONS[event.key.length === 1 ? event.key.toLowerCase() : event.key];
+    if (direction && !event.altKey) {
+      const board = activeBoard(controller);
+      if (!board) return;
+      event.preventDefault(); event.stopImmediatePropagation();
+      const step = event.shiftKey ? 120 : 40;
+      board.viewport.x -= direction[0] * step; board.viewport.y -= direction[1] * step;
+      controller._applyViewport(); controller._persistSoon(220); return;
+    }
+    const selectedIds = controller._entitySelectionIds();
+    if (!event.altKey || !selectedIds.size
+      || !['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) return;
+    event.preventDefault(); event.stopImmediatePropagation();
+    const movingIds = new Set(controller._movingEntityIds(controller.selectedEntityId || selectedIds.values().next().value));
+    const linkedMovement = [...movingIds].some(id => controller._placementForEntity(id)?.moveWithDescendants);
+    if (linkedMovement && controller._linkedMoveBlocked(movingIds)) return;
+    for (const id of [...movingIds]) if (controller._placementForEntity(id)?.locked) movingIds.delete(id);
+    const board = activeBoard(controller);
+    const persistentIds = new Set(board.placements.filter(item => movingIds.has(item.entityId)).map(item => item.entityId));
+    const dynamicIds = new Set((controller.panelProjection?.placements || [])
+      .filter(item => item.dynamic && movingIds.has(item.entityId)).map(item => item.entityId));
+    const placements = controller._combinedPlacements().filter(item => movingIds.has(item.entityId));
+    if (!placements.length) return;
+    if (persistentIds.size || linkedMovement) controller._recordMutation();
+    const geometry = linkedMovement ? controller._displayGeometryMap(controller._combinedPlacements()) : null;
+    const linkedChangedIds = linkedMovement ? controller._prepareLinkedMove([...movingIds], geometry) : [];
+    const step = event.shiftKey ? 24 : 8;
+    const offsets = MOVE_DIRECTIONS[event.key].map(value => value * step);
+    for (const placement of placements) {
+      const rect = geometry?.get(placement.entityId);
+      if (rect) { placement.x = rect.x; placement.y = rect.y; }
+      placement.x += offsets[0]; placement.y += offsets[1];
+    }
+    if (persistentIds.size) controller._persistSoon(80);
+    if (dynamicIds.size) controller._saveDynamicPlacementOverrides(dynamicIds);
+    if (linkedChangedIds.length) {
+      controller._saveDynamicPlacementOverrides(linkedChangedIds); controller._persistSoon(0);
+    }
+    controller._renderGraph(); controller._refreshHistoryButtons(); controller._updateSummary();
+  }
+
+  return Object.freeze({
+    ACTIONS, resolve, dismissesTransientMenus,
+    handleClick, handleChange, handleInput, handleSubmit,
+    handleDragStart, handleDragOver, handleDrop, handleKeydown
+  });
 });

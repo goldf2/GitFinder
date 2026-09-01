@@ -8,6 +8,7 @@ const read = relativePath => fs.readFileSync(path.join(projectRoot, relativePath
 const html = read('src/renderer/index.html');
 const appSource = read('src/renderer/scripts/app.js');
 const controllerSource = read('src/renderer/scripts/relationshipBoardController.js');
+const actionRouterSource = read('src/renderer/scripts/relationshipBoardActionRouter.js');
 const resourceViewSource = read('src/renderer/scripts/relationshipBoardResourceView.js');
 const toolbarViewSource = read('src/renderer/scripts/relationshipBoardToolbarView.js');
 const boardRendererSource = `${controllerSource}\n${resourceViewSource}\n${toolbarViewSource}`;
@@ -279,7 +280,7 @@ test('全局导航保留，资源库及详情作为可折叠、左右停靠的�
   assert.match(controllerSource, /data-panel-collapse="library"/);
   assert.match(controllerSource, /data-panel-collapse="inspector"/);
   assert.match(controllerSource, /data-panel-dock="right"/);
-  assert.match(controllerSource, /application\/x-gitfinder-panel/);
+  assert.match(actionRouterSource, /application\/x-gitfinder-panel/);
   assert.match(relationshipCss, /\.relationship-panel-dock > \.relationship-dock-component\s*\{[^}]*position:\s*static;/s);
   assert.match(relationshipCss, /\.relationship-panel-dock \.relationship-title-alias-editor\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\)/s);
   assert.match(relationshipCss, /\.relationship-inspector-field\s*\{[^}]*min-width:\s*0/s);

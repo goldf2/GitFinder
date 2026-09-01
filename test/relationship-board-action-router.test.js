@@ -38,11 +38,17 @@ test('直接动作复用参数路由且排列后不再额外整页重绘', () =>
   assert.deepEqual(calls.at(-1), ['save', true]);
 });
 
-test('控制器只保留点击委托，数据目标由动作路由统一分发', () => {
-  const handler = controllerSource.match(/    _handleClick\(event\) \{[\s\S]*?\n    \}/)?.[0] || '';
-  assert.match(handler, /return ActionRouter\.handleClick\(this, event\)/);
-  assert.doesNotMatch(handler, /data-|querySelector|closest/);
-  assert.equal(typeof ActionRouter.handleClick, 'function');
+test('控制器只保留兼容入口，DOM 事件由动作路由统一分发', () => {
+  for (const [suffix, method] of Object.entries({ Click: 'handleClick', Keydown: 'handleKeydown' })) {
+    const handler = controllerSource.match(new RegExp(`    _handle${suffix}\\(event\\) \\{[\\s\\S]*?\\n    \\}`))?.[0] || '';
+    assert.match(handler, new RegExp(`return ActionRouter\\.${method}\\(this, event\\)`));
+    assert.doesNotMatch(handler, /data-|querySelector|closest/);
+    assert.equal(typeof ActionRouter[method], 'function');
+  }
+  for (const method of ['handleChange', 'handleInput', 'handleSubmit', 'handleDragStart', 'handleDragOver', 'handleDrop']) {
+    assert.match(controllerSource, new RegExp(`ActionRouter\\.${method}\\(this, event\\)`));
+    assert.equal(typeof ActionRouter[method], 'function');
+  }
 
   const controller = new Controller({ bridge: {} });
   const calls = [];
@@ -57,6 +63,33 @@ test('控制器只保留点击委托，数据目标由动作路由统一分发',
   controller._handleClick({ target: { closest: selector => selector === '[data-add-resource]'
     ? { dataset: { addResource: 'project:one' } } : null } });
   assert.deepEqual(calls.pop(), ['resource', 'project:one']);
+});
+
+test('变更、输入和提交事件复用同一动作路由边界', () => {
+  const controller = new Controller({ bridge: {} });
+  const calls = [];
+  controller._setGroupShape = (...args) => calls.push(['shape', ...args]);
+  ActionRouter.handleChange(controller, { target: {
+    dataset: { selectedGroupShape: 'group-one' }, value: 'polygon',
+    matches: selector => selector === 'select[data-selected-group-shape]'
+  } });
+  assert.deepEqual(calls.pop(), ['shape', 'group-one', 'polygon']);
+
+  controller._renderResources = () => calls.push(['resources']);
+  ActionRouter.handleInput(controller, { target: {
+    value: 'panel',
+    matches: selector => selector === '.relationship-resource-search input',
+    closest: () => null
+  } });
+  assert.equal(controller.resourceSearch, 'panel');
+  assert.deepEqual(calls.pop(), ['resources']);
+
+  const form = { matches: selector => selector === '[data-relationship-annotation-form]' };
+  controller._saveAnnotationForm = value => calls.push(['annotation', value]);
+  let prevented = false;
+  ActionRouter.handleSubmit(controller, { target: { closest: () => form }, preventDefault: () => { prevented = true; } });
+  assert.equal(prevented, true);
+  assert.deepEqual(calls.pop(), ['annotation', form]);
 });
 
 test('正式页面和全部白板夹具均先加载动作路由再加载控制器', () => {

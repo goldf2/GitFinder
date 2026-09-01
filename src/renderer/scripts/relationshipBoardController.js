@@ -292,10 +292,10 @@
       this.panelLayout = {};
       this.panelSidebarRoot = null;
       this._panelEvents = {
-        click: event => this._handleClick(event), input: event => this._handleInput(event),
-        change: event => this._handleChange(event), submit: event => this._handleSubmit(event),
-        dragstart: event => this._handleDragStart(event), dragover: event => this._handleDragOver(event),
-        drop: event => this._handleDrop(event), dragend: () => this._clearPanelDrag()
+        click: event => this._handleClick(event), input: event => ActionRouter.handleInput(this, event),
+        change: event => ActionRouter.handleChange(this, event), submit: event => ActionRouter.handleSubmit(this, event),
+        dragstart: event => ActionRouter.handleDragStart(this, event), dragover: event => ActionRouter.handleDragOver(this, event),
+        drop: event => ActionRouter.handleDrop(this, event), dragend: () => this._clearPanelDrag()
       };
       this.inspectorPinned = false;
       this.saveTimer = null;
@@ -2573,12 +2573,12 @@
 
     _bindRootEvents() {
       this.root.addEventListener('click', event => this._handleClick(event));
-      this.root.addEventListener('change', event => this._handleChange(event));
-      this.root.addEventListener('input', event => this._handleInput(event));
-      this.root.addEventListener('submit', event => this._handleSubmit(event));
-      this.root.addEventListener('dragstart', event => this._handleDragStart(event));
-      this.root.addEventListener('dragover', event => this._handleDragOver(event));
-      this.root.addEventListener('drop', event => this._handleDrop(event));
+      this.root.addEventListener('change', event => ActionRouter.handleChange(this, event));
+      this.root.addEventListener('input', event => ActionRouter.handleInput(this, event));
+      this.root.addEventListener('submit', event => ActionRouter.handleSubmit(this, event));
+      this.root.addEventListener('dragstart', event => ActionRouter.handleDragStart(this, event));
+      this.root.addEventListener('dragover', event => ActionRouter.handleDragOver(this, event));
+      this.root.addEventListener('drop', event => ActionRouter.handleDrop(this, event));
       this.root.addEventListener('dragend', () => this._clearPanelDrag());
     }
 
@@ -2684,74 +2684,6 @@
 
     _handleClick(event) {
       return ActionRouter.handleClick(this, event);
-    }
-
-    _handleChange(event) {
-      if (event.target.matches('select[data-selected-group-shape]')) {
-        this._setGroupShape(event.target.dataset.selectedGroupShape, event.target.value);
-        return;
-      }
-      if (event.target.matches('select[data-selected-group-appearance]')) {
-        this._setGroupAppearance(event.target.dataset.selectedGroupAppearance, event.target.value);
-        return;
-      }
-      if (event.target.matches('[data-project-endpoints]')) {
-        this._setProjectEndpoints(event.target.checked);
-        return;
-      }
-      if (event.target.matches('[data-relationship-snap-mode]')) {
-        const board = activeBoard(this.store);
-        if (!board) return;
-        board.view = { ...this._boardView(), snapMode: String(event.target.value || 'smart') };
-        this._persistSoon(0);
-        return;
-      }
-      const displayForm = event.target.closest('[data-relationship-display-form]');
-      if (displayForm) {
-        this._updateBoardDisplayFromForm(displayForm);
-        this.displayLayoutEdit = null;
-        return;
-      }
-      const filterForm = event.target.closest('[data-relationship-filter-form]');
-      if (filterForm) {
-        this._updateBoardViewFromForm(filterForm);
-        return;
-      }
-      if (event.target.id !== 'relationship-board-select') return;
-      if (!this.store.boards.some(board => board.id === event.target.value)) return;
-      this.store.activeBoardId = event.target.value;
-      this.inspectorPinned = false;
-      this._clearEntitySelection();
-      this.selectedRelationshipId = '';
-      this._persistSoon(0);
-      this._setPanelTopology(this.panelTopologyResult);
-      this.render();
-    }
-
-    _handleInput(event) {
-      if (event.target.matches('[data-project-endpoints]')) return;
-      const displayForm = event.target.closest('[data-relationship-display-form]');
-      if (displayForm) {
-        this._updateBoardDisplayFromForm(displayForm);
-        return;
-      }
-      const filterForm = event.target.closest('[data-relationship-filter-form]');
-      if (filterForm) {
-        this._updateBoardViewFromForm(filterForm);
-        return;
-      }
-      if (event.target.matches('.relationship-resource-search input')) {
-        this.resourceSearch = event.target.value;
-        this._renderResources();
-        return;
-      }
-      const form = event.target.closest('[data-relationship-inspector-form], [data-relationship-annotation-form]');
-      if (!form) return;
-      form.classList.add('is-dirty');
-      const saveButton = form.querySelector('[data-inspector-save]');
-      if (saveButton) saveButton.disabled = false;
-      const error = form.querySelector('.relationship-inspector-error');
-      if (error) error.textContent = '';
     }
 
     _closeFilterPopover() {
@@ -2939,69 +2871,6 @@
       this._renderGraph();
       this._updateFilterSummary();
       this._updateSummary();
-    }
-
-    _handleSubmit(event) {
-      const form = event.target.closest('[data-relationship-inspector-form], [data-relationship-annotation-form]');
-      if (!form) return;
-      event.preventDefault();
-      if (form.matches('[data-relationship-annotation-form]')) this._saveAnnotationForm(form);
-      else this._saveInspectorForm(form);
-    }
-
-    _handleDragStart(event) {
-      const handle = event.target.closest('[data-panel-drag]');
-      if (handle) {
-        this.draggedPanelKey = handle.dataset.panelDrag;
-        event.dataTransfer.effectAllowed = 'move';
-        event.dataTransfer.setData('application/x-gitfinder-panel', this.draggedPanelKey);
-        this.root.classList.add('panel-drag-active');
-        this.panelSidebarRoot?.classList.add('panel-drag-active');
-        return;
-      }
-      const item = event.target.closest('[data-resource-key]');
-      if (!item) return;
-      const key = item.dataset.resourceKey;
-      event.dataTransfer.effectAllowed = 'copy';
-      event.dataTransfer.setData('application/x-gitfinder-relationship-resource', key);
-      event.dataTransfer.setData('text/plain', key);
-    }
-
-    _handleDragOver(event) {
-      if (this.draggedPanelKey && event.target.closest('[data-panel-dock]')) {
-        event.preventDefault();
-        event.dataTransfer.dropEffect = 'move';
-        return;
-      }
-      if (!event.target.closest('.relationship-canvas')) return;
-      if (!event.dataTransfer.types.includes('application/x-gitfinder-relationship-resource') && !event.dataTransfer.types.includes('Files')) return;
-      event.preventDefault();
-      event.dataTransfer.dropEffect = 'copy';
-    }
-
-    _handleDrop(event) {
-      if (this.draggedPanelKey) {
-        const dock = event.target.closest('[data-panel-dock]');
-        if (dock) {
-          event.preventDefault();
-          this._setPanelSide(this.draggedPanelKey, dock.dataset.panelDock, event.target.closest('[data-panel-id]')?.dataset.panelId);
-        }
-        this._clearPanelDrag();
-        return;
-      }
-      const canvas = event.target.closest('.relationship-canvas');
-      if (!canvas) return;
-      if (event.dataTransfer.files?.length) {
-        event.preventDefault(); event.stopPropagation();
-        const paths = [...event.dataTransfer.files].map(file => this.bridge.fs?.getPathForFile(file)).filter(Boolean);
-        void this._addFiles(paths, this._clientToWorld(event.clientX, event.clientY));
-        return;
-      }
-      const key = event.dataTransfer.getData('application/x-gitfinder-relationship-resource');
-      const resource = this.resourceMap.get(key);
-      if (!resource) return;
-      event.preventDefault();
-      this._addResource(resource, this._clientToWorld(event.clientX, event.clientY));
     }
 
     _renderResources() {
@@ -4828,110 +4697,7 @@
     }
 
     _handleKeydown(event) {
-      if (!this.root?.isConnected || event.defaultPrevented || event.isComposing || event.keyCode === 229) return;
-      if (this._handleContextMenuKeydown(event)) return;
-      const layoutMenu = this.root.querySelector('.relationship-layout-menu:not([hidden])');
-      if (layoutMenu && !layoutMenu.hidden) {
-        if (event.key === 'Escape') { event.preventDefault(); this._closeLayoutMenu(true); return; }
-        if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
-          event.preventDefault();
-          const buttons = [...layoutMenu.querySelectorAll('button:not(:disabled)')], current = buttons.indexOf(this.root.ownerDocument.activeElement);
-          const index = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1 : (current + (event.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length;
-          buttons[index]?.focus(); return;
-        }
-        if (event.key === 'Tab') this._closeLayoutMenu();
-      }
-      const editing = event.target?.isContentEditable
-        || event.target?.closest?.('input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"]');
-      const mod = event.metaKey || event.ctrlKey;
-      if (event.key === 'Escape' && !this.root.querySelector('.relationship-filter-popover')?.hidden) {
-        event.preventDefault();
-        this._closeFilterPopover();
-        this.root.querySelector('.relationship-filter-trigger')?.focus();
-        return;
-      }
-      if (mod && event.key.toLowerCase() === 'z' && !editing) {
-        event.preventDefault();
-        if (event.shiftKey) this.redo(); else this.undo();
-        return;
-      }
-      if (mod && event.key.toLowerCase() === 'g' && !editing) {
-        event.preventDefault();
-        if (event.shiftKey) this._removeSelectionFromGroups();
-        else this._createGroupFromSelection();
-        return;
-      }
-      if (editing) return;
-      if (event.key === 'Escape') {
-        this._clearEntitySelection();
-        this.selectedRelationshipId = '';
-        this._updateSelectionCss();
-        return;
-      }
-      if ((event.key === 'Delete' || event.key === 'Backspace') && (this._entitySelectionIds().size || this.selectedRelationshipId)) {
-        event.preventDefault();
-        this._deleteSelection();
-        return;
-      }
-      const canvas = event.target?.closest?.('.relationship-canvas');
-      if (!canvas || mod
-        || event.target?.closest?.('button, a, [role="menu"], [role="menuitem"], [role="slider"]')
-        || this.root.querySelector('.relationship-display-popover:not([hidden]), .relationship-filter-popover:not([hidden]), .relationship-add-menu:not([hidden])')
-        || Array.from(this.root.ownerDocument?.querySelectorAll('[role="dialog"][aria-modal="true"]') || [])
-          .some(dialog => dialog.getClientRects().length > 0)) return;
-      const direction = {
-        w: [0, 1], ArrowUp: [0, 1], s: [0, -1], ArrowDown: [0, -1],
-        a: [1, 0], ArrowLeft: [1, 0], d: [-1, 0], ArrowRight: [-1, 0]
-      }[event.key.length === 1 ? event.key.toLowerCase() : event.key];
-      if (direction && !event.altKey) {
-        const board = activeBoard(this.store);
-        if (!board) return;
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        // Camera direction: looking right moves the world left. Use screen pixels at every zoom.
-        const step = event.shiftKey ? 120 : 40;
-        board.viewport.x += direction[0] * step;
-        board.viewport.y += direction[1] * step;
-        this._applyViewport();
-        this._persistSoon(220);
-        return;
-      }
-      const selectedIds = this._entitySelectionIds();
-      if (!event.altKey) return;
-      if (!selectedIds.size || !['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) return;
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      const movingIds = new Set(this._movingEntityIds(this.selectedEntityId || selectedIds.values().next().value));
-      const linkedMovement = [...movingIds].some(id => this._placementForEntity(id)?.moveWithDescendants);
-      if (linkedMovement && this._linkedMoveBlocked(movingIds)) return;
-      for (const id of [...movingIds]) if (this._placementForEntity(id)?.locked) movingIds.delete(id);
-      const persistentIds = new Set(activeBoard(this.store).placements
-        .filter(item => movingIds.has(item.entityId))
-        .map(item => item.entityId));
-      const dynamicIds = new Set((this.panelProjection?.placements || [])
-        .filter(item => item.dynamic && movingIds.has(item.entityId))
-        .map(item => item.entityId));
-      const placements = this._combinedPlacements().filter(item => movingIds.has(item.entityId));
-      if (!placements.length) return;
-      if (persistentIds.size || linkedMovement) this._recordMutation();
-      const geometry = linkedMovement ? this._displayGeometryMap(this._combinedPlacements()) : null;
-      const linkedChangedIds = linkedMovement ? this._prepareLinkedMove([...movingIds], geometry) : [];
-      const step = event.shiftKey ? 24 : 8;
-      for (const placement of placements) {
-        if (geometry?.has(placement.entityId)) {
-          placement.x = geometry.get(placement.entityId).x; placement.y = geometry.get(placement.entityId).y;
-        }
-        if (event.key === 'ArrowLeft') placement.x -= step;
-        if (event.key === 'ArrowRight') placement.x += step;
-        if (event.key === 'ArrowUp') placement.y -= step;
-        if (event.key === 'ArrowDown') placement.y += step;
-      }
-      if (persistentIds.size) this._persistSoon(80);
-      if (dynamicIds.size) this._saveDynamicPlacementOverrides(dynamicIds);
-      if (linkedChangedIds.length) { this._saveDynamicPlacementOverrides(linkedChangedIds); this._persistSoon(0); }
-      this._renderGraph();
-      this._refreshHistoryButtons();
-      this._updateSummary();
+      return ActionRouter.handleKeydown(this, event);
     }
 
     _updateSelectionCss(options = {}) {
