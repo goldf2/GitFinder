@@ -1905,7 +1905,7 @@
       if (this._boardView().layout === 'galaxy' && groups.some(group => this._isProjectGroup(group.entityId))) {
         this._recordMutation();
         groups.forEach(group => { if (this._isProjectGroup(group.entityId)) group.groupLayout = 'auto'; });
-        this._arrangeCurrentLayout(); this._renderGraph(); this.fitContent(); this._refreshHistoryButtons(); this._updateSummary();
+        this._arrangeCurrentLayout(); this._renderGraph(); this.fitContent(); this._refreshHistoryButtons();
         this._setCanvasAnnouncement('已重新排列全部 Project 与访问点');
         return;
       }
@@ -2023,7 +2023,6 @@
       this._saveDynamicPlacementOverrides([group, ...members].filter(item => item.dynamic).map(item => item.entityId));
       this._persistSoon(0);
       this._renderGraph();
-      this._updateSummary();
       this._setCanvasAnnouncement(`已对齐 Project 内 ${members.length} 个成员并保持当前间距`);
       return true;
     }
@@ -2626,7 +2625,6 @@
       if (action === 'select-all') {
         this._setEntitySelection(new Set(this._filteredGraph().placements.map(item => item.entityId)));
         this._updateSelectionCss();
-        this._updateSummary();
         return;
       }
       const fact = this._selectedFact()?.value;
@@ -2809,7 +2807,6 @@
         this._renderGraph();
       } else this._renderGraph(geometryChanged ? before : null);
       this._refreshHistoryButtons();
-      this._updateSummary();
     }
 
     _resetDisplaySettings() {
@@ -2827,7 +2824,6 @@
       this._syncDisplayForm();
       this._persistSoon(0);
       this._renderGraph(before);
-      this._updateSummary();
       this._setCanvasAnnouncement('已恢复当前白板的默认显示');
     }
 
@@ -2949,7 +2945,6 @@
       if (!anyChanged) return;
       if (dynamicIds.length) this._saveDynamicPlacementOverrides(dynamicIds);
       if (persistentChanged) this._persistSoon(160);
-      this._updateSummary();
     }
 
     _handleFlowSelection({ nodeIds = [], edgeIds = [] } = {}) {
@@ -2964,7 +2959,6 @@
       const groupOnly = nextNodes.size === 1 && this._allEntitiesById().get(nodeIds[0])?.type === 'group';
       this._updateSelectionCss({ preserveDirtyInspector: true, syncFlow: false, renderInspector: !groupOnly });
       if (groupOnly) this._hideInspector();
-      this._updateSummary();
     }
 
     _handleFlowViewportChange(viewport) {
@@ -2987,7 +2981,6 @@
         this.selectedRelationshipId = '';
       }
       this._updateSelectionCss({ preserveDirtyInspector: true });
-      this._updateSummary();
       const menu = this.root?.querySelector('.relationship-context-menu');
       if (!menu) return;
       const clientX = Number(point.clientX) || 0;

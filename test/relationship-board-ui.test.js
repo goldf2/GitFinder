@@ -46,6 +46,41 @@ test('白板变更统一完成保存、重绘、历史和摘要刷新', () => {
   assert.deepEqual(calls, ['_persistSoon', '_renderGraph', '_refreshHistoryButtons']);
 });
 
+test('连续拖动和选择只更新交互状态，不重算摘要或重绘资源库', (t) => {
+  const previousEngine = globalThis.RelationshipCanvasEngine;
+  t.after(() => { globalThis.RelationshipCanvasEngine = previousEngine; });
+  globalThis.RelationshipCanvasEngine = {
+    toPlacements: nodes => nodes.map(node => ({ entityId: node.id, x: node.x, y: node.y }))
+  };
+
+  const controller = new Controller({ bridge: {} });
+  const placement = { entityId: 'entity_drag_target', x: 0, y: 0 };
+  const entity = { id: placement.entityId, type: 'deployment', details: {} };
+  controller._combinedPlacements = () => [placement];
+  controller._placementForEntity = () => placement;
+  controller._allEntitiesById = () => new Map([[entity.id, entity]]);
+  controller._recordMutation = () => {};
+  controller._persistSoon = () => {};
+  controller._updateSelectionCss = () => {};
+  controller._hideInspector = () => {};
+  let summaryUpdates = 0;
+  let resourceRenders = 0;
+  controller._updateSummary = () => { summaryUpdates += 1; controller._renderResources(); };
+  controller._renderResources = () => { resourceRenders += 1; };
+
+  for (let index = 1; index <= 100; index += 1) {
+    controller._handleFlowModelChange({ nodes: [{ id: entity.id, x: index, y: index * 2 }] });
+  }
+  for (let index = 0; index < 100; index += 1) {
+    controller._handleFlowSelection({ nodeIds: index % 2 ? [] : [entity.id] });
+  }
+
+  assert.equal(placement.x, 100);
+  assert.equal(placement.y, 200);
+  assert.equal(summaryUpdates, 0);
+  assert.equal(resourceRenders, 0);
+});
+
 test('跨主机共用访问点显示可展开警报详情并标记冲突连线', () => {
   const controller = new Controller({ bridge: {} });
   const entities = [

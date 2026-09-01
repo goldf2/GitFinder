@@ -39,6 +39,7 @@ function saveCache(data) {
 app.disable('x-powered-by');
 app.use(express.json({ limit: '100kb' }));
 app.use(express.static(path.join(__dirname, 'public')));
+app.get('/desktop.html', (_req, res) => res.redirect('/'));
 
 function requireWebWrite(req, res, next) {
   if (process.env.GITFINDER_WEB_WRITE_ENABLED === '1') return next();

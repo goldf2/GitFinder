@@ -464,7 +464,7 @@
     if (linkedChangedIds.length) {
       controller._saveDynamicPlacementOverrides(linkedChangedIds); controller._persistSoon(0);
     }
-    controller._renderGraph(); controller._refreshHistoryButtons(); controller._updateSummary();
+    controller._renderGraph(); controller._refreshHistoryButtons();
   }
 
   return Object.freeze({
