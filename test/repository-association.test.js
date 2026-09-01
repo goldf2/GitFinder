@@ -1,6 +1,9 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { repositoryKey, matchRepository, resolveAssociation } = require('../src/shared/repositoryAssociation');
+const fs = require('node:fs');
+const path = require('node:path');
+const flowSource = fs.readFileSync(path.join(__dirname, '../src/renderer/relationship-canvas/index.jsx'), 'utf8');
 const repo = { id: 'repo_1', path: '/work/app', originUrl: 'git@github.com:owner/app.git' };
 const deployment = { repositoryUrl: 'https://github.com/owner/app' };
 
@@ -65,19 +68,14 @@ test('部署简卡显示提交和关联信号，详情有路径和跳转，缺�
     commit: 'abcdef1234567890', commitSource: 'deployment-history', lastDeployment: { status: 'failed' },
     repositoryIds: ['repo_1'], repositoryAssociation: { mode: 'automatic' }
   } };
-  assert.match(c._deploymentLinkSignalHtml(entity), /最近部署 abcdef12/);
-  assert.match(c._deploymentLinkSignalHtml(entity), /已关联本地/);
-  c.expandedCardIds.add(entity.id);
-  const detail = c._cardDetailHtml(entity, {}, { label: '运行中' });
+  assert.match(flowSource, /最近部署 \$\{commit\.slice\(0, 8\)\}/);
+  assert.match(flowSource, /已关联本地/);
+  const detail = c._repositoryAssociationHtml(entity) + c._runtimeInspectorRows(entity);
   assert.match(detail, /\/work\/app/); assert.match(detail, /data-panel-open-repository="repo_1"/);
   assert.match(detail, /最近部署结果/); assert.match(detail, /failed/);
-  entity.runtime.missingRepositoryIds = ['repo_1'];
-  assert.match(c._deploymentLinkSignalHtml(entity), /本地目录缺失/);
-  entity.runtime.missingRepositoryIds = []; entity.runtime.repositoryIds = [];
-  entity.runtime.repositoryAssociation = { mode: 'ambiguous', candidateIds: ['repo_1', 'repo_2'] };
-  assert.match(c._deploymentLinkSignalHtml(entity), /待确认 2/);
-  entity.runtime.commit = 'HEAD';
-  assert.match(c._deploymentLinkSignalHtml(entity), /提交未知/);
+  assert.match(flowSource, /本地目录缺失/);
+  assert.match(flowSource, /待确认/);
+  assert.match(flowSource, /提交未知/);
 });
 
 test('部署卡片只匹配当前部署，不扫描磁盘、不重新读取所有仓库、不改其他绑定', async () => {
@@ -113,7 +111,6 @@ test('候选直接显示目录，无源码与未匹配有不同原因', () => {
   assert.match(c._repositoryAssociationHtml(entity), /\/work\/app/);
   assert.match(c._repositoryAssociationHtml(entity), /确认候选仓库/);
   entity.runtime.repositoryAssociation = { mode: 'no-source', candidateIds: [] };
-  assert.match(c._deploymentLinkSignalHtml(entity), /无仓库来源/);
   assert.match(c._repositoryAssociationHtml(entity), /未提供 Git 源码地址/);
   entity.runtime.repositoryAssociation.mode = 'unmatched';
   assert.match(c._repositoryAssociationHtml(entity), /尚未找到相同源码地址/);

@@ -6,6 +6,7 @@ const { repositoryKey } = require('../../shared/repositoryAssociation');
 const { EndpointHealthService } = require('./endpointHealthService');
 
 const SESSION_SCHEMA_VERSION = 1;
+const TOPOLOGY_CACHE_SCHEMA_VERSION = 1;
 const BINDINGS_SCHEMA_VERSION = 2;
 const API_PREFIX = '/api/v1';
 const REQUEST_TIMEOUT_MS = 12_000;
@@ -457,6 +458,111 @@ class CoolifyProviderService {
 
   _associationsPath() { return path.join(this._configDirectory(), 'coolify-repository-associations.json'); }
 
+  _topologyCachePath() { return path.join(this._configDirectory(), 'coolify-topology-cache.json'); }
+
+  _readTopologyCacheEnvelope() {
+    const filePath = this._topologyCachePath();
+    if (!fs.existsSync(filePath)) return null;
+    const stat = fs.lstatSync(filePath);
+    if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 32 * 1024 * 1024) throw new Error('Coolify 拓扑缓存文件无效');
+    const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    if (Number(parsed.schemaVersion) !== TOPOLOGY_CACHE_SCHEMA_VERSION || parsed.snapshot?.state !== 'ready'
+      || !Array.isArray(parsed.snapshot?.providers) || !Array.isArray(parsed.snapshot?.topology?.servers)
+      || !Array.isArray(parsed.snapshot?.topology?.deployments)) throw new Error('Coolify 拓扑缓存版本不受支持');
+    return parsed;
+  }
+
+  _writeTopologyCache(snapshot) {
+    const cachedAt = new Date(this.now()).toISOString();
+    this._writeJsonAtomic(this._topologyCachePath(), {
+      schemaVersion: TOPOLOGY_CACHE_SCHEMA_VERSION,
+      cachedAt,
+      snapshot: { ...snapshot, cached: false, cachedAt }
+    });
+    return cachedAt;
+  }
+
+  _retainCachedProviders(providerIds) {
+    const keep = new Set(providerIds || []);
+    const filePath = this._topologyCachePath();
+    if (!keep.size) {
+      if (fs.existsSync(filePath)) fs.rmSync(filePath, { force: true });
+      return;
+    }
+    const envelope = this._readTopologyCacheEnvelope();
+    if (!envelope) return;
+    const providers = envelope.snapshot.providers.filter(provider => keep.has(provider.providerId));
+    if (!providers.length) {
+      fs.rmSync(filePath, { force: true });
+      return;
+    }
+    const active = new Set(providers.map(provider => provider.providerId));
+    const snapshot = {
+      ...envelope.snapshot,
+      providers,
+      topology: {
+        ...envelope.snapshot.topology,
+        servers: envelope.snapshot.topology.servers.filter(item => active.has(item.providerId)),
+        deployments: envelope.snapshot.topology.deployments.filter(item => active.has(item.providerId)),
+        endpointChecks: (envelope.snapshot.topology.endpointChecks || []).filter(item => active.has(item.providerId))
+      },
+      errors: (envelope.snapshot.errors || []).filter(item => active.has(item.providerId))
+    };
+    delete snapshot.provider;
+    if (providers.length === 1) snapshot.provider = providers[0];
+    this._writeJsonAtomic(filePath, { ...envelope, snapshot });
+  }
+
+  _activateTopology(snapshot) {
+    const providers = Array.isArray(snapshot?.providers) ? snapshot.providers : [];
+    const deployments = Array.isArray(snapshot?.topology?.deployments) ? snapshot.topology.deployments : [];
+    const servers = Array.isArray(snapshot?.topology?.servers) ? snapshot.topology.servers : [];
+    this.endpointHealth.retainProviders(providers.map(item => item.providerId));
+    for (const provider of providers) {
+      this.endpointHealth.setTargets(provider.providerId, deployments
+        .filter(item => item.providerId === provider.providerId).flatMap(item => item.domains || []));
+    }
+    for (const value of [
+      ...providers.map(item => item.baseUrl),
+      ...servers.flatMap(item => [item.coolifyUrl]),
+      ...deployments.flatMap(item => [item.coolifyUrl, ...(item.domains || [])])
+    ]) if (value) this.allowedExternalUrls.add(value);
+  }
+
+  getCachedTopology() {
+    const currentProviders = this._loadProviders().map(provider => this._publicConnection(provider));
+    if (!currentProviders.length) return {
+      state: 'unconfigured', providers: [], cached: false,
+      topology: { apiVersion: 'v1', generatedAt: '', cursor: '', servers: [], deployments: [] }, bindings: []
+    };
+    const envelope = this._readTopologyCacheEnvelope();
+    if (!envelope) return {
+      state: 'cache-miss', providers: currentProviders, cached: false,
+      topology: { apiVersion: 'v1', generatedAt: '', cursor: '', servers: [], deployments: [] }, bindings: []
+    };
+    const activeIds = new Set(currentProviders.map(provider => provider.providerId));
+    const cachedIds = new Set(envelope.snapshot.providers.map(provider => provider.providerId));
+    const providers = currentProviders.filter(provider => cachedIds.has(provider.providerId));
+    const snapshot = {
+      ...envelope.snapshot,
+      state: 'ready',
+      providers,
+      cached: true,
+      cachedAt: envelope.cachedAt,
+      topology: {
+        ...envelope.snapshot.topology,
+        servers: envelope.snapshot.topology.servers.filter(item => activeIds.has(item.providerId)),
+        deployments: envelope.snapshot.topology.deployments.filter(item => activeIds.has(item.providerId)),
+        endpointChecks: (envelope.snapshot.topology.endpointChecks || []).filter(item => activeIds.has(item.providerId))
+      },
+      errors: (envelope.snapshot.errors || []).filter(item => activeIds.has(item.providerId))
+    };
+    delete snapshot.provider;
+    if (providers.length === 1) snapshot.provider = providers[0];
+    this._activateTopology(snapshot);
+    return snapshot;
+  }
+
   getRepositoryAssociations() {
     const filePath = this._associationsPath();
     if (!fs.existsSync(filePath)) return [];
@@ -636,7 +742,10 @@ class CoolifyProviderService {
     };
     providers.splice(index, 1, provider);
     this._saveProviders(providers);
-    if (baseUrl !== current.baseUrl) this.endpointHealth.setTargets(provider.providerId, []);
+    if (baseUrl !== current.baseUrl) {
+      this.endpointHealth.setTargets(provider.providerId, []);
+      this._retainCachedProviders(providers.filter(item => item.providerId !== provider.providerId).map(item => item.providerId));
+    }
     this.allowedExternalUrls.clear();
     return this._publicConnection(provider);
   }
@@ -644,6 +753,7 @@ class CoolifyProviderService {
   disconnect(providerId = '') {
     const remaining = providerId ? this._loadProviders().filter(item => item.providerId !== providerId) : [];
     this._saveProviders(remaining);
+    this._retainCachedProviders(remaining.map(item => item.providerId));
     this.endpointHealth.retainProviders(remaining.map(item => item.providerId));
     this.allowedExternalUrls.clear();
     return remaining.map(provider => this._publicConnection(provider));
@@ -702,15 +812,15 @@ class CoolifyProviderService {
       this.endpointHealth.setTargets(provider.providerId, overview.deployments.flatMap(resource => resource.domains));
     }
     const empty = { apiVersion: 'v1', generatedAt: '', cursor: '', servers: [], deployments: [] };
-    if (result.state === 'unconfigured') return { state: 'unconfigured', providers: [], topology: empty, bindings: [] };
-    if (!result.successes.length) return { state: 'error', providers: result.providers, topology: empty, bindings: [], errors: result.errors };
+    if (result.state === 'unconfigured') return { state: 'unconfigured', providers: [], topology: empty, bindings: [], cached: false };
+    if (!result.successes.length) return { state: 'error', providers: result.providers, topology: empty, bindings: [], errors: result.errors, cached: false };
     const servers = result.successes.flatMap(({ provider, overview }) => overview.servers.map(server => ({
       ...server, providerId: provider.providerId, providerLabel: provider.label
     })));
     const deployments = result.successes.flatMap(({ provider, overview }) => overview.deployments.map(resource => ({
       ...resource, providerId: provider.providerId, providerLabel: provider.label
     })));
-    return {
+    const snapshot = {
       state: 'ready',
       providers: result.providers,
       ...(result.providers.length === 1 ? { provider: result.providers[0] } : {}),
@@ -723,8 +833,11 @@ class CoolifyProviderService {
         endpointChecks: this.endpointHealth.snapshot().checks
       },
       bindings: [],
-      errors: result.errors
+      errors: result.errors,
+      cached: false
     };
+    snapshot.cachedAt = this._writeTopologyCache(snapshot);
+    return snapshot;
   }
 
   checkEndpoints(values = {}) { return this.endpointHealth.start(values); }

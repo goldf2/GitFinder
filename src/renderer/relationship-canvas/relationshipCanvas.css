@@ -1,0 +1,361 @@
+.gf-relationship-flow {
+  --gf-flow-green: #2f9d72;
+  --gf-flow-red: #d94b57;
+  --gf-flow-gray: #7f8999;
+  width: 100%;
+  height: 100%;
+  background: #fbfcfe;
+  color: #172033;
+  font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.gf-relationship-flow .react-flow__node {
+  border: 0;
+  background: transparent;
+}
+
+.gf-relationship-flow .react-flow__node-relationshipGroup {
+  z-index: -1 !important;
+}
+
+.gf-flow-card {
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  padding: 18px 18px 14px 28px;
+  overflow: visible;
+  border: 1.5px solid color-mix(in srgb, var(--tone) 70%, white);
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--tone) 8%, white);
+  box-shadow: 0 12px 30px rgb(50 67 93 / 13%);
+}
+
+.gf-flow-card.is-healthy { --tone: var(--gf-flow-green); }
+.gf-flow-card.is-warning { --tone: var(--gf-flow-red); }
+.gf-flow-card.is-inactive { --tone: var(--gf-flow-gray); }
+
+.gf-flow-card.is-selected,
+.gf-flow-canvas-element.is-selected {
+  outline: 3px solid #3978ff;
+  outline-offset: 4px;
+}
+
+.gf-flow-card.is-snap-x,
+.gf-flow-card.is-snap-y {
+  outline: 2px solid rgb(55 109 255 / 56%);
+  outline-offset: 2px;
+}
+
+.gf-flow-card.is-snap-x.is-snap-y {
+  outline-color: rgb(37 99 235 / 82%);
+  box-shadow: 0 0 0 5px rgb(55 109 255 / 12%), 0 12px 30px rgb(50 67 93 / 13%);
+}
+
+.gf-flow-canvas-element {
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  border-radius: 16px;
+}
+
+.gf-flow-text-element {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  padding: 16px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.gf-flow-media-element {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid #d8deea;
+  border-radius: 16px;
+  background: white;
+}
+
+.gf-flow-media-element img { width: 100%; height: 100%; display: block; }
+.gf-flow-media-element figcaption { position: absolute; right: 8px; bottom: 8px; left: 8px; padding: 6px 9px; border-radius: 8px; background: rgb(20 27 41 / 72%); color: white; font-size: 12px; }
+.gf-flow-media-placeholder { display: grid; width: 100%; height: 100%; place-items: center; color: #8591a5; }
+.gf-flow-attachment-element { display: grid; box-sizing: border-box; width: 100%; height: 100%; place-content: center; gap: 6px; padding: 18px; border: 1px solid #d8deea; border-radius: 16px; background: white; text-align: center; }
+.gf-flow-attachment-element > span { color: #6875b7; font-size: 34px; }
+.gf-flow-attachment-element small { color: #8591a5; }
+
+.gf-flow-card.is-filter-context,
+.gf-flow-group.is-filter-context {
+  opacity: var(--relationship-filter-context-opacity, 0.46);
+}
+
+.gf-flow-card.is-filter-muted,
+.gf-flow-group.is-filter-muted {
+  opacity: var(--relationship-filter-muted-opacity, 0.12);
+  filter: saturate(var(--relationship-filter-muted-saturation, 0.35));
+}
+
+.gf-flow-card.is-filter-match {
+  box-shadow: 0 0 0 5px rgb(57 120 255 / var(--relationship-filter-match-halo-opacity, 0.18)), 0 12px 30px rgb(50 67 93 / 13%);
+}
+
+.gf-flow-card-accent {
+  position: absolute;
+  inset: 16px auto 16px 8px;
+  width: 6px;
+  border-radius: 999px;
+  background: var(--tone);
+}
+
+.gf-flow-card header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.gf-flow-card-icon {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 13px;
+  background: var(--tone);
+  color: white;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.gf-flow-card-heading {
+  display: grid;
+  flex: 1 1 auto;
+  min-width: 0;
+  gap: 2px;
+}
+
+.gf-flow-card-heading small {
+  color: #76839a;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.gf-flow-card-heading strong {
+  overflow: hidden;
+  font-size: var(--relationship-title-font-size, 17px);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gf-flow-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  padding: 6px 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--tone) 10%, white);
+  color: var(--tone);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.gf-flow-status i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.gf-flow-card-subtitle {
+  margin: 14px 0 8px;
+  overflow: hidden;
+  color: #5f6e85;
+  font-size: var(--relationship-subtitle-font-size, 13px);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gf-flow-endpoint-preview {
+  display: block;
+  width: 100%;
+  height: calc(100% - 116px);
+  min-height: 190px;
+  margin: 8px 0;
+  border: 1px solid #d8deea;
+  border-radius: 12px;
+  background: white;
+}
+
+.gf-flow-endpoint-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.gf-flow-card footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #8591a5;
+  font-size: var(--relationship-meta-font-size, 12px);
+}
+
+.gf-flow-card button,
+.gf-flow-node-toolbar button {
+  border: 1px solid #d3d9e4;
+  border-radius: 9px;
+  background: rgb(255 255 255 / 92%);
+  color: #344158;
+  cursor: pointer;
+  font: inherit;
+}
+
+.gf-flow-card button { padding: 5px 10px; }
+
+.gf-flow-group {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  border: 1.5px solid var(--group-border, #9586dc);
+  border-radius: 28px;
+  background: color-mix(in srgb, var(--group-background, #7a67c7) 7%, transparent);
+}
+
+.gf-flow-group.is-polygon {
+  border: 0;
+  background: rgb(128 105 211 / 7%);
+  clip-path: polygon(12% 0, 88% 0, 100% 50%, 88% 100%, 12% 100%, 0 50%);
+  outline: 1.5px solid #9586dc;
+}
+
+.gf-flow-group.is-selected {
+  box-shadow: 0 0 0 4px rgb(57 120 255 / 28%);
+}
+
+.gf-flow-group-title-toolbar {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  width: max-content;
+  white-space: nowrap;
+}
+
+.gf-flow-group-title-toolbar strong {
+  font-size: var(--relationship-group-title-font-size, 20px);
+}
+
+.gf-flow-group-title-toolbar button {
+  flex: 0 0 auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.gf-flow-group-title-toolbar span {
+  flex: 0 0 auto;
+  color: #8a94a6;
+  font-size: 12px;
+}
+
+.gf-flow-node-toolbar {
+  z-index: 1000;
+  display: flex;
+  gap: 6px;
+  padding: 7px;
+  border: 1px solid rgb(210 216 228 / 90%);
+  border-radius: 13px;
+  background: rgb(255 255 255 / 96%);
+  box-shadow: 0 10px 28px rgb(37 48 69 / 16%);
+  pointer-events: auto;
+}
+
+.gf-flow-node-toolbar button {
+  padding: 7px 10px;
+  pointer-events: auto;
+}
+.gf-flow-node-toolbar button.is-active {
+  border-color: #3978ff;
+  background: #eaf1ff;
+  color: #2769e7;
+}
+.gf-flow-node-toolbar button.is-danger { color: #cc3f4b; }
+
+.gf-flow-handle {
+  width: 9px !important;
+  height: 9px !important;
+  border: 2px solid white !important;
+  background: #6875b7 !important;
+  box-shadow: 0 0 0 1px #6875b7;
+}
+
+.gf-flow-handle[data-nodeid] + .gf-flow-handle[data-nodeid] { pointer-events: none; }
+
+.gf-flow-resize-line { border-color: #3978ff !important; }
+
+.gf-flow-resize-handle {
+  width: 10px !important;
+  height: 10px !important;
+  border: 2px solid white !important;
+  border-radius: 3px !important;
+  background: #3978ff !important;
+}
+
+.gf-relationship-flow .react-flow__edge-path {
+  stroke: #747fbd;
+  stroke-width: 1.7;
+}
+
+.gf-relationship-flow .react-flow__edge.selected .react-flow__edge-path {
+  stroke: #3978ff;
+  stroke-width: 2.5;
+}
+
+.gf-relationship-flow .react-flow__edge.is-topology-alert .react-flow__edge-path,
+.gf-relationship-flow .react-flow__edge.is-topology-alert.selected .react-flow__edge-path {
+  stroke: #d9485f;
+  stroke-width: 2.5;
+}
+
+.gf-flow-edge-label {
+  position: absolute;
+  z-index: 2;
+  padding: 2px 5px;
+  border-radius: 5px;
+  background: rgb(255 255 255 / 88%);
+  color: #727d90;
+  font-size: 10px;
+  line-height: 1;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.gf-relationship-flow .react-flow__selection {
+  border: 1.5px solid #3978ff;
+  background: rgb(57 120 255 / 10%);
+}
+
+.gf-relationship-flow .react-flow__minimap {
+  right: 56px !important;
+  bottom: 10px !important;
+  overflow: hidden;
+  border: 1px solid #d4dae5;
+  border-radius: 12px;
+  background: rgb(255 255 255 / 92%);
+  box-shadow: 0 8px 24px rgb(38 49 70 / 12%);
+}
+
+.gf-relationship-flow .react-flow__controls {
+  right: 10px;
+  bottom: 10px;
+  overflow: hidden;
+  border: 1px solid #d4dae5;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgb(38 49 70 / 12%);
+}

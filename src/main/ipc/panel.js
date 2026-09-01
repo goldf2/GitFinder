@@ -22,6 +22,8 @@ function registerPanelIPC(options = {}) {
   registerTrustedHandler('panel:update', async (event, values = {}) => service.update(values));
   registerTrustedHandler('panel:disconnect', async (event, providerId = '') => service.disconnect(providerId));
   registerTrustedHandler('panel:getCatalog', async (event, providerId = '') => service.getCatalog(providerId));
+  registerTrustedHandler('panel:getCachedTopology', async () => service.getCachedTopology());
+  registerTrustedHandler('panel:refreshTopology', async () => service.getTopology());
   registerTrustedHandler('panel:getTopology', async () => service.getTopology());
   registerTrustedHandler('panel:checkEndpoints', async (event, values = {}) => service.checkEndpoints(values));
   registerTrustedHandler('panel:getEndpointChecks', async () => service.getEndpointChecks());

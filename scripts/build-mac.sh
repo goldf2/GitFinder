@@ -72,6 +72,9 @@ echo "=========================================="
 echo " 构建 ${APP_NAME} v${VERSION} (${PLATFORM}-${ARCH}, ${RELEASE_MODE})"
 echo "=========================================="
 
+# Renderer bundles are generated from reviewed source and are not committed.
+npm run build:renderer
+
 # 源码、版本和发布身份必须在删除旧构建前先通过。
 echo "[1/8] 验证发布源码..."
 node scripts/verify-release.js "${SOURCE_GATE_ARGS[@]}"

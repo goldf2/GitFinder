@@ -33,9 +33,13 @@
   const VERIFICATION_STALE_DAYS = 30;
   const BOARD_VIEW_MODES = Object.freeze(['full', 'compact']);
   const BOARD_PROJECTIONS = Object.freeze(['facts', 'deployment-summary']);
+  const BOARD_STRUCTURES = Object.freeze(['resources', 'coolify-projects', 'server-tree']);
+  const BOARD_LAYOUTS = Object.freeze(['free', 'compact', 'lanes', 'right', 'down', 'bilateral', 'radial', 'galaxy']);
   const BOARD_SNAP_MODES = Object.freeze(['off', 'grid', 'smart']);
   const BOARD_CARD_APPEARANCES = Object.freeze(['elevated', 'flat']);
   const BOARD_CARD_TITLE_SOURCES = Object.freeze(['name', 'note']);
+  const PROJECT_GROUP_SHAPES = Object.freeze(['rounded', 'polygon']);
+  const GROUP_APPEARANCES = Object.freeze(['soft', 'outline', 'emphasis']);
   const ANNOTATION_FILTERS = Object.freeze(['all', 'has-note']);
   const TASK_FILTERS = Object.freeze(['all', 'has-todos', 'no-todos', 'open', 'overdue', 'due-today', 'reminder-today', 'completed']);
   const RUNTIME_FILTERS = Object.freeze(['normal', 'warning', 'inactive']);
@@ -186,8 +190,8 @@
     return {
       mode: 'full',
       projection: 'facts',
-      topologyLayout: 'lanes',
-      treeLayout: 'right',
+      structure: 'resources',
+      layout: 'lanes',
       projectGroupIncludesEndpoints: true,
       showRepositoryRelations: false,
       snapMode: 'smart',
@@ -195,12 +199,14 @@
       cardWidth: 280,
       cardHeight: 143,
       textScale: 1,
+      groupTitleFontSize: 20,
       horizontalSpacing: 64,
       verticalSpacing: 36,
       cardAppearance: 'elevated',
       showGrid: true,
       showEdgeLabels: true,
       cardTitleSource: 'name',
+      projectGroupShape: 'rounded',
       showRuntimeStatus: true,
       unmatchedDisplay: 'dim',
       filterContextOpacity: 0.34,
@@ -223,16 +229,30 @@
     };
   }
 
+  // Read the old mixed setting without touching placements or creating a board.
+  function boardOrganization(view = {}) {
+    const legacy = view.topologyLayout;
+    return {
+      structure: view.structure || (['coolify-projects', 'server-tree'].includes(legacy) ? legacy : 'resources'),
+      layout: view.layout || (legacy === 'server-tree' ? view.treeLayout || 'right'
+        : ['server-centered', 'selection-centered'].includes(legacy) ? 'radial'
+          : legacy === 'coolify-projects' ? 'compact' : 'lanes')
+    };
+  }
+
   function normalizeBoardView(raw, issues, pathPrefix, strict) {
     const view = isPlainObject(raw) ? raw : {};
     if (raw != null && !isPlainObject(raw)) issues.push(`${pathPrefix} 必须是对象`);
     const mode = String(view.mode || 'full');
     const projection = String(view.projection || 'facts');
-    const topologyLayout = String(view.topologyLayout || 'lanes');
-    const treeLayout = String(view.treeLayout || 'right');
+    const { structure, layout } = boardOrganization(view);
     const snapMode = String(view.snapMode || 'smart');
     const cardAppearance = String(view.cardAppearance || 'elevated');
     const cardTitleSource = String(view.cardTitleSource || 'name');
+    const requestedProjectGroupShape = String(view.projectGroupShape || 'rounded');
+    // Circle containers were removed after they repeatedly compressed card
+    // layouts. Keep old board files readable by migrating the legacy value.
+    const projectGroupShape = requestedProjectGroupShape === 'circle' ? 'rounded' : requestedProjectGroupShape;
     const entityType = String(view.entityType || 'all');
     const verification = String(view.verification || 'all');
     const annotation = String(view.annotation || 'all');
@@ -249,12 +269,15 @@
       : [];
     if (!BOARD_VIEW_MODES.includes(mode)) issues.push(`${pathPrefix}.mode 无效`);
     if (!BOARD_PROJECTIONS.includes(projection)) issues.push(`${pathPrefix}.projection 无效`);
-    if (!['lanes', 'coolify-projects', 'selection-centered', 'server-centered', 'server-tree'].includes(topologyLayout)) issues.push(`${pathPrefix}.topologyLayout 无效`);
-    if (!['right', 'down', 'bilateral', 'radial'].includes(treeLayout)) issues.push(`${pathPrefix}.treeLayout 无效`);
+    if (!BOARD_STRUCTURES.includes(structure)) issues.push(`${pathPrefix}.structure 无效`);
+    if (!BOARD_LAYOUTS.includes(layout)) issues.push(`${pathPrefix}.layout 无效`);
+    if (view.topologyLayout != null && !['lanes', 'coolify-projects', 'selection-centered', 'server-centered', 'server-tree'].includes(view.topologyLayout)) issues.push(`${pathPrefix}.topologyLayout 无效`);
+    if (view.treeLayout != null && !['right', 'down', 'bilateral', 'radial'].includes(view.treeLayout)) issues.push(`${pathPrefix}.treeLayout 无效`);
     if (strict && view.projectGroupIncludesEndpoints != null && typeof view.projectGroupIncludesEndpoints !== 'boolean') issues.push(`${pathPrefix}.projectGroupIncludesEndpoints 必须是布尔值`);
     if (!BOARD_SNAP_MODES.includes(snapMode)) issues.push(`${pathPrefix}.snapMode 无效`);
     if (!BOARD_CARD_APPEARANCES.includes(cardAppearance)) issues.push(`${pathPrefix}.cardAppearance 无效`);
     if (!BOARD_CARD_TITLE_SOURCES.includes(cardTitleSource)) issues.push(`${pathPrefix}.cardTitleSource 无效`);
+    if (!PROJECT_GROUP_SHAPES.includes(projectGroupShape)) issues.push(`${pathPrefix}.projectGroupShape 无效`);
     if (strict && view.showGrid != null && typeof view.showGrid !== 'boolean') issues.push(`${pathPrefix}.showGrid 必须是布尔值`);
     if (strict && view.showEdgeLabels != null && typeof view.showEdgeLabels !== 'boolean') issues.push(`${pathPrefix}.showEdgeLabels 必须是布尔值`);
     if (strict && view.showRepositoryRelations != null && typeof view.showRepositoryRelations !== 'boolean') issues.push(`${pathPrefix}.showRepositoryRelations 必须是布尔值`);
@@ -269,7 +292,7 @@
     if (strict && view.runtimeStates != null && (!Array.isArray(view.runtimeStates) || view.runtimeStates.some(value => !RUNTIME_FILTERS.includes(String(value))))) issues.push(`${pathPrefix}.runtimeStates 无效`);
     if (strict) {
       for (const key of Object.keys(view)) {
-        if (!['mode', 'projection', 'topologyLayout', 'treeLayout', 'projectGroupIncludesEndpoints', 'showRepositoryRelations', 'snapMode', 'cardScale', 'cardWidth', 'cardHeight', 'textScale', 'horizontalSpacing', 'verticalSpacing', 'cardAppearance', 'showGrid', 'showEdgeLabels', 'cardTitleSource', 'showRuntimeStatus', 'unmatchedDisplay', 'filterContextOpacity', 'filterMutedOpacity', 'filterMutedSaturation', 'filterContextEdgeOpacity', 'filterMutedEdgeOpacity', 'filterMatchHaloOpacity', 'statusTintOpacity', 'query', 'entityType', 'entityTypes', 'environment', 'verification', 'annotation', 'task', 'taskFilters', 'runtimeStates', 'label'].includes(key)) {
+        if (!['mode', 'projection', 'structure', 'layout', 'topologyLayout', 'treeLayout', 'projectGroupIncludesEndpoints', 'showRepositoryRelations', 'snapMode', 'cardScale', 'cardWidth', 'cardHeight', 'textScale', 'groupTitleFontSize', 'horizontalSpacing', 'verticalSpacing', 'cardAppearance', 'showGrid', 'showEdgeLabels', 'cardTitleSource', 'projectGroupShape', 'showRuntimeStatus', 'unmatchedDisplay', 'filterContextOpacity', 'filterMutedOpacity', 'filterMutedSaturation', 'filterContextEdgeOpacity', 'filterMutedEdgeOpacity', 'filterMatchHaloOpacity', 'statusTintOpacity', 'query', 'entityType', 'entityTypes', 'environment', 'verification', 'annotation', 'task', 'taskFilters', 'runtimeStates', 'label'].includes(key)) {
           issues.push(`${pathPrefix}.${key} 不是允许的字段`);
         }
       }
@@ -277,8 +300,8 @@
     return {
       mode: BOARD_VIEW_MODES.includes(mode) ? mode : 'full',
       projection: BOARD_PROJECTIONS.includes(projection) ? projection : 'facts',
-      topologyLayout: ['lanes', 'coolify-projects', 'selection-centered', 'server-centered', 'server-tree'].includes(topologyLayout) ? topologyLayout : 'lanes',
-      treeLayout: ['right', 'down', 'bilateral', 'radial'].includes(treeLayout) ? treeLayout : 'right',
+      structure: BOARD_STRUCTURES.includes(structure) ? structure : 'resources',
+      layout: BOARD_LAYOUTS.includes(layout) ? layout : 'lanes',
       projectGroupIncludesEndpoints: view.projectGroupIncludesEndpoints !== false,
       showRepositoryRelations: view.showRepositoryRelations === true,
       snapMode: BOARD_SNAP_MODES.includes(snapMode) ? snapMode : 'smart',
@@ -286,12 +309,14 @@
       cardWidth: finiteNumber(view.cardWidth, 280, 220, 600),
       cardHeight: finiteNumber(view.cardHeight, 143, 143, 420),
       textScale: finiteNumber(view.textScale, 1, 0.85, 1.3),
+      groupTitleFontSize: finiteNumber(view.groupTitleFontSize, 20, 14, 36),
       horizontalSpacing: finiteNumber(view.horizontalSpacing, 64, 16, 180),
       verticalSpacing: finiteNumber(view.verticalSpacing, 36, 16, 140),
       cardAppearance: BOARD_CARD_APPEARANCES.includes(cardAppearance) ? cardAppearance : 'elevated',
       showGrid: view.showGrid !== false,
       showEdgeLabels: view.showEdgeLabels !== false,
       cardTitleSource: BOARD_CARD_TITLE_SOURCES.includes(cardTitleSource) ? cardTitleSource : 'name',
+      projectGroupShape: PROJECT_GROUP_SHAPES.includes(projectGroupShape) ? projectGroupShape : 'rounded',
       showRuntimeStatus: view.showRuntimeStatus !== false,
       unmatchedDisplay: UNMATCHED_DISPLAY_MODES.includes(unmatchedDisplay) ? unmatchedDisplay : 'dim',
       filterContextOpacity: finiteNumber(view.filterContextOpacity, 0.34, 0.15, 0.8),
@@ -539,7 +564,7 @@
     if (groupId && group && group.type !== 'group') issues.push(`${prefix}.groupId 必须引用分组节点`);
     if (strict) {
       for (const key of Object.keys(raw)) {
-        if (!['entityId', 'x', 'y', 'groupId', 'groupBackground', 'groupBorder', 'groupLayout', 'groupWidth', 'groupHeight', 'titleMode', 'titleText', 'titleSource', 'statusVisibility', 'labels', 'note', 'todos', 'locked', 'expanded', 'archived'].includes(key)) issues.push(`${prefix}.${key} 不是允许的字段`);
+        if (!['entityId', 'x', 'y', 'groupId', 'groupBackground', 'groupBorder', 'groupLayout', 'groupWidth', 'groupHeight', 'groupShape', 'groupAppearance', 'titleMode', 'titleText', 'titleSource', 'statusVisibility', 'labels', 'note', 'todos', 'locked', 'expanded', 'archived', 'moveWithDescendants', 'endpointView'].includes(key)) issues.push(`${prefix}.${key} 不是允许的字段`);
       }
       if (!Number.isFinite(Number(raw.x)) || !Number.isFinite(Number(raw.y))) {
         issues.push(`${prefix} 坐标必须是有限数字`);
@@ -551,7 +576,15 @@
       y: finiteNumber(raw.y, 0, -100000, 100000)
     };
     if (raw.locked === true) placement.locked = true;
+    if (raw.moveWithDescendants != null) {
+      if (typeof raw.moveWithDescendants !== 'boolean') issues.push(`${prefix}.moveWithDescendants 必须是布尔值`);
+      else placement.moveWithDescendants = raw.moveWithDescendants;
+    }
     if (raw.expanded === true) placement.expanded = true;
+    if (raw.endpointView != null) {
+      if (entity?.type !== 'endpoint' || !['card', 'web'].includes(raw.endpointView)) issues.push(`${prefix}.endpointView 必须是访问点的 card 或 web`);
+      else if (raw.endpointView === 'web') placement.endpointView = 'web';
+    }
     if (raw.archived === true) {
       if (entity?.type !== 'deployment') issues.push(`${prefix}.archived 仅适用于部署`);
       else placement.archived = true;
@@ -559,6 +592,15 @@
     if (raw.groupLayout != null) {
       if (entity?.type !== 'group' || !['auto', 'manual'].includes(raw.groupLayout)) issues.push(`${prefix}.groupLayout 必须是分组的 auto 或 manual`);
       else placement.groupLayout = raw.groupLayout;
+    }
+    if (raw.groupShape != null) {
+      const groupShape = raw.groupShape === 'circle' ? 'rounded' : raw.groupShape;
+      if (entity?.type !== 'group' || !PROJECT_GROUP_SHAPES.includes(groupShape)) issues.push(`${prefix}.groupShape 必须是分组的 rounded 或 polygon`);
+      else placement.groupShape = groupShape;
+    }
+    if (raw.groupAppearance != null) {
+      if (entity?.type !== 'group' || !GROUP_APPEARANCES.includes(raw.groupAppearance)) issues.push(`${prefix}.groupAppearance 必须是分组的 soft、outline 或 emphasis`);
+      else placement.groupAppearance = raw.groupAppearance;
     }
     for (const [key, min] of [['groupWidth', 320], ['groupHeight', 180]]) {
       if (raw[key] == null) continue;
@@ -768,9 +810,14 @@
     VERIFICATION_STALE_DAYS,
     BOARD_VIEW_MODES,
     BOARD_PROJECTIONS,
+    BOARD_STRUCTURES,
+    BOARD_LAYOUTS,
+    boardOrganization,
     BOARD_SNAP_MODES,
     BOARD_CARD_APPEARANCES,
     BOARD_CARD_TITLE_SOURCES,
+    PROJECT_GROUP_SHAPES,
+    GROUP_APPEARANCES,
     ANNOTATION_FILTERS,
     TASK_FILTERS,
     RUNTIME_FILTERS,

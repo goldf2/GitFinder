@@ -281,6 +281,39 @@ test('多 Coolify 实例保存在应用自有会话并可聚合白板拓扑', as
   assert.ok(calls.every(call => !call.url.includes('/api/gitfinder/')));
 });
 
+test('成功读取后缓存无凭据拓扑，重启和离线时可直接恢复上次事实', async t => {
+  const { root, service } = createHarness(t);
+  await service.connect({ baseUrl: 'https://cool.example.com', token: 'coolify-read-token-123' });
+  const fresh = await service.getTopology();
+  const cachePath = path.join(root, 'coolify-topology-cache.json');
+  const persisted = fs.readFileSync(cachePath, 'utf8');
+  assert.equal(fresh.cached, false);
+  assert.doesNotMatch(persisted, /coolify-read-token-123|accessToken|Authorization/);
+
+  const restarted = new CoolifyProviderService({
+    configDirectory: root,
+    projectService: service.projectService,
+    getRegistry: service.getRegistry,
+    fetchImpl: async () => { throw new Error('offline'); },
+    now: () => new Date('2026-08-29T06:00:00.000Z')
+  });
+  const cached = restarted.getCachedTopology();
+  assert.equal(cached.state, 'ready');
+  assert.equal(cached.cached, true);
+  assert.equal(cached.topology.deployments[0].resourceUuid, 'app_1');
+  assert.match(cached.cachedAt, /^2026-08-29T05:32:00/);
+  assert.equal(restarted.checkEndpoints().pending, 1, '缓存应恢复允许检测的访问点目标');
+});
+
+test('断开连接会同步裁剪拓扑缓存，不能在下次启动显示已移除实例', async t => {
+  const { root, service } = createHarness(t);
+  const provider = await service.connect({ baseUrl: 'https://cool.example.com', token: 'coolify-read-token-123' });
+  await service.getTopology();
+  service.disconnect(provider.providerId);
+  assert.equal(fs.existsSync(path.join(root, 'coolify-topology-cache.json')), false);
+  assert.equal(service.getCachedTopology().state, 'unconfigured');
+});
+
 test('已保存的 Coolify 可重命名并在验证成功后更换地址', async t => {
   const { service, calls } = createHarness(t);
   const original = await service.connect({

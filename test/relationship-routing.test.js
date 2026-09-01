@@ -47,6 +47,22 @@ test('密集障碍使用有界折线路由，重叠时不声称路径可通行',
   assert.ok(blocked.path.startsWith('M '));
 });
 
+test('项目星系的密集绕障通道使用大半径连续曲线，不退化为直角折线', () => {
+  const obstacles = [rect(300, -100, 140, 420), rect(570, 180, 140, 420)];
+  const route = routeRelationship(rect(0, 200), rect(900, 200), obstacles, { smoothChannels: true });
+  assert.equal(route.obstructed, false);
+  assert.match(route.path, / C /);
+  assert.doesNotMatch(route.path, / Q /);
+  assert.ok(route.points.length > 20, '曲线路由提供足够采样点用于标签和避障复核');
+});
+
+test('圆形节点的连接点固定在圆周四个方向，不使用普通卡片的标题行偏移', () => {
+  const circle = rect(450, -300, 600, 600);
+  const route = routeRelationship(rect(0, 0), circle, [], { targetShape: 'circle', portOffsetY: 60 });
+  assert.equal(route.targetSide, 'left');
+  assert.deepEqual(route.targetPoint, { x: circle.x + 0.5, y: circle.y + circle.height / 2 });
+});
+
 test('对角相邻卡片允许上下与左右混合端口，不强制一对反向端口', () => {
   const route = routeRelationship(rect(0, 0, 320, 190), rect(400, 400, 320, 190), [], { portOffsetY: 59.5 });
   assert.deepEqual([route.sourceSide, route.targetSide], ['bottom', 'left']);

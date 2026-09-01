@@ -16,7 +16,7 @@
   const GROUP_PADDING_BOTTOM = 28;
   const GROUP_MIN_WIDTH = 320;
   const GROUP_MIN_HEIGHT = 180;
-  const GRID_SIZE = 24;
+  const GROUP_TITLE_SPACE = 40; // Screen pixels: fixed-size title, its 6px offset and breathing room.
   const HISTORY_LIMIT = 50;
   const PANEL_REFRESH_INTERVAL_MS = 30_000;
   const PANEL_STALE_AFTER_MS = 90_000;
@@ -29,25 +29,11 @@
       fit: 'M8 3H3v5M16 3h5v5M3 16v5h5M21 16v5h-5',
       layout: 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z',
       group: 'M3 3h18v18H3zM7 8h4v8H7zM15 8h2v8h-2z',
-      expand: 'M5 9l7-6 7 6M5 15l7 6 7-6',
-      collapse: 'M5 3l7 6 7-6M5 21l7-6 7 6'
+      linked: 'M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-2 2M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l2-2'
     };
     return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${paths[name]}"/></svg>`;
   }
 
-  function edgePanVelocity(point, rect, reducedMotion = false) {
-    if (!rect?.width || !rect?.height || point.x < rect.left || point.x > rect.left + rect.width
-      || point.y < rect.top || point.y > rect.top + rect.height) return { x: 0, y: 0 };
-    const speed = reducedMotion ? 280 : 560;
-    const axis = (position, start, length) => {
-      const margin = Math.min(56, length / 4);
-      const near = position - start;
-      const far = start + length - position;
-      return near < margin ? -speed * (1 - near / margin) ** 2
-        : far < margin ? speed * (1 - far / margin) ** 2 : 0;
-    };
-    return { x: axis(point.x, rect.left, rect.width), y: axis(point.y, rect.top, rect.height) };
-  }
   const TYPE_LABELS = Object.freeze({
     server: '主机',
     deployment: '部署',
@@ -205,55 +191,10 @@
       ...(Number.isFinite(Number(value.groupWidth)) && Number(value.groupWidth) >= GROUP_MIN_WIDTH ? { groupWidth: Math.min(100000, Math.round(Number(value.groupWidth))) } : {}),
       ...(Number.isFinite(Number(value.groupHeight)) && Number(value.groupHeight) >= GROUP_MIN_HEIGHT ? { groupHeight: Math.min(100000, Math.round(Number(value.groupHeight))) } : {}),
       ...(value.locked === true ? { locked: true } : {}), ...(value.expanded === true ? { expanded: true } : {}),
+      ...(value.endpointView === 'web' ? { endpointView: 'web' } : {}),
+      ...(typeof value.moveWithDescendants === 'boolean' ? { moveWithDescendants: value.moveWithDescendants } : {}),
       ...(value.archived === true ? { archived: true } : {})
     };
-  }
-
-  function resolveMagneticSnap(options = {}) {
-    const mode = options.mode || 'smart';
-    const moving = options.movingBounds || {};
-    const gridSize = Number(options.gridSize) || GRID_SIZE;
-    const threshold = Number(options.threshold) || 8;
-    if (mode === 'off') return { dx: 0, dy: 0, guides: [] };
-    if (mode === 'grid') {
-      const dx = Math.round((Number(moving.left) || 0) / gridSize) * gridSize - (Number(moving.left) || 0);
-      const dy = Math.round((Number(moving.top) || 0) / gridSize) * gridSize - (Number(moving.top) || 0);
-      return {
-        dx,
-        dy,
-        guides: [
-          { axis: 'x', position: (Number(moving.left) || 0) + dx, kind: 'grid' },
-          { axis: 'y', position: (Number(moving.top) || 0) + dy, kind: 'grid' }
-        ]
-      };
-    }
-    const axes = [
-      ['x', ['left', 'centerX', 'right']],
-      ['y', ['top', 'centerY', 'bottom']]
-    ];
-    const result = { dx: 0, dy: 0, guides: [] };
-    for (const [axis, keys] of axes) {
-      let best = null;
-      for (const movingKey of keys) {
-        const movingValue = Number(moving[movingKey]);
-        if (!Number.isFinite(movingValue)) continue;
-        for (const bounds of options.stationaryBounds || []) {
-          for (const stationaryKey of keys) {
-            const stationaryValue = Number(bounds?.[stationaryKey]);
-            if (!Number.isFinite(stationaryValue)) continue;
-            const delta = stationaryValue - movingValue;
-            if (Math.abs(delta) > threshold || (best && Math.abs(delta) >= Math.abs(best.delta))) continue;
-            best = { delta, position: stationaryValue };
-          }
-        }
-      }
-      if (best) {
-        if (axis === 'x') result.dx = best.delta;
-        else result.dy = best.delta;
-        result.guides.push({ axis, position: best.position, kind: 'node' });
-      }
-    }
-    return result;
   }
 
   function normalizeDynamicLayoutStore(value) {
@@ -273,6 +214,8 @@
           y: Math.round(y),
           ...(placement.dissolved === true ? { dissolved: true } : {}),
           ...(/^entity_[a-zA-Z0-9_-]{1,220}$/.test(placement.groupId || '') ? { groupId: placement.groupId } : {}),
+          ...(Model.PROJECT_GROUP_SHAPES.includes(placement.groupShape) ? { groupShape: placement.groupShape } : {}),
+          ...(Model.GROUP_APPEARANCES.includes(placement.groupAppearance) ? { groupAppearance: placement.groupAppearance } : {}),
           ...normalizePlacementAnnotations(placement)
         };
       }
@@ -349,10 +292,10 @@
       this.selectedEntityId = '';
       this.selectedEntityIds = new Set();
       this.selectedRelationshipId = '';
-      this.expandedCardIds = new Set();
-      this.cardHeights = new Map();
-      this.minimapNodes = [];
-      this.minimapCollapsed = false;
+      this.flowCanvas = null;
+      this.flowRenderOptions = null;
+      this.flowMutationActive = false;
+      this.flowSelectionSync = false;
       this.panelLayout = {};
       this.panelSidebarRoot = null;
       this._panelEvents = {
@@ -362,18 +305,11 @@
         drop: event => this._handleDrop(event), dragend: () => this._clearPanelDrag()
       };
       this.inspectorPinned = false;
-      this.keyboardConnectSourceId = '';
-      this.pointerAction = null;
-      this.suppressedGroupToolbarId = '';
-      this.edgePanFrame = null;
-      this.edgePanLastTime = null;
-      this.suppressNextNodeClick = false;
       this.saveTimer = null;
       this.saveChain = Promise.resolve();
       this.saveState = 'saved';
       this.resourceSearch = '';
       this.displayLayoutEdit = null;
-      this.spacePan = false;
       this.resourcePanelVisible = true;
       this.resourcePanelPosition = { x: 12, y: 12 };
       this.collapsedResourceSections = new Set(['repository', 'server', 'deployment', 'endpoint', 'other']);
@@ -403,28 +339,17 @@
       this.reminderTimer = null;
       this.remindedTodoKeys = new Set();
       this.openRequestId = 0;
-      this.wheelPan = null;
-      this.wheelPanFrame = null;
       this.documentAssets = new Map();
       this.now = options.now || (() => new Date());
       this._boundKeydown = event => this._handleKeydown(event);
-      this._boundKeyup = event => {
-        if (event.code === 'Space' || event.key === ' ') {
-          this.spacePan = false;
-          this.root?.classList?.remove('pan-ready');
-        }
-      };
       this._boundBlur = () => {
-        this._stopWheelPan();
         this._closeContextMenu();
-        this.spacePan = false;
-        this.root?.classList?.remove('pan-ready', 'box-selecting');
-        if (['box', 'node', 'resize', 'group-resize', 'pan'].includes(this.pointerAction?.type)) this._cancelPointerAction(false);
       };
       this._boundResize = () => { this._closeContextMenu(); this._closeLayoutMenu(); this._applyResourcePanelPosition(); this._applyViewport(); };
       this._boundContextDismiss = event => {
         if (!event.target.closest?.('.relationship-context-menu')) this._closeContextMenu();
         if (!event.target.closest?.('.relationship-layout-host')) this._closeLayoutMenu();
+        if (!event.target.closest?.('.relationship-topology-alerts')) this._closeTopologyAlerts();
       };
     }
 
@@ -445,7 +370,7 @@
             id: boardId,
             name: '部署关系',
             viewport: { x: 120, y: 90, zoom: 1 },
-            view: { ...Model.defaultBoardView(), topologyLayout: 'coolify-projects' },
+            view: { ...Model.defaultBoardView(), structure: 'coolify-projects', layout: 'compact' },
             placements: []
           });
           this.store.activeBoardId = boardId;
@@ -453,10 +378,11 @@
           if (openRequestId !== this.openRequestId || this.container !== container || !isCurrent()) return;
         }
         this.render();
-        if (this.bridge?.panel?.getTopology) this._refreshPanelTopology();
+        if (this.bridge?.panel?.getCachedTopology) {
+          void this._restoreCachedPanelTopology().finally(() => this._refreshPanelTopology());
+        } else if (this.bridge?.panel?.refreshTopology || this.bridge?.panel?.getTopology) this._refreshPanelTopology();
         else this._schedulePanelRefresh();
         document.addEventListener('keydown', this._boundKeydown, true);
-        document.addEventListener('keyup', this._boundKeyup, true);
         document.addEventListener('pointerdown', this._boundContextDismiss, true);
         globalThis.window?.addEventListener('blur', this._boundBlur);
         globalThis.window?.addEventListener('resize', this._boundResize);
@@ -477,20 +403,20 @@
     }
 
     close(options = {}) {
-      this._stopWheelPan();
-      this.spacePan = false;
       this.displayLayoutEdit = null;
       this.openRequestId += 1;
       clearTimeout(this.endpointCheckTimer);
       this.endpointCheckTimer = null;
       this.endpointCheckRequest = null;
       document.removeEventListener('keydown', this._boundKeydown, true);
-      document.removeEventListener('keyup', this._boundKeyup, true);
       document.removeEventListener('pointerdown', this._boundContextDismiss, true);
       this._closeContextMenu();
       globalThis.window?.removeEventListener('blur', this._boundBlur);
       globalThis.window?.removeEventListener('resize', this._boundResize);
-      this._cancelPointerAction(true);
+      this.flowCanvas?.unmount?.();
+      this.flowCanvas = null;
+      this.flowRenderOptions = null;
+      this.flowMutationActive = false;
       if (this.saveTimer) {
         clearTimeout(this.saveTimer);
         this.saveTimer = null;
@@ -548,7 +474,6 @@
         this._setResources([], this.panelRepositories);
         this._setPanelTopology(this.panelTopologyResult);
         this.loaded = true;
-        this.expandedCardIds = new Set((activeBoard(this.store)?.placements || []).filter(item => item.expanded).map(item => item.entityId));
         void this._refreshDocumentLibrary();
         this.resourceLoadingPromise = projectsPromise.then(async projects => {
           this.panelProjects = Array.isArray(projects) ? projects : [];
@@ -593,7 +518,7 @@
       return this.dynamicLayoutStore.boards[boardId];
     }
 
-    _applyDynamicLayoutOverrides() {
+    _applyDynamicLayoutOverrides({ preserveStructure = true } = {}) {
       if (this.documentRecord) return;
       const boardLayout = this._dynamicLayoutForActiveBoard();
       if (!boardLayout || !this.panelProjection?.placements) return;
@@ -607,15 +532,18 @@
       const placedIds = new Set(this._combinedPlacements().map(item => item.entityId));
       this.panelProjection.placements = this.panelProjection.placements.map(placement => {
         const override = boardLayout[placement.entityId];
-        if (override?.expanded) this.expandedCardIds.add(placement.entityId);
-        const groupId = override ? override.groupId : placement.groupId;
+        const groupId = override && preserveStructure ? override.groupId : placement.groupId;
         const validGroup = groupId && placedIds.has(groupId) && groupIds.has(groupId);
         delete placement.groupId;
         return override ? {
           ...placement,
           x: override.x,
           y: override.y,
+          ...(Number.isFinite(override.groupWidth) ? { groupWidth: override.groupWidth } : {}),
+          ...(Number.isFinite(override.groupHeight) ? { groupHeight: override.groupHeight } : {}),
           ...normalizePlacementAnnotations(override),
+          ...(override.groupShape ? { groupShape: override.groupShape } : {}),
+          ...(override.groupAppearance ? { groupAppearance: override.groupAppearance } : {}),
           ...(validGroup ? { groupId } : {}),
           userPositioned: true
         } : { ...placement, ...(validGroup ? { groupId } : {}) };
@@ -652,7 +580,11 @@
         boardLayout[placement.entityId] = {
           x: Math.round(placement.x),
           y: Math.round(placement.y),
+          ...(Number.isFinite(placement.groupWidth) ? { groupWidth: Math.round(placement.groupWidth) } : {}),
+          ...(Number.isFinite(placement.groupHeight) ? { groupHeight: Math.round(placement.groupHeight) } : {}),
           ...(placement.groupId ? { groupId: placement.groupId } : {}),
+          ...(Model.PROJECT_GROUP_SHAPES.includes(placement.groupShape) ? { groupShape: placement.groupShape } : {}),
+          ...(Model.GROUP_APPEARANCES.includes(placement.groupAppearance) ? { groupAppearance: placement.groupAppearance } : {}),
           ...normalizePlacementAnnotations(placement)
         };
         placement.userPositioned = true;
@@ -665,200 +597,215 @@
     _resetDynamicLayout() {
       if (!activeBoard(this.store)) return false;
       this._recordMutation();
-      if (this._isServerTree()) {
-        this._arrangeServerTree(); this._renderGraph(); this.fitContent(); this._refreshHistoryButtons();
-        return true;
-      }
-      this._packCurrentLayout();
-      this._renderGraph();
-      this.fitContent();
-      this._refreshHistoryButtons();
-      this.notify('已按拓扑与原有位置整理，保留群组归属和组内相对位置', 'success');
+      this._arrangeCurrentLayout();
+      this.render(); this.fitContent(); this._refreshHistoryButtons();
+      this.notify('已整理当前布局，结构与群组成员保持不变', 'success');
       return true;
     }
 
-    _isServerTree() { return Boolean(this.store && this._boardView().topologyLayout === 'server-tree'); }
+    _isServerTree() { return Boolean(this.store && this._boardView().structure === 'server-tree'); }
 
-    _arrangeServerTree() {
+    _arrangeCurrentLayout() {
       const placements = this._unarchivedPlacements();
       const geometry = this._displayGeometryMap(placements);
-      const sized = placements.map(item => ({ ...item, ...geometry.get(item.entityId) }));
-      PanelTopologyProjection.arrangeServerTree({ entities: this._combinedEntities(),
-        relationships: this._combinedRelationships(placements), placements: sized }, {
-        ...this._nodeDimensions(), ...this._displayViewSettings(),
-        treeLayout: this._boardView().treeLayout,
-        projectGroupIncludesEndpoints: this._boardView().projectGroupIncludesEndpoints,
-        viewportAspectRatio: this.root?.querySelector('.relationship-canvas')?.clientWidth / this.root?.querySelector('.relationship-canvas')?.clientHeight || 1.6
-      });
-      const byId = new Map(sized.map(item => [item.entityId, item]));
       const entities = this._allEntitiesById();
+      const sized = placements.map(item => {
+        const rect = geometry.get(item.entityId);
+        return { ...item, ...rect, groupId: item.groupId,
+          ...(rect && entities.get(item.entityId)?.type === 'group' ? { groupWidth: rect.width, groupHeight: rect.height } : {}) };
+      });
+      const graph = { entities: this._combinedEntities(), relationships: this._combinedRelationships(placements) };
+      const canvas = this.root?.querySelector('.relationship-canvas');
+      const options = {
+        ...this._nodeDimensions(), ...this._displayViewSettings(),
+        style: this._boardView().layout === 'free' ? 'compact' : this._boardView().layout,
+        projectGroupIncludesEndpoints: this._boardView().projectGroupIncludesEndpoints,
+        preserveGroupContents: true,
+        viewportAspectRatio: canvas?.clientWidth / canvas?.clientHeight || 1.6
+      };
+      const groupTitleScreenHeight = Math.max(GROUP_TITLE_SPACE, options.groupTitleFontSize + 20);
+      let groupTitleSpace = groupTitleScreenHeight, arranged;
+      // Fitting the result can zoom out further than the current viewport. Size
+      // the title allowance for that resulting zoom, starting from the same
+      // measured rectangles each pass so repeated tidy never accumulates gaps.
+      for (let pass = 0; pass < 8; pass++) {
+        arranged = sized.map(item => ({ ...item }));
+        const input = { ...graph, placements: arranged };
+        const result = this._isServerTree()
+          ? PanelTopologyProjection.arrangeServerTree(input, { ...options, groupTitleSpace })
+          : PanelTopologyProjection.arrangeBoardLayout(input, { ...options, groupTitleSpace });
+        if (!(canvas?.clientWidth > 120 && canvas?.clientHeight > 120) || !result.placements.length
+          || !result.placements.some(item => entities.get(item.entityId)?.type === 'group')) break;
+        const rects = result.placements.map(item => ({ ...item,
+          width: item.groupWidth || item.width || options.width, height: item.groupHeight || item.height || options.height }));
+        const width = Math.max(...rects.map(r => r.x + r.width)) - Math.min(...rects.map(r => r.x));
+        const height = Math.max(...rects.map(r => r.y + r.height)) - Math.min(...rects.map(r => r.y));
+        const zoom = Math.max(Model.MIN_VIEWPORT_ZOOM, Math.min(1, (canvas.clientWidth - 120) / Math.max(1, width), (canvas.clientHeight - 120) / Math.max(1, height)));
+        const required = Math.ceil(groupTitleScreenHeight / zoom);
+        if (required <= groupTitleSpace + 1) break;
+        groupTitleSpace = required;
+      }
+      const byId = new Map(arranged.map(item => [item.entityId, item]));
       for (const item of placements) {
-        const position = byId.get(item.entityId); item.x = position.x; item.y = position.y;
+        const position = byId.get(item.entityId); item.x = Math.round(position.x); item.y = Math.round(position.y);
         if (entities.get(item.entityId)?.type === 'group') {
-          for (const key of ['groupWidth', 'groupHeight', 'groupLayout']) if (position[key] != null) item[key] = position[key];
-        }
-        if (entities.get(item.entityId)?.type === 'endpoint') {
-          if (position.groupId) item.groupId = position.groupId; else delete item.groupId;
+          for (const key of ['groupWidth', 'groupHeight']) if (position[key] != null) item[key] = position[key];
         }
       }
       this._saveDynamicPlacementOverrides(placements.filter(item => item.dynamic).map(item => item.entityId));
       this._persistSoon(0);
     }
 
-    _createServerTree(treeLayout = 'right') {
-      if (this._isServerTree()) return false;
-      if (this.documentRecord) {
-        this.notify('请先切回“本机白板”创建树状视图；当前白板文件不会被改写', 'info'); return false;
-      }
-      if (!this._combinedEntities().some(item => item.type === 'server') || this.store.boards.length >= Model.MAX_BOARDS) {
-        this.notify(this.store.boards.length >= Model.MAX_BOARDS ? '白板数量已达上限' : '请先添加服务器或连接 Coolify', 'info'); return false;
-      }
+    _setLayout(style) {
+      if (!Model.BOARD_LAYOUTS.includes(style)) return false;
       this._recordMutation();
-      const original = activeBoard(this.store);
-      const board = { ...clone(original), id: makeId('board'), name: `${original.name} · 服务器树状图`,
-        view: { ...this._boardView(), topologyLayout: 'server-tree', treeLayout, projection: 'facts', showRepositoryRelations: false } };
-      const previousDynamic = clone(this._dynamicLayoutForActiveBoard() || {});
-      this.store.boards.push(board); this.store.activeBoardId = board.id;
-      this.dynamicLayoutStore.boards[board.id] = previousDynamic;
-      this._setPanelTopology(this.panelTopologyResult);
-      this.render(); this._arrangeServerTree(); this._renderGraph(); this.fitContent(); this._refreshHistoryButtons();
-      this.notify('已创建独立树状白板，原白板布局保留；可通过白板列表切回', 'success');
+      this._boardView().layout = style;
+      if (style !== 'free') this._arrangeCurrentLayout();
+      else {
+        this._saveDynamicPlacementOverrides(this.panelProjection.placements.map(item => item.entityId));
+        this._persistSoon(0);
+      }
+      this.render();
+      if (style !== 'free') this.fitContent();
+      this._refreshHistoryButtons();
       return true;
     }
 
-    _setTreeLayout(style) {
-      if (!['right', 'down', 'bilateral', 'radial'].includes(style)) return false;
-      if (!this._isServerTree()) return this._createServerTree(style);
+    _setStructure(structure) {
+      if (!Model.BOARD_STRUCTURES.includes(structure)) return false;
+      const board = activeBoard(this.store);
+      if (!board || Model.boardOrganization(board.view).structure === structure) return false;
+      if (structure !== 'resources' && !this.documentRecord && !this.panelProjection.metadata?.deploymentCount
+        && !this.store.entities.some(item => item.type === 'deployment')) {
+        this.notify('请先连接 Coolify 并载入部署数据', 'info'); return false;
+      }
       this._recordMutation();
-      this._boardView().treeLayout = style;
-      this.render(); this._arrangeServerTree(); this._renderGraph(); this.fitContent(); this._refreshHistoryButtons();
+      // Save coordinates and manual annotations before rebuilding only the projection.
+      const visibleGeometry = this._displayGeometryMap(this._combinedPlacements());
+      const before = new Map(this._combinedPlacements().map(item => [item.entityId, {
+        ...clone(item), ...(visibleGeometry.has(item.entityId) ? { x: visibleGeometry.get(item.entityId).x, y: visibleGeometry.get(item.entityId).y,
+          ...(this._allEntitiesById().get(item.entityId)?.type === 'group'
+            ? { groupWidth: visibleGeometry.get(item.entityId).width, groupHeight: visibleGeometry.get(item.entityId).height } : {}) } : {})
+      }]));
+      const previousGroups = new Set(this._combinedEntities()
+        .filter(item => item.runtime?.dynamicKind === 'coolify-project-group').map(item => item.id));
+      board.view = { ...this._boardView(), structure };
+      if (!this.documentRecord) {
+        this._setPanelTopology(this.panelTopologyResult, { preserveStructure: false });
+        for (const item of this.panelProjection.placements) {
+          const previous = before.get(item.entityId);
+          if (!previous) continue;
+          const nextGroup = item.groupId;
+          Object.assign(item, normalizePlacementAnnotations(previous), { x: previous.x, y: previous.y });
+          if (previous.groupId && !previousGroups.has(previous.groupId)) item.groupId = previous.groupId;
+          else if (nextGroup) item.groupId = nextGroup;
+          else delete item.groupId;
+        }
+        // Free placement preserves positions; arranged views give new containers
+        // a content-based wrapping width before applying the same chosen layout.
+        const generatedGroups = new Set(this.panelProjection.entities.filter(item => item.type === 'group').map(item => item.id));
+        for (const group of this.panelProjection.placements.filter(item => generatedGroups.has(item.entityId) && !visibleGeometry.has(item.entityId))) {
+          const members = this.panelProjection.placements.filter(item => item.groupId === group.entityId);
+          if (!members.length) continue;
+          const bounds = members.map(item => ({ x: item.x, y: item.y,
+            width: visibleGeometry.get(item.entityId)?.width || this._nodeDimensions().width,
+            height: visibleGeometry.get(item.entityId)?.height || this._nodeDimensions().height }));
+          if (board.view.layout !== 'free' && !members.some(item => item.locked)) {
+            const spacing = this._displayViewSettings();
+            const points = PanelTopologyProjection.packRegions(bounds, 1.6, Math.max(spacing.horizontalSpacing, spacing.verticalSpacing));
+            group.groupWidth = Math.max(...bounds.map((rect, i) => points[i].x + rect.width)) - Math.min(...points.map(p => p.x)) + GROUP_PADDING_X * 2;
+            group.groupLayout = 'auto';
+            continue;
+          }
+          group.x = Math.min(...bounds.map(item => item.x)) - GROUP_PADDING_X;
+          group.y = Math.min(...bounds.map(item => item.y)) - GROUP_HEADER_HEIGHT;
+          group.groupWidth = Math.max(...bounds.map(item => item.x + item.width)) + GROUP_PADDING_X - group.x;
+          group.groupHeight = Math.max(...bounds.map(item => item.y + item.height)) + GROUP_PADDING_BOTTOM - group.y;
+          group.groupLayout = 'manual';
+        }
+        this._saveDynamicPlacementOverrides(this.panelProjection.placements.map(item => item.entityId));
+      }
+      // A saved document already owns its containers; structure only changes its
+      // relationship projection, never replaces them with live Coolify data.
+      this._persistSoon(0);
+      this.render();
+      if (board.view.layout !== 'free') {
+        this._arrangeCurrentLayout(); this._renderGraph(); this.fitContent();
+      }
+      this._refreshHistoryButtons();
+      this.notify(board.view.layout === 'free' ? '已切换结构，自由摆放保留原位置' : '已切换结构并应用当前布局，手工群组内部位置保持不变', 'success');
       return true;
+    }
+
+    _setProjectEndpoints(include) {
+      this._recordMutation();
+      this._boardView().projectGroupIncludesEndpoints = include;
+      const placements = this._combinedPlacements();
+      const before = new Map(placements.map(item => [item.entityId, item.groupId]));
+      const entities = this._allEntitiesById();
+      PanelTopologyProjection.applyProjectEndpointMembership({ entities: [...entities.values()],
+        relationships: this._combinedRelationships(placements), placements }, include);
+      for (const item of placements) {
+        const previous = before.get(item.entityId);
+        // User-created group membership takes priority over generated Project rules.
+        if (previous && entities.get(previous)?.type === 'group'
+          && entities.get(previous)?.runtime?.dynamicKind !== 'coolify-project-group'
+          && !previous.startsWith('entity_panel_projectgroup_')) item.groupId = previous;
+        else if (item.groupId && !item.groupId.startsWith('entity_panel_projectgroup_')
+          && entities.get(item.groupId)?.runtime?.dynamicKind !== 'coolify-project-group') {
+          if (previous) item.groupId = previous; else delete item.groupId;
+        }
+      }
+      this._saveDynamicPlacementOverrides(placements.filter(item => item.dynamic).map(item => item.entityId));
+      this._persistSoon(0); this.render();
+      if (this._boardView().layout !== 'free') {
+        this._arrangeCurrentLayout(); this._renderGraph(); this.fitContent();
+      }
+      this._refreshHistoryButtons();
     }
 
     _layoutMenuHtml() {
-      const view = this._boardView(), tree = this._isServerTree();
-      const styles = [
-        ['right', '向右树状', '从左向右逐级展开', 'M5 16H14M14 6V26M14 6H26M14 16H26M14 26H26'],
-        ['down', '向下树状', '从上向下逐级展开', 'M16 4V13M5 13H27M5 13V26M16 13V26M27 13V26'],
-        ['bilateral', '左右分叉', '主机居中，项目分向两侧', 'M16 16H23M23 7V25M23 7H29M23 25H29M16 16H9M9 7V25M9 7H3M9 25H3'],
-        ['radial', '环绕放射', '项目分支围绕主机展开', 'M16 16L5 5M16 16L27 5M16 16L27 27M16 16L5 27M16 16V2M16 16V30']
+      const view = this._boardView();
+      const layouts = [
+        ['free', '自由摆放', '保持手工位置', 'M7 7H12V12H7ZM20 20H25V25H20Z'],
+        ['right', '向右树状', '从左向右展开现有关系', 'M5 16H14M14 6V26M14 6H26M14 16H26M14 26H26'],
+        ['down', '向下树状', '从上向下展开现有关系', 'M16 4V13M5 13H27M5 13V26M16 13V26M27 13V26'],
+        ['bilateral', '左右分叉', '现有分支向两侧展开', 'M16 16H23M23 7V25M23 7H29M23 25H29M16 16H9M9 7V25M9 7H3M9 25H3'],
+        ['radial', '环绕放射', '以分支为单位环绕，不拆散群组', 'M16 16L5 5M16 16L27 5M16 16L27 27M16 16L5 27'],
+        ['galaxy', '项目星系', '按 Project 聚合部署；访问点位置服从结构开关', 'M16 8A8 8 0 1 0 16 24A8 8 0 1 0 16 8M16 2V5M27 8L24 10M30 19L26 18M22 29L20 25M9 29L11 25M2 19L6 18M5 8L8 10'],
+        ['lanes', '按类别分列', '同类元素一列，群组保持完整', 'M5 5H11V27H5ZM21 5H27V27H21Z'],
+        ['compact', '紧凑排列', '按可用画布比例平铺', 'M4 4H14V14H4ZM19 4H29V14H19ZM4 19H14V29H4ZM19 19H29V29H19Z']
       ];
-      const current = tree ? styles.find(([key]) => key === view.treeLayout)?.[1]
-        : ({ lanes: '按类别分列', 'coolify-projects': '项目分组', 'server-centered': '服务器为中心', 'selection-centered': '围绕选中元素' }[view.topologyLayout] || '自由排列');
-      return `<div class="relationship-layout-host">
-        <button class="relationship-tool-button relationship-layout-trigger" data-relationship-action="toggle-layout-menu" type="button" aria-label="视图与布局" aria-haspopup="menu" aria-expanded="false" title="选择树状、双侧、环绕或分列布局">${toolbarIcon('layout')}<span>视图与布局</span><span aria-hidden="true">⌄</span></button>
-        <div class="relationship-layout-menu" role="menu" aria-label="视图与布局" hidden>
-          <header><strong>视图与布局</strong><small>当前：${escapeHtml(current)}</small></header>
-          <p>${tree ? '树状排列 · 服务器 → 项目容器 → 部署与访问点' : '树状排列 · 首次选择会创建副本，保留原白板'}</p>
-          <div class="relationship-layout-options">${styles.map(([key, label, hint, path]) => `<button type="button" role="menuitemradio" aria-checked="${tree && view.treeLayout === key}" aria-label="${label}" data-tree-layout="${key}"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="${path}"/><circle cx="16" cy="16" r="2.5"/></svg><span><b>${label}</b><small>${hint}</small></span><span class="relationship-layout-check" aria-hidden="true">${tree && view.treeLayout === key ? '✓' : ''}</span></button>`).join('')}</div>
-          <div class="relationship-menu-separator" role="separator"></div>
-          <p>其它排列</p>
-          ${[['arrange-by-category', '按类别分列'], ['arrange-around-servers', '服务器为中心'], ['arrange-around-selection', '围绕选中元素']].map(([action, label]) => `<button type="button" role="menuitem" data-relationship-action="${action}">${label}</button>`).join('')}
-          <div class="relationship-menu-separator" role="separator"></div>
-          <button type="button" role="menuitem" data-relationship-action="reset-dynamic-layout">整理当前布局</button>
-          <button type="button" role="menuitem" data-relationship-action="arrange-by-coolify-projects" title="一次性初始化并保存，可撤销">初始化 Coolify 项目分组</button>
-          <button type="button" role="menuitem" data-relationship-action="deployment-archive">归档的部署（${this._combinedPlacements().filter(item => item.archived).length}）</button>
-          ${tree ? `<div class="relationship-menu-separator" role="separator"></div><button type="button" role="menuitemcheckbox" aria-checked="${view.showRepositoryRelations}" data-relationship-action="repository-relations"><span aria-hidden="true">${view.showRepositoryRelations ? '✓' : '○'}</span> 显示仓库相关性</button>` : ''}
+      const structures = [
+        ['resources', '资源关系', '显示仓库、部署、主机和访问点的原始关联'],
+        ['coolify-projects', 'Coolify 项目分组', '按 Project 归属组织，跨项目资源保持独立'],
+        ['server-tree', '服务器项目树', '服务器 → 项目容器 → 部署 → 访问点']
+      ];
+      const menu = (key, label, current, content) => `<div class="relationship-layout-host">
+        <button class="relationship-tool-button relationship-layout-trigger" data-relationship-action="toggle-layout-menu" data-layout-menu="${key}" type="button" aria-label="${label}" aria-haspopup="menu" aria-expanded="false" title="${label}：${escapeHtml(current)}">${toolbarIcon(key === 'structure' ? 'group' : 'layout')}<span>${label}</span><span aria-hidden="true">⌄</span></button>
+        <div class="relationship-layout-menu" data-layout-panel="${key}" role="menu" aria-label="${label}" hidden>
+          <header><strong>${label}</strong><small>当前：${escapeHtml(current)}</small></header>${content}
         </div></div>`;
+      const structureMenu = `<p>决定层级与群组成员，并应用所选布局；自由摆放保留原位置。</p>
+        <div class="relationship-structure-options">${structures.map(([key, label, hint]) => `<button type="button" role="menuitemradio" aria-checked="${view.structure === key}" data-board-structure="${key}"><span><b>${label}</b><small>${hint}</small></span><span aria-hidden="true">${view.structure === key ? '✓' : ''}</span></button>`).join('')}</div>
+        ${this._isServerTree() ? `<div class="relationship-menu-separator" role="separator"></div>
+          <button type="button" role="menuitemcheckbox" aria-checked="${view.projectGroupIncludesEndpoints}" data-relationship-action="project-endpoints">${view.projectGroupIncludesEndpoints ? '✓' : '○'} 项目组包含访问点</button>
+          <button type="button" role="menuitemcheckbox" aria-checked="${view.showRepositoryRelations}" data-relationship-action="repository-relations">${view.showRepositoryRelations ? '✓' : '○'} 显示仓库相关性</button>` : ''}
+        <div class="relationship-menu-separator" role="separator"></div>
+        <button type="button" role="menuitem" data-relationship-action="deployment-archive">归档的部署（${this._combinedPlacements().filter(item => item.archived).length}）</button>`;
+      const layoutMenu = `<p>只改变位置、方向和间距，不改变结构，也不创建副本。</p>
+        <div class="relationship-layout-options">${layouts.map(([key, label, hint, path]) => `<button type="button" role="menuitemradio" aria-checked="${view.layout === key}" aria-label="${label}" data-board-layout="${key}"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="${path}"/></svg><span><b>${label}</b><small>${hint}</small></span><span class="relationship-layout-check" aria-hidden="true">${view.layout === key ? '✓' : ''}</span></button>`).join('')}</div>
+        <div class="relationship-menu-separator" role="separator"></div>
+        <p>卡片间距在“显示”中调整；关闭组内自动排列的群组整体移动。</p>
+        <button type="button" role="menuitem" data-relationship-action="reset-dynamic-layout">整理布局</button>`;
+      return menu('structure', '结构', structures.find(([key]) => key === view.structure)?.[1], structureMenu)
+        + menu('layout', '布局', layouts.find(([key]) => key === view.layout)?.[1], layoutMenu);
     }
 
-    _packCurrentLayout(dynamicOnly = false) {
-      const allPlacements = this._unarchivedPlacements();
-      const placements = dynamicOnly ? allPlacements.filter(item => item.dynamic) : allPlacements;
-      const geometry = this._displayGeometryMap(placements);
-      const byId = new Map(placements.map(item => [item.entityId, item]));
-      const roots = this._orderedLayoutItems(placements.filter(item => !byId.has(item.groupId)), placements);
-      const bounds = roots.map(item => this._placementGeometry(item, placements, new Set(), geometry));
-      const canvas = this.root?.querySelector('.relationship-canvas');
-      const positions = PanelTopologyProjection.packRegions(bounds, canvas?.clientWidth / canvas?.clientHeight || 1.6);
-      const fixed = dynamicOnly ? allPlacements.filter(item => !item.dynamic) : [];
-      const offsetX = fixed.length ? Math.max(...fixed.map(item => item.x + this._nodeDimensions().width)) + 64 : 0;
-      placements.forEach(item => {
-        let root = item;
-        const visited = new Set();
-        while (byId.has(root.groupId) && !visited.has(root.groupId)) {
-          visited.add(root.entityId);
-          root = byId.get(root.groupId);
-        }
-        const index = roots.indexOf(root);
-        if (index < 0 || root.locked) return;
-        const original = geometry.get(item.entityId) || item;
-        item.x = Math.round(original.x + positions[index].x + offsetX - bounds[index].x);
-        item.y = Math.round(original.y + positions[index].y - bounds[index].y);
-      });
-      this._saveDynamicPlacementOverrides(placements.filter(item => item.dynamic).map(item => item.entityId));
-      this._persistSoon(0);
-    }
 
-    _arrangeByCategory() {
-      const board = activeBoard(this.store);
-      const arrange = PanelTopologyProjection?.arrangeTopologyLanes;
-      if (!board || typeof arrange !== 'function') return false;
-      this._recordMutation();
-      board.view = { ...this._boardView(), topologyLayout: 'lanes' };
-      this._setPanelTopology(this.panelTopologyResult);
-      const entitiesById = this._allEntitiesById();
-      const placements = this._combinedPlacements(board)
-        .filter(placement => entitiesById.get(placement.entityId)?.type !== 'group');
-      if (!placements.length) return false;
-      const display = this._displayViewSettings();
-      arrange({
-        entities: this._combinedEntities(),
-        existingEntities: [],
-        relationships: this._combinedRelationships(placements),
-        placements
-      }, {
-        ...this._nodeDimensions(),
-        horizontalSpacing: display.horizontalSpacing,
-        verticalSpacing: display.verticalSpacing
-      });
-      this._persistSoon(0);
-      const dynamicIds = placements.filter(placement => placement.dynamic).map(placement => placement.entityId);
-      if (dynamicIds.length) this._saveDynamicPlacementOverrides(dynamicIds);
-      this._renderGraph();
-      this.fitContent({ minZoom: 1 });
-      this._refreshHistoryButtons();
-      this.notify('已按项目、仓库、部署、主机和访问点分列', 'success');
-      return true;
-    }
+    _arrangeByCategory() { return this._setLayout('lanes'); }
 
-    _arrangeByCoolifyProjects() {
-      const board = activeBoard(this.store);
-      if (!board || !this.panelProjection.metadata?.deploymentCount) {
-        this.notify('请先连接 Coolify 并载入部署数据', 'info');
-        return false;
-      }
-      this._recordMutation();
-      board.view = { ...this._boardView(), topologyLayout: 'coolify-projects' };
-      if (this.documentRecord) {
-        this._setPanelTopology(this.panelTopologyResult);
-        const previous = new Map(board.placements.map(item => [item.entityId, item]));
-        for (const placement of this.panelProjection.placements) Object.assign(placement, normalizePlacementAnnotations(previous.get(placement.entityId)));
-        const generatedIds = new Set(this.panelProjection.placements.map(item => item.entityId));
-        board.placements = board.placements.filter(item => !generatedIds.has(item.entityId));
-        const record = this.documentRecord;
-        try { this.documentRecord = null; this.store = this._buildActiveBoardExportStore(); }
-        finally { this.documentRecord = record; }
-        this._renderGraph(); this._packCurrentLayout(); this._renderGraph();
-        this.fitContent(); this._refreshHistoryButtons();
-        return true;
-      }
-      const previous = this._dynamicLayoutForActiveBoard();
-      this.dynamicLayoutStore.boards[board.id] = {};
-      this._setPanelTopology(this.panelTopologyResult);
-      for (const placement of this.panelProjection.placements) {
-        Object.assign(placement, normalizePlacementAnnotations(previous[placement.entityId]));
-      }
-      this._saveDynamicPlacementOverrides(this.panelProjection.placements.map(item => item.entityId));
-      this._persistSoon(0);
-      this._renderGraph();
-      this._packCurrentLayout(true);
-      this._renderGraph();
-      this.fitContent();
-      this._refreshHistoryButtons();
-      this.notify('已按 Coolify Projects 分组，共享资源保持唯一节点', 'success');
-      return true;
-    }
+    _arrangeByCoolifyProjects() { return this._setStructure('coolify-projects'); }
 
     _arrangeAround(mode) {
       const board = activeBoard(this.store);
@@ -874,9 +821,8 @@
         return false;
       }
       this._recordMutation();
-      board.view = { ...this._boardView(), topologyLayout: mode };
-      this._setPanelTopology(this.panelTopologyResult);
-      const placements = this._combinedPlacements();
+      board.view = { ...this._boardView(), layout: 'radial' };
+      const placements = this._unarchivedPlacements();
       const byId = new Map(placements.map(item => [item.entityId, item]));
       const roots = new Map();
       for (const item of placements) {
@@ -926,7 +872,7 @@
       return true;
     }
 
-    _setPanelTopology(result = {}) {
+    _setPanelTopology(result = {}, options = {}) {
       const providerIdentity = value => {
         const providers = Array.isArray(value?.providers) ? value.providers : [];
         if (providers.length) return providers.map(provider => provider?.providerId).filter(Boolean).sort().join('|');
@@ -950,11 +896,11 @@
         repositories: this.panelRepositories,
         repositoryAssociations: this.repositoryAssociations,
         existingEntities: this.store?.entities || [],
-        groupByProject: this.store && activeBoard(this.store)?.view?.topologyLayout === 'coolify-projects',
-        serverTree: this.store && activeBoard(this.store)?.view?.topologyLayout === 'server-tree',
+        groupByProject: this.store && this._boardView().structure === 'coolify-projects',
+        serverTree: this._isServerTree(),
         layout: {
           ...this._nodeDimensions(),
-          treeLayout: activeBoard(this.store)?.view?.treeLayout,
+          style: this._boardView().layout,
           projectGroupIncludesEndpoints: activeBoard(this.store)?.view?.projectGroupIncludesEndpoints,
           viewportAspectRatio: canvas?.clientWidth && canvas?.clientHeight ? canvas.clientWidth / canvas.clientHeight : 1.6,
           horizontalSpacing: this._displayViewSettings().horizontalSpacing,
@@ -962,35 +908,64 @@
         }
       }) || { entities: [], relationships: [], placements: [], metadata: { state: result.state || 'unconfigured' } };
       const board = this.store && activeBoard(this.store);
-      if (board?.view?.topologyLayout === 'coolify-projects' && board.placements.length) {
+      if (board?.view?.structure === 'coolify-projects' && board.placements.length) {
         const right = Math.max(...board.placements.map(item => {
           const geometry = this._placementGeometry(item, board.placements);
           return geometry.x + geometry.width;
         }));
         for (const placement of this.panelProjection.placements) placement.x += right + 80;
       }
-      this._applyDynamicLayoutOverrides();
+      this._applyDynamicLayoutOverrides(options);
     }
 
     _schedulePanelRefresh() {
       if (this.panelRefreshTimer) clearTimeout(this.panelRefreshTimer);
       this.panelRefreshTimer = null;
-      if (!this.root?.isConnected || !this.bridge?.panel?.getTopology) return;
+      if (!this.root?.isConnected || !(this.bridge?.panel?.refreshTopology || this.bridge?.panel?.getTopology)) return;
       if (!['ready', 'error'].includes(this.panelTopologyResult?.state)) return;
       this.panelRefreshTimer = setTimeout(() => this._refreshPanelTopology(), PANEL_REFRESH_INTERVAL_MS);
     }
 
+    async _restoreCachedPanelTopology() {
+      if (!this.root?.isConnected || !this.bridge?.panel?.getCachedTopology) return false;
+      try {
+        const cached = await this.bridge.panel.getCachedTopology();
+        if (cached?.state !== 'ready') return false;
+        const result = await this._topologyWithProjectBindings(cached);
+        this._setPanelTopology(result);
+        if (this.root?.isConnected) {
+          this._renderGraph();
+          this._updateFilterSummary();
+          this._updateSummary();
+          this._updatePanelStatus();
+        }
+        return true;
+      } catch (error) {
+        this.panelLastError = `缓存读取失败：${error?.message || error}`;
+        this._updatePanelStatus();
+        return false;
+      }
+    }
+
     async _refreshPanelTopology(options = {}) {
-      if (this.pointerAction) { this._schedulePanelRefresh(); return false; }
-      if (this.panelRefreshInFlight || !this.bridge?.panel?.getTopology) return false;
+      if (this.flowMutationActive) { this._schedulePanelRefresh(); return false; }
+      const readTopology = this.bridge?.panel?.refreshTopology || this.bridge?.panel?.getTopology;
+      if (this.panelRefreshInFlight || !readTopology) return false;
       this.panelRefreshInFlight = true;
       const associationRevision = this.repositoryAssociationRevision;
       this._updatePanelStatus();
       try {
         const [topology, repositories] = await Promise.all([
-          this.bridge.panel.getTopology(),
+          readTopology.call(this.bridge.panel),
           this.bridge.panel.getLocalRepositories?.() || Promise.resolve(this.panelRepositories)
         ]);
+        if (topology?.state === 'error' && this.panelProjection?.entities?.length) {
+          const errors = Array.isArray(topology.errors) ? topology.errors : [];
+          this.panelLastError = errors[0]?.message || topology.error || 'Coolify 同步失败';
+          this._updatePanelStatus();
+          if (options.announce) this.notify(`Coolify 刷新失败：${this.panelLastError}`, 'error');
+          return false;
+        }
         const result = await this._topologyWithProjectBindings(topology);
         const associations = await this.bridge.panel.getRepositoryAssociations?.() || [];
         if (associationRevision === this.repositoryAssociationRevision) this.repositoryAssociations = associations;
@@ -1046,7 +1021,7 @@
         this.panelRepositories = await this.bridge.panel.getLocalRepositories();
         this._setResources(this.panelProjects, this.panelRepositories);
         this._setPanelTopology(this.panelTopologyResult);
-        if (this.root?.isConnected && !this.pointerAction) {
+        if (this.root?.isConnected && !this.flowMutationActive) {
           this._renderResources(); this._renderGraph(); this._updateSummary();
         }
         const deployments = this.panelProjection.entities.filter(entity => entity.type === 'deployment');
@@ -1076,9 +1051,9 @@
         const snapshot = await (values ? panel.checkEndpoints(values) : panel.getEndpointChecks());
         if (this.endpointCheckRequest !== request || openRequestId !== this.openRequestId || !this.root?.isConnected) return false;
         this.endpointChecksPending = snapshot.pending || 0;
-        // Never interrupt an active drag, box selection or resize with a DOM rebuild.
-        if (!this.pointerAction) this._applyEndpointChecks(snapshot.checks || []);
-        if (snapshot.pending || this.pointerAction) this.endpointCheckTimer = setTimeout(() => this._refreshEndpointChecks(), 1500);
+        // Never interrupt a React Flow drag or resize with a model rebuild.
+        if (!this.flowMutationActive) this._applyEndpointChecks(snapshot.checks || []);
+        if (snapshot.pending || this.flowMutationActive) this.endpointCheckTimer = setTimeout(() => this._refreshEndpointChecks(), 1500);
         return true;
       } catch (error) {
         if (values?.force && this.endpointCheckRequest === request && this.root?.isConnected) this.notify(`访问点检测失败：${error.message}`, 'error');
@@ -1117,7 +1092,8 @@
         || !this.panelProjection.entities.some(entity => entity.runtime?.dynamicKind === 'panel-endpoint');
       button.title = this.endpointChecksPending ? `正在检测 ${this.endpointChecksPending} 个访问点` : '重新检测全部访问点（本机 HTTP 检测）';
       button.setAttribute('aria-label', button.title);
-      button.textContent = this.endpointChecksPending ? `◉ ${this.endpointChecksPending}` : '◉';
+      // Progress belongs in the tooltip/accessible label, not the toolbar's width.
+      if (button.textContent !== '◉') button.textContent = '◉';
     }
 
     _setResources(projects, repositories) {
@@ -1280,6 +1256,7 @@
       }
       this.selectedEntityIds.delete(entityId);
       if (this.selectedEntityId === entityId) this.selectedEntityId = null;
+      if (this._boardView().layout === 'galaxy') this._arrangeCurrentLayout();
       this._persistSoon(0); this.render();
       this.notify(archived ? '已归档到当前白板；未停止或删除远端部署' : '已还原到白板；未启动或修改远端部署', 'success');
       return true;
@@ -1408,8 +1385,9 @@
             ...(placement.groupId ? { groupId: placement.groupId } : {}),
             ...(placement.groupBackground ? { groupBackground: placement.groupBackground } : {}),
             ...(placement.groupBorder ? { groupBorder: placement.groupBorder } : {}),
-            ...normalizePlacementAnnotations(placement),
-            ...(this.expandedCardIds.has(placement.entityId) ? { expanded: true } : { expanded: false })
+            ...(placement.groupShape ? { groupShape: placement.groupShape } : {}),
+            ...(placement.groupAppearance ? { groupAppearance: placement.groupAppearance } : {}),
+            ...normalizePlacementAnnotations(placement)
           }))
         }]
       });
@@ -1475,16 +1453,67 @@
       if (state === 'ready') {
         const stale = this._panelSnapshotStale();
         const failure = metadata.failureCount ? ` · ${metadata.failureCount} 个最近失败` : '';
-        const providerPrefix = metadata.providerCount > 1 ? `${metadata.providerCount} 个 Coolify · ` : 'Coolify ';
+        const cachePrefix = this.panelTopologyResult?.cached ? '缓存 · ' : '';
+        const providerPrefix = metadata.providerCount > 1 ? `${cachePrefix}${metadata.providerCount} 个 Coolify · ` : `Coolify ${cachePrefix}`;
         return {
           state: stale ? 'stale' : (metadata.failureCount ? 'warning' : 'ready'),
           label: `${providerPrefix}${metadata.serverCount || 0} 台服务器 · ${metadata.deploymentCount || 0} 个部署${failure}`,
-          title: `最后同步 ${this._relativeTime(metadata.generatedAt)}${stale ? '；数据已陈旧' : ''}`
+          title: `${this.panelTopologyResult?.cached ? '已从本机缓存恢复；' : ''}最后同步 ${this._relativeTime(metadata.generatedAt)}${stale ? '；数据已陈旧' : ''}`
         };
       }
       if (state === 'reauthentication-required') return { state, label: 'Coolify 需要重新连接', title: '请在设置中重新输入只读 API Token' };
       if (state === 'error') return { state, label: 'Coolify 同步失败', title: this.panelLastError || '无法读取动态拓扑' };
       return { state: 'unconfigured', label: 'Coolify 未连接', title: '可在设置中直接连接 Coolify' };
+    }
+
+    _topologyAlerts() {
+      const placements = this._unarchivedPlacements();
+      return PanelTopologyProjection.endpointHostConflicts({
+        entities: this._combinedEntities(),
+        relationships: this._combinedRelationships(placements),
+        placements
+      });
+    }
+
+    _topologyAlertItemsHtml(alerts = []) {
+      const entities = this._allEntitiesById();
+      const placed = new Set(this._unarchivedPlacements().map(item => item.entityId));
+      return alerts.map(alert => {
+        const endpoint = entities.get(alert.endpointId);
+        const hostNames = alert.hostIds.map(id => this._entityDisplayName(entities.get(id))).join('、');
+        const deployments = alert.deploymentIds.map(id => {
+          const deployment = entities.get(id);
+          const hosts = (alert.deploymentHostIds?.[id] || []).map(hostId => this._entityDisplayName(entities.get(hostId))).join('、') || '主机未知';
+          return `<li><span>${escapeHtml(this._entityDisplayName(deployment))}</span><small>${escapeHtml(hosts)}</small></li>`;
+        }).join('');
+        return `<article class="relationship-topology-alert-item" data-topology-alert-id="${escapeHtml(alert.id)}">
+          <header><span aria-hidden="true">!</span><strong>${escapeHtml(this._entityDisplayName(endpoint))}</strong><small>严重</small></header>
+          <p>${escapeHtml(alert.message)}</p>
+          <details><summary>查看涉及的配置</summary><dl><div><dt>主机</dt><dd>${escapeHtml(hostNames)}</dd></div><div><dt>部署</dt><dd><ul>${deployments}</ul></dd></div></dl></details>
+          <button type="button" data-relationship-locate-entity="${escapeHtml(alert.endpointId)}"${placed.has(alert.endpointId) ? '' : ' disabled'}>定位访问点</button>
+        </article>`;
+      }).join('');
+    }
+
+    _updateTopologyAlerts(alerts = this._topologyAlerts()) {
+      const host = this.root?.querySelector('.relationship-topology-alerts');
+      if (!host) return;
+      const trigger = host.querySelector('.relationship-topology-alert-trigger');
+      const popover = host.querySelector('.relationship-topology-alert-popover');
+      const count = alerts.length;
+      trigger.hidden = count === 0;
+      trigger.querySelector('b').textContent = String(count);
+      trigger.setAttribute('aria-label', `配置警报 ${count} 条`);
+      popover.querySelector('[data-topology-alert-count]').textContent = `${count} 条`;
+      popover.querySelector('[data-topology-alert-list]').innerHTML = this._topologyAlertItemsHtml(alerts);
+      if (!count) this._closeTopologyAlerts();
+    }
+
+    _closeTopologyAlerts() {
+      const popover = this.root?.querySelector('.relationship-topology-alert-popover');
+      const trigger = this.root?.querySelector('.relationship-topology-alert-trigger');
+      if (popover) popover.hidden = true;
+      trigger?.setAttribute('aria-expanded', 'false');
     }
 
     _updatePanelStatus() {
@@ -1497,7 +1526,7 @@
       element.dataset.state = status.state;
       element.textContent = status.label;
       element.title = status.title;
-      if (refresh) refresh.disabled = this.panelRefreshInFlight || !this.bridge?.panel?.getTopology;
+      if (refresh) refresh.disabled = this.panelRefreshInFlight || !(this.bridge?.panel?.refreshTopology || this.bridge?.panel?.getTopology);
     }
 
     revealResource(kind, refId) {
@@ -1539,17 +1568,16 @@
       }
 
       if (this._hasActiveFilters(board.view)) {
-        const { mode, projection, snapMode, topologyLayout, treeLayout, projectGroupIncludesEndpoints, showRepositoryRelations } = this._boardView();
+        const { mode, projection, snapMode, structure, layout, projectGroupIncludesEndpoints, showRepositoryRelations } = this._boardView();
         board.view = {
           ...Model.defaultBoardView(),
           ...this._displayViewSettings(),
           mode,
           projection: projection || 'facts',
-          snapMode, topologyLayout, treeLayout, projectGroupIncludesEndpoints, showRepositoryRelations
+          snapMode, structure, layout, projectGroupIncludesEndpoints, showRepositoryRelations
         };
       }
       this._selectOnlyEntity(entity.id);
-      this.keyboardConnectSourceId = '';
       const canvas = this.root?.querySelector('.relationship-canvas');
       const rect = canvas?.getBoundingClientRect();
       if (rect?.width && rect?.height) {
@@ -1561,6 +1589,14 @@
       this._applyViewMode();
       this._persistSoon(0);
       this._renderGraph();
+      if (this.flowCanvas?.setCenter) {
+        const geometry = this._displayGeometryMap(this._combinedPlacements(board)).get(entityId);
+        if (geometry) requestAnimationFrame(() => {
+          void this.flowCanvas?.setCenter?.(geometry.x + geometry.width / 2, geometry.y + geometry.height / 2, {
+            zoom: Math.max(0.7, board.viewport.zoom), duration: 220
+          });
+        });
+      }
       this._updateFilterSummary();
       this._updateSummary();
       this._setCanvasAnnouncement(`已在白板中显示 ${resource.name}`);
@@ -1583,7 +1619,9 @@
     _boardView() {
       const board = activeBoard(this.store);
       if (!board) return Model.defaultBoardView();
-      board.view = { ...Model.defaultBoardView(), ...(board.view || {}) };
+      board.view = { ...Model.defaultBoardView(), ...(board.view || {}), ...Model.boardOrganization(board.view) };
+      delete board.view.topologyLayout;
+      delete board.view.treeLayout;
       return board.view;
     }
 
@@ -1601,9 +1639,11 @@
         cardWidth: normalizedNumber(view.cardWidth, defaults.cardWidth, 220, 600),
         cardHeight: normalizedNumber(view.cardHeight, defaults.cardHeight, 143, 420),
         textScale: Number.isFinite(textScale) ? Math.min(1.3, Math.max(0.85, textScale)) : defaults.textScale,
+        groupTitleFontSize: normalizedNumber(view.groupTitleFontSize, defaults.groupTitleFontSize, 14, 36),
         horizontalSpacing: normalizedNumber(view.horizontalSpacing, defaults.horizontalSpacing, 16, 180),
         verticalSpacing: normalizedNumber(view.verticalSpacing, defaults.verticalSpacing, 16, 140),
         cardAppearance: view.cardAppearance === 'flat' ? 'flat' : 'elevated',
+        projectGroupShape: Model.PROJECT_GROUP_SHAPES.includes(view.projectGroupShape) ? view.projectGroupShape : defaults.projectGroupShape,
         showGrid: view.showGrid !== false,
         showEdgeLabels: view.showEdgeLabels !== false,
         cardTitleSource: view.cardTitleSource === 'note' ? 'note' : 'name',
@@ -1630,14 +1670,6 @@
       };
     }
 
-    _expandedNodeHeight(placement) {
-      const { height } = this._nodeDimensions();
-      const annotations = normalizePlacementAnnotations(placement || {});
-      const todoCount = Math.min(4, (annotations.todos || []).length);
-      const noteHeight = annotations.note ? 42 : 0;
-      return height + Math.round((110 + todoCount * 42 + noteHeight) * this._displayViewSettings().cardScale);
-    }
-
     _captureDisplayLayout() {
       const display = this._displayViewSettings();
       return { boardId: activeBoard(this.store)?.id, display, history: this._historySnapshot(),
@@ -1655,8 +1687,7 @@
         const old = before.geometry.get(item.entityId);
         if (!old) continue;
         const card = !['group', 'text', 'image', 'attachment'].includes(entities.get(item.entityId)?.type);
-        geometry.set(item.entityId, { ...old, ...(card ? { width: dimensions.width,
-          height: this.cardHeights.get(item.entityId) || (this.expandedCardIds.has(item.entityId) ? this._expandedNodeHeight(item) : dimensions.height) } : {}) });
+        geometry.set(item.entityId, { ...old, ...(card ? { width: dimensions.width, height: dimensions.height } : {}) });
       }
       const bounds = item => geometry.get(item.entityId);
       const oldBounds = item => before.geometry.get(item.entityId);
@@ -1681,7 +1712,7 @@
         let previousEnd, previousOldEnd;
         for (const track of list) {
           const oldStart = Math.min(...track.map(item => oldBounds(item)[axis]));
-          const start = previousEnd == null ? oldStart : previousEnd + gap + Math.max(0, oldStart - previousOldEnd - oldGap);
+          const start = previousEnd == null ? oldStart : previousEnd + gap;
           for (const item of track) {
             const delta = start + oldBounds(item)[axis] - oldStart - bounds(item)[axis];
             shift(item, axis === 'x' ? delta : 0, axis === 'y' ? delta : 0);
@@ -1748,16 +1779,11 @@
         const geometry = this._displayGeometryMap(allPlacements);
         return new Map(placements.filter(item => geometry.has(item.entityId)).map(item => [item.entityId, geometry.get(item.entityId)]));
       }
-      if (this.pointerAction?.type === 'node' && this.pointerAction.geometry) {
-        return new Map(placements.filter(item => this.pointerAction.geometry.has(item.entityId)).map(item => {
-          const original = this.pointerAction.geometry.get(item.entityId);
-          return [item.entityId, this.pointerAction.entityIds.includes(item.entityId) && this.pointerAction.moved
-            ? { ...original, x: item.x, y: item.y } : original];
-        }));
-      }
       const entitiesById = this._allEntitiesById();
       const { width, height } = this._nodeDimensions();
       const spacing = this._displayViewSettings();
+      const linkedRoots = placements.filter(item => item.moveWithDescendants).map(item => item.entityId);
+      const linkedBranch = new Set(linkedRoots.length ? this._expandMovingIds(linkedRoots) : []);
       const placementsById = new Map(placements.map(item => [item.entityId, item]));
       const regular = placements
         .filter(placement => entitiesById.get(placement.entityId)?.type !== 'group')
@@ -1772,11 +1798,10 @@
           continue;
         }
         let y = placement.y;
-        const expanded = this.expandedCardIds.has(placement.entityId);
-        const cardHeight = this.cardHeights.get(placement.entityId)
-          || (expanded ? this._expandedNodeHeight(placement) : height);
+        const cardHeight = height;
         for (const previous of resolved) {
-          if (placementsById.get(placement.groupId)?.groupLayout && !this._isServerTree()) break;
+          if (linkedBranch.has(placement.entityId)) break;
+          if (placementsById.get(placement.groupId)?.groupLayout) break;
           if ((placement.groupId || '') !== previous.groupId) continue;
           const horizontalOverlap = placement.x < previous.x + width
             && placement.x + width > previous.x;
@@ -1788,13 +1813,45 @@
         geometryById.set(placement.entityId, geometry);
       }
       const groups = placements.filter(item => entitiesById.get(item.entityId)?.type === 'group')
-        .sort((a, b) => this._groupDepth(b.entityId, placements) - this._groupDepth(a.entityId, placements));
-      if (this._isServerTree()) groups.sort((a, b) => a.y - b.y || a.x - b.x);
+        .sort((a, b) => this._groupDepth(b.entityId, placements) - this._groupDepth(a.entityId, placements) || a.y - b.y || a.x - b.x);
       const resolvedGroups = [];
       for (const group of groups) {
         const members = placements.filter(item => item.groupId === group.entityId);
         const descendants = this._groupDescendants(group.entityId, placements);
-        if (group.groupLayout === 'auto' && !group.locked && !descendants.some(item => item.locked)) {
+        const autoLayout = group.groupLayout === 'auto' && !group.locked && !descendants.some(item => item.locked);
+        const projectGroup = entitiesById.get(group.entityId)?.runtime?.dynamicKind === 'coolify-project-group'
+          || group.entityId.startsWith('entity_panel_projectgroup_');
+        const projectGalaxy = this._boardView().layout === 'galaxy' && projectGroup;
+        let autoProjectBounds = null;
+        if (autoLayout && projectGroup && !projectGalaxy) {
+          // Physical membership is authoritative here. Besides deployments and
+          // optional endpoints, imported/legacy boards may still contain a
+          // repository or nested item; leaving it at its stale coordinate lets
+          // the freshly packed Project move on top of that item.
+          const projectMembers = this._orderedLayoutItems(members, placements);
+          if (projectMembers.length) {
+            const groupCopy = { ...group };
+            const memberCopies = projectMembers.map(item => {
+              const rect = geometryById.get(item.entityId);
+              return { ...item, width: rect?.width || width, height: rect?.height || height };
+            });
+            PanelTopologyProjection.arrangeProjectContainer(groupCopy, memberCopies, {
+              ...this._nodeDimensions(),
+              ...this._displayViewSettings(),
+              projectGroupShape: this._groupShape(group.entityId),
+              preserveCenter: true
+            });
+            memberCopies.forEach(item => geometryById.set(item.entityId, {
+              ...geometryById.get(item.entityId), x: item.x, y: item.y
+            }));
+            autoProjectBounds = {
+              x: groupCopy.x,
+              y: groupCopy.y,
+              width: groupCopy.groupWidth,
+              height: groupCopy.groupHeight
+            };
+          }
+        } else if (autoLayout && !projectGalaxy) {
           const innerWidth = (group.groupWidth || GROUP_MIN_WIDTH) - GROUP_PADDING_X * 2;
           let x = 0, y = 0, rowHeight = 0;
           for (const member of this._orderedLayoutItems(members, placements)) {
@@ -1811,9 +1868,22 @@
             rowHeight = Math.max(rowHeight, bounds.height);
           }
         }
-        const bounds = this._placementGeometry(group, placements, new Set(), geometryById);
+        const containedMembers = projectGalaxy
+          ? members.filter(item => entitiesById.get(item.entityId)?.type !== 'endpoint') : members;
+        const memberBounds = containedMembers.map(item => geometryById.get(item.entityId)).filter(Boolean);
+        // Manual dimensions are a wrapping constraint, not a minimum size for an
+        // automatic container. Fit the newly arranged content in both directions.
+        const bounds = projectGalaxy ? {
+          x: group.x, y: group.y,
+          width: Math.max(GROUP_MIN_WIDTH, Number(group.groupWidth) || GROUP_MIN_WIDTH),
+          height: Math.max(GROUP_MIN_HEIGHT, Number(group.groupHeight) || GROUP_MIN_HEIGHT)
+        } : autoProjectBounds || (autoLayout ? {
+          x: group.x, y: group.y,
+          width: Math.max(GROUP_MIN_WIDTH, ...memberBounds.map(rect => rect.x + rect.width - group.x + GROUP_PADDING_X)),
+          height: Math.max(GROUP_MIN_HEIGHT, ...memberBounds.map(rect => rect.y + rect.height - group.y + GROUP_PADDING_BOTTOM))
+        } : this._placementGeometry(group, placements, new Set(), geometryById));
         if (this._isServerTree()) {
-          const union = members.map(item => geometryById.get(item.entityId)).filter(Boolean);
+          const union = containedMembers.map(item => geometryById.get(item.entityId)).filter(Boolean);
           if (union.length) {
             const right = Math.max(bounds.x + bounds.width, ...union.map(r => r.x + r.width + GROUP_PADDING_X));
             const bottom = Math.max(bounds.y + bounds.height, ...union.map(r => r.y + r.height + GROUP_PADDING_BOTTOM));
@@ -1822,18 +1892,14 @@
             bounds.width = right - bounds.x; bounds.height = bottom - bounds.y;
           }
           const originalY = bounds.y;
-          for (const previous of resolvedGroups) if (bounds.x < previous.x + previous.width && bounds.x + bounds.width > previous.x && originalY > previous.originalY) {
+          for (const previous of resolvedGroups) if (autoLayout && !linkedBranch.has(group.entityId) && previous.groupId === group.groupId && bounds.x < previous.x + previous.width && bounds.x + bounds.width > previous.x && originalY > previous.originalY) {
             bounds.y = Math.max(bounds.y, previous.y + previous.height + Math.max(60, spacing.verticalSpacing));
           }
           const dy = bounds.y - originalY;
           if (dy) for (const item of descendants) {
             const child = geometryById.get(item.entityId); if (child) geometryById.set(item.entityId, { ...child, y: child.y + dy });
           }
-          resolvedGroups.push({ ...bounds, originalY });
-        }
-        if (group.groupLayout === 'auto') {
-          bounds.width = Math.max(bounds.width, ...members.map(item => (geometryById.get(item.entityId)?.x || group.x) + (geometryById.get(item.entityId)?.width || 0) - group.x + GROUP_PADDING_X));
-          bounds.height = Math.max(bounds.height, ...members.map(item => (geometryById.get(item.entityId)?.y || group.y) + (geometryById.get(item.entityId)?.height || 0) - group.y + GROUP_PADDING_BOTTOM));
+          resolvedGroups.push({ ...bounds, originalY, groupId: group.groupId });
         }
         geometryById.set(group.entityId, bounds);
       }
@@ -1864,10 +1930,9 @@
       return result;
     }
 
-    _materializeGroupGeometry(groupId) {
+    _materializeGroupGeometry(groupId, geometry = this._displayGeometryMap(this._combinedPlacements())) {
       const placements = this._combinedPlacements();
       const group = this._placementForEntity(groupId);
-      const geometry = this._displayGeometryMap(placements);
       const items = [group, ...this._groupDescendants(groupId, placements)].filter(Boolean);
       for (const item of items) {
         const bounds = geometry.get(item.entityId);
@@ -1880,18 +1945,185 @@
       return items;
     }
 
+    _autoLayoutGroups() {
+      const placements = this._combinedPlacements();
+      const entities = this._allEntitiesById();
+      const blocked = new Set();
+      for (const item of placements.filter(item => item.locked)) {
+        blocked.add(item.entityId);
+        this._groupDescendants(item.entityId, placements).forEach(child => blocked.add(child.entityId));
+      }
+      return this._unarchivedPlacements().filter(item => entities.get(item.entityId)?.type === 'group'
+        && !blocked.has(item.entityId) && !this._groupDescendants(item.entityId, placements).some(child => child.locked));
+    }
+
+    _updateAllGroupLayoutButton() {
+      const button = this.root?.querySelector('[data-relationship-action="toggle-all-group-layouts"]');
+      if (!button) return;
+      const groups = this._autoLayoutGroups();
+      const galaxyProjects = this._boardView().layout === 'galaxy' && groups.some(group => this._isProjectGroup(group.entityId));
+      const enabled = groups.length > 0 && groups.every(group => group.groupLayout === 'auto');
+      button.disabled = !groups.length;
+      button.setAttribute('aria-pressed', String(enabled));
+      button.classList.toggle('is-active', enabled);
+      button.title = !groups.length ? '当前白板没有可排列的未锁定群组'
+        : galaxyProjects ? `重新排列全部 ${groups.filter(group => this._isProjectGroup(group.entityId)).length} 个 Project，容器适应内容；可撤销`
+        : enabled ? '关闭全部群组自动排列，保留当前位置和尺寸；可撤销'
+          : `开启全部 ${groups.length} 个未锁定群组自动排列，容器适应内容，间距跟随显示设置；可撤销`;
+    }
+
+    _toggleAllGroupLayouts() {
+      const groups = this._autoLayoutGroups();
+      if (!groups.length) return;
+      if (this._boardView().layout === 'galaxy' && groups.some(group => this._isProjectGroup(group.entityId))) {
+        this._recordMutation();
+        groups.forEach(group => { if (this._isProjectGroup(group.entityId)) group.groupLayout = 'auto'; });
+        this._arrangeCurrentLayout(); this._renderGraph(); this.fitContent(); this._refreshHistoryButtons(); this._updateSummary();
+        this._setCanvasAnnouncement('已重新排列全部 Project 与访问点');
+        return;
+      }
+      this._setGroupLayouts(groups, !groups.every(group => group.groupLayout === 'auto'), true);
+    }
+
+    _setGroupLayouts(groups, enabled, arrangeBoard = false) {
+      this._recordMutation();
+      const before = this._displayGeometryMap(this._combinedPlacements());
+      const items = [...new Set(groups.flatMap(group => this._materializeGroupGeometry(group.entityId, before)))];
+      groups.forEach(group => { group.groupLayout = enabled ? 'auto' : 'manual'; });
+      if (enabled) {
+        if (arrangeBoard) {
+          // A batch tidy also replaces oversized legacy wrapping widths. A
+          // single group's switch/resize still honors its user-chosen width.
+          const placements = this._combinedPlacements(), spacing = this._displayViewSettings();
+          for (const group of [...groups].sort((a, b) => this._groupDepth(b.entityId, placements) - this._groupDepth(a.entityId, placements))) {
+            const geometry = this._displayGeometryMap(placements);
+            const members = placements.filter(item => item.groupId === group.entityId).map(item => geometry.get(item.entityId)).filter(Boolean);
+            if (!members.length) continue;
+            const columns = Math.ceil(Math.sqrt(members.length));
+            group.groupWidth = GROUP_PADDING_X * 2 + columns * Math.max(...members.map(rect => rect.width)) + (columns - 1) * spacing.horizontalSpacing;
+          }
+        }
+        const arranged = this._displayGeometryMap(this._combinedPlacements());
+        groups.forEach(group => this._materializeGroupGeometry(group.entityId, arranged));
+        if (arrangeBoard && this._boardView().layout !== 'free') this._arrangeCurrentLayout();
+      }
+      this._saveDynamicPlacementOverrides(items.filter(item => item.dynamic).map(item => item.entityId));
+      this._persistSoon(0); this._renderGraph(); this._refreshHistoryButtons(); this._updateSummary();
+      if (enabled && arrangeBoard && this._boardView().layout !== 'free') this.fitContent();
+    }
+
+    _arrangeProjectGroup(groupId) {
+      const group = this._placementForEntity(groupId);
+      const entities = this._allEntitiesById();
+      if (!group || group.locked || !this._isProjectGroup(groupId)) return false;
+      const placements = this._combinedPlacements();
+      const includeEndpoints = this._boardView().projectGroupIncludesEndpoints !== false;
+      const members = placements.filter(item => item.groupId === groupId
+        && (entities.get(item.entityId)?.type === 'deployment'
+          || (includeEndpoints && entities.get(item.entityId)?.type === 'endpoint')));
+      if (members.some(item => item.locked)) {
+        this.notify('Project 中有锁定成员，请先解锁再自动排列', 'warning');
+        return false;
+      }
+      const geometry = this._displayGeometryMap(placements);
+      const groupCopy = { ...group };
+      const memberCopies = members.map(item => {
+        const bounds = geometry.get(item.entityId) || this._nodeDimensions();
+        return { ...item, width: bounds.width, height: bounds.height };
+      });
+      this._recordMutation();
+      group.groupLayout = 'auto';
+      PanelTopologyProjection.arrangeProjectContainer(groupCopy, memberCopies, {
+        ...this._nodeDimensions(),
+        ...this._displayViewSettings(),
+        projectGroupShape: this._groupShape(groupId),
+        preserveCenter: true
+      });
+      group.x = Math.round(groupCopy.x);
+      group.y = Math.round(groupCopy.y);
+      group.groupWidth = Math.round(groupCopy.groupWidth);
+      group.groupHeight = Math.round(groupCopy.groupHeight);
+      const originals = new Map(members.map(item => [item.entityId, item]));
+      for (const item of memberCopies) {
+        const original = originals.get(item.entityId);
+        original.x = Math.round(item.x);
+        original.y = Math.round(item.y);
+      }
+      this._saveDynamicPlacementOverrides([group, ...members].filter(item => item.dynamic).map(item => item.entityId));
+      this._persistSoon(0);
+      this._renderGraph();
+      this._refreshHistoryButtons();
+      this._updateSummary();
+      this._setCanvasAnnouncement(`已按当前间距重新排列 ${members.length} 个 Project 成员`);
+      return true;
+    }
+
+    _settleProjectDeployment(entityId) {
+      const groupId = this._logicalProjectGroupForMember(entityId);
+      const group = groupId && this._placementForEntity(groupId);
+      if (!group || group.locked) return false;
+      const entities = this._allEntitiesById();
+      const placements = this._combinedPlacements();
+      const includeEndpoints = this._boardView().projectGroupIncludesEndpoints !== false;
+      const geometry = this._displayGeometryMap(placements);
+      const members = placements.filter(item => item.groupId === groupId
+        && (entities.get(item.entityId)?.type === 'deployment'
+          || (includeEndpoints && entities.get(item.entityId)?.type === 'endpoint')));
+      if (!members.length || members.some(item => item.locked)) return false;
+      const memberCopies = members.map(item => {
+        const bounds = geometry.get(item.entityId) || this._nodeDimensions();
+        return { ...item, width: bounds.width, height: bounds.height };
+      }).sort((a, b) => (a.y + a.height / 2) - (b.y + b.height / 2)
+        || (a.x + a.width / 2) - (b.x + b.width / 2)
+        || a.entityId.localeCompare(b.entityId));
+      const groupCopy = { ...group };
+      group.groupLayout = 'auto';
+      PanelTopologyProjection.arrangeProjectContainer(groupCopy, memberCopies, {
+        ...this._nodeDimensions(),
+        ...this._displayViewSettings(),
+        projectGroupShape: this._groupShape(groupId),
+        preserveCenter: true
+      });
+      Object.assign(group, {
+        x: Math.round(groupCopy.x),
+        y: Math.round(groupCopy.y),
+        groupWidth: Math.round(groupCopy.groupWidth),
+        groupHeight: Math.round(groupCopy.groupHeight)
+      });
+      const originals = new Map(members.map(item => [item.entityId, item]));
+      for (const item of memberCopies) Object.assign(originals.get(item.entityId), {
+        x: Math.round(item.x),
+        y: Math.round(item.y)
+      });
+      this._saveDynamicPlacementOverrides([group, ...members].filter(item => item.dynamic).map(item => item.entityId));
+      this._persistSoon(0);
+      this._renderGraph();
+      this._updateSummary();
+      this._setCanvasAnnouncement(`已对齐 Project 内 ${members.length} 个成员并保持当前间距`);
+      return true;
+    }
+
     _toggleGroupLayout(groupId) {
       const group = this._placementForEntity(groupId);
       if (!group || group.locked || this._allEntitiesById().get(groupId)?.type !== 'group') return;
+      if (this._isProjectGroup(groupId)) return this._arrangeProjectGroup(groupId);
       const enabled = group.groupLayout !== 'auto';
       if (enabled && this._groupDescendants(groupId).some(item => item.locked)) {
         this.notify('群组中有锁定成员，请先解锁再开启自动排列', 'warning'); return;
       }
-      this._recordMutation();
-      const items = this._materializeGroupGeometry(groupId);
-      group.groupLayout = enabled ? 'auto' : 'manual';
-      this._saveDynamicPlacementOverrides(items.filter(item => item.dynamic).map(item => item.entityId));
-      this._persistSoon(0); this._renderGraph(); this._refreshHistoryButtons(); this._updateSummary();
+      this._setGroupLayouts([group], enabled);
+    }
+
+    _isProjectGroup(entityId) {
+      const entity = this._allEntitiesById().get(entityId);
+      return entity?.type === 'group' && (entity.runtime?.dynamicKind === 'coolify-project-group'
+        || String(entityId).startsWith('entity_panel_projectgroup_'));
+    }
+
+    _logicalProjectGroupForMember(entityId) {
+      if (this._allEntitiesById().get(entityId)?.type !== 'deployment') return '';
+      const groupId = this._placementForEntity(entityId)?.groupId || '';
+      return this._isProjectGroup(groupId) ? groupId : '';
     }
 
     _placementGeometry(placement, placements = this._combinedPlacements(), ancestors = new Set(), displayGeometry = null) {
@@ -1921,23 +2153,129 @@
       };
     }
 
-    _movingEntityIds(entityId) {
+    _movingEntityIds(entityId, includeLinked = true) {
       const board = activeBoard(this.store);
       if (!board) return [];
-      const placements = this._combinedPlacements(board);
-      const placedIds = new Set(placements.map(item => item.entityId));
       const selectedIds = this._entitySelectionIds();
-      const movingIds = new Set(selectedIds.has(entityId) ? selectedIds : [entityId]);
+      return this._expandMovingIds(selectedIds.has(entityId) ? selectedIds : [entityId], includeLinked);
+    }
+
+    _expandMovingIds(seeds, includeLinked = true) {
+      const board = activeBoard(this.store);
+      const placements = this._combinedPlacements(board);
+      const byId = new Map(placements.map(item => [item.entityId, item]));
       const entities = this._allEntitiesById();
-      const groupIds = [...movingIds].filter(id => entities.get(id)?.type === 'group');
-      for (const groupId of groupIds) {
-        for (const placement of placements) {
-          if (placement.groupId !== groupId || movingIds.has(placement.entityId)) continue;
-          movingIds.add(placement.entityId);
-          if (entities.get(placement.entityId)?.type === 'group') groupIds.push(placement.entityId);
+      const children = new Map();
+      const endpointParents = new Map();
+      const add = (source, target) => {
+        if (!byId.has(source) || !byId.has(target)) return;
+        if (!children.has(source)) children.set(source, new Set());
+        children.get(source).add(target);
+      };
+      if (includeLinked) {
+        const relationships = this._combinedRelationships(placements);
+        for (const edge of relationships) {
+          const deploymentId = edge.type === 'exposes' ? edge.sourceId : edge.type === 'exposed_by' ? edge.targetId : '';
+          const endpointId = edge.type === 'exposes' ? edge.targetId : edge.type === 'exposed_by' ? edge.sourceId : '';
+          if (deploymentId && byId.has(deploymentId) && byId.has(endpointId)) {
+            if (!endpointParents.has(endpointId)) endpointParents.set(endpointId, new Set());
+            endpointParents.get(endpointId).add(deploymentId);
+          }
+          if (['contains', 'source_of', 'hosts', 'exposes', 'connects_to', 'has_submodule', 'fork_source_for'].includes(edge.type)) add(edge.sourceId, edge.targetId);
+          if (['belongs_to', 'deployed_from', 'runs_on', 'exposed_by', 'submodule_of', 'forked_from'].includes(edge.type)) add(edge.targetId, edge.sourceId);
+        }
+        // A Project is a containing frame, not a source fact. Include the frame
+        // on host -> deployment branches without following repository correlations.
+        for (const edge of PanelTopologyProjection.serverTreeGraph({ entities: [...entities.values()], relationships, placements }).hierarchy) add(edge.sourceId, edge.targetId);
+      }
+      const expand = allowedSharedEndpoints => {
+        const queue = [...seeds].map(id => [id, false]);
+        const movingIds = new Set(), visited = new Set();
+        for (const [id, inherited] of queue) {
+          const placement = byId.get(id);
+          if (!placement) continue;
+          const linked = includeLinked && (inherited || placement.moveWithDescendants === true);
+          const key = `${id}:${linked}`;
+          if (visited.has(key)) continue;
+          visited.add(key); movingIds.add(id);
+          if (entities.get(id)?.type === 'group') {
+            // Physical group membership always moves with its container.
+            for (const item of placements) if (item.groupId === id) queue.push([item.entityId, linked]);
+          }
+          if (linked) for (const child of children.get(id) || []) {
+            const parents = endpointParents.get(child);
+            if (allowedSharedEndpoints && parents?.size > 1 && !allowedSharedEndpoints.has(child)) continue;
+            queue.push([child, true]);
+          }
+        }
+        return movingIds;
+      };
+      const provisional = expand();
+      const allowedSharedEndpoints = new Set([...endpointParents]
+        .filter(([, parents]) => parents.size < 2 || [...parents].every(id => provisional.has(id)))
+        .map(([endpointId]) => endpointId));
+      return [...expand(allowedSharedEndpoints)];
+    }
+
+    _toggleLinkedMovement(entityId) {
+      const placement = this._placementForEntity(entityId);
+      if (!placement) return false;
+      this._recordMutation();
+      const geometry = this._displayGeometryMap(this._combinedPlacements());
+      placement.moveWithDescendants = !placement.moveWithDescendants;
+      const ids = placement.moveWithDescendants ? this._expandMovingIds([entityId]) : [entityId];
+      for (const id of ids) {
+        const item = this._placementForEntity(id), bounds = geometry.get(id);
+        if (!bounds) continue;
+        item.x = bounds.x; item.y = bounds.y;
+        if (this._allEntitiesById().get(id)?.type === 'group') {
+          item.groupWidth = Math.round(bounds.width); item.groupHeight = Math.round(bounds.height);
         }
       }
-      return [...movingIds].filter(id => placedIds.has(id));
+      this._saveDynamicPlacementOverrides(ids);
+      this._persistSoon(0);
+      this._renderGraph();
+      this._refreshHistoryButtons();
+      this._setCanvasAnnouncement(placement.moveWithDescendants ? '已锁定下级链接，拖动时保持整条分支的相对位置' : '已解除下级链接锁定');
+      return placement.moveWithDescendants;
+    }
+
+    _linkedMoveBlocked(ids) {
+      const checked = new Set();
+      for (const id of ids) {
+        let item = this._placementForEntity(id);
+        while (item && !checked.has(item.entityId)) {
+          checked.add(item.entityId);
+          if (item.locked) {
+            this.notify('下级分支或所在群组中有位置已锁定的元素，请先解锁位置再拖动。', 'warning');
+            return true;
+          }
+          item = item.groupId && this._placementForEntity(item.groupId);
+        }
+      }
+      return false;
+    }
+
+    _prepareLinkedMove(ids, geometry) {
+      const moving = new Set(ids), changed = new Set(ids), parents = new Set();
+      for (const id of ids) {
+        let parent = this._placementForEntity(id)?.groupId;
+        const seen = new Set();
+        while (parent && !seen.has(parent)) {
+          seen.add(parent);
+          if (!moving.has(parent) && !this._isProjectGroup(parent) && geometry.has(parent)
+            && this._placementForEntity(parent)?.groupLayout === 'auto') parents.add(parent);
+          parent = this._placementForEntity(parent)?.groupId;
+        }
+      }
+      for (const id of parents) {
+        for (const item of this._materializeGroupGeometry(id, geometry)) changed.add(item.entityId);
+        this._placementForEntity(id).groupLayout = 'manual';
+      }
+      // Materialize full moving frames so saved geometry matches the grab point.
+      for (const id of ids) if (this._allEntitiesById().get(id)?.type === 'group') this._materializeGroupGeometry(id, geometry);
+      if (parents.size) this.notify('为保留手动拖动的位置，所在群组已切换为手动排列；可撤销恢复。');
+      return [...changed];
     }
 
     _groupDepth(entityId, placements = this._combinedPlacements()) {
@@ -2289,6 +2627,9 @@
       this._closeContextMenu();
       const board = activeBoard(this.store);
       if (!this.container || !board) return;
+      this.flowCanvas?.unmount?.();
+      this.flowCanvas = null;
+      this.flowRenderOptions = null;
       board.view = { ...Model.defaultBoardView(), ...(board.view || {}) };
       const displayView = this._displayViewSettings(board.view);
       const boardOptions = this.store.boards.map(candidate => (
@@ -2358,7 +2699,7 @@
             <div class="relationship-panel-status" data-state="${escapeHtml(this._panelStatusView().state)}">
               <span data-panel-topology-status title="${escapeHtml(this._panelStatusView().title)}">${escapeHtml(this._panelStatusView().label)}</span>
               <button class="relationship-tool-button" data-relationship-action="refresh-panel" type="button" title="刷新 Coolify 动态拓扑" aria-label="刷新 Coolify 动态拓扑">↻</button>
-              <button class="relationship-tool-button" data-relationship-action="check-endpoints" type="button" title="重新检测全部访问点（本机 HTTP 检测）" aria-label="重新检测全部访问点（本机 HTTP 检测）">◉</button>
+              <button class="relationship-tool-button relationship-icon-tool" data-relationship-action="check-endpoints" type="button" title="重新检测全部访问点（本机 HTTP 检测）" aria-label="重新检测全部访问点（本机 HTTP 检测）">◉</button>
             </div>
             <div class="relationship-display-host">
               <button class="relationship-tool-button relationship-display-trigger relationship-icon-tool" data-relationship-action="toggle-display-menu" type="button" aria-label="显示设置" title="显示设置：卡片大小、间距与颜色" aria-haspopup="dialog" aria-expanded="false">
@@ -2375,6 +2716,10 @@
                   <label class="relationship-display-slider">
                     <span><b>文字大小</b><output data-display-text-scale>${Math.round(displayView.textScale * 100)}%</output></span>
                     <input name="textScale" type="range" min="0.85" max="1.3" step="0.05" value="${displayView.textScale}" aria-label="文字大小">
+                  </label>
+                  <label class="relationship-display-slider">
+                    <span><b>群组标题字号</b><output data-display-group-title-size>${Math.round(displayView.groupTitleFontSize)} px</output></span>
+                    <input name="groupTitleFontSize" type="range" min="14" max="36" step="1" value="${displayView.groupTitleFontSize}" aria-label="群组标题字号">
                   </label>
                   <label class="relationship-display-slider"><span><b>卡片基础宽度</b><output data-display-card-width>${displayView.cardWidth} px</output></span><input name="cardWidth" type="range" min="220" max="600" step="10" value="${displayView.cardWidth}" aria-label="卡片宽度"></label>
                   <label class="relationship-display-slider"><span><b>简略卡片最小高度</b><output data-display-card-height>${displayView.cardHeight} px</output></span><input name="cardHeight" type="range" min="143" max="420" step="1" value="${displayView.cardHeight}" aria-label="卡片高度"></label>
@@ -2405,9 +2750,11 @@
                     <input name="filterMatchHaloOpacity" type="range" min="0" max="0.6" step="0.01" value="${displayView.filterMatchHaloOpacity}" aria-label="筛选命中高亮强度">
                   </label>
                   <label class="relationship-display-select"><span>卡片层次</span><select name="cardAppearance"><option value="elevated"${displayView.cardAppearance === 'elevated' ? ' selected' : ''}>层次阴影</option><option value="flat"${displayView.cardAppearance === 'flat' ? ' selected' : ''}>简洁平面</option></select></label>
+                  <label class="relationship-display-select"><span>Project 容器形状</span><select name="projectGroupShape"><option value="rounded"${displayView.projectGroupShape === 'rounded' ? ' selected' : ''}>矩形</option><option value="polygon"${displayView.projectGroupShape === 'polygon' ? ' selected' : ''}>多边形</option></select></label>
+                  <small>只改变容器外观，不改变 Project 归属或当前布局方式。</small>
                   <label class="relationship-display-select"><span>默认标题内容</span><select name="cardTitleSource"><option value="name"${displayView.cardTitleSource === 'name' ? ' selected' : ''}>资源名称</option><option value="note"${displayView.cardTitleSource === 'note' ? ' selected' : ''}>卡片备注</option></select></label>
                   <div class="relationship-display-toggles">
-                    ${this._isServerTree() ? `<label><input name="projectGroupIncludesEndpoints" data-project-endpoints type="checkbox"${board.view.projectGroupIncludesEndpoints ? ' checked' : ''}><span>项目组包含访问点</span></label><small>共享访问点保持独立；此操作会重新整理当前树状布局。</small>` : ''}
+                    ${this._isServerTree() ? `<label><input name="projectGroupIncludesEndpoints" data-project-endpoints type="checkbox"${board.view.projectGroupIncludesEndpoints ? ' checked' : ''}><span>项目组包含访问点</span></label><small>开启后独占访问点放入项目容器；关闭后位于容器外。共享访问点保持独立。</small>` : ''}
                     <label><input name="showGrid" type="checkbox"${displayView.showGrid ? ' checked' : ''}><span>显示画布网格</span></label>
                     <label><input name="showEdgeLabels" type="checkbox"${displayView.showEdgeLabels ? ' checked' : ''}><span>显示关系文字</span></label>
                     <label><input name="showRuntimeStatus" type="checkbox"${displayView.showRuntimeStatus ? ' checked' : ''}><span>显示服务状态</span></label>
@@ -2416,7 +2763,6 @@
                 </form>
               </div>
             </div>
-            <button class="relationship-tool-button relationship-icon-tool" data-relationship-action="toggle-all-card-details" type="button" aria-label="展开全部" aria-pressed="false" title="展开全部卡片详情">${toolbarIcon('expand')}</button>
             <div class="relationship-filter-host">
               <button class="relationship-tool-button relationship-filter-trigger relationship-icon-tool" data-relationship-action="toggle-filter-menu" type="button" aria-label="筛选" title="筛选：可同时选择多个条件" aria-haspopup="dialog" aria-expanded="false">
                 ${toolbarIcon('filter')}<span class="relationship-filter-count" hidden></span>
@@ -2470,6 +2816,7 @@
             <button class="relationship-tool-button" data-relationship-action="redo" type="button" title="重做 (⇧⌘Z)" ${this.redoStack.length ? '' : 'disabled'}>↷</button>
             <button class="relationship-tool-button relationship-icon-tool" data-relationship-action="fit" type="button" aria-label="适合内容" title="适合内容：将整个白板放入视图">${toolbarIcon('fit')}</button>
             ${this._layoutMenuHtml()}
+            <button class="relationship-tool-button relationship-all-group-layout" data-relationship-action="toggle-all-group-layouts" type="button" aria-label="全部自动排列" aria-pressed="false" title="开启全部群组自动排列">${toolbarIcon('layout')}<span>全部自动排列</span></button>
             <span class="relationship-save-state" data-state="${this.saveState}" role="status">${this._saveLabel()}</span>
           </header>
           <div class="relationship-body">
@@ -2494,19 +2841,14 @@
               </div>
             </aside>
             <div class="relationship-canvas" tabindex="0" aria-label="关系画布。滚轮或双指移动视图，Ctrl/Cmd 加滚轮或双指捏合缩放。拖动元素或群组空白移动，点击群组标题显示工具条，拖动画布空白框选；空格加拖动或中键拖动平移。WASD 或方向键平移，Shift 加速；Alt/Option 加方向键移动选中节点。" aria-keyshortcuts="W A S D ArrowUp ArrowLeft ArrowDown ArrowRight Space">
-              <div class="relationship-world">
-                <svg class="relationship-edge-layer" aria-label="节点关系"></svg>
-                <div class="relationship-guide-layer" aria-hidden="true"></div>
-                <div class="relationship-node-layer"></div>
-                <div class="relationship-selection-box" hidden></div>
+              <div class="relationship-topology-alerts">
+                <button class="relationship-topology-alert-trigger" data-relationship-action="toggle-topology-alerts" type="button" aria-haspopup="dialog" aria-expanded="false" hidden><span aria-hidden="true">!</span><span>配置警报</span><b>0</b></button>
+                <section class="relationship-topology-alert-popover" role="dialog" aria-label="拓扑配置警报" hidden>
+                  <header><div><strong>拓扑配置警报</strong><small>只读诊断，不会修改 Coolify</small></div><b data-topology-alert-count>0 条</b></header>
+                  <div data-topology-alert-list></div>
+                </section>
               </div>
-              <div class="relationship-selection-toolbar" role="toolbar" aria-label="白板元素快捷工具条" hidden></div>
-              <aside class="relationship-navigator" aria-label="全景导航">
-                <header><button type="button" data-relationship-action="toggle-minimap" aria-expanded="${!this.minimapCollapsed}" title="展开或收起全景导航">▧ <span>全景导航</span> <span data-minimap-toggle>${this.minimapCollapsed ? '⌃' : '⌄'}</span></button><button type="button" data-relationship-action="fit" title="适合全部内容" aria-label="适合全部内容">⛶</button></header>
-                <svg data-relationship-minimap viewBox="0 0 220 128" role="img" aria-label="白板全景，点击或拖动定位视图"${this.minimapCollapsed ? ' hidden' : ''}></svg>
-                <footer><button type="button" data-relationship-action="zoom-out" aria-label="缩小视图">−</button><button type="button" data-relationship-action="zoom-reset" title="恢复 100%" data-zoom-label>100%</button><button type="button" data-relationship-action="zoom-in" aria-label="放大视图">＋</button></footer>
-              </aside>
-              <div class="relationship-canvas-help">画布空白拖动框选 · 群组空白拖动 · 组标题工具条 · 滚轮平移 · Ctrl/⌘+滚轮缩放 · 空格/中键平移 · ⌘/Ctrl+G 成组</div>
+              <div class="relationship-flow-root" data-relationship-flow-root></div>
               <div class="relationship-projection-note" hidden>部署摘要 · 派生显示，不修改关系事实</div>
             </div>
             <aside class="relationship-inspector-panel relationship-dock-component" data-panel-id="inspector" aria-label="关系详情" hidden></aside>
@@ -2515,6 +2857,7 @@
           <div class="relationship-context-menu" role="menu" aria-label="白板右键菜单" hidden></div>
         </section>`;
       this.root = this.container.querySelector('.relationship-workspace');
+      this.root.classList.add('uses-react-flow');
       this.panelSidebarRoot = this.root.ownerDocument.querySelector('#relationship-resource-sidebar-content');
       if (this.panelSidebarRoot) {
         this.panelSidebarRoot.replaceChildren();
@@ -2677,7 +3020,6 @@
     }
 
     _bindRootEvents() {
-      this.root.addEventListener('contextmenu', event => this._handleContextMenu(event));
       this.root.addEventListener('click', event => this._handleClick(event));
       this.root.addEventListener('change', event => this._handleChange(event));
       this.root.addEventListener('input', event => this._handleInput(event));
@@ -2686,18 +3028,6 @@
       this.root.addEventListener('dragover', event => this._handleDragOver(event));
       this.root.addEventListener('drop', event => this._handleDrop(event));
       this.root.addEventListener('dragend', () => this._clearPanelDrag());
-      this.root.addEventListener('pointerdown', event => this._handlePointerDown(event));
-      this.root.addEventListener('dblclick', event => {
-        const element = event.target.closest('.whiteboard-free-element');
-        if (element && !event.target.closest('button')) void this._editCanvasElement(element.dataset.entityId);
-      });
-      this.root.addEventListener('pointermove', event => this._handlePointerMove(event));
-      this.root.addEventListener('pointerup', event => this._handlePointerUp(event));
-      this.root.addEventListener('pointercancel', () => this._cancelPointerAction(false));
-      this.root.addEventListener('lostpointercapture', event => {
-        if (event.pointerId === this.pointerAction?.pointerId) this._cancelPointerAction(false);
-      });
-      this.root.querySelector('.relationship-canvas')?.addEventListener('wheel', event => this._handleWheel(event), { passive: false });
     }
 
     _contextMenuItems(kind) {
@@ -2712,13 +3042,10 @@
         const entities = this._allEntitiesById();
         const selected = [...this._entitySelectionIds()].map(id => entities.get(id)).filter(Boolean);
         const single = selected.length === 1 ? selected[0] : null;
-        const cards = selected.filter(item => !['group', 'text', 'image', 'attachment'].includes(item.type));
-        const allExpanded = cards.length > 0 && cards.every(item => this.expandedCardIds.has(item.id));
         items.push(context(single?.type === 'group' ? '群组设置…' : '查看属性…', 'inspector'));
         if (single && ['text', 'image', 'attachment'].includes(single.type)) items.push(context('编辑内容 / 名称…', 'edit-element'));
         else if (single) items.push(context(single.type === 'group' ? '重命名群组…' : '重命名 / 显示别名…', 'rename'), context('备注、标签与待办…', 'annotations'));
         if (single && !(single.type === 'group' && single.transient)) items.push(command('围绕我布局', 'arrange-around-selection'));
-        if (cards.length) items.push(context(allExpanded ? '收起所选卡片详情' : '展开所选卡片详情', 'details'));
         if (single?.type === 'deployment') items.push(command('归档部署（仅当前白板）', 'archive-selected-deployment'));
         items.push(null, command('将所选卡片组成群组…', 'create-group-from-selection', this._selectedMemberPlacements().length < 2));
         if (this._selectedMemberPlacements().some(item => item.groupId)) items.push(command('移出所属群组', 'remove-selection-group'));
@@ -2732,48 +3059,10 @@
           { label: '添加服务器…', nodeType: 'server' },
           { label: '添加部署…', nodeType: 'deployment' },
           { label: '添加访问点…', nodeType: 'endpoint' }, null,
-          command('展开 / 收起全部详情', 'toggle-all-card-details'),
           command('适合画布', 'fit'), command('按类别分列', 'arrange-by-category'), command('初始化分组（Coolify Projects）', 'arrange-by-coolify-projects'), command('服务器为中心', 'arrange-around-servers'));
       }
       items.push(null, command('撤销', 'undo', !this.undoStack.length), command('重做', 'redo', !this.redoStack.length));
       return items;
-    }
-
-    _handleContextMenu(event) {
-      const target = event.target;
-      if (!target.closest?.('.relationship-canvas')
-        || target.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"])')) return;
-      event.preventDefault();
-      event.stopPropagation();
-      if (this.pointerAction) this._cancelPointerAction(false);
-      this.keyboardConnectSourceId = '';
-      const node = target.closest('.relationship-node');
-      const edge = target.closest('[data-relationship-id]');
-      if (node) {
-        if (!this._entitySelectionIds().has(node.dataset.entityId)) this._selectOnlyEntity(node.dataset.entityId);
-      } else {
-        this._clearEntitySelection();
-        this.selectedRelationshipId = edge?.dataset.relationshipId || '';
-      }
-      this._updateSelectionCss({ preserveDirtyInspector: true });
-      this._updateSummary();
-      this._closeFilterPopover();
-      this._closeDisplayPopover();
-      this._closeAddMenu();
-      const menu = this.root.querySelector('.relationship-context-menu');
-      if (!menu) return;
-      this.contextMenuPoint = this._clientToWorld(event.clientX, event.clientY);
-      menu.innerHTML = this._contextMenuItems(node ? 'node' : edge ? 'relationship' : 'canvas').map(item => {
-        if (!item) return '<div class="relationship-menu-separator" role="separator"></div>';
-        const attribute = item.contextAction ? `data-board-context-action="${item.contextAction}"`
-          : item.nodeType ? `data-add-node-type="${item.nodeType}"` : `data-relationship-action="${item.action}"`;
-        return `<button role="menuitem" type="button" ${attribute}${item.disabled ? ' disabled' : ''}${item.contextAction === 'delete' ? ' class="is-destructive"' : ''}>${escapeHtml(item.label)}</button>`;
-      }).join('');
-      menu.hidden = false;
-      const view = this.root.ownerDocument.defaultView;
-      menu.style.left = `${Math.max(8, Math.min(event.clientX, view.innerWidth - menu.offsetWidth - 8))}px`;
-      menu.style.top = `${Math.max(8, Math.min(event.clientY, view.innerHeight - menu.offsetHeight - 8))}px`;
-      menu.querySelector('button:not(:disabled)')?.focus({ preventScroll: true });
     }
 
     _closeContextMenu(restoreFocus = false) {
@@ -2792,15 +3081,6 @@
         this._setEntitySelection(new Set(this._filteredGraph().placements.map(item => item.entityId)));
         this._updateSelectionCss();
         this._updateSummary();
-        return;
-      }
-      if (action === 'details') {
-        const entities = this._allEntitiesById();
-        const ids = [...this._entitySelectionIds()].filter(id => !['group', 'text', 'image', 'attachment'].includes(entities.get(id)?.type));
-        const collapse = ids.every(id => this.expandedCardIds.has(id));
-        ids.forEach(id => collapse ? this.expandedCardIds.delete(id) : this.expandedCardIds.add(id));
-        this._persistExpandedCards(ids);
-        this._renderGraph();
         return;
       }
       const fact = this._selectedFact()?.value;
@@ -2844,7 +3124,6 @@
     }
 
     _handleClick(event) {
-      this._stopWheelPan();
       const endpointCheck = event.target.closest('[data-endpoint-check]');
       if (endpointCheck) {
         const entity = this._allEntitiesById().get(endpointCheck.dataset.endpointCheck);
@@ -2865,12 +3144,17 @@
       const contextPoint = event.target.closest('.relationship-context-menu') ? this.contextMenuPoint : null;
       this._closeContextMenu(Boolean(contextPoint));
       const action = event.target.closest('[data-relationship-action]')?.dataset.relationshipAction;
-      const treeStyle = event.target.closest('[data-tree-layout]')?.dataset.treeLayout;
-      if (treeStyle) { this._closeLayoutMenu(); this._setTreeLayout(treeStyle); this.root?.querySelector('.relationship-layout-trigger')?.focus(); return; }
+      const style = event.target.closest('[data-board-layout]')?.dataset.boardLayout;
+      if (style) { this._closeLayoutMenu(); this._setLayout(style); this.root?.querySelector('[data-layout-menu="layout"]')?.focus(); return; }
+      const structure = event.target.closest('[data-board-structure]')?.dataset.boardStructure;
+      if (structure) { this._closeLayoutMenu(); this._setStructure(structure); this.root?.querySelector('[data-layout-menu="structure"]')?.focus(); return; }
       if (action !== 'toggle-layout-menu') this._closeLayoutMenu();
       if (action === 'toggle-layout-menu') {
-        const menu = this.root.querySelector('.relationship-layout-menu'), trigger = this.root.querySelector('.relationship-layout-trigger');
-        menu.hidden = !menu.hidden; trigger.setAttribute('aria-expanded', String(!menu.hidden));
+        const trigger = event.target.closest('.relationship-layout-trigger');
+        const menu = trigger.closest('.relationship-layout-host').querySelector('.relationship-layout-menu');
+        const opening = menu.hidden;
+        this._closeLayoutMenu();
+        menu.hidden = !opening; trigger.setAttribute('aria-expanded', String(opening));
         if (!menu.hidden) {
           this._closeAddMenu(); this._closeFilterPopover(); this._closeDisplayPopover();
           menu.style.transform = '';
@@ -2879,6 +3163,19 @@
           menu.style.transform = `translateX(${Math.max(Math.max(12, workspace.left + 8) - rect.left, Math.min(0, Math.min(view.innerWidth - 12, workspace.right - 8) - rect.right))}px)`;
           menu.style.maxHeight = `${Math.max(160, view.innerHeight - rect.top - 12)}px`;
           (menu.querySelector('button[aria-checked="true"]') || menu.querySelector('button'))?.focus();
+        }
+        return;
+      }
+      if (action === 'toggle-topology-alerts') {
+        const popover = this.root.querySelector('.relationship-topology-alert-popover');
+        const trigger = this.root.querySelector('.relationship-topology-alert-trigger');
+        const opening = popover.hidden;
+        this._closeTopologyAlerts();
+        popover.hidden = !opening;
+        trigger.setAttribute('aria-expanded', String(opening));
+        if (opening) {
+          this._closeLayoutMenu(); this._closeFilterPopover(); this._closeDisplayPopover(); this._closeAddMenu();
+          popover.querySelector('summary, button:not(:disabled)')?.focus({ preventScroll: true });
         }
         return;
       }
@@ -2908,27 +3205,14 @@
         if (placement.locked) delete placement.locked; else placement.locked = true;
         this._persistSoon(0); this._renderGraph(); return;
       }
+      const linkedMovement = event.target.closest('[data-lock-descendants]');
+      if (linkedMovement) { this._toggleLinkedMovement(linkedMovement.dataset.lockDescendants); return; }
       if (action === 'check-endpoints') {
         void this._refreshEndpointChecks({ force: true });
         return;
       }
       if (action === 'scan-repositories') {
         void this._scanManagedRepositories();
-        return;
-      }
-      if (action === 'toggle-minimap') {
-        this.minimapCollapsed = !this.minimapCollapsed;
-        const svg = this.root.querySelector('[data-relationship-minimap]');
-        svg.toggleAttribute('hidden', this.minimapCollapsed);
-        this.root.querySelector('[data-minimap-toggle]').textContent = this.minimapCollapsed ? '⌃' : '⌄';
-        event.target.closest('button').setAttribute('aria-expanded', String(!this.minimapCollapsed));
-        this._updateMinimap();
-        return;
-      }
-      if (['zoom-in', 'zoom-out', 'zoom-reset'].includes(action)) {
-        const canvas = this.root.querySelector('.relationship-canvas');
-        const zoom = activeBoard(this.store).viewport.zoom;
-        this._zoomViewport(action === 'zoom-reset' ? 1 : zoom * (action === 'zoom-in' ? 1.2 : 1 / 1.2), canvas.clientWidth / 2, canvas.clientHeight / 2);
         return;
       }
       if (action === 'toggle-filter-menu') {
@@ -2948,13 +3232,13 @@
       }
       if (action === 'clear-filters') {
         const board = activeBoard(this.store);
-        const { mode, projection, snapMode, topologyLayout, treeLayout, projectGroupIncludesEndpoints, showRepositoryRelations } = this._boardView();
+        const { mode, projection, snapMode, structure, layout, projectGroupIncludesEndpoints, showRepositoryRelations } = this._boardView();
         board.view = {
           ...Model.defaultBoardView(),
           ...this._displayViewSettings(),
           mode,
           projection: projection || 'facts',
-          snapMode, topologyLayout, treeLayout, projectGroupIncludesEndpoints, showRepositoryRelations
+          snapMode, structure, layout, projectGroupIncludesEndpoints, showRepositoryRelations
         };
         const form = this.root.querySelector('[data-relationship-filter-form]');
         if (form) {
@@ -3010,8 +3294,8 @@
         this._resetDisplaySettings();
         return;
       }
-      if (action === 'toggle-all-card-details') {
-        this._toggleAllCardDetails();
+      if (action === 'toggle-all-group-layouts') {
+        this._toggleAllGroupLayouts();
         return;
       }
       if (action === 'toggle-resource-panel') {
@@ -3031,7 +3315,8 @@
       if (action === 'reset-dynamic-layout') this._resetDynamicLayout();
       if (action === 'arrange-by-category') this._arrangeByCategory();
       if (action === 'arrange-by-coolify-projects') this._arrangeByCoolifyProjects();
-      if (action === 'server-tree') this._createServerTree();
+      if (action === 'server-tree') this._setStructure('server-tree');
+      if (action === 'project-endpoints') { this._setProjectEndpoints(!this._boardView().projectGroupIncludesEndpoints); return; }
       if (action === 'repository-relations') {
         this._recordMutation();
         const view = this._boardView();
@@ -3150,16 +3435,6 @@
         return;
       }
 
-      const repositorySignal = event.target.closest('[data-repository-signal]')?.dataset.repositorySignal;
-      if (repositorySignal) {
-        this._selectOnlyEntity(repositorySignal);
-        this.expandedCardIds.add(repositorySignal);
-        const placement = this._placementForEntity(repositorySignal);
-        if (placement) { placement.expanded = true; this._saveDynamicPlacementOverrides([repositorySignal]); this._persistSoon(0); }
-        this._renderGraph(); this._updateSummary();
-        return;
-      }
-
       const associationButton = event.target.closest('[data-panel-association-action]');
       if (associationButton) {
         this._changeRepositoryAssociation(associationButton.dataset.entityId, associationButton.dataset.panelAssociationAction);
@@ -3185,85 +3460,22 @@
         return;
       }
 
-      const cardDetailId = event.target.closest('[data-relationship-card-detail]')?.dataset.relationshipCardDetail;
-      if (cardDetailId) {
-        this._selectOnlyEntity(cardDetailId);
-        if (this._allEntitiesById().get(cardDetailId)?.type === 'group') {
-          this.inspectorPinned = false;
-          const entity = this._allEntitiesById().get(cardDetailId);
-          this._revealInspector(entity.transient ? '[name="placementTitleText"]' : '[name="name"]');
-        } else {
-          if (this.expandedCardIds.has(cardDetailId)) this.expandedCardIds.delete(cardDetailId);
-          else this.expandedCardIds.add(cardDetailId);
-          this._persistExpandedCards([cardDetailId]);
-          this._renderGraph();
-        }
-        this._updateSummary();
-        return;
-      }
-
-      const port = event.target.closest('.relationship-port[data-direction="out"]');
-      if (port && event.detail === 0) {
-        this.keyboardConnectSourceId = port.closest('.relationship-node')?.dataset.entityId || '';
-        this._updateSelectionCss();
-        this._setCanvasAnnouncement('已选择连接起点。使用 Tab 选择目标节点并按 Enter。');
-        return;
-      }
-
-      const node = event.target.closest('.relationship-node');
-      if (node && !event.target.closest('.relationship-port')) {
-        if (this.suppressNextNodeClick) {
-          this.suppressNextNodeClick = false;
-          return;
-        }
-        const entityId = node.dataset.entityId;
-        if (this.keyboardConnectSourceId && this.keyboardConnectSourceId !== entityId) {
-          this._createConnection(this.keyboardConnectSourceId, entityId);
-          this.keyboardConnectSourceId = '';
-          return;
-        }
-        if (event.metaKey || event.ctrlKey) {
-          const selected = this._entitySelectionIds();
-          if (selected.has(entityId)) selected.delete(entityId); else selected.add(entityId);
-          this._setEntitySelection(selected, selected.has(entityId) ? entityId : '');
-        } else {
-          this._selectOnlyEntity(entityId);
-        }
-        this.suppressedGroupToolbarId = node.dataset.entityType === 'group'
-          && !event.target.closest('.relationship-node-header') ? entityId : '';
-        this._updateSelectionCss();
-        this._updateSummary();
-        return;
-      }
-
-      const edge = event.target.closest('[data-relationship-id]');
-      if (edge) {
-        this.selectedRelationshipId = edge.dataset.relationshipId;
-        this._clearEntitySelection();
-        this._updateSelectionCss();
-        this._updateSummary();
-      }
-
       if (!event.target.closest('.relationship-filter-host')) this._closeFilterPopover();
       if (!event.target.closest('.relationship-menu-host')) this._closeAddMenu();
       if (!event.target.closest('.relationship-display-host')) this._closeDisplayPopover();
     }
 
     _handleChange(event) {
-      if (event.target.matches('[data-selection-layout]')) {
-        this._arrangeSelection(event.target.value);
-        event.target.value = '';
+      if (event.target.matches('select[data-selected-group-shape]')) {
+        this._setGroupShape(event.target.dataset.selectedGroupShape, event.target.value);
         return;
       }
-      if (event.target.matches('[data-selection-display]')) {
-        this._setSelectionDisplay(event.target.value);
-        event.target.value = '';
+      if (event.target.matches('select[data-selected-group-appearance]')) {
+        this._setGroupAppearance(event.target.dataset.selectedGroupAppearance, event.target.value);
         return;
       }
       if (event.target.matches('[data-project-endpoints]')) {
-        this._recordMutation();
-        this._boardView().projectGroupIncludesEndpoints = event.target.checked;
-        this._arrangeServerTree(); this._renderGraph(); this._refreshHistoryButtons();
+        this._setProjectEndpoints(event.target.checked);
         return;
       }
       if (event.target.matches('[data-relationship-snap-mode]')) {
@@ -3287,11 +3499,9 @@
       if (event.target.id !== 'relationship-board-select') return;
       if (!this.store.boards.some(board => board.id === event.target.value)) return;
       this.store.activeBoardId = event.target.value;
-      this.expandedCardIds = new Set(activeBoard(this.store).placements.filter(item => item.expanded).map(item => item.entityId));
       this.inspectorPinned = false;
       this._clearEntitySelection();
       this.selectedRelationshipId = '';
-      this.keyboardConnectSourceId = '';
       this._persistSoon(0);
       this._setPanelTopology(this.panelTopologyResult);
       this.render();
@@ -3331,11 +3541,13 @@
     }
 
     _closeLayoutMenu(restoreFocus = false) {
-      const menu = this.root?.querySelector('.relationship-layout-menu');
-      if (menu) menu.hidden = true;
-      const trigger = this.root?.querySelector('.relationship-layout-trigger');
-      trigger?.setAttribute('aria-expanded', 'false');
-      if (restoreFocus) trigger?.focus();
+      for (const menu of this.root?.querySelectorAll?.('.relationship-layout-menu') || []) {
+        const wasOpen = !menu.hidden;
+        menu.hidden = true;
+        const trigger = menu.parentElement.querySelector('.relationship-layout-trigger');
+        trigger?.setAttribute('aria-expanded', 'false');
+        if (restoreFocus && wasOpen) trigger?.focus();
+      }
     }
 
     _closeAddMenu() {
@@ -3353,41 +3565,6 @@
       trigger?.setAttribute('aria-expanded', 'false');
     }
 
-    _persistExpandedCards(ids) {
-      for (const id of ids) {
-        const placement = this._placementForEntity(id);
-        if (!placement) continue;
-        if (this.expandedCardIds.has(id)) placement.expanded = true; else delete placement.expanded;
-      }
-      this._saveDynamicPlacementOverrides(ids);
-      this._persistSoon(0);
-    }
-
-    _toggleAllCardDetails() {
-      const entitiesById = this._allEntitiesById();
-      const visibleIds = this._filteredGraph().placements
-        .map(placement => placement.entityId)
-        .filter(entityId => !['group', 'text', 'image', 'attachment'].includes(entitiesById.get(entityId)?.type));
-      const allExpanded = visibleIds.length > 0 && visibleIds.every(entityId => this.expandedCardIds.has(entityId));
-      if (allExpanded) visibleIds.forEach(entityId => this.expandedCardIds.delete(entityId));
-      else visibleIds.forEach(entityId => this.expandedCardIds.add(entityId));
-      this._persistExpandedCards(visibleIds);
-      this._renderGraph();
-      this._setCanvasAnnouncement(allExpanded ? '已收起全部卡片详情' : '已展开全部卡片详情');
-    }
-
-    _syncExpandAllButton(visibleIds = []) {
-      const button = this.root?.querySelector('[data-relationship-action="toggle-all-card-details"]');
-      if (!button) return;
-      const allExpanded = visibleIds.length > 0 && visibleIds.every(entityId => this.expandedCardIds.has(entityId));
-      const label = allExpanded ? '收起全部' : '展开全部';
-      button.innerHTML = toolbarIcon(allExpanded ? 'collapse' : 'expand');
-      button.setAttribute('aria-label', label);
-      button.setAttribute('title', `${label}卡片详情`);
-      button.setAttribute('aria-pressed', String(allExpanded));
-      button.disabled = visibleIds.length === 0;
-    }
-
     _syncDisplayForm() {
       const form = this.root?.querySelector('[data-relationship-display-form]');
       if (!form) return;
@@ -3399,9 +3576,11 @@
         const output = form.querySelector(selector); if (output) output.textContent = `${display[key]} px`;
       }
       form.elements.namedItem('textScale').value = String(display.textScale);
+      form.elements.namedItem('groupTitleFontSize').value = String(display.groupTitleFontSize);
       form.elements.namedItem('horizontalSpacing').value = String(display.horizontalSpacing);
       form.elements.namedItem('verticalSpacing').value = String(display.verticalSpacing);
       form.elements.namedItem('cardAppearance').value = display.cardAppearance;
+      form.elements.namedItem('projectGroupShape').value = display.projectGroupShape;
       form.elements.namedItem('cardTitleSource').value = display.cardTitleSource;
       form.elements.namedItem('showGrid').checked = display.showGrid;
       form.elements.namedItem('showEdgeLabels').checked = display.showEdgeLabels;
@@ -3412,6 +3591,7 @@
       form.elements.namedItem('filterMatchHaloOpacity').value = String(display.filterMatchHaloOpacity);
       const cardOutput = form.querySelector('[data-display-card-scale]');
       const textOutput = form.querySelector('[data-display-text-scale]');
+      const groupTitleOutput = form.querySelector('[data-display-group-title-size]');
       const horizontalSpacingOutput = form.querySelector('[data-display-horizontal-spacing]');
       const verticalSpacingOutput = form.querySelector('[data-display-vertical-spacing]');
       const statusTintOutput = form.querySelector('[data-display-status-tint]');
@@ -3420,6 +3600,7 @@
       const matchHaloOutput = form.querySelector('[data-display-match-halo]');
       if (cardOutput) cardOutput.textContent = `${Math.round(display.cardScale * 100)}%`;
       if (textOutput) textOutput.textContent = `${Math.round(display.textScale * 100)}%`;
+      if (groupTitleOutput) groupTitleOutput.textContent = `${Math.round(display.groupTitleFontSize)} px`;
       if (horizontalSpacingOutput) horizontalSpacingOutput.textContent = `${Math.round(display.horizontalSpacing)} px`;
       if (verticalSpacingOutput) verticalSpacingOutput.textContent = `${Math.round(display.verticalSpacing)} px`;
       if (statusTintOutput) statusTintOutput.textContent = `${Math.round(display.statusTintOpacity * 100)}%`;
@@ -3451,9 +3632,11 @@
         cardWidth: displayNumber('cardWidth', currentDisplay.cardWidth, 220, 600),
         cardHeight: displayNumber('cardHeight', currentDisplay.cardHeight, 143, 420),
         textScale: Number.isFinite(textScale) ? Math.min(1.3, Math.max(0.85, textScale)) : 1,
+        groupTitleFontSize: displayNumber('groupTitleFontSize', currentDisplay.groupTitleFontSize, 14, 36),
         horizontalSpacing: displayNumber('horizontalSpacing', currentDisplay.horizontalSpacing, 16, 180),
         verticalSpacing: displayNumber('verticalSpacing', currentDisplay.verticalSpacing, 16, 140),
         cardAppearance: String(data.get('cardAppearance') || '') === 'flat' ? 'flat' : 'elevated',
+        projectGroupShape: Model.PROJECT_GROUP_SHAPES.includes(String(data.get('projectGroupShape') || '')) ? String(data.get('projectGroupShape')) : 'rounded',
         cardTitleSource: String(data.get('cardTitleSource') || '') === 'note' ? 'note' : 'name',
         showGrid: form.elements.namedItem('showGrid').checked,
         showEdgeLabels: form.elements.namedItem('showEdgeLabels').checked,
@@ -3463,16 +3646,21 @@
         filterMutedOpacity: displayNumber('filterMutedOpacity', currentDisplay.filterMutedOpacity, 0.03, 0.4),
         filterMatchHaloOpacity: displayNumber('filterMatchHaloOpacity', currentDisplay.filterMatchHaloOpacity, 0, 0.6)
       };
-      const geometryChanged = ['mode', 'cardScale', 'cardWidth', 'cardHeight', 'textScale', 'horizontalSpacing', 'verticalSpacing', 'showRuntimeStatus']
+      const projectShapeChanged = board.view.projectGroupShape !== currentDisplay.projectGroupShape;
+      const galaxyShapeChanged = projectShapeChanged && board.view.layout === 'galaxy';
+      const geometryChanged = ['mode', 'cardScale', 'cardWidth', 'cardHeight', 'textScale', 'groupTitleFontSize', 'horizontalSpacing', 'verticalSpacing', 'showRuntimeStatus']
         .some(key => board.view[key] !== currentDisplay[key]);
-      if (geometryChanged && !this.displayLayoutEdit) {
+      if ((geometryChanged || galaxyShapeChanged) && !this.displayLayoutEdit) {
         this._pushUndoSnapshot(before.history);
         this.displayLayoutEdit = before;
       }
       this._applyViewMode();
       this._syncDisplayForm();
       this._persistSoon(160);
-      this._renderGraph(geometryChanged ? before : null);
+      if (galaxyShapeChanged) {
+        this._arrangeCurrentLayout();
+        this._renderGraph();
+      } else this._renderGraph(geometryChanged ? before : null);
       this._refreshHistoryButtons();
       this._updateSummary();
     }
@@ -3654,291 +3842,261 @@
       this._placePanelComponents();
     }
 
-    _cardAttentionRailHtml(todos = []) {
-      const openTodos = todos.filter(todo => !todo.completed);
-      const now = new Date(this.now());
-      const hasReminder = openTodos.some(todo => todo.reminderAt);
-      const hasOverdue = openTodos.some(todo => todo.dueAt && new Date(todo.dueAt) < now);
-      const segments = [
-        openTodos.length ? '<span data-kind="todo" title="有未完成待办"></span>' : '',
-        hasReminder ? '<span data-kind="reminder" title="有提醒"></span>' : '',
-        hasOverdue ? '<span data-kind="overdue" title="有逾期待办"></span>' : ''
-      ].filter(Boolean).join('');
-      return segments ? `<span class="relationship-attention-rail" aria-label="待办与提醒状态">${segments}</span>` : '';
-    }
-
-    _cardAttentionChipsHtml(todos = []) {
-      const openTodos = todos.filter(todo => !todo.completed);
-      const now = new Date(this.now());
-      const reminderCount = openTodos.filter(todo => todo.reminderAt).length;
-      const overdueCount = openTodos.filter(todo => todo.dueAt && new Date(todo.dueAt) < now).length;
-      const chips = [
-        openTodos.length ? `<span class="relationship-attention-chip todo">待办 ${openTodos.length}</span>` : '',
-        reminderCount ? `<span class="relationship-attention-chip reminder">提醒 ${reminderCount}</span>` : '',
-        overdueCount ? `<span class="relationship-attention-chip overdue">逾期 ${overdueCount}</span>` : ''
-      ].filter(Boolean);
-      return chips.length ? chips.join('') : '<span class="relationship-attention-chip neutral">无待办</span>';
-    }
-
-    _cardUpdatedLabel(entity) {
-      const updatedAt = entity?.runtime?.observedAt || entity?.verifiedAt;
-      if (entity?.runtime?.dynamicKind === 'panel-endpoint') return entity.runtime.checking ? '检测中…' : (updatedAt ? `检测 ${this._relativeTime(updatedAt)}` : '尚未检测');
-      return updatedAt ? this._relativeTime(updatedAt) : '';
-    }
-
-    _cardSummary(entity, fallback = '') {
-      if (entity?.runtime?.dynamicKind === 'panel-deployment') {
-        return [entity.runtime.environmentName || '默认环境', entity.runtime.status || 'unknown'].join(' · ');
-      }
-      if (entity?.runtime?.dynamicKind === 'panel-server') {
-        const latency = entity.runtime.latencyMs === null ? '延迟未知' : `${entity.runtime.latencyMs} ms`;
-        const host = entity.runtime.providerLabel === entity.name && entity.runtime.name !== entity.name
-          ? entity.runtime.name
-          : entity.name;
-        return [host, entity.runtime.status || 'unknown', latency].filter(Boolean).join(' · ');
-      }
-      if (entity?.runtime?.dynamicKind === 'panel-endpoint') {
-        let protocol = '访问端点';
-        try {
-          protocol = new URL(entity.runtime.url || entity.details?.urlLabel || '').protocol.replace(':', '').toUpperCase() || protocol;
-        } catch (_) {}
-        return [protocol, entity.runtime.httpStatus ? `HTTP ${entity.runtime.httpStatus}` : this._entityRuntimeStatus(entity).label,
-          Number.isFinite(entity.runtime.latencyMs) ? `${entity.runtime.latencyMs} ms` : ''].filter(Boolean).join(' · ');
-      }
-      return fallback;
-    }
-
-    _cardTodoMeta(todo) {
-      const parts = [];
-      if (todo.dueAt) parts.push(`截止 ${this._relativeTime(todo.dueAt)}`);
-      if (todo.reminderAt) parts.push(`提醒 ${this._relativeTime(todo.reminderAt)}`);
-      return parts.join(' · ') || (todo.completed ? '已完成' : '未设置日期');
-    }
-
-    _deploymentLinkSignalHtml(entity) {
-      if (entity.type !== 'deployment' || !entity.runtime) return '';
-      const runtime = entity.runtime, mode = runtime.repositoryAssociation?.mode || 'unmatched';
-      const count = (runtime.repositoryIds || []).length, missing = (runtime.missingRepositoryIds || []).length;
-      const label = missing ? '本地目录缺失' : count ? `已关联本地${count > 1 ? ` ${count}` : ''}`
-        : ['ambiguous', 'suggested'].includes(mode) ? `待确认 ${runtime.repositoryAssociation.candidateIds.length}`
-        : mode === 'disabled' ? '关联已暂停' : mode === 'no-source' ? '无仓库来源' : '未匹配本地';
-      const tone = missing ? 'warning' : count ? 'linked' : ['ambiguous', 'suggested'].includes(mode) ? 'candidate' : 'unlinked';
-      const commit = String(runtime.commit || entity.details?.revision || '');
-      const known = /^[a-f0-9]{7,64}$/i.test(commit);
-      const commitLabel = runtime.commitSource === 'deployment-history' ? '最近部署' : '配置提交';
-      return `<div class="relationship-deployment-source"><span class="relationship-deployment-commit" title="${escapeHtml(known ? `${commitLabel}：${commit}${runtime.lastDeployment?.status ? ` · ${runtime.lastDeployment.status}` : ''}` : 'Coolify 未提供确定的提交 SHA')}">${known ? `${commitLabel} ${escapeHtml(commit.slice(0, 8))}` : '提交未知'}</span><button type="button" class="relationship-repository-signal" data-tone="${tone}" data-repository-signal="${escapeHtml(entity.id)}" title="${escapeHtml(label)} · 点击查看仓库路径和关联详情"><span aria-hidden="true">⌁</span> ${escapeHtml(label)}</button></div>`;
-    }
-
-    _cardDetailHtml(entity, placement, runtimeStatusView) {
-      if (!this.expandedCardIds.has(entity.id)) return '';
-      const annotations = normalizePlacementAnnotations(placement);
-      const todos = (annotations.todos || []).slice(0, 4);
-      const facts = [
-        ['状态', runtimeStatusView?.label || (this._entityRuntimeTone(entity) === 'normal' ? '正常' : '无动态状态')],
-        ['HTTP', entity.runtime?.httpStatus],
-        ['环境', entity.details?.environment],
-        ['提交', entity.runtime?.commit || entity.details?.revision],
-        ['分支', entity.details?.branch],
-        ['延迟', Number.isFinite(entity.runtime?.latencyMs) ? `${entity.runtime.latencyMs} ms` : ''],
-        [entity.type === 'endpoint' ? '检测' : '更新', entity.runtime?.observedAt ? this._relativeTime(entity.runtime.observedAt) : '']
-      ].filter(([, value]) => value);
-      const resource = entity.refId ? this.resourceMap.get(`${entity.type}:${entity.refId}`) : null;
-      const resourceFacts = [
-        ['资源名称', this._entityBaseName(entity)],
-        [entity.runtime?.commitSource === 'deployment-history' ? '最近部署提交' : '配置提交', entity.runtime?.commit || entity.details?.revision],
-        ['最近部署结果', entity.runtime?.lastDeployment?.status],
-        ['镜像版本', entity.details?.version],
-        ['本地目录', resource?.path],
-        ['环境', entity.details?.environment],
-        ['主机', entity.details?.hostLabel || entity.runtime?.serverName],
-        ['访问地址', entity.runtime?.url || entity.details?.urlLabel],
-        ['数据源', entity.runtime?.providerLabel || entity.details?.provider]
-      ].filter(([, value]) => value);
-      const todoKind = todo => todo.completed ? 'completed'
-        : (todo.dueAt && new Date(todo.dueAt) < new Date(this.now()) ? 'overdue' : (todo.reminderAt ? 'reminder' : 'todo'));
-      const todoLabels = { completed: '已完成', overdue: '逾期', reminder: '提醒', todo: '待办' };
-      return `
-        <div class="relationship-card-detail-content" data-card-detail-content>
-          ${facts.length ? `<dl class="relationship-card-facts">${facts.slice(0, 4).map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd title="${escapeHtml(value)}">${escapeHtml(value)}</dd></div>`).join('')}</dl>` : ''}
-          <section class="relationship-card-todos" aria-label="待办与提醒">
-            <header><strong>待办与提醒</strong><span>${todos.length}</span></header>
-            ${todos.length ? `<ul>${todos.map(todo => `<li data-state="${todo.completed ? 'completed' : 'open'}" data-kind="${todoKind(todo)}"><span class="relationship-card-todo-check" aria-hidden="true"></span><span class="relationship-card-todo-copy"><b>${escapeHtml(todo.title)}</b><small>${escapeHtml(this._cardTodoMeta(todo))}</small></span><span class="relationship-card-todo-kind">${todoLabels[todoKind(todo)]}</span></li>`).join('')}</ul>` : '<p>暂无待办</p>'}
-          </section>
-          <section class="relationship-card-resources"><strong>资源详情</strong><dl>${resourceFacts.map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd title="${escapeHtml(value)}">${escapeHtml(value)}</dd></div>`).join('')}</dl></section>
-          ${entity.type === 'deployment' && entity.runtime ? this._repositoryAssociationHtml(entity) : ''}
-          ${this._endpointCheckHtml(entity)}
-          ${annotations.note ? `<section class="relationship-card-note"><strong>备注</strong><p>${escapeHtml(annotations.note)}</p></section>` : ''}
-          ${entity.type === 'deployment' ? `<button type="button" class="relationship-archive-button" data-archive-deployment="${escapeHtml(entity.id)}" title="仅从当前白板收起，保留快照；不停止远端服务">归档部署</button>` : ''}
-        </div>`;
-    }
-
-    _renderGraph(displayLayoutBefore = null) {
-      const board = activeBoard(this.store);
-      const nodeLayer = this.root?.querySelector('.relationship-node-layer');
-      if (!board || !nodeLayer) return;
-      const graph = this._filteredGraph();
-      this.root.dataset.filterActive = String(graph.filterActive);
-      this.root.dataset.serverTree = String(this._isServerTree());
-      const visibleIds = new Set(graph.placements.map(placement => placement.entityId));
-      const allPlacedIds = new Set(this._combinedPlacements().map(item => item.entityId));
-      [...this.expandedCardIds].forEach(entityId => {
-        if (!allPlacedIds.has(entityId)) this.expandedCardIds.delete(entityId);
+    _flowGraphInput(graph, alerts = this._topologyAlerts()) {
+      const sourceEntities = this._allEntitiesById();
+      const geometry = this._displayGeometryMap(graph.placements);
+      const entities = graph.placements.map(placement => {
+        const source = sourceEntities.get(placement.entityId);
+        if (!source) return null;
+        const asset = source.type === 'image' ? this.documentAssets.get(source.id) : null;
+        return {
+          ...source,
+          name: this._entityDisplayName(source),
+          ...(asset?.imageData ? { details: { ...source.details, imageData: asset.imageData } } : {})
+        };
+      }).filter(Boolean);
+      const placements = graph.placements.map(placement => {
+        const rect = geometry.get(placement.entityId)
+          || this._placementGeometry(placement, graph.placements, new Set(), geometry);
+        return {
+          ...placement,
+          x: rect.x,
+          y: rect.y,
+          ...(sourceEntities.get(placement.entityId)?.type === 'group'
+            ? { groupWidth: rect.width, groupHeight: rect.height, groupShape: this._groupShape(placement.entityId) }
+            : { cardWidth: rect.width, cardHeight: rect.height })
+        };
       });
-      this._pruneEntitySelection(visibleIds);
-      if (this.selectedRelationshipId && !graph.relationships.some(item => item.id === this.selectedRelationshipId)) {
+      const summaryRelationships = (graph.summaryRelationships || []).map(summary => ({
+        ...summary,
+        id: summary.id,
+        sourceId: summary.sourceId,
+        targetId: summary.targetId,
+        label: summary.label || ''
+      }));
+      const alertByRelationshipId = new Map(alerts.flatMap(alert => alert.relationshipIds.map(id => [id, alert])));
+      const relationships = graph.relationships.map(relationship => {
+        const alert = alertByRelationshipId.get(relationship.id);
+        return alert ? {
+          ...relationship,
+          diagnostic: { alertId: alert.id, code: alert.type, severity: alert.severity }
+        } : relationship;
+      });
+      return { entities, placements, relationships: [...relationships, ...summaryRelationships] };
+    }
+
+    _handleFlowModelChange(next) {
+      if (!next?.nodes?.length || !globalThis.RelationshipCanvasEngine?.toPlacements) return;
+      const current = this._combinedPlacements();
+      const changed = globalThis.RelationshipCanvasEngine.toPlacements(next.nodes, current);
+      const dynamicIds = [];
+      let persistentChanged = false;
+      let anyChanged = false;
+      for (const candidate of changed) {
+        const placement = this._placementForEntity(candidate.entityId);
+        if (!placement) continue;
+        const fields = ['x', 'y', 'groupWidth', 'groupHeight'];
+        if (!fields.some(field => Number.isFinite(candidate[field]) && candidate[field] !== placement[field])) continue;
+        if (!this.flowMutationActive) {
+          this._recordMutation();
+          this.flowMutationActive = true;
+        }
+        for (const field of fields) {
+          if (Number.isFinite(candidate[field])) placement[field] = Math.round(candidate[field] * 100) / 100;
+        }
+        anyChanged = true;
+        if (placement.dynamic) dynamicIds.push(placement.entityId);
+        else persistentChanged = true;
+      }
+      if (!anyChanged) return;
+      if (dynamicIds.length) this._saveDynamicPlacementOverrides(dynamicIds);
+      if (persistentChanged) this._persistSoon(160);
+      this._updateSummary();
+    }
+
+    _handleFlowSelection({ nodeIds = [], edgeIds = [] } = {}) {
+      if (this.flowSelectionSync) return;
+      const nextNodes = new Set(nodeIds);
+      const nextEdge = nextNodes.size ? '' : (edgeIds[0] || '');
+      const currentNodes = this._entitySelectionIds();
+      if (nextEdge === this.selectedRelationshipId && nextNodes.size === currentNodes.size
+        && [...nextNodes].every(id => currentNodes.has(id))) return;
+      this._setEntitySelection(nextNodes, nodeIds.at(-1) || '');
+      this.selectedRelationshipId = nextEdge;
+      this._updateSelectionCss({ preserveDirtyInspector: true, syncFlow: false });
+      this._updateSummary();
+    }
+
+    _handleFlowViewportChange(viewport) {
+      const board = activeBoard(this.store);
+      if (!board || !viewport) return;
+      const next = { x: Number(viewport.x) || 0, y: Number(viewport.y) || 0, zoom: Number(viewport.zoom) || 1 };
+      if (Math.abs(board.viewport.x - next.x) < 0.01 && Math.abs(board.viewport.y - next.y) < 0.01
+        && Math.abs(board.viewport.zoom - next.zoom) < 0.0001) return;
+      board.viewport = next;
+      this._persistSoon(220);
+    }
+
+    _openFlowContextMenu(kind, value, point = {}) {
+      if (kind === 'node' && value?.id) this._selectOnlyEntity(value.id);
+      else if (kind === 'relationship' && value?.id) {
+        this._clearEntitySelection();
+        this.selectedRelationshipId = value.id;
+      } else {
+        this._clearEntitySelection();
         this.selectedRelationshipId = '';
       }
-      const entitiesById = this._allEntitiesById();
-      const groupFrames = graph.placements.filter(placement => entitiesById.get(placement.entityId)?.type === 'group')
-        .sort((a, b) => this._groupDepth(a.entityId, graph.placements) - this._groupDepth(b.entityId, graph.placements));
-      const regularNodes = graph.placements.filter(placement => entitiesById.get(placement.entityId)?.type !== 'group');
-      let geometryById = this._displayGeometryMap(graph.placements);
-      this._syncExpandAllButton(regularNodes.map(placement => placement.entityId));
-      nodeLayer.innerHTML = groupFrames.map(placement => {
-        const source = entitiesById.get(placement.entityId);
-        const entity = { ...source, name: this._entityDisplayName(source) };
-        const geometry = this._placementGeometry(placement, graph.placements, new Set(), geometryById);
-        const memberCount = graph.placements.filter(item => item.groupId === entity.id).length;
-        const annotations = normalizePlacementAnnotations(placement);
-        return `
-          <article class="relationship-node relationship-group-frame${graph.filterActive && graph.directIds.has(entity.id) ? ' filter-match' : ''}${graph.contextualIds.has(entity.id) ? ' filter-context' : ''}${graph.mutedIds.has(entity.id) ? ' filter-muted' : ''}" data-entity-id="${escapeHtml(entity.id)}" data-entity-type="group" data-group-id="${escapeHtml(placement.groupId || '')}" tabindex="0" role="button" aria-label="${escapeHtml(entity.name)}，视觉分组，${memberCount} 个成员" aria-pressed="false" style="transform:translate(${geometry.x}px,${geometry.y}px);width:${geometry.width}px;height:${geometry.height}px;--group-background:${escapeHtml(placement.groupBackground || '#7a67c7')};--group-border:${escapeHtml(placement.groupBorder || '#7a67c7')}">
-            <button class="relationship-card-expand relationship-card-expand-top" data-relationship-card-detail="${escapeHtml(entity.id)}" type="button" aria-label="展开 ${escapeHtml(entity.name)} 详情" title="展开详情">⌄</button>
-            <div class="relationship-node-header">
-              <button class="relationship-group-title-button" type="button" aria-label="显示 ${escapeHtml(entity.name)} 群组快捷工具条" title="显示群组快捷工具条">
-                <span class="relationship-node-icon">${TYPE_ICONS.group}</span>
-                <span class="relationship-node-title">${escapeHtml(entity.name)}</span>
-                <span class="relationship-node-kind">${memberCount} 个成员</span>
-              </button>
-              <button class="relationship-group-auto" data-group-auto-layout="${escapeHtml(entity.id)}" type="button" aria-label="${escapeHtml(entity.name)} 自动排列" aria-pressed="${placement.groupLayout === 'auto'}" title="${placement.groupLayout === 'auto' ? '关闭自动排列，保留当前位置' : '开启自动排列，间距跟随显示设置'}"${placement.locked ? ' disabled' : ''}>▦ <span>自动排列</span></button>
-              <button class="relationship-group-edit" data-relationship-card-detail="${escapeHtml(entity.id)}" type="button" aria-label="编辑群组 ${escapeHtml(entity.name)}" title="重命名、配色与嵌套">✎</button>
-            </div>
-            <span class="relationship-group-drop-label">松手加入此群组</span>
-            <div class="relationship-node-subtitle">${escapeHtml(entity.details?.notes || (placement.groupLayout === 'auto' ? '自动排列 · 间距跟随显示设置' : '手动排列 · 拖动右下角调整尺寸'))}</div>
-            ${(annotations.labels || []).length ? `<div class="relationship-node-labels">${annotations.labels.slice(0, 3).map((label, index) => `<span data-color-index="${index % 5}">${escapeHtml(label)}</span>`).join('')}</div>` : ''}
-            <button class="relationship-card-expand relationship-card-expand-bottom" data-relationship-card-detail="${escapeHtml(entity.id)}" type="button" aria-label="展开 ${escapeHtml(entity.name)} 详情" title="展开详情">⌃</button>
-            ${!placement.locked ? `<button class="relationship-group-resize" type="button" data-resize-group="${escapeHtml(entity.id)}" aria-label="调整群组 ${escapeHtml(entity.name)} 尺寸" title="拖动调整群组宽高；自动排列开启时按宽度换行">◢</button>` : ''}
-          </article>`;
-      }).join('') + regularNodes.map(placement => {
-        const freeElement = entitiesById.get(placement.entityId);
-        if (['text', 'image', 'attachment'].includes(freeElement?.type)) return this._canvasElementHtml(freeElement, placement, graph);
-        const entity = entitiesById.get(placement.entityId);
-        if (!entity) return '';
-        const resource = entity.refId ? this.resourceMap.get(`${entity.type}:${entity.refId}`) : null;
-        const availability = this._entityAvailability(entity);
-        const stale = Boolean(availability.missing || (entity.transient && this._panelSnapshotStale()));
-        const name = this._entityDisplayName(entity);
-        const details = this._entityDisplaySubtitle(entity, this._entitySubtitle(entity, resource, stale, availability));
-        const cardSummary = this._cardSummary(entity, details);
-        const verification = Model.verificationStatus(entity, { now: this.now() });
-        const hasInput = !entity.transient && Model.RELATIONSHIP_TYPES.some(type => Object.values(Model.CONNECTIONS[type] || []).some(pair => pair[1] === entity.type));
-        const hasOutput = !entity.transient && Model.RELATIONSHIP_TYPES.some(type => Object.values(Model.CONNECTIONS[type] || []).some(pair => pair[0] === entity.type));
-        const runtimeStatus = entity.runtime?.status || '';
-        const recentFailure = entity.runtime?.recentFailure?.hasFailure === true;
-        const runtimeStatusView = this._cardShowsRuntimeStatus(placement) ? this._entityRuntimeStatus(entity) : null;
-        const annotations = normalizePlacementAnnotations(placement);
-        const statusTone = this._entityRuntimeTone(entity);
-        const cardStatusView = runtimeStatusView || (entity.type !== 'group' && this._cardShowsRuntimeStatus(placement)
-          ? {
-              state: availability.missing ? 'unknown' : statusTone,
-              label: availability.missing
-                ? '无效'
-                : (statusTone === 'warning'
-                  ? '预警'
-                  : (statusTone === 'inactive' ? '已停止' : (entity.type === 'repository' ? '已同步' : '正常')))
-            }
-          : null);
-        const expanded = this.expandedCardIds.has(entity.id);
-        const kindLabel = entity.type === 'group' && this._isServerTree() ? 'Project 组' : TYPE_LABELS[entity.type];
-        const geometry = geometryById.get(entity.id) || { x: placement.x, y: placement.y, ...this._nodeDimensions() };
-        return `
-          <article class="relationship-node verification-${verification.state}${entity.transient ? ' panel-dynamic' : ''}${recentFailure ? ' panel-recent-failure' : ''}${stale ? ' stale' : ''}${availability.missing ? ' resource-missing' : ''}${expanded ? ' is-detail' : ''}${graph.filterActive && graph.directIds.has(entity.id) ? ' filter-match' : ''}${graph.contextualIds.has(entity.id) ? ' filter-context' : ''}${graph.mutedIds.has(entity.id) ? ' filter-muted' : ''}" data-entity-id="${escapeHtml(entity.id)}" data-entity-type="${entity.type}" data-runtime-status="${escapeHtml(runtimeStatus)}" data-runtime-state="${escapeHtml(runtimeStatusView?.state || '')}" data-status-tone="${statusTone}" data-card-mode="${expanded ? 'detail' : 'compact'}" data-verification-state="${verification.state}" data-resource-state="${availability.missing ? 'missing' : 'ready'}" tabindex="0" role="button" aria-label="${escapeHtml(name)}，${TYPE_LABELS[entity.type]}，${runtimeStatusView ? `${runtimeStatusView.label}，` : ''}${availability.missing ? `${availability.label}，` : ''}${entity.transient ? 'Coolify 只读观测，' : ''}${verification.label}${graph.contextualIds.has(entity.id) ? '，关系上下文' : ''}" aria-pressed="false" style="transform:translate(${geometry.x}px,${geometry.y}px);height:${geometry.height}px">
-            <div class="relationship-card-surface">
-            ${this._cardAttentionRailHtml(annotations.todos || [])}
-            ${['left', 'right', 'top', 'bottom'].map(side => hasOutput
-              ? `<button class="relationship-port" data-port-side="${side}" data-direction="out" type="button" aria-label="从 ${escapeHtml(name)} ${ { left: '左', right: '右', top: '上', bottom: '下' }[side]}侧开始连接" title="拖到兼容节点建立关系"></button>`
-              : `<span class="relationship-port" data-port-side="${side}"${hasInput ? ' data-direction="in"' : ''} aria-hidden="true"></span>`).join('')}
-            <div class="relationship-node-header">
-              <span class="relationship-node-icon">${TYPE_ICONS[entity.type]}</span>
-              <span class="relationship-node-identity">
-                <span class="relationship-node-kind" data-state="${availability.missing ? 'missing' : 'ready'}" title="${escapeHtml(availability.missing ? `${kindLabel} · ${availability.label}` : kindLabel)}">${availability.missing ? `${kindLabel} · 缺失` : kindLabel}</span>
-                <strong class="relationship-node-title" title="${escapeHtml(name)}">${escapeHtml(name)}</strong>
-              </span>
-              <button class="relationship-card-expand relationship-card-expand-top" data-relationship-card-detail="${escapeHtml(entity.id)}" type="button" aria-expanded="${expanded}" aria-label="${expanded ? '收起' : '展开'} ${escapeHtml(name)} 详情" title="${expanded ? '收起详情' : '展开详情'}"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6.5 8 3.5 3.5L13.5 8"></path></svg></button>
-            </div>
-            <div class="relationship-node-status-row">
-              ${cardStatusView ? `<span class="relationship-node-runtime-status" data-state="${escapeHtml(cardStatusView.state)}" title="${escapeHtml(runtimeStatusView?.sourceStatus ? `原始状态：${runtimeStatusView.sourceStatus}` : cardStatusView.label)}"><i aria-hidden="true"></i><b>${escapeHtml(cardStatusView.label)}</b></span>` : ''}
-              <small>${escapeHtml(this._cardUpdatedLabel(entity))}</small>
-            </div>
-            <div class="relationship-node-summary">
-              <span class="relationship-node-subtitle" title="${escapeHtml(details)}">${escapeHtml(cardSummary)}</span>
-            </div>
-            ${this._deploymentLinkSignalHtml(entity)}
-            ${graph.repositoryNames?.get(entity.id) ? `<div class="relationship-tree-source" title="${escapeHtml(graph.repositoryNames.get(entity.id))}">⑂ ${escapeHtml(graph.repositoryNames.get(entity.id))}</div>` : ''}
-            <div class="relationship-node-attention-row">
-              ${this._cardAttentionChipsHtml(annotations.todos || [])}
-              ${(annotations.labels || []).length ? `<div class="relationship-node-labels">${annotations.labels.slice(0, 2).map((label, index) => `<span data-color-index="${index % 5}">${escapeHtml(label)}</span>`).join('')}${annotations.labels.length > 2 ? `<span>+${annotations.labels.length - 2}</span>` : ''}</div>` : ''}
-            </div>
-            ${this._cardDetailHtml(entity, placement, runtimeStatusView)}
-            <button class="relationship-card-expand relationship-card-expand-bottom" data-relationship-card-detail="${escapeHtml(entity.id)}" type="button" aria-expanded="${expanded}" aria-label="${expanded ? '收起' : '展开'} ${escapeHtml(name)} 详情" title="${expanded ? '收起详情' : '展开详情'}"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6.5 8 3.5 3.5L13.5 8"></path></svg><b>${expanded ? '收起详情' : '展开详情'}</b></button>
-            </div>
-          </article>`;
-      }).join('');
-
-      // Layout follows the real card content, including font size and expanded details.
-      this.cardHeights.clear();
-      const cardScale = this._displayViewSettings().cardScale;
-      nodeLayer.querySelectorAll('.relationship-card-surface').forEach(surface => {
-        this.cardHeights.set(surface.parentElement.dataset.entityId, surface.offsetHeight * cardScale);
-      });
-      if (displayLayoutBefore) this._reflowDisplayLayout(displayLayoutBefore);
-      geometryById = this._displayGeometryMap(graph.placements);
-      nodeLayer.querySelectorAll('.relationship-node:not(.relationship-group-frame)').forEach(node => {
-        const geometry = geometryById.get(node.dataset.entityId);
-        node.style.height = `${geometry.height}px`;
-        node.style.transform = `translate(${geometry.x}px,${geometry.y}px)`;
-      });
-      this._updateGroupFrames();
-      const edgeLayer = this.root.querySelector('.relationship-edge-layer');
-      edgeLayer.innerHTML = `
-        <defs>
-          <marker id="relationship-edge-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto">
-            <path class="relationship-edge-arrow" d="M 0 0 L 8 4 L 0 8 Z"></path>
-          </marker>
-      </defs>` + graph.relationships.map(relationship => {
-        const geometry = this._edgeGeometry(relationship, null, geometryById);
-        if (!geometry) return '';
-        const verification = Model.verificationStatus(relationship, { now: this.now() });
-        const relationshipLabel = this._relationshipLabel(relationship);
-        const filterClass = graph.filterActive
-          ? (graph.directIds.has(relationship.sourceId) && graph.directIds.has(relationship.targetId)
-            ? ' filter-match'
-            : ((graph.mutedIds.has(relationship.sourceId) && graph.mutedIds.has(relationship.targetId)) ? ' filter-muted' : ' filter-context'))
-          : '';
-        return `
-          <g class="relationship-edge verification-${verification.state}${filterClass}" data-relationship-id="${escapeHtml(relationship.id)}" data-relationship-type="${relationship.type}" data-verification-state="${verification.state}" data-route-obstructed="${geometry.obstructed}" aria-label="${escapeHtml(relationshipLabel)}，${verification.label}">
-            <title data-route-title>${geometry.obstructed ? '未找到可通行路线，请调整卡片位置或间距' : escapeHtml(relationshipLabel)}</title>
-            <path class="relationship-edge-hit" d="${geometry.path}"></path>
-            <path class="relationship-edge-line" d="${geometry.path}" marker-end="url(#relationship-edge-arrow)"></path>
-            <text x="${geometry.labelX}" y="${geometry.labelY}">${escapeHtml(relationshipLabel)}</text>
-          </g>`;
-      }).join('') + graph.summaryRelationships.map(summary => {
-        const geometry = this._edgeGeometry(summary, null, geometryById);
-        if (!geometry) return '';
-        const verificationLabel = ['tree_hierarchy', 'repository_correlation'].includes(summary.type) ? '派生关系' : summary.verificationState === 'verified'
-          ? '已验证'
-          : (summary.verificationState === 'stale' ? '待复核' : '待验证');
-        const description = summary.title || `${summary.count} 个部署事实链`;
-        return `
-          <g class="relationship-edge relationship-edge-summary verification-${summary.verificationState}${graph.filterActive ? ' filter-context' : ''}" data-summary-id="${escapeHtml(summary.id)}" data-summary-type="${summary.type}" data-verification-state="${summary.verificationState}" aria-label="${escapeHtml(summary.label)}，${verificationLabel}">
-            <title>${escapeHtml(description)}</title>
-            <path class="relationship-edge-line" d="${geometry.path}"${summary.type === 'repository_correlation' ? '' : ' marker-end="url(#relationship-edge-arrow)"'}></path>
-            <text x="${geometry.labelX}" y="${geometry.labelY}">${escapeHtml(summary.label)}</text>
-          </g>`;
-      }).join('');
-      this._updateConnectionPorts(graph, geometryById);
-      this._refreshMinimapNodes(graph, geometryById);
-      this._applyViewport();
       this._updateSelectionCss({ preserveDirtyInspector: true });
+      this._updateSummary();
+      const menu = this.root?.querySelector('.relationship-context-menu');
+      if (!menu) return;
+      const clientX = Number(point.clientX) || 0;
+      const clientY = Number(point.clientY) || 0;
+      this.contextMenuPoint = this._clientToWorld(clientX, clientY);
+      menu.innerHTML = this._contextMenuItems(kind).map(item => {
+        if (!item) return '<div class="relationship-menu-separator" role="separator"></div>';
+        const attribute = item.contextAction ? `data-board-context-action="${item.contextAction}"`
+          : item.nodeType ? `data-add-node-type="${item.nodeType}"` : `data-relationship-action="${item.action}"`;
+        return `<button role="menuitem" type="button" ${attribute}${item.disabled ? ' disabled' : ''}${item.contextAction === 'delete' ? ' class="is-destructive"' : ''}>${escapeHtml(item.label)}</button>`;
+      }).join('');
+      menu.hidden = false;
+      const view = menu.ownerDocument.defaultView;
+      menu.style.left = `${Math.max(8, Math.min(clientX, view.innerWidth - menu.offsetWidth - 8))}px`;
+      menu.style.top = `${Math.max(8, Math.min(clientY, view.innerHeight - menu.offsetHeight - 8))}px`;
+      menu.querySelector('button:not(:disabled)')?.focus({ preventScroll: true });
+    }
+
+    _handleFlowAction(action, value, point) {
+      if (action === 'toggle-descendants' && typeof value === 'string') return this._toggleLinkedMovement(value);
+      if (action === 'toggle-endpoint-view' && value?.type === 'endpoint') {
+        const placement = this._placementForEntity(value.id);
+        if (!placement) return false;
+        this._recordMutation();
+        if (placement.endpointView === 'web') delete placement.endpointView;
+        else placement.endpointView = 'web';
+        if (placement.dynamic) this._saveDynamicPlacementOverrides([value.id]);
+        this._persistSoon(0);
+        this._renderGraph();
+        this._refreshHistoryButtons();
+        return true;
+      }
+      if (action === 'edit-canvas-element' && ['text', 'image', 'attachment'].includes(value?.type)) {
+        void this._editCanvasElement(value.id);
+        return true;
+      }
+      if (action === 'open-endpoint') {
+        const url = this._endpointUrl(value);
+        if (url) void this.bridge.panel?.openExternal?.(url).catch(error => this.notify(`无法打开网页：${error?.message || error}`, 'error'));
+        return;
+      }
+      if (action === 'context-node') return this._openFlowContextMenu('node', value, point);
+      if (action === 'context-edge') return this._openFlowContextMenu('relationship', value, point);
+      if (action === 'context-pane') return this._openFlowContextMenu('canvas', null, point);
+      if (!value?.id) return;
+      if (action === 'resize-start') {
+        if (!this.flowMutationActive) this._recordMutation();
+        this.flowMutationActive = true;
+        return;
+      }
+      if (action === 'resize-end') {
+        this.flowMutationActive = false;
+        this._persistSoon(80);
+        this._refreshHistoryButtons();
+        return;
+      }
+      this._selectOnlyEntity(value.id);
+      this._updateSelectionCss();
+      if (action === 'arrange-group') return this._toggleGroupLayout(value.id);
+      if (action === 'delete-group') return this._deleteSelection();
+      if (action === 'edit-group') return this._revealInspector('[name="name"]');
+      if (action === 'details') return this._revealInspector();
+    }
+
+    _renderFlowGraph() {
+      const board = activeBoard(this.store);
+      const host = this.root?.querySelector('[data-relationship-flow-root]');
+      if (!board || !host || !globalThis.RelationshipCanvasEngine?.mount) return false;
+      this._updateAllGroupLayoutButton();
+      const graph = this._filteredGraph();
+      const visibleIds = new Set(graph.placements.map(placement => placement.entityId));
+      this._pruneEntitySelection(visibleIds);
+      if (this.selectedRelationshipId && !graph.relationships.some(item => item.id === this.selectedRelationshipId)) this.selectedRelationshipId = '';
+      this.root.dataset.filterActive = String(graph.filterActive);
+      this.root.dataset.serverTree = String(this._isServerTree());
+      this.root.dataset.activeBoardLayout = this._boardView().layout;
+      this.root.dataset.projectGroupShape = this._displayViewSettings().projectGroupShape;
+      const topologyAlerts = this._topologyAlerts();
+      this._updateTopologyAlerts(topologyAlerts);
+      const dimensions = this._nodeDimensions();
+      const linkedNodeIds = Object.fromEntries(graph.placements.map(placement => [
+        placement.entityId,
+        placement.moveWithDescendants === true ? this._expandMovingIds([placement.entityId]) : [placement.entityId]
+      ]));
+      const placementById = new Map(graph.placements.map(placement => [placement.entityId, placement]));
+      const undraggableIds = new Set();
+      for (const placement of graph.placements) {
+        let current = placement;
+        const seen = new Set();
+        while (current && !seen.has(current.entityId)) {
+          seen.add(current.entityId);
+          if (current.locked) { undraggableIds.add(placement.entityId); break; }
+          current = current.groupId ? placementById.get(current.groupId) : null;
+        }
+        if ((linkedNodeIds[placement.entityId] || []).some(id => placementById.get(id)?.locked)) undraggableIds.add(placement.entityId);
+      }
+      const model = globalThis.RelationshipCanvasEngine.toFlowModel(this._flowGraphInput(graph, topologyAlerts), {
+        cardWidth: dimensions.width,
+        cardHeight: dimensions.height,
+        selectedIds: this._entitySelectionIds(),
+        selectedRelationshipId: this.selectedRelationshipId,
+        directIds: graph.directIds,
+        contextualIds: graph.contextualIds,
+        mutedIds: graph.mutedIds,
+        linkedNodeIds,
+        undraggableIds,
+        zoom: board.viewport.zoom,
+        groupTitleFontSize: this._displayViewSettings().groupTitleFontSize
+      });
+      this.flowRenderOptions = {
+        model,
+        fitView: false,
+        initialViewport: board.viewport,
+        snapMode: this._boardView().snapMode || 'smart',
+        horizontalSpacing: this._displayViewSettings().horizontalSpacing,
+        verticalSpacing: this._displayViewSettings().verticalSpacing,
+        groupTitleFontSize: this._displayViewSettings().groupTitleFontSize,
+        onModelChange: next => this._handleFlowModelChange(next),
+        onSelectionChange: selection => this._handleFlowSelection(selection),
+        onInteractionStart: (kind, node) => {
+          if (!this.flowMutationActive) this._recordMutation();
+          this.flowMutationActive = true;
+          if (kind === 'move' && node?.id) {
+            const movingIds = linkedNodeIds[node.id] || [node.id];
+            const geometry = this._displayGeometryMap(this._combinedPlacements());
+            const changedIds = this._prepareLinkedMove(movingIds, geometry);
+            this._saveDynamicPlacementOverrides(changedIds.filter(id => this._placementForEntity(id)?.dynamic));
+            this._persistSoon(0);
+          }
+        },
+        onInteractionEnd: (kind, node) => {
+          if (kind === 'move' && node?.id) this._settleProjectDeployment(node.id);
+          this.flowMutationActive = false;
+          this._persistSoon(80);
+          this._refreshHistoryButtons();
+        },
+        onViewportChange: viewport => this._handleFlowViewportChange(viewport),
+        onAction: (action, value, point) => this._handleFlowAction(action, value, point)
+      };
+      if (this.flowCanvas) this.flowCanvas.update(this.flowRenderOptions);
+      else this.flowCanvas = globalThis.RelationshipCanvasEngine.mount(host, this.flowRenderOptions);
+      this._updateSelectionCss({ preserveDirtyInspector: true, syncFlow: false });
+      return true;
+    }
+
+    _renderGraph() {
+      if (!this._renderFlowGraph()) {
+        throw new Error('React Flow 关系白板引擎未加载');
+      }
     }
 
     _entitySubtitle(entity, resource, stale, availability = this._entityAvailability(entity)) {
@@ -3975,6 +4133,15 @@
       }
       if (entity.type === 'endpoint') return entity.details.urlLabel || '访问端点';
       return entity.details.notes || TYPE_LABELS[entity.type];
+    }
+
+    _endpointUrl(entity) {
+      if (entity?.type !== 'endpoint') return '';
+      const value = String(entity.runtime?.url || entity.details?.urlLabel || '').trim();
+      try {
+        const parsed = new URL(value);
+        return ['http:', 'https:'].includes(parsed.protocol) ? value : '';
+      } catch (_) { return ''; }
     }
 
     _entityRuntimeStatus(entity) {
@@ -4143,18 +4310,17 @@
         this.notify('该关联节点未放在当前白板中', 'warning');
         return false;
       }
-      const { mode, topologyLayout, treeLayout, projectGroupIncludesEndpoints, showRepositoryRelations } = this._boardView();
+      const { mode, structure, layout, projectGroupIncludesEndpoints, showRepositoryRelations } = this._boardView();
       if (this._hasActiveFilters(board.view) || board.view.projection !== 'facts') {
         board.view = {
           ...Model.defaultBoardView(),
           ...this._displayViewSettings(),
           mode,
-          topologyLayout, treeLayout, projectGroupIncludesEndpoints, showRepositoryRelations,
+          structure, layout, projectGroupIncludesEndpoints, showRepositoryRelations,
           projection: 'facts'
         };
       }
       this._selectOnlyEntity(entityId);
-      this.keyboardConnectSourceId = '';
       const canvas = this.root?.querySelector('.relationship-canvas');
       const rect = canvas?.getBoundingClientRect();
       if (rect?.width && rect?.height) {
@@ -4166,6 +4332,14 @@
       this._applyViewMode();
       this._persistSoon(0);
       this._renderGraph();
+      if (this.flowCanvas?.setCenter) {
+        const geometry = this._displayGeometryMap(this._combinedPlacements(board)).get(entityId);
+        if (geometry) requestAnimationFrame(() => {
+          void this.flowCanvas?.setCenter?.(geometry.x + geometry.width / 2, geometry.y + geometry.height / 2, {
+            zoom: Math.max(0.7, board.viewport.zoom), duration: 220
+          });
+        });
+      }
       this._updateFilterSummary();
       this._updateSummary();
       this._setCanvasAnnouncement(`已在当前白板定位 ${this._entityDisplayName(entity)}`);
@@ -4957,137 +5131,27 @@
       }
     }
 
-    _edgeGeometry(relationship, overrideTarget = null, geometryById = null) {
-      const placements = this._combinedPlacements(activeBoard(this.store));
-      const source = placements.find(placement => placement.entityId === relationship.sourceId);
-      const target = overrideTarget || placements.find(placement => placement.entityId === relationship.targetId);
-      if (!source || !target) return null;
-      const displayGeometry = geometryById || this._displayGeometryMap(this._filteredGraph().placements);
-      const fallbackDimensions = this._nodeDimensions();
-      const sourceGeometry = displayGeometry.get(relationship.sourceId) || { ...source, ...fallbackDimensions };
-      const targetGeometry = overrideTarget
-        ? { x: target.x, y: target.y, width: 0, height: 0 }
-        : (displayGeometry.get(relationship.targetId) || { ...target, ...fallbackDimensions });
-      const scale = this._displayViewSettings().cardScale;
-      const portOffsetY = (this._displayViewSettings().mode === 'compact' ? 44.5 : 59.5) * scale;
-      if (this.edgeRoutingContext?.geometry !== displayGeometry
-        || this.edgeRoutingContext?.portOffsetY !== portOffsetY || this.edgeRoutingContext?.scale !== scale) {
-        const entities = this._allEntitiesById();
-        const previous = this.edgeRoutingContext?.portOffsetY === portOffsetY && this.edgeRoutingContext?.scale === scale
-          ? this.edgeRoutingContext : null;
-        const obstacles = [...displayGeometry].filter(([id]) => entities.get(id)?.type !== 'group');
-        const before = new Map(previous?.obstacles || []), after = new Map(obstacles);
-        const same = (a, b) => a && b && ['x', 'y', 'width', 'height'].every(key => a[key] === b[key]);
-        const changed = [...new Set([...before.keys(), ...after.keys()])]
-          .filter(id => !same(before.get(id), after.get(id)))
-          .flatMap(id => [before.get(id), after.get(id)].filter(Boolean));
-        this.edgeRoutingContext = { geometry: displayGeometry, routes: new Map(),
-          obstacles, changed, same, scale, portOffsetY, previousRoutes: previous?.routes, previousGeometry: previous?.geometry };
-      }
-      const context = this.edgeRoutingContext;
-      const key = `${relationship.sourceId}:${relationship.targetId}`;
-      if (!overrideTarget && context.routes.has(key)) return context.routes.get(key);
-      const previousRoute = !overrideTarget && context.previousRoutes?.get(key);
-      if (previousRoute && !previousRoute.obstructed
-        && context.same(sourceGeometry, context.previousGeometry.get(relationship.sourceId))
-        && context.same(targetGeometry, context.previousGeometry.get(relationship.targetId))) {
-        const bounds = previousRoute.influenceBounds;
-        if (bounds && !context.changed.some(r => r.x < bounds.right && r.x + r.width > bounds.left
-          && r.y < bounds.bottom && r.y + r.height > bounds.top)) {
-          context.routes.set(key, previousRoute); return previousRoute;
-        }
-      }
-      const route = PanelTopologyProjection.routeRelationship(sourceGeometry, targetGeometry,
-        context.obstacles.filter(([id]) => id !== relationship.sourceId && id !== relationship.targetId).map(([, rect]) => rect),
-        { portOffsetY, inset: 0.5 * scale, sourceSide: overrideTarget ? this.pointerAction?.sourceSide : undefined });
-      route.influenceBounds = {
-        left: Math.min(sourceGeometry.x, targetGeometry.x, ...route.points.map(p => p.x)) - 20,
-        right: Math.max(sourceGeometry.x + sourceGeometry.width, targetGeometry.x + targetGeometry.width, ...route.points.map(p => p.x)) + 20,
-        top: Math.min(sourceGeometry.y, targetGeometry.y, ...route.points.map(p => p.y)) - 20,
-        bottom: Math.max(sourceGeometry.y + sourceGeometry.height, targetGeometry.y + targetGeometry.height, ...route.points.map(p => p.y)) + 20
-      };
-      if (!overrideTarget) context.routes.set(key, route);
-      return route;
-    }
-
-    _updateConnectionPorts(graph, geometryById) {
-      const used = new Map();
-      for (const edge of [...graph.relationships, ...graph.summaryRelationships]) {
-        const route = this._edgeGeometry(edge, null, geometryById);
-        if (!route) continue;
-        for (const [id, side] of [[edge.sourceId, route.sourceSide], [edge.targetId, route.targetSide]]) {
-          if (!used.has(id)) used.set(id, new Set());
-          used.get(id).add(side);
-        }
-      }
-      const { cardScale: scale, mode } = this._displayViewSettings();
-      this.root?.querySelectorAll?.('.relationship-node').forEach(node => {
-        const id = node.dataset.entityId, rect = geometryById.get(id);
-        if (!rect) return;
-        node.querySelectorAll?.('[data-port-side]').forEach(port => {
-          const side = port.dataset.portSide, inset = 0.5 * scale;
-          const x = side === 'left' ? inset : side === 'right' ? rect.width - inset : rect.width / 2;
-          const y = side === 'top' ? inset : side === 'bottom' ? rect.height - inset : Math.min((mode === 'compact' ? 44.5 : 59.5) * scale, rect.height / 2);
-          // Absolute offsets start inside the surface's 1px border.
-          port.style.left = `${x / scale - 7.5}px`;
-          port.style.top = `${y / scale - 7.5}px`;
-          port.classList.toggle('is-connected', used.get(id)?.has(side) || false);
-        });
-      });
-    }
-
-    _updateEdges() {
-      const graph = this._filteredGraph();
-      const placedIds = new Set(graph.placements.map(item => item.entityId));
-      const geometryById = this._displayGeometryMap(graph.placements);
-      for (const relationship of graph.relationships) {
-        if (!placedIds.has(relationship.sourceId) || !placedIds.has(relationship.targetId)) continue;
-        const geometry = this._edgeGeometry(relationship, null, geometryById);
-        const group = this.root?.querySelector(`[data-relationship-id="${escapeSelectorValue(relationship.id)}"]`);
-        if (!geometry || !group) continue;
-        group.querySelectorAll('path').forEach(path => path.setAttribute('d', geometry.path));
-        group.setAttribute('data-route-obstructed', String(geometry.obstructed));
-        const routeTitle = group.querySelector('[data-route-title]');
-        if (routeTitle) routeTitle.textContent = geometry.obstructed ? '未找到可通行路线，请调整卡片位置或间距' : this._relationshipLabel(relationship);
-        const label = group.querySelector('text');
-        label?.setAttribute('x', geometry.labelX);
-        label?.setAttribute('y', geometry.labelY);
-      }
-      for (const summary of graph.summaryRelationships) {
-        const geometry = this._edgeGeometry(summary, null, geometryById);
-        const group = this.root?.querySelector(`[data-summary-id="${escapeSelectorValue(summary.id)}"]`);
-        if (!geometry || !group) continue;
-        group.querySelectorAll('path').forEach(path => path.setAttribute('d', geometry.path));
-        const label = group.querySelector('text');
-        label?.setAttribute('x', geometry.labelX);
-        label?.setAttribute('y', geometry.labelY);
-      }
-      this._updateConnectionPorts(graph, geometryById);
-    }
-
-    _updateGroupFrames() {
-      const graph = this._filteredGraph();
-      const entitiesById = this._allEntitiesById();
-      const displayGeometry = this._displayGeometryMap(graph.placements);
-      for (const placement of graph.placements) {
-        if (entitiesById.get(placement.entityId)?.type !== 'group') continue;
-        const frame = this.root?.querySelector(`[data-entity-id="${escapeSelectorValue(placement.entityId)}"]`);
-        if (!frame) continue;
-        const dragTarget = this.pointerAction?.type === 'node'
-          ? this.pointerAction.groupTargets?.find(target => target.id === placement.entityId) : null;
-        const geometry = dragTarget || this._placementGeometry(placement, graph.placements, new Set(), displayGeometry);
-        frame.style.transform = `translate(${geometry.x}px,${geometry.y}px)`;
-        frame.style.width = `${geometry.width}px`;
-        frame.style.height = `${geometry.height}px`;
-      }
+    _groupShape(entityId) {
+      const entity = this._allEntitiesById().get(entityId);
+      if (entity?.type !== 'group') return 'rect';
+      const placement = this._placementForEntity(entityId);
+      if (Model.PROJECT_GROUP_SHAPES.includes(placement?.groupShape)) return placement.groupShape;
+      const isProject = entity.runtime?.dynamicKind === 'coolify-project-group'
+        || entityId.startsWith('entity_panel_projectgroup_');
+      return isProject ? (this._boardView().projectGroupShape || 'rounded') : 'rounded';
     }
 
     _groupAppearanceEditorHtml(entityId) {
       const placement = this._placementForEntity(entityId) || {};
+      const inheritedShape = this._groupShape(entityId);
       const options = this._combinedPlacements().filter(item => this._canJoinGroup(entityId, item.entityId))
         .map(item => `<option value="${escapeHtml(item.entityId)}" ${placement.groupId === item.entityId ? 'selected' : ''}>${escapeHtml(this._allEntitiesById().get(item.entityId).name)}</option>`).join('');
       return `<section class="relationship-group-appearance" aria-label="群组外观与嵌套">
         <label class="relationship-inspector-field"><span>上级群组</span><select name="parentGroup"><option value="">无（顶层）</option>${options}</select></label>
+        <div class="relationship-group-colors">
+          <label class="relationship-inspector-field"><span>容器形状</span><select data-selected-group-shape="${escapeHtml(entityId)}"><option value="inherit"${placement.groupShape ? '' : ' selected'}>跟随白板（${{ rounded: '矩形', polygon: '多边形' }[inheritedShape]}）</option><option value="rounded"${placement.groupShape === 'rounded' ? ' selected' : ''}>矩形</option><option value="polygon"${placement.groupShape === 'polygon' ? ' selected' : ''}>多边形</option></select></label>
+          <label class="relationship-inspector-field"><span>显示样式</span><select data-selected-group-appearance="${escapeHtml(entityId)}"><option value="soft"${!placement.groupAppearance || placement.groupAppearance === 'soft' ? ' selected' : ''}>浅色填充</option><option value="outline"${placement.groupAppearance === 'outline' ? ' selected' : ''}>仅描边</option><option value="emphasis"${placement.groupAppearance === 'emphasis' ? ' selected' : ''}>强调填充</option></select></label>
+        </div>
         <div class="relationship-group-colors">
           <label class="relationship-inspector-field"><span>背景色</span><input type="color" name="groupBackground" value="${escapeHtml(placement.groupBackground || '#7a67c7')}"></label>
           <label class="relationship-inspector-field"><span>描边色</span><input type="color" name="groupBorder" value="${escapeHtml(placement.groupBorder || '#7a67c7')}"></label>
@@ -5096,845 +5160,49 @@
       </section>`;
     }
 
-    _groupDropTargets(movingIds) {
-      const moving = new Set(movingIds);
-      const placements = this._filteredGraph().placements;
-      const entities = this._allEntitiesById();
-      const geometry = this._displayGeometryMap(placements);
-      return placements.filter(item => entities.get(item.entityId)?.type === 'group' && !moving.has(item.entityId))
-        .map(item => ({ id: item.entityId, depth: this._groupDepth(item.entityId), ...this._placementGeometry(item, placements, new Set(), geometry) }));
-    }
-
-    _groupDropTarget(action, point) {
-      return (action.groupTargets || []).filter(target => point.x >= target.x && point.x <= target.x + target.width
-        && point.y >= target.y && point.y <= target.y + target.height)
-        .sort((a, b) => b.depth - a.depth || a.width * a.height - b.width * b.height)[0]?.id || '';
-    }
-
-    _showGroupDropTarget(groupId = '') {
-      this.root?.querySelectorAll?.('.relationship-group-frame').forEach(frame => {
-        frame.classList.toggle('group-drop-target', frame.dataset.entityId === groupId);
-      });
-    }
-
-    _applyGroupDrop(action) {
-      const targetId = action.groupDropId || '';
-      const members = (action.groupMemberIds || []).map(id => this._placementForEntity(id)).filter(Boolean);
-      if (!members.every(item => this._canJoinGroup(item.entityId, targetId))) return false;
-      let changed = false;
-      for (const member of members) {
-        if ((member.groupId || '') === targetId) continue;
-        if (targetId) member.groupId = targetId; else delete member.groupId;
-        changed = true;
-      }
-      return changed;
-    }
-
-    _dragBounds(action, deltaX = 0, deltaY = 0) {
-      const entities = this._allEntitiesById();
-      const { width, height } = this._nodeDimensions();
-      const bounds = [...(action?.origins || new Map()).entries()]
-        .filter(([entityId]) => entities.get(entityId)?.type !== 'group')
-        .map(([, origin]) => ({
-          left: origin.x + deltaX,
-          right: origin.x + deltaX + width,
-          top: origin.y + deltaY,
-          bottom: origin.y + deltaY + height
-        }));
-      if (!bounds.length) return null;
-      const left = Math.min(...bounds.map(item => item.left));
-      const right = Math.max(...bounds.map(item => item.right));
-      const top = Math.min(...bounds.map(item => item.top));
-      const bottom = Math.max(...bounds.map(item => item.bottom));
-      return { left, centerX: (left + right) / 2, right, top, centerY: (top + bottom) / 2, bottom };
-    }
-
-    _stationarySnapBounds(movingIds = []) {
-      const moving = new Set(movingIds);
-      const entities = this._allEntitiesById();
-      const { width, height } = this._nodeDimensions();
-      return this._filteredGraph().placements
-        .filter(placement => !moving.has(placement.entityId) && entities.get(placement.entityId)?.type !== 'group')
-        .map(placement => ({
-          left: placement.x,
-          centerX: placement.x + width / 2,
-          right: placement.x + width,
-          top: placement.y,
-          centerY: placement.y + height / 2,
-          bottom: placement.y + height
-        }));
-    }
-
-    _renderSnapGuides(guides = []) {
-      const layer = this.root?.querySelector('.relationship-guide-layer');
-      if (!layer) return;
-      layer.innerHTML = guides.map(guide => (
-        `<span class="relationship-snap-guide ${guide.axis === 'x' ? 'vertical' : 'horizontal'}" data-kind="${guide.kind}" style="--guide-position:${Math.round(guide.position)}px"></span>`
-      )).join('');
-    }
-
-    _clearSnapGuides() {
-      const layer = this.root?.querySelector('.relationship-guide-layer');
-      if (layer) layer.innerHTML = '';
-    }
-
-    _handlePointerDown(event) {
-      this._stopWheelPan();
-      if (event.button !== 0 && event.button !== 1) return;
-      const minimap = event.target.closest('[data-relationship-minimap]');
-      if (minimap && event.button === 0) {
-        event.preventDefault();
-        const canvas = this.root.querySelector('.relationship-canvas');
-        this.pointerAction = { type: 'minimap', pointerId: event.pointerId, map: this._minimapTransform(canvas.clientWidth, canvas.clientHeight) };
-        minimap.setPointerCapture(event.pointerId);
-        this._panFromMinimap(event);
-        return;
-      }
-      if (event.target.closest('.relationship-selection-toolbar, .relationship-navigator')) return;
-      const resourcePanelHandle = event.target.closest('[data-resource-panel-handle]');
-      if (resourcePanelHandle && event.button === 0 && !event.target.closest('button, input, textarea, select, a')) {
-        const panel = resourcePanelHandle.closest('.relationship-resource-panel');
-        if (!panel) return;
-        event.preventDefault();
-        panel.setPointerCapture(event.pointerId);
-        panel.classList.add('dragging');
-        this.pointerAction = {
-          type: 'resource-panel',
-          pointerId: event.pointerId,
-          clientX: event.clientX,
-          clientY: event.clientY,
-          originX: this.resourcePanelPosition.x,
-          originY: this.resourcePanelPosition.y
-        };
-        return;
-      }
-      const canvas = event.target.closest('.relationship-canvas');
-      if (!canvas) return;
-      if (event.button === 1 || (this.spacePan && event.button === 0 && !event.target.closest('input, textarea, select, [contenteditable="true"]'))) {
-        event.preventDefault();
-        const board = activeBoard(this.store);
-        canvas.focus?.({ preventScroll: true });
-        canvas.setPointerCapture(event.pointerId);
-        this.pointerAction = { type: 'pan', pointerId: event.pointerId, clientX: event.clientX, clientY: event.clientY,
-          originX: board.viewport.x, originY: board.viewport.y };
-        canvas.classList.add('panning');
-        return;
-      }
-      const groupResize = event.target.closest('[data-resize-group]');
-      if (groupResize && event.button === 0) {
-        const group = this._placementForEntity(groupResize.dataset.resizeGroup);
-        if (!group || group.locked) return;
-        event.preventDefault(); canvas.setPointerCapture(event.pointerId);
-        const before = this._historySnapshot();
-        const items = this._materializeGroupGeometry(group.entityId);
-        group.groupLayout ||= 'manual';
-        const geometry = this._displayGeometryMap(this._combinedPlacements());
-        const members = items.filter(item => item !== group).map(item => geometry.get(item.entityId)).filter(Boolean);
-        this._selectOnlyEntity(group.entityId);
-        this.pointerAction = { type: 'group-resize', pointerId: event.pointerId, entityId: group.entityId,
-          start: this._clientToWorld(event.clientX, event.clientY), width: group.groupWidth, height: group.groupHeight,
-          minWidth: group.groupLayout === 'auto' ? GROUP_MIN_WIDTH : Math.max(GROUP_MIN_WIDTH, ...members.map(item => item.x + item.width - group.x + GROUP_PADDING_X)),
-          minHeight: group.groupLayout === 'auto' ? GROUP_MIN_HEIGHT : Math.max(GROUP_MIN_HEIGHT, ...members.map(item => item.y + item.height - group.y + GROUP_PADDING_BOTTOM)),
-          changedIds: items.map(item => item.entityId), before, moved: false };
-        return;
-      }
-      const resize = event.target.closest('[data-resize-canvas-element]');
-      if (resize) {
-        const entity = this.store.entities.find(item => item.id === resize.dataset.resizeCanvasElement);
-        if (!entity || this._placementForEntity(entity.id)?.locked) return;
-        event.preventDefault(); canvas.setPointerCapture(event.pointerId);
-        this.pointerAction = { type: 'resize', pointerId: event.pointerId, entityId: entity.id, start: this._clientToWorld(event.clientX, event.clientY), width: Number(entity.details.width), height: Number(entity.details.height), before: this._historySnapshot() };
-        return;
-      }
-      const sourcePort = event.target.closest('.relationship-port[data-direction="out"]');
-      if (sourcePort && event.button === 0) {
-        event.preventDefault();
-        const sourceId = sourcePort.closest('.relationship-node')?.dataset.entityId;
-        const sourcePlacement = this._placementForEntity(sourceId);
-        if (!sourcePlacement) return;
-        canvas.setPointerCapture(event.pointerId);
-        this.pointerAction = { type: 'connect', pointerId: event.pointerId, sourceId, sourceSide: sourcePort.dataset.portSide };
-        this._renderTemporaryEdge(sourceId, this._clientToWorld(event.clientX, event.clientY));
-        return;
-      }
-      const node = event.target.closest('.relationship-node');
-      const nodeControl = event.target.closest('.relationship-port, .relationship-card-detail-content, button, input, textarea, select, a');
-      const groupHeader = node?.dataset.entityType === 'group' && event.target.closest('.relationship-node-header');
-      if (!nodeControl) canvas.focus?.({ preventScroll: true });
-      if (node && !nodeControl && !groupHeader && event.button === 0) {
-        event.preventDefault();
-        const entityId = node.dataset.entityId;
-        this.suppressedGroupToolbarId = node.dataset.entityType === 'group' ? entityId : '';
-        const placement = this._placementForEntity(entityId);
-        if (!placement) return;
-        if (placement.locked) { this._selectOnlyEntity(entityId); this._updateSelectionCss(); return; }
-        const point = this._clientToWorld(event.clientX, event.clientY);
-        canvas.setPointerCapture(event.pointerId);
-        let suppressClick = false;
-        if ((event.metaKey || event.ctrlKey) && !this._entitySelectionIds().has(entityId)) {
-          this._setEntitySelection(new Set([...this._entitySelectionIds(), entityId]), entityId);
-          suppressClick = true;
-        } else if (!event.metaKey && !event.ctrlKey && !this._entitySelectionIds().has(entityId)) {
-          this._selectOnlyEntity(entityId);
-        }
-        const movingIds = this._movingEntityIds(entityId);
-        const persistentIds = movingIds.filter(id => activeBoard(this.store).placements.some(item => item.entityId === id));
-        const dynamicIds = movingIds.filter(id => this.panelProjection?.placements?.some(item => item.dynamic && item.entityId === id));
-        const geometry = this._displayGeometryMap(this._combinedPlacements());
-        const origins = new Map(this._combinedPlacements(activeBoard(this.store))
-          .filter(item => movingIds.includes(item.entityId))
-          .map(item => [item.entityId, { x: geometry.get(item.entityId)?.x ?? item.x, y: geometry.get(item.entityId)?.y ?? item.y }]));
-        this.pointerAction = {
-          type: 'node',
-          pointerId: event.pointerId,
-          entityId,
-          entityIds: movingIds,
-          persistentIds,
-          dynamicIds,
-          origins,
-          geometry,
-          groupTargets: this._groupDropTargets(movingIds),
-          groupMemberIds: this._selectedMemberPlacements().map(item => item.entityId),
-          groupDropId: placement.groupId || '',
-          pointX: point.x,
-          pointY: point.y,
-          before: this._historySnapshot(),
-          suppressClick,
-          moved: false
-        };
-        for (const movingId of movingIds) {
-          this.root.querySelector(`[data-entity-id="${escapeSelectorValue(movingId)}"]`)?.classList.add('dragging');
-        }
-        this._updateSelectionCss();
-        return;
-      }
-      if (!event.target.closest('.relationship-node, .relationship-edge') && !nodeControl && event.button === 0) {
-        event.preventDefault();
-        canvas.setPointerCapture(event.pointerId);
-        this.root.classList?.add('box-selecting');
-        const point = this._clientToWorld(event.clientX, event.clientY);
-        this.pointerAction = {
-          type: 'box',
-          pointerId: event.pointerId,
-          startX: point.x, startY: point.y,
-          initialSelection: this._entitySelectionIds(),
-          baseSelection: event.metaKey || event.ctrlKey ? this._entitySelectionIds() : new Set(),
-          moved: false
-        };
-        this.selectedRelationshipId = '';
-        this._renderSelectionBox(point.x, point.y, point.x, point.y);
-      }
-    }
-
-    _edgePanSpeed(action) {
-      const canvas = this.root?.querySelector('.relationship-canvas');
-      if (!canvas || !action?.lastPointer) return { x: 0, y: 0 };
-      const { clientX: x, clientY: y } = action.lastPointer;
-      const covered = globalThis.document?.elementFromPoint?.(x, y)?.closest?.('.relationship-inspector-panel, .relationship-resource-panel, .relationship-selection-toolbar, .relationship-navigator');
-      if (covered) return { x: 0, y: 0 };
-      return edgePanVelocity({ x, y }, canvas.getBoundingClientRect(), globalThis.window?.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
-    }
-
-    _trackEdgePan(event) {
-      const action = this.pointerAction;
-      if (action?.type !== 'node' || !action.moved) return;
-      action.lastPointer = { pointerId: event.pointerId, clientX: event.clientX, clientY: event.clientY, altKey: event.altKey };
-      const speed = this._edgePanSpeed(action);
-      if (!speed.x && !speed.y) { this._stopEdgePan(); return; }
-      if (this.edgePanFrame == null) this.edgePanFrame = requestAnimationFrame(time => this._stepEdgePan(time));
-    }
-
-    _stepEdgePan(time) {
-      this.edgePanFrame = null;
-      const action = this.pointerAction;
-      if (!this.root?.isConnected || action?.type !== 'node' || !action.moved || globalThis.document?.hidden) { this._stopEdgePan(); return; }
-      const speed = this._edgePanSpeed(action);
-      if (!speed.x && !speed.y) { this._stopEdgePan(); return; }
-      const elapsed = this.edgePanLastTime == null ? 16 : Math.min(32, Math.max(0, time - this.edgePanLastTime));
-      this.edgePanLastTime = time;
-      const board = activeBoard(this.store);
-      board.viewport.x -= speed.x * elapsed / 1000;
-      board.viewport.y -= speed.y * elapsed / 1000;
-      action.autoPanned = true;
-      this._applyViewport();
-      // Recompute world coordinates from the same grab point as the camera moves.
-      this._handlePointerMove(action.lastPointer, true);
-      if (this.pointerAction === action) this.edgePanFrame = requestAnimationFrame(next => this._stepEdgePan(next));
-    }
-
-    _stopEdgePan() {
-      if (this.edgePanFrame != null) cancelAnimationFrame(this.edgePanFrame);
-      this.edgePanFrame = null;
-      this.edgePanLastTime = null;
-    }
-
-    _handlePointerMove(event, fromEdgePan = false) {
-      const action = this.pointerAction;
-      if (!action || action.pointerId !== event.pointerId) return;
-      if (action.type === 'group-resize') {
-        const point = this._clientToWorld(event.clientX, event.clientY);
-        const dx = point.x - action.start.x, dy = point.y - action.start.y;
-        if (!action.moved && Math.hypot(dx, dy) < 2) return;
-        const group = this._placementForEntity(action.entityId);
-        group.groupWidth = Math.round(Math.max(action.minWidth, Math.min(100000, action.width + dx)));
-        group.groupHeight = Math.round(Math.max(action.minHeight, Math.min(100000, action.height + dy)));
-        action.moved = true;
-        this._renderGraph();
-        return;
-      }
-      if (action.type === 'resize') {
-        const entity = this.store.entities.find(item => item.id === action.entityId);
-        const point = this._clientToWorld(event.clientX, event.clientY);
-        const width = Math.max(60, Math.min(1600, action.width + point.x - action.start.x));
-        const height = entity.type === 'image' && !event.shiftKey ? width * action.height / action.width : action.height + point.y - action.start.y;
-        entity.details.width = String(Math.round(width)); entity.details.height = String(Math.round(Math.max(60, Math.min(1600, height))));
-        action.moved = true; this._renderGraph(); return;
-      }
-      if (action.type === 'minimap') {
-        this._panFromMinimap(event);
-        return;
-      }
-      if (action.type === 'resource-panel') {
-        this._applyResourcePanelPosition({
-          x: action.originX + event.clientX - action.clientX,
-          y: action.originY + event.clientY - action.clientY
-        });
-        return;
-      }
-      if (action.type === 'node') {
-        const point = this._clientToWorld(event.clientX, event.clientY);
-        const rawDeltaX = point.x - action.pointX;
-        const rawDeltaY = point.y - action.pointY;
-        if (!action.moved && Math.hypot(rawDeltaX, rawDeltaY) * activeBoard(this.store).viewport.zoom < 3) return;
-        const snap = resolveMagneticSnap({
-          mode: event.altKey ? 'off' : this._boardView().snapMode,
-          gridSize: GRID_SIZE,
-          threshold: 8,
-          movingBounds: this._dragBounds(action, rawDeltaX, rawDeltaY),
-          stationaryBounds: this._stationarySnapBounds(action.entityIds)
-        });
-        const deltaX = rawDeltaX + snap.dx;
-        const deltaY = rawDeltaY + snap.dy;
-        action.moved = action.moved || Math.abs(deltaX) > 1 || Math.abs(deltaY) > 1;
-        for (const entityId of action.entityIds) {
-          const origin = action.origins.get(entityId);
-          const placement = this._placementForEntity(entityId);
-          if (!origin || !placement) continue;
-          placement.x = Math.round(origin.x + deltaX);
-          placement.y = Math.round(origin.y + deltaY);
-          const node = this.root.querySelector(`[data-entity-id="${escapeSelectorValue(entityId)}"]`);
-          if (node) node.style.transform = `translate(${placement.x}px,${placement.y}px)`;
-        }
-        this._updateGroupFrames();
-        this._updateEdges();
-        this._renderSnapGuides(snap.guides);
-        action.groupDropId = this._groupDropTarget(action, point);
-        this._showGroupDropTarget(action.groupDropId);
-        this._refreshMinimapNodes();
-        this._updateMinimap();
-        this._positionSelectionToolbar();
-        if (!fromEdgePan) this._trackEdgePan(event);
-        return;
-      }
-      if (action.type === 'pan') {
-        const board = activeBoard(this.store);
-        board.viewport.x = action.originX + (event.clientX - action.clientX);
-        board.viewport.y = action.originY + (event.clientY - action.clientY);
-        this._applyViewport();
-        return;
-      }
-      if (action.type === 'connect') {
-        this._renderTemporaryEdge(action.sourceId, this._clientToWorld(event.clientX, event.clientY));
-        this._highlightConnectionTarget(event.clientX, event.clientY, action.sourceId);
-        return;
-      }
-      if (action.type === 'box') {
-        const point = this._clientToWorld(event.clientX, event.clientY);
-        action.moved = action.moved || Math.abs(point.x - action.startX) > 2 || Math.abs(point.y - action.startY) > 2;
-        this._renderSelectionBox(action.startX, action.startY, point.x, point.y);
-        const hits = this._selectionBoxEntityIds(action.startX, action.startY, point.x, point.y);
-        this._setEntitySelection(new Set([...action.baseSelection, ...hits]), hits.at(-1) || '');
-        this._updateSelectionCss({ renderInspector: false });
-      }
-    }
-
-    _handlePointerUp(event) {
-      const action = this.pointerAction;
-      if (!action || action.pointerId !== event.pointerId) return;
-      this._stopEdgePan();
-      if (action.autoPanned) this._persistSoon(0);
-      if (action.type === 'group-resize') {
-        if (action.moved) {
-          this._pushUndoSnapshot(action.before);
-          this._saveDynamicPlacementOverrides(action.changedIds);
-          this._persistSoon(0);
-        } else this._restoreHistorySnapshot(action.before);
-        this.pointerAction = null;
-        this._renderGraph(); this._refreshHistoryButtons(); this._updateSummary();
-        return;
-      }
-      if (action.type === 'resize') {
-        if (action.moved) { this._pushUndoSnapshot(action.before); this._persistSoon(0); }
-        this.pointerAction = null; this._renderGraph(); this._refreshHistoryButtons(); return;
-      }
-      if (action.type === 'resource-panel') {
-        this.root.querySelector('.relationship-resource-panel')?.classList.remove('dragging');
-      } else if (action.type === 'node') {
-        this._clearSnapGuides();
-        this._showGroupDropTarget();
-        for (const entityId of action.entityIds) {
-          this.root.querySelector(`[data-entity-id="${escapeSelectorValue(entityId)}"]`)?.classList.remove('dragging');
-        }
-        if (action.moved) {
-          this._applyGroupDrop(action);
-          this._pushUndoSnapshot(action.before);
-          if (action.persistentIds.length) this._persistSoon(0);
-          if (action.dynamicIds.length) this._saveDynamicPlacementOverrides(action.dynamicIds);
-          this.pointerAction = null;
-          this._renderGraph();
-          this._refreshHistoryButtons();
-          this._updateSummary();
-        }
-        if (action.moved || action.suppressClick) {
-          this.suppressNextNodeClick = true;
-          setTimeout(() => { this.suppressNextNodeClick = false; }, 0);
-        }
-      } else if (action.type === 'pan') {
-        this.root.querySelector('.relationship-canvas')?.classList.remove('panning');
-        this._persistSoon(180);
-      } else if (action.type === 'connect') {
-        const target = document.elementFromPoint(event.clientX, event.clientY)?.closest?.('.relationship-node');
-        if (target && target.dataset.entityId !== action.sourceId) {
-          this._createConnection(action.sourceId, target.dataset.entityId);
-        }
-        this._removeTemporaryEdge();
-        this.root.querySelectorAll('.connection-compatible').forEach(node => node.classList.remove('connection-compatible'));
-      } else if (action.type === 'box') {
-        this.root.classList?.remove('box-selecting');
-        this._hideSelectionBox();
-        if (!action.moved) this._setEntitySelection(action.baseSelection || new Set(), '');
-        this._updateSelectionCss();
-        this.suppressNextNodeClick = true;
-        setTimeout(() => { this.suppressNextNodeClick = false; }, 0);
-        this._setCanvasAnnouncement(`已选择 ${this._entitySelectionIds().size} 个节点`);
-      }
-      this.pointerAction = null;
-      this._positionSelectionToolbar();
-      this._updateMinimap();
-    }
-
-    _cancelPointerAction(preserveCurrent = false) {
-      this._stopEdgePan();
-      this.root?.classList?.remove('box-selecting');
-      const action = this.pointerAction;
-      if (!action) return;
-      if (preserveCurrent && action.type === 'node' && action.autoPanned) {
-        if (action.dynamicIds?.length) this._saveDynamicPlacementOverrides(action.dynamicIds);
-        this._persistSoon(0);
-      }
-      this._clearSnapGuides();
-      this._showGroupDropTarget();
-      if (!preserveCurrent && ['node', 'resize', 'group-resize'].includes(action.type)) {
-        if (action.before) this._restoreHistorySnapshot(action.before);
-        for (const [entityId, origin] of action.before ? [] : action.origins || []) {
-          const placement = this._placementForEntity(entityId);
-          if (!placement) continue;
-          placement.x = origin.x;
-          placement.y = origin.y;
-        }
-        this._renderGraph();
-      }
-      if (!preserveCurrent && action.type === 'box') {
-        this._setEntitySelection(action.initialSelection, '');
-        this._updateSelectionCss();
-      }
-      this._removeTemporaryEdge();
-      this._hideSelectionBox();
-      this.root?.querySelector('.relationship-canvas')?.classList.remove('panning');
-      this.root?.querySelector('.relationship-resource-panel')?.classList.remove('dragging');
-      this.root?.querySelectorAll('.dragging, .connection-compatible').forEach(element => {
-        element.classList.remove('dragging', 'connection-compatible');
-      });
-      this.pointerAction = null;
-    }
-
-    _renderTemporaryEdge(sourceId, target) {
-      const edgeLayer = this.root?.querySelector('.relationship-edge-layer');
-      const source = activeBoard(this.store)?.placements.find(item => item.entityId === sourceId);
-      if (!edgeLayer || !source) return;
-      let path = edgeLayer.querySelector('.relationship-edge-temporary');
-      if (!path) {
-        path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        path.setAttribute('class', 'relationship-edge-temporary');
-        edgeLayer.appendChild(path);
-      }
-      const geometry = this._edgeGeometry({ sourceId }, target);
-      if (geometry) path.setAttribute('d', geometry.path);
-    }
-
-    _renderSelectionBox(startX, startY, endX, endY) {
-      const box = this.root?.querySelector('.relationship-selection-box');
-      if (!box) return;
-      const left = Math.min(startX, endX);
-      const top = Math.min(startY, endY);
-      box.hidden = false;
-      box.style.transform = `translate(${left}px,${top}px)`;
-      box.style.width = `${Math.abs(endX - startX)}px`;
-      box.style.height = `${Math.abs(endY - startY)}px`;
-    }
-
-    _selectionBoxEntityIds(startX, startY, endX, endY) {
-      const left = Math.min(startX, endX);
-      const top = Math.min(startY, endY);
-      const right = Math.max(startX, endX);
-      const bottom = Math.max(startY, endY);
-      const placements = this._filteredGraph().placements;
-      const displayGeometry = this._displayGeometryMap(placements);
-      return placements.filter(placement => {
-        const geometry = this._placementGeometry(placement, placements, new Set(), displayGeometry);
-        if (this._allEntitiesById().get(placement.entityId)?.type === 'group') {
-          return geometry.x >= left && geometry.x + geometry.width <= right
-            && geometry.y >= top && geometry.y + geometry.height <= bottom;
-        }
-        return geometry.x < right && geometry.x + geometry.width > left
-          && geometry.y < bottom && geometry.y + geometry.height > top;
-      }).map(placement => placement.entityId);
-    }
-
-    _hideSelectionBox() {
-      const box = this.root?.querySelector('.relationship-selection-box');
-      if (!box) return;
-      box.hidden = true;
-      box.removeAttribute('style');
-    }
-
-    _removeTemporaryEdge() {
-      this.root?.querySelector('.relationship-edge-temporary')?.remove();
-    }
-
-    _highlightConnectionTarget(clientX, clientY, sourceId) {
-      this.root?.querySelectorAll('.connection-compatible').forEach(node => node.classList.remove('connection-compatible'));
-      const target = document.elementFromPoint(clientX, clientY)?.closest?.('.relationship-node');
-      if (!target || target.dataset.entityId === sourceId) return;
-      if (this._connectionType(sourceId, target.dataset.entityId)) target.classList.add('connection-compatible');
-    }
-
-    _connectionType(sourceId, targetId) {
-      const entities = new Map(this.store.entities.map(entity => [entity.id, entity]));
-      const source = entities.get(sourceId);
-      const target = entities.get(targetId);
-      if (!source || !target) return '';
-      return Model.RELATIONSHIP_TYPES.find(type => Model.connectionAllowed(type, source.type, target.type)) || '';
-    }
-
-    _createConnection(sourceId, targetId) {
-      const type = this._connectionType(sourceId, targetId);
-      if (!type) {
-        this.notify('这两类节点之间没有允许的关系方向', 'warning');
-        return false;
-      }
-      if (this.store.relationships.some(item => item.type === type && item.sourceId === sourceId && item.targetId === targetId)) {
-        this.notify('这条关系已经存在', 'info');
-        return false;
-      }
-      this._recordMutation();
-      this.store.relationships.push({
-        id: makeId('relationship'),
-        type,
-        sourceId,
-        targetId,
-        source: 'manual'
-      });
-      this._clearEntitySelection();
-      this.selectedRelationshipId = this.store.relationships.at(-1).id;
-      this._persistSoon(0);
-      this._renderGraph();
-      this._refreshHistoryButtons();
-      this._updateSummary();
-      this._setCanvasAnnouncement(`已建立“${this._relationshipLabel(this.store.relationships.at(-1))}”关系`);
-      return true;
-    }
-
-    _handleWheel(event) {
-      if (event.target?.closest?.('.relationship-selection-toolbar, .relationship-navigator')) return;
-      event.preventDefault();
-      event.stopPropagation();
-      if (this.pointerAction) return;
-      const board = activeBoard(this.store);
-      const canvas = this.root.querySelector('.relationship-canvas');
-      const rect = canvas.getBoundingClientRect();
-      if (!event.ctrlKey && !event.metaKey) {
-        const unitX = event.deltaMode === 2 ? rect.width : (event.deltaMode === 1 ? 16 : 1);
-        const unitY = event.deltaMode === 2 ? rect.height : (event.deltaMode === 1 ? 16 : 1);
-        const discrete = event.deltaMode > 0 || (event.deltaX === 0 && Math.abs(event.deltaY) >= 80 && event.deltaY % 40 === 0);
-        this._queueWheelPan(-event.deltaX * unitX, -event.deltaY * unitY, discrete);
-        return;
-      }
-      const mouseX = event.clientX - rect.left;
-      const mouseY = event.clientY - rect.top;
-      // Chromium emits trackpad pinch as a ctrl-wheel event. Never let it zoom the whole app.
-      const delta = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? rect.height : 1);
-      this._zoomViewport(board.viewport.zoom * Math.exp(-delta * 0.01), mouseX, mouseY);
-    }
-
-    _queueWheelPan(dx, dy, smooth) {
-      const board = activeBoard(this.store);
-      if (!board || !Number.isFinite(dx) || !Number.isFinite(dy)) return;
-      if (typeof requestAnimationFrame !== 'function' || globalThis.window?.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
-        this._stopWheelPan();
-        board.viewport.x += dx; board.viewport.y += dy;
-        this._applyViewport(); this._persistSoon(220);
-        return;
-      }
-      // Pixel trackpad events stay 1:1; batch paints to one per display frame.
-      // Discrete wheel steps converge to the exact target, without extra momentum.
-      if (this.wheelPan?.board !== board) this._stopWheelPan();
-      this.wheelPan ||= { board, x: board.viewport.x, y: board.viewport.y, time: null };
-      this.wheelPan.x += dx; this.wheelPan.y += dy; this.wheelPan.smooth = smooth;
-      if (this.wheelPanFrame == null) this.wheelPanFrame = requestAnimationFrame(time => this._stepWheelPan(time));
-      this._persistSoon(220);
-    }
-
-    _stepWheelPan(time) {
-      this.wheelPanFrame = null;
-      const pan = this.wheelPan;
-      if (!pan || pan.board !== activeBoard(this.store) || !this.root || this.pointerAction) { this._stopWheelPan(); return; }
-      const elapsed = pan.time == null ? 16 : Math.max(1, Math.min(64, time - pan.time));
-      pan.time = time;
-      const view = pan.board.viewport;
-      const fraction = pan.smooth ? 1 - Math.exp(-elapsed / 40) : 1;
-      view.x += (pan.x - view.x) * fraction;
-      view.y += (pan.y - view.y) * fraction;
-      const finished = Math.hypot(pan.x - view.x, pan.y - view.y) < 0.25;
-      if (finished) { view.x = pan.x; view.y = pan.y; }
-      this._applyViewport();
-      if (finished) { this.wheelPan = null; this._persistSoon(220); }
-      else this.wheelPanFrame = requestAnimationFrame(next => this._stepWheelPan(next));
-    }
-
-    _stopWheelPan() {
-      if (this.wheelPanFrame != null) cancelAnimationFrame(this.wheelPanFrame);
-      this.wheelPanFrame = null;
-      this.wheelPan = null;
-    }
-
     _zoomViewport(zoom, anchorX, anchorY) {
-      this._stopWheelPan();
-      const board = activeBoard(this.store);
-      const oldZoom = board.viewport.zoom;
-      const nextZoom = Math.min(Model.MAX_VIEWPORT_ZOOM, Math.max(Model.MIN_VIEWPORT_ZOOM, zoom));
-      const worldX = (anchorX - board.viewport.x) / oldZoom;
-      const worldY = (anchorY - board.viewport.y) / oldZoom;
-      board.viewport.zoom = nextZoom;
-      board.viewport.x = anchorX - worldX * nextZoom;
-      board.viewport.y = anchorY - worldY * nextZoom;
-      this._applyViewport();
-      this._persistSoon(220);
+      if (!this.flowCanvas?.zoomTo) return;
+      const nextZoom = Math.min(8, Math.max(0.03, zoom));
+      void this.flowCanvas.zoomTo(nextZoom, { duration: 140 });
     }
 
     _applyViewport() {
       const board = activeBoard(this.store);
-      const world = this.root?.querySelector('.relationship-world');
-      const canvas = this.root?.querySelector('.relationship-canvas');
-      if (!board || !world || !canvas) return;
-      const { x, y, zoom } = board.viewport;
-      world.style.transform = `translate(${x}px,${y}px) scale(${zoom})`;
-      canvas.style.setProperty('--relationship-viewport-zoom', String(zoom));
-      canvas.style.setProperty('--relationship-inverse-zoom', String(1 / zoom));
-      const gridStep = GRID_SIZE * zoom;
-      const gridMultiple = 2 ** Math.max(0, Math.ceil(Math.log2(16 / gridStep)));
-      canvas.style.setProperty('--relationship-grid-size', `${gridStep * gridMultiple}px`);
-      canvas.style.setProperty('--relationship-grid-x', `${x}px`);
-      canvas.style.setProperty('--relationship-grid-y', `${y}px`);
-      this._positionSelectionToolbar();
-      this._updateMinimap();
+      if (board && this.flowCanvas?.setViewport) void this.flowCanvas.setViewport(board.viewport, { duration: 0 });
     }
 
-    _selectionCardIds() {
-      const first = this._entitySelectionIds().values().next().value;
-      if (!first) return [];
-      const entities = this._allEntitiesById();
-      return this._movingEntityIds(first).filter(id => !['group', 'text', 'image', 'attachment'].includes(entities.get(id)?.type));
-    }
-
-    _setSelectionDisplay(mode) {
-      const ids = this._selectionCardIds();
-      if (!ids.length) return false;
-      if (mode === 'expand' || mode === 'collapse') {
-        ids.forEach(id => mode === 'expand' ? this.expandedCardIds.add(id) : this.expandedCardIds.delete(id));
-        this._persistExpandedCards(ids);
-      } else {
-        const visibility = { 'show-status': 'show', 'hide-status': 'hide', 'inherit-status': 'inherit' }[mode];
-        if (!visibility) return false;
-        this._recordMutation();
-        for (const id of ids) {
-          const placement = this._placementForEntity(id);
-          if (visibility === 'inherit') delete placement.statusVisibility;
-          else placement.statusVisibility = visibility;
-        }
-        this._saveDynamicPlacementOverrides(ids);
-        this._persistSoon(0);
-      }
-      this._renderGraph();
-      this._refreshHistoryButtons();
-      return true;
-    }
-
-    _arrangeSelection(mode) {
-      if (!['left', 'center', 'right', 'top', 'middle', 'bottom', 'row', 'column', 'space-x', 'space-y'].includes(mode)) return false;
-      const selected = this._selectedMemberPlacements();
-      if (selected.length < 2) return false;
-      const placements = this._combinedPlacements();
-      const byId = new Map(placements.map(item => [item.entityId, item]));
-      const display = this._displayGeometryMap(placements);
-      let units = selected.map(placement => ({ placement, entityId: placement.entityId, ...this._placementGeometry(placement, placements, new Set(), display) }));
-      const minX = Math.min(...units.map(item => item.x)), minY = Math.min(...units.map(item => item.y));
-      const maxX = Math.max(...units.map(item => item.x + item.width)), maxY = Math.max(...units.map(item => item.y + item.height));
-      const horizontal = mode === 'row' || mode === 'space-x';
-      const sequential = ['row', 'column', 'space-x', 'space-y'].includes(mode);
-      const spacing = this._displayViewSettings();
-      const axis = horizontal ? 'x' : 'y', size = horizontal ? 'width' : 'height';
-      if (mode === 'row' || mode === 'column') units = this._orderedLayoutItems(units, placements, axis);
-      else if (sequential) units.sort((a, b) => a[axis] - b[axis] || a.placement.entityId.localeCompare(b.placement.entityId));
-      const available = horizontal ? maxX - minX : maxY - minY;
-      const gap = mode.startsWith('space-') ? Math.max(0, (available - units.reduce((total, item) => total + item[size], 0)) / (units.length - 1))
-        : horizontal ? spacing.horizontalSpacing : spacing.verticalSpacing;
-      let cursor = horizontal ? minX : minY;
+    _setGroupShape(entityId, value) {
+      const entity = this._allEntitiesById().get(entityId);
+      const placement = this._placementForEntity(entityId);
+      if (entity?.type !== 'group' || !placement || (value !== 'inherit' && !Model.PROJECT_GROUP_SHAPES.includes(value))) return false;
+      const next = value === 'inherit' ? '' : value;
+      if ((placement.groupShape || '') === next) return false;
       this._recordMutation();
-      const moved = new Set();
-      for (const unit of units) {
-        let x = unit.x, y = unit.y;
-        if (sequential) {
-          if (horizontal) { x = cursor; if (mode === 'row') y = minY; }
-          else { y = cursor; if (mode === 'column') x = minX; }
-          cursor += unit[size] + gap;
-        } else {
-          if (mode === 'left') x = minX;
-          if (mode === 'center') x = (minX + maxX - unit.width) / 2;
-          if (mode === 'right') x = maxX - unit.width;
-          if (mode === 'top') y = minY;
-          if (mode === 'middle') y = (minY + maxY - unit.height) / 2;
-          if (mode === 'bottom') y = maxY - unit.height;
-        }
-        for (const placement of placements) {
-          let parent = placement.entityId;
-          const visited = new Set();
-          while (parent && !visited.has(parent) && parent !== unit.placement.entityId) {
-            visited.add(parent);
-            parent = byId.get(parent)?.groupId;
-          }
-          if (parent !== unit.placement.entityId || moved.has(placement.entityId)) continue;
-          placement.x += Math.round(x - unit.x);
-          placement.y += Math.round(y - unit.y);
-          moved.add(placement.entityId);
-        }
+      if (next) placement.groupShape = next; else delete placement.groupShape;
+      const effective = this._groupShape(entityId);
+      if (effective !== 'rounded' && this._boardView().layout !== 'galaxy') {
+        const side = Math.max(Number(placement.groupWidth) || 320, Number(placement.groupHeight) || 180);
+        placement.groupWidth = side; placement.groupHeight = side;
       }
-      this._saveDynamicPlacementOverrides([...moved]);
-      this._persistSoon(0);
-      this._renderGraph();
-      this._refreshHistoryButtons();
+      if (this._boardView().layout === 'galaxy' && this._isProjectGroup(entityId)) this._arrangeCurrentLayout();
+      this._saveDynamicPlacementOverrides([entityId]);
+      this._persistSoon(0); this._renderGraph(); this._refreshHistoryButtons(); this._updateSummary();
+      this._setCanvasAnnouncement(`已将容器形状设为${{ rounded: '矩形', polygon: '多边形' }[effective]}`);
       return true;
     }
 
-    _renderSelectionToolbar() {
-      const toolbar = this.root?.querySelector('.relationship-selection-toolbar');
-      if (!toolbar) return;
-      const entities = this._allEntitiesById();
-      const selected = [...this._entitySelectionIds()].map(id => entities.get(id)).filter(Boolean);
-      const relation = this.selectedRelationshipId;
-      const single = selected.length === 1 ? selected[0] : null;
-      toolbar.hidden = (!selected.length && !relation)
-        || (single?.type === 'group' && single.id === this.suppressedGroupToolbarId);
-      if (toolbar.hidden) return;
-      const groupsOnly = selected.length > 0 && selected.every(item => item.type === 'group');
-      const canDelete = relation ? this.store.relationships.some(item => item.id === relation)
-        : selected.every(item => item.type === 'group' || !item.transient);
-      const button = (label, icon, attribute) => `<button type="button" ${attribute} title="${label}" aria-label="${label}"><span aria-hidden="true">${icon}</span></button>`;
-      toolbar.innerHTML = `<span class="relationship-selection-count">${relation ? '关系' : single ? TYPE_LABELS[single.type] : `${selected.length} 个元素`}</span>
-        ${button('查看属性', '☷', 'data-board-context-action="inspector"')}
-        ${single ? button('编辑名称与内容', '✎', `data-board-context-action="${['text', 'image', 'attachment'].includes(single.type) ? 'edit-element' : 'rename'}"`) : ''}
-        ${selected.length ? `<select data-selection-layout aria-label="排列所选元素" title="只排列所选元素，群组保持整体"${this._selectedMemberPlacements().length < 2 ? ' disabled' : ''}>
-          <option value="">排列 ▾</option><option value="row">横向排列</option><option value="column">纵向排列</option>
-          <optgroup label="对齐"><option value="left">左对齐</option><option value="center">水平居中</option><option value="right">右对齐</option><option value="top">顶部对齐</option><option value="middle">垂直居中</option><option value="bottom">底部对齐</option></optgroup>
-          <optgroup label="均匀分布"><option value="space-x">水平等间距</option><option value="space-y">垂直等间距</option></optgroup></select>` : ''}
-        ${this._selectionCardIds().length ? `<select data-selection-display aria-label="所选卡片显示"><option value="">显示 ▾</option><option value="expand">展开详情</option><option value="collapse">收起详情</option><option value="show-status">显示状态</option><option value="hide-status">隐藏状态</option><option value="inherit-status">状态继承白板默认</option></select>` : ''}
-        ${this._selectedMemberPlacements().length > 1 ? button('组成群组', '▣', 'data-relationship-action="create-group-from-selection"') : ''}
-        ${canDelete ? button(groupsOnly ? '解散群组（保留成员）' : relation ? '删除关系' : '从白板移除', groupsOnly ? '▱' : '×', 'data-board-context-action="delete" class="is-destructive"') : ''}`;
-      this._positionSelectionToolbar();
-    }
-
-    _positionSelectionToolbar() {
-      const toolbar = this.root?.querySelector('.relationship-selection-toolbar');
-      const canvas = this.root?.querySelector('.relationship-canvas');
-      if (!toolbar || !canvas || toolbar.hidden) return;
-      toolbar.style.visibility = this.pointerAction?.moved || this.pointerAction?.type === 'box' ? 'hidden' : '';
-      const ids = this._entitySelectionIds();
-      const nodes = [...this.root.querySelectorAll('.relationship-node')].filter(node => ids.has(node.dataset.entityId));
-      const edge = this.selectedRelationshipId && this.root.querySelector(`[data-relationship-id="${escapeSelectorValue(this.selectedRelationshipId)}"]`);
-      const bounds = (edge ? [edge] : nodes).flatMap(node => {
-        const header = node.dataset?.entityType === 'group' && node.querySelector?.('.relationship-node-header');
-        return (header ? [node, header] : [node]).map(element => element.getBoundingClientRect());
-      });
-      if (!bounds.length) { toolbar.hidden = true; return; }
-      const canvasRect = canvas.getBoundingClientRect();
-      const left = Math.min(...bounds.map(r => r.left)) - canvasRect.left;
-      const top = Math.min(...bounds.map(r => r.top)) - canvasRect.top;
-      const right = Math.max(...bounds.map(r => r.right)) - canvasRect.left;
-      const bottom = Math.max(...bounds.map(r => r.bottom)) - canvasRect.top;
-      if (right < 0 || left > canvasRect.width || bottom < 0 || top > canvasRect.height) toolbar.style.visibility = 'hidden';
-      const x = Math.max(8, Math.min((left + right - toolbar.offsetWidth) / 2, canvasRect.width - toolbar.offsetWidth - 8));
-      const y = Math.max(8, Math.min(top - toolbar.offsetHeight - 12, canvasRect.height - toolbar.offsetHeight - 8));
-      toolbar.style.left = `${x}px`;
-      toolbar.style.top = `${y}px`;
-    }
-
-    _refreshMinimapNodes(graph = this._filteredGraph(), geometry = this._displayGeometryMap(graph.placements)) {
-      const entities = this._allEntitiesById();
-      this.minimapNodes = graph.placements.map(item => ({
-        ...this._placementGeometry(item, graph.placements, new Set(), geometry),
-        id: item.entityId, type: entities.get(item.entityId)?.type || 'group',
-        muted: graph.mutedIds.has(item.entityId)
-      }));
-    }
-
-    _minimapTransform(width, height) {
-      const view = activeBoard(this.store).viewport;
-      const boxes = [...this.minimapNodes, { x: -view.x / view.zoom, y: -view.y / view.zoom, width: width / view.zoom, height: height / view.zoom }];
-      const minX = Math.min(...boxes.map(item => item.x)) - 40;
-      const minY = Math.min(...boxes.map(item => item.y)) - 40;
-      const maxX = Math.max(...boxes.map(item => item.x + item.width)) + 40;
-      const maxY = Math.max(...boxes.map(item => item.y + item.height)) + 40;
-      const scale = Math.min(220 / (maxX - minX), 128 / (maxY - minY));
-      return { x: minX - (220 / scale - (maxX - minX)) / 2, y: minY - (128 / scale - (maxY - minY)) / 2, scale };
-    }
-
-    _updateMinimap() {
-      const svg = this.root?.querySelector('[data-relationship-minimap]');
-      const canvas = this.root?.querySelector('.relationship-canvas');
-      if (!svg || !canvas) return;
-      const viewport = activeBoard(this.store).viewport;
-      this.root.querySelector('[data-zoom-label]').textContent = `${Math.round(viewport.zoom * 100)}%`;
-      if (this.minimapCollapsed) return;
-      const map = this.pointerAction?.type === 'minimap' ? this.pointerAction.map : this._minimapTransform(canvas.clientWidth, canvas.clientHeight);
-      const rectangle = item => `x="${(item.x - map.x) * map.scale}" y="${(item.y - map.y) * map.scale}" width="${Math.max(1, item.width * map.scale)}" height="${Math.max(1, item.height * map.scale)}"`;
-      const ids = this._entitySelectionIds();
-      svg.innerHTML = this.minimapNodes.map(item => `<rect ${rectangle(item)} rx="1" data-minimap-node="${escapeHtml(item.id)}" class="minimap-${item.type}${ids.has(item.id) ? ' selected' : ''}"${item.muted ? ' opacity="0.2"' : ''}/>`).join('')
-        + `<rect ${rectangle({ x: -viewport.x / viewport.zoom, y: -viewport.y / viewport.zoom, width: canvas.clientWidth / viewport.zoom, height: canvas.clientHeight / viewport.zoom })} class="relationship-minimap-viewport"/>`;
-    }
-
-    _navigateMinimap(point, map, width, height) {
-      const viewport = activeBoard(this.store).viewport;
-      viewport.x = width / 2 - (map.x + point.x / map.scale) * viewport.zoom;
-      viewport.y = height / 2 - (map.y + point.y / map.scale) * viewport.zoom;
-      this._applyViewport();
-      this._persistSoon(220);
-    }
-
-    _panFromMinimap(event) {
-      const svg = this.root.querySelector('[data-relationship-minimap]');
-      const rect = svg.getBoundingClientRect();
-      const canvas = this.root.querySelector('.relationship-canvas');
-      this._navigateMinimap({ x: Math.max(0, Math.min(220, (event.clientX - rect.left) * 220 / rect.width)), y: Math.max(0, Math.min(128, (event.clientY - rect.top) * 128 / rect.height)) }, this.pointerAction.map, canvas.clientWidth, canvas.clientHeight);
+    _setGroupAppearance(entityId, value) {
+      const entity = this._allEntitiesById().get(entityId);
+      const placement = this._placementForEntity(entityId);
+      if (entity?.type !== 'group' || !placement || !Model.GROUP_APPEARANCES.includes(value)) return false;
+      const current = placement.groupAppearance || 'soft';
+      if (current === value) return false;
+      this._recordMutation();
+      if (value === 'soft') delete placement.groupAppearance; else placement.groupAppearance = value;
+      this._saveDynamicPlacementOverrides([entityId]);
+      this._persistSoon(0); this._renderGraph(); this._refreshHistoryButtons(); this._updateSummary();
+      this._setCanvasAnnouncement(`已更新容器显示样式`);
+      return true;
     }
 
     _applyViewMode() {
@@ -5948,13 +5216,11 @@
         const titleBaseSize = compact ? 13 : 14;
         const subtitleBaseSize = compact ? 9 : 10;
         const metaBaseSize = compact ? 8 : 9;
-        this.root.style.setProperty('--relationship-card-scale', String(display.cardScale));
         this.root.style.setProperty('--relationship-text-scale', String(display.textScale));
-        this.root.style.setProperty('--relationship-card-width', `${dimensions.width}px`);
-        this.root.style.setProperty('--relationship-card-height', `${dimensions.height}px`);
         this.root.style.setProperty('--relationship-title-font-size', `${Math.round(titleBaseSize * display.textScale * 10) / 10}px`);
         this.root.style.setProperty('--relationship-subtitle-font-size', `${Math.round(subtitleBaseSize * display.textScale * 10) / 10}px`);
         this.root.style.setProperty('--relationship-meta-font-size', `${Math.round(metaBaseSize * display.textScale * 10) / 10}px`);
+        this.root.style.setProperty('--relationship-group-title-font-size', `${Math.round(display.groupTitleFontSize)}px`);
         this.root.style.setProperty('--relationship-filter-context-opacity', String(display.filterContextOpacity));
         this.root.style.setProperty('--relationship-filter-muted-opacity', String(display.filterMutedOpacity));
         this.root.style.setProperty('--relationship-filter-muted-saturation', String(display.filterMutedSaturation));
@@ -5963,6 +5229,7 @@
         this.root.style.setProperty('--relationship-filter-match-halo-opacity', String(display.filterMatchHaloOpacity));
         this.root.style.setProperty('--relationship-status-tint-opacity', `${Math.round(display.statusTintOpacity * 100)}%`);
         this.root.dataset.cardAppearance = display.cardAppearance;
+        this.root.dataset.projectGroupShape = display.projectGroupShape;
         this.root.dataset.showGrid = String(display.showGrid);
         this.root.dataset.showEdgeLabels = String(display.showEdgeLabels);
         this.root.dataset.unmatchedDisplay = display.unmatchedDisplay;
@@ -5996,21 +5263,6 @@
         x: (clientX - rect.left - viewport.x) / viewport.zoom,
         y: (clientY - rect.top - viewport.y) / viewport.zoom
       };
-    }
-
-    _canvasElementHtml(entity, placement, graph) {
-      const d = entity.details;
-      const asset = this.documentAssets.get(entity.id);
-      const preview = d.imageData || asset?.imageData;
-      const isMedia = entity.type !== 'text';
-      const unavailable = asset && asset.state !== 'available';
-      const filterClass = graph.mutedIds.has(entity.id) ? ' filter-muted' : graph.contextualIds.has(entity.id) ? ' filter-context' : graph.filterActive && graph.directIds.has(entity.id) ? ' filter-match' : '';
-      return `<article class="relationship-node whiteboard-free-element${filterClass}" data-entity-id="${escapeHtml(entity.id)}" data-entity-type="${entity.type}" tabindex="0" role="button" aria-label="${escapeHtml(entity.name)}，${TYPE_LABELS[entity.type]}" aria-pressed="false" style="transform:translate(${placement.x}px,${placement.y}px);width:${Number(d.width) || 320}px;height:${Number(d.height) || 180}px">
-        ${entity.type === 'text' ? `<div class="whiteboard-text-content" style="font-size:${Number(d.fontSize) || 24}px;color:${escapeHtml(d.color || '#334155')};text-align:${escapeHtml(d.align || 'left')}">${escapeHtml(d.content || '双击编辑文字')}</div>`
-          : entity.type === 'image' && preview ? `<img class="whiteboard-image-content" src="${escapeHtml(preview)}" alt="${escapeHtml(d.caption || entity.name)}" draggable="false" style="object-fit:${d.fit === 'cover' ? 'cover' : 'contain'}">` : `<div class="whiteboard-attachment-content"><strong>${entity.type === 'attachment' ? '▱' : '▧'} ${escapeHtml(entity.name)}</strong><span>${escapeHtml(asset?.message || (entity.type === 'image' ? '图片预览加载中或不可用' : d.caption || '文件附件'))}</span></div>`}
-        ${isMedia ? `<div class="whiteboard-asset-caption${unavailable ? ' is-missing' : ''}"><span>${unavailable ? escapeHtml(asset.message) : d.referencePath ? '外部引用' : d.assetPath ? '已复制到项目' : '内嵌图片'}</span>${this.documentRecord && asset?.state === 'available' ? `<button type="button" data-reveal-asset="${entity.id}" title="在系统文件管理器中显示，不执行文件">定位文件</button>` : ''}</div>` : ''}
-        <div class="whiteboard-element-actions"><button type="button" data-edit-canvas-element="${entity.id}" aria-label="编辑 ${escapeHtml(entity.name)}">✎</button><button type="button" data-lock-canvas-element="${entity.id}" aria-label="${placement.locked ? '解锁' : '锁定'} ${escapeHtml(entity.name)}">${placement.locked ? '🔒' : '◇'}</button></div>
-        ${!placement.locked ? `<button class="whiteboard-resize-handle" type="button" data-resize-canvas-element="${entity.id}" aria-label="调整 ${escapeHtml(entity.name)} 尺寸" title="拖动调整尺寸；图片按住 Shift 自由调整">◢</button>` : ''}</article>`;
     }
 
     async _createCanvasElement(type, point = null) {
@@ -6079,7 +5331,7 @@
         id,
         name: values.name,
         viewport: { x: 120, y: 90, zoom: 1 },
-        view: { ...Model.defaultBoardView(), topologyLayout: 'coolify-projects' },
+        view: { ...Model.defaultBoardView(), structure: 'coolify-projects', layout: 'compact' },
         placements: []
       });
       this.store.activeBoardId = id;
@@ -6325,7 +5577,6 @@
         ));
         this._clearEntitySelection();
       } else return;
-      this.keyboardConnectSourceId = '';
       this._persistSoon(0);
       this._renderGraph();
       this._refreshHistoryButtons();
@@ -6343,12 +5594,12 @@
 
     _restoreHistorySnapshot(snapshot) {
       const saved = JSON.parse(snapshot);
-      const previousLayout = this.store && activeBoard(this.store)?.view?.topologyLayout;
+      const previousStructure = this.store && activeBoard(this.store)?.view?.structure;
       const dissolvedIds = store => Object.entries(store?.boards?.[activeBoard(this.store)?.id] || {}).filter(([, value]) => value.dissolved).map(([id]) => id).sort().join(',');
       const previousDissolved = dissolvedIds(this.dynamicLayoutStore);
       this.store = saved.store;
       this.dynamicLayoutStore = normalizeDynamicLayoutStore(saved.dynamicLayouts);
-      if (previousLayout !== activeBoard(this.store)?.view?.topologyLayout || previousDissolved !== dissolvedIds(this.dynamicLayoutStore)) this._setPanelTopology(this.panelTopologyResult);
+      if (previousStructure !== activeBoard(this.store)?.view?.structure || previousDissolved !== dissolvedIds(this.dynamicLayoutStore)) this._setPanelTopology(this.panelTopologyResult);
       const previous = new Map((saved.dynamicPlacements || []).map(item => [item.entityId, item]));
       if (this.panelProjection) {
         this.panelProjection.placements = (this.panelProjection.placements || []).map(item => previous.get(item.entityId) || item);
@@ -6369,7 +5620,6 @@
       this._restoreHistorySnapshot(previous);
       this._clearEntitySelection();
       this.selectedRelationshipId = '';
-      this.keyboardConnectSourceId = '';
       this._persistSoon(0);
       this._persistDynamicLayoutsSoon(0);
       this.render();
@@ -6382,46 +5632,23 @@
       this._restoreHistorySnapshot(next);
       this._clearEntitySelection();
       this.selectedRelationshipId = '';
-      this.keyboardConnectSourceId = '';
       this._persistSoon(0);
       this._persistDynamicLayoutsSoon(0);
       this.render();
     }
 
     fitContent(options = {}) {
-      this._stopWheelPan();
-      const board = activeBoard(this.store);
-      const canvas = this.root?.querySelector('.relationship-canvas');
-      if (!board || !canvas) return;
+      if (!this.flowCanvas?.fitView) return;
       const minZoom = Number.isFinite(Number(options.minZoom))
         ? Math.min(1, Math.max(Model.MIN_VIEWPORT_ZOOM, Number(options.minZoom)))
         : Model.MIN_VIEWPORT_ZOOM;
-      const placements = this._filteredGraph().placements;
-      if (!placements.length) {
-        board.viewport = { x: 120, y: 90, zoom: 1 };
-      } else {
-        const rect = canvas.getBoundingClientRect();
-        const displayGeometry = this._displayGeometryMap(placements);
-        const geometries = placements.map(item => this._placementGeometry(item, placements, new Set(), displayGeometry));
-        const minX = Math.min(...geometries.map(item => item.x));
-        const minY = Math.min(...geometries.map(item => item.y));
-        const maxX = Math.max(...geometries.map(item => item.x + item.width));
-        const maxY = Math.max(...geometries.map(item => item.y + item.height));
-        const width = Math.max(1, maxX - minX);
-        const height = Math.max(1, maxY - minY);
-        const zoom = Math.min(1.5, Math.max(minZoom, Math.min((rect.width - 120) / width, (rect.height - 120) / height)));
-        board.viewport.zoom = zoom;
-        board.viewport.x = (rect.width - width * zoom) / 2 - minX * zoom;
-        board.viewport.y = (rect.height - height * zoom) / 2 - minY * zoom;
-      }
-      this._applyViewport();
-      this._persistSoon(160);
+      void this.flowCanvas.fitView({ padding: 0.16, minZoom: Math.min(0.03, minZoom), maxZoom: 1.5, duration: 180 });
     }
 
     _handleKeydown(event) {
       if (!this.root?.isConnected || event.defaultPrevented || event.isComposing || event.keyCode === 229) return;
       if (this._handleContextMenuKeydown(event)) return;
-      const layoutMenu = this.root.querySelector('.relationship-layout-menu');
+      const layoutMenu = this.root.querySelector('.relationship-layout-menu:not([hidden])');
       if (layoutMenu && !layoutMenu.hidden) {
         if (event.key === 'Escape') { event.preventDefault(); this._closeLayoutMenu(true); return; }
         if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
@@ -6453,22 +5680,9 @@
         return;
       }
       if (editing) return;
-      this._stopWheelPan();
-      if (event.key === 'Enter' && this.keyboardConnectSourceId) {
-        const targetNode = event.target?.closest?.('.relationship-node');
-        if (targetNode && targetNode.dataset.entityId !== this.keyboardConnectSourceId) {
-          event.preventDefault();
-          event.stopImmediatePropagation();
-          const created = this._createConnection(this.keyboardConnectSourceId, targetNode.dataset.entityId);
-          if (created) this.keyboardConnectSourceId = '';
-          return;
-        }
-      }
       if (event.key === 'Escape') {
-        this.keyboardConnectSourceId = '';
         this._clearEntitySelection();
         this.selectedRelationshipId = '';
-        this._cancelPointerAction(false);
         this._updateSelectionCss();
         return;
       }
@@ -6478,17 +5692,11 @@
         return;
       }
       const canvas = event.target?.closest?.('.relationship-canvas');
-      if (!canvas || mod || this.pointerAction || this.keyboardConnectSourceId
+      if (!canvas || mod
         || event.target?.closest?.('button, a, [role="menu"], [role="menuitem"], [role="slider"]')
         || this.root.querySelector('.relationship-display-popover:not([hidden]), .relationship-filter-popover:not([hidden]), .relationship-add-menu:not([hidden])')
         || Array.from(this.root.ownerDocument?.querySelectorAll('[role="dialog"][aria-modal="true"]') || [])
           .some(dialog => dialog.getClientRects().length > 0)) return;
-      if ((event.code === 'Space' || event.key === ' ') && !event.altKey) {
-        event.preventDefault(); event.stopImmediatePropagation();
-        this.spacePan = true;
-        this.root.classList?.add('pan-ready');
-        return;
-      }
       const direction = {
         w: [0, 1], ArrowUp: [0, 1], s: [0, -1], ArrowDown: [0, -1],
         a: [1, 0], ArrowLeft: [1, 0], d: [-1, 0], ArrowRight: [-1, 0]
@@ -6512,6 +5720,8 @@
       event.preventDefault();
       event.stopImmediatePropagation();
       const movingIds = new Set(this._movingEntityIds(this.selectedEntityId || selectedIds.values().next().value));
+      const linkedMovement = [...movingIds].some(id => this._placementForEntity(id)?.moveWithDescendants);
+      if (linkedMovement && this._linkedMoveBlocked(movingIds)) return;
       for (const id of [...movingIds]) if (this._placementForEntity(id)?.locked) movingIds.delete(id);
       const persistentIds = new Set(activeBoard(this.store).placements
         .filter(item => movingIds.has(item.entityId))
@@ -6521,9 +5731,14 @@
         .map(item => item.entityId));
       const placements = this._combinedPlacements().filter(item => movingIds.has(item.entityId));
       if (!placements.length) return;
-      if (persistentIds.size) this._recordMutation();
+      if (persistentIds.size || linkedMovement) this._recordMutation();
+      const geometry = linkedMovement ? this._displayGeometryMap(this._combinedPlacements()) : null;
+      const linkedChangedIds = linkedMovement ? this._prepareLinkedMove([...movingIds], geometry) : [];
       const step = event.shiftKey ? 24 : 8;
       for (const placement of placements) {
+        if (geometry?.has(placement.entityId)) {
+          placement.x = geometry.get(placement.entityId).x; placement.y = geometry.get(placement.entityId).y;
+        }
         if (event.key === 'ArrowLeft') placement.x -= step;
         if (event.key === 'ArrowRight') placement.x += step;
         if (event.key === 'ArrowUp') placement.y -= step;
@@ -6531,6 +5746,7 @@
       }
       if (persistentIds.size) this._persistSoon(80);
       if (dynamicIds.size) this._saveDynamicPlacementOverrides(dynamicIds);
+      if (linkedChangedIds.length) { this._saveDynamicPlacementOverrides(linkedChangedIds); this._persistSoon(0); }
       this._renderGraph();
       this._refreshHistoryButtons();
       this._updateSummary();
@@ -6538,19 +5754,13 @@
 
     _updateSelectionCss(options = {}) {
       const selectedIds = this._entitySelectionIds();
-      this.root?.querySelectorAll('.relationship-node').forEach(node => {
-        const selected = selectedIds.has(node.dataset.entityId);
-        node.classList.toggle('selected', selected);
-        node.setAttribute('aria-pressed', selected ? 'true' : 'false');
-        node.classList.toggle('keyboard-connection-source', node.dataset.entityId === this.keyboardConnectSourceId);
-      });
-      this.root?.querySelectorAll('.relationship-edge').forEach(edge => {
-        edge.classList.toggle('selected', edge.dataset.relationshipId === this.selectedRelationshipId);
-      });
+      if (options.syncFlow !== false && this.flowCanvas?.setSelection) {
+        this.flowSelectionSync = true;
+        this.flowCanvas.setSelection([...selectedIds], this.selectedRelationshipId);
+        queueMicrotask(() => { this.flowSelectionSync = false; });
+      }
       const groupButton = this.root?.querySelector('[data-relationship-action="create-group-from-selection"]');
       if (groupButton) groupButton.disabled = this._selectedMemberPlacements().length < 2;
-      this._renderSelectionToolbar();
-      this._updateMinimap();
       if (options.renderInspector !== false) {
         if (options.preserveDirtyInspector && this._panelElement('.relationship-inspector-form.is-dirty')) return;
         this._renderInspector();
@@ -6760,11 +5970,9 @@
     }
 
     _resetDocumentSelection() {
-      this._stopWheelPan();
       this.documentAssets.clear();
-      this.undoStack = []; this.redoStack = []; this.cardHeights.clear();
+      this.undoStack = []; this.redoStack = [];
       this._clearEntitySelection(); this.selectedRelationshipId = '';
-      this.expandedCardIds = new Set((activeBoard(this.store)?.placements || []).filter(item => item.expanded).map(item => item.entityId));
     }
 
     async _showLocalWorkspace() {
@@ -6847,7 +6055,6 @@
         }
         this._clearEntitySelection();
         this.selectedRelationshipId = '';
-        this.keyboardConnectSourceId = '';
         this._setSaveState('saved');
         this.render();
         const backup = result.backupFileName ? `；导入前备份：${result.backupFileName}` : '';
@@ -7003,8 +6210,6 @@
   return Object.freeze({
     Controller,
     normalizeDynamicLayoutStore,
-    edgePanVelocity,
-    resolveMagneticSnap,
     TYPE_LABELS,
     RESOURCE_CATEGORY_DEFINITIONS,
     RELATIONSHIP_LABELS,

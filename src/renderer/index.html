@@ -3,13 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; frame-src 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; frame-src https: http:">
   <title>GitFinder 2 Alpha</title>
   <link rel="stylesheet" href="styles/main.css">
   <link rel="stylesheet" href="styles/sidebar.css">
   <link rel="stylesheet" href="styles/content.css">
   <link rel="stylesheet" href="styles/detail.css">
   <link rel="stylesheet" href="styles/relationships.css">
+  <link rel="stylesheet" href="generated/relationship-canvas.css">
   <link rel="stylesheet" href="styles/theme.css">
 </head>
 <body>
@@ -1286,6 +1287,9 @@
   <script src="../shared/semanticColors.js"></script>
   <script src="../shared/relationshipGraphModel.js"></script>
   <script src="../shared/repositoryAssociation.js"></script>
+  <script src="../shared/relationshipLayoutPrimitives.js"></script>
+  <script src="../shared/relationshipProjectStructure.js"></script>
+  <script src="../shared/relationshipProjectGalaxyLayout.js"></script>
   <script src="../shared/panelTopologyProjection.js"></script>
   <script src="../shared/projectShortcuts.js"></script>
   <script src="../shared/batchRename.js"></script>
@@ -1332,6 +1336,7 @@
   <script src="scripts/workspaceTabOverflowController.js"></script>
   <script src="scripts/repoStatusBatch.js"></script>
   <script src="scripts/projectTaskRelations.js"></script>
+  <script src="generated/relationship-canvas.js"></script>
   <script src="scripts/relationshipBoardController.js"></script>
   <script src="scripts/git.js"></script>
   <script src="scripts/terminal.js"></script>

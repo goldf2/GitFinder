@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { serverTreeGraph, arrangeServerTree } = require('../src/shared/panelTopologyProjection');
+const { serverTreeGraph, arrangeServerTree, applyProjectEndpointMembership, endpointHostConflicts } = require('../src/shared/panelTopologyProjection');
 const Model = require('../src/shared/relationshipGraphModel');
 
 function fixture() {
@@ -17,6 +17,7 @@ function fixture() {
     ['repo1', 'app1', 'source_of'], ['repo1', 'app2', 'source_of'], ['app3', 'repo1', 'deployed_from']]
     .map(([from, to, type], i) => ({ id: `relationship_treelink_${i}`, sourceId: id(from), targetId: id(to), type }));
   const placements = entities.map((entity, i) => ({ entityId: entity.id, x: i * 40, y: i * 30,
+    ...(entity.type === 'group' ? { groupLayout: 'auto' } : {}),
     ...(['app1', 'app2'].includes(entity.name) ? { groupId: id('group1') } : entity.name === 'app3' ? { groupId: id('group2') } : {}) }));
   return { entities, relationships, placements };
 }
@@ -70,13 +71,14 @@ test('树状显示与仓库相关性开关保存重开，不影响旧白板默�
       viewport: { x: 0, y: 0, zoom: 0.05 }, view: { topologyLayout: 'server-tree', showRepositoryRelations: true } }] };
   const saved = Model.assertValidStore(JSON.parse(JSON.stringify(raw)));
   assert.equal(saved.boards[0].view.showRepositoryRelations, true);
-  assert.equal(saved.boards[0].view.topologyLayout, 'server-tree');
+  assert.equal(saved.boards[0].view.structure, 'server-tree');
   assert.equal(Model.defaultBoardView().showRepositoryRelations, false);
 });
 
 test('项目容器包裹部署，可选择包含独占访问点，共享访问点保持外部唯一节点', () => {
   for (const include of [true, false]) {
     const graph = fixture();
+    applyProjectEndpointMembership(graph, include);
     arrangeServerTree(graph, { width: 280, height: 180, projectGroupIncludesEndpoints: include });
     const at = name => graph.placements.find(p => p.entityId === `entity_tree_${name}`);
     const group = at('group1'), app = at('app1'), end = at('end1');
@@ -88,13 +90,27 @@ test('项目容器包裹部署，可选择包含独占访问点，共享访问�
   }
 });
 
+test('同一访问点跨主机复用会派生配置警报，并定位全部部署关系', () => {
+  const graph = fixture();
+  graph.relationships = graph.relationships.filter(edge => edge.id !== 'relationship_treelink_1');
+  const alerts = endpointHostConflicts(graph);
+  const alert = alerts.find(item => item.endpointId === 'entity_tree_end2');
+
+  assert.equal(alert?.severity, 'error');
+  assert.deepEqual(alert.hostIds, ['entity_tree_host1', 'entity_tree_host2']);
+  assert.deepEqual(alert.deploymentIds, ['entity_tree_app1', 'entity_tree_app3']);
+  assert.deepEqual(alert.relationshipIds, ['relationship_treelink_5', 'relationship_treelink_6']);
+  assert.equal(alerts.some(item => item.endpointId === 'entity_tree_end1'), false, '单主机访问点不应警报');
+  assert.match(alert.message, /不同主机/);
+});
+
 function branchingFixture() {
   const graph = { entities: [{ id: 'host', type: 'server' }], relationships: [], placements: [{ entityId: 'host', x: 0, y: 0, width: 320, height: 180 }] };
   for (let i = 0; i < 4; i++) {
     for (const [suffix, type] of [['group', 'group'], ['app', 'deployment'], ['end', 'endpoint']]) {
       const id = `${suffix}${i}`;
       graph.entities.push({ id, type, name: id });
-      graph.placements.push({ entityId: id, x: i * 500, y: i * 300, width: 320, height: i === 1 ? 500 : 180, ...(type === 'deployment' ? { groupId: `group${i}` } : {}) });
+      graph.placements.push({ entityId: id, x: i * 500, y: i * 300, width: 320, height: i === 1 ? 500 : 180, ...(type === 'group' ? { groupLayout: 'auto' } : {}), ...(type === 'deployment' ? { groupId: `group${i}` } : {}) });
     }
     graph.relationships.push({ sourceId: `app${i}`, targetId: 'host', type: 'runs_on' }, { sourceId: `app${i}`, targetId: `end${i}`, type: 'exposes' });
   }
@@ -125,9 +141,9 @@ test('树状排列和项目包含访问点设置可严格保存，旧文件使�
     const store = Model.assertValidStore({ schemaVersion: 1, activeBoardId: 'board_tree_test', entities: graph.entities,
       relationships: graph.relationships, boards: [{ id: 'board_tree_test', name: 'tree', placements: graph.placements,
         viewport: { x: 0, y: 0, zoom: 1 }, view: { topologyLayout: 'server-tree', treeLayout, projectGroupIncludesEndpoints: false } }] });
-    assert.equal(store.boards[0].view.treeLayout, treeLayout);
+    assert.equal(store.boards[0].view.layout, treeLayout);
     assert.equal(store.boards[0].view.projectGroupIncludesEndpoints, false);
   }
-  assert.equal(Model.defaultBoardView().treeLayout, 'right');
+  assert.equal(Model.defaultBoardView().layout, 'lanes');
   assert.equal(Model.defaultBoardView().projectGroupIncludesEndpoints, true);
 });

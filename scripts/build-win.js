@@ -47,6 +47,15 @@ if (process.platform !== 'win32') {
   process.exit(1);
 }
 
+const rendererBuild = spawnSync(process.execPath, [path.join(projectRoot, 'scripts/build-renderer.js')], {
+  cwd: projectRoot,
+  stdio: 'inherit'
+});
+if (rendererBuild.error || rendererBuild.status !== 0) {
+  console.error(`关系白板渲染包构建失败：${rendererBuild.error?.message || rendererBuild.status}`);
+  process.exit(rendererBuild.status || 1);
+}
+
 fs.mkdirSync(distDir, { recursive: true });
 const builderExecutable = require.resolve('electron-builder/out/cli/cli.js');
 const environment = { ...process.env };

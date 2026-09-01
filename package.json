@@ -1,6 +1,6 @@
 {
   "name": "gitfinder-2",
-  "version": "2.0.0-alpha.40",
+  "version": "2.0.0-alpha.59",
   "description": "GitFinder 2 - 本地开发与部署管理中心",
   "main": "main.js",
   "productName": "GitFinder 2 Alpha",
@@ -9,7 +9,9 @@
   },
   "scripts": {
     "test": "node --test",
-    "check": "npm test && node test/check-syntax.js",
+    "build:renderer": "node scripts/build-renderer.js",
+    "measure:whiteboard": "node scripts/measure-relationship-whiteboard.js",
+    "check": "npm run build:renderer && npm test && node test/check-syntax.js",
     "start": "node server.js",
     "dev": "node server.js",
     "dev:panel-mock": "node scripts/mock-panel-server.js",
@@ -21,6 +23,7 @@
     "verify:release-source": "node scripts/verify-release.js --phase source --mode development",
     "verify:release": "node scripts/verify-release.js --phase artifact --mode development --report dist/release-verification.json",
     "verify:windows-runtime": "electron scripts/verify-windows-runtime.js",
+    "preelectron": "npm run build:renderer",
     "electron": "electron .",
     "pack": "bash scripts/build-mac.sh",
     "dist": "bash scripts/build-mac.sh",
@@ -101,16 +104,20 @@
     }
   },
   "dependencies": {
+    "@xyflow/react": "12.11.5",
     "buffer-crc32": "1.0.0",
     "electron-updater": "^6.8.9",
     "express": "^4.18.2",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
     "yauzl": "3.4.0",
     "yazl": "3.3.1"
   },
   "devDependencies": {
     "@electron/packager": "^20.3.0",
     "electron": "^42.10.1",
-    "electron-builder": "^26.15.3"
+    "electron-builder": "^26.15.3",
+    "esbuild": "0.28.2"
   },
   "keywords": [
     "git",

@@ -1,6 +1,7 @@
 node_modules/
 dist/
 build/
+src/renderer/generated/
 .next/
 .astro/
 .venv/

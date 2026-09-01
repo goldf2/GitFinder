@@ -148,6 +148,9 @@ test('项目分组中共享仓库、主机和多项目访问点只出现一次�
   });
   const groups = result.entities.filter(item => item.type === 'group');
   assert.equal(groups.length, 3);
+  assert.equal(groups.find(item => item.id === 'entity_panel_shared_resources').runtime.dynamicKind, 'coolify-shared-resources');
+  assert.ok(groups.filter(item => item.id !== 'entity_panel_shared_resources')
+    .every(item => item.runtime.dynamicKind === 'coolify-project-group'));
   for (const type of ['server', 'repository', 'endpoint']) {
     const resources = result.entities.filter(item => item.type === type);
     assert.equal(resources.length, 1);

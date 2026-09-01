@@ -5,6 +5,12 @@
 })(typeof window !== 'undefined' ? window : globalThis, function createPanelTopologyProjection() {
   const RepositoryAssociation = typeof module !== 'undefined' && module.exports
     ? require('./repositoryAssociation') : window.RepositoryAssociation;
+  const LayoutPrimitives = typeof module !== 'undefined' && module.exports
+    ? require('./relationshipLayoutPrimitives') : window.RelationshipLayoutPrimitives;
+  const ProjectStructure = typeof module !== 'undefined' && module.exports
+    ? require('./relationshipProjectStructure') : window.RelationshipProjectStructure;
+  const ProjectGalaxyLayout = typeof module !== 'undefined' && module.exports
+    ? require('./relationshipProjectGalaxyLayout') : window.RelationshipProjectGalaxyLayout;
   function stableHash(value) {
     let hash = 2166136261;
     for (const character of String(value || '')) {
@@ -79,15 +85,20 @@
   }
 
   function routeRelationship(source, target, obstacles = [], options = {}) {
-    const padding = 14, inset = options.inset ?? 0.5;
+    const padding = Math.max(4, Number(options.padding) || 14), inset = options.inset ?? 0.5;
     const expand = (r, amount) => ({ x: r.x - amount, y: r.y - amount,
       width: r.width + amount * 2, height: r.height + amount * 2 });
     const normals = { left: [-1, 0], right: [1, 0], top: [0, -1], bottom: [0, 1] };
-    const port = (r, side) => r.width === 0 && r.height === 0 ? { x: r.x, y: r.y } : ({
-      x: side === 'left' ? r.x + inset : side === 'right' ? r.x + r.width - inset : r.x + r.width / 2,
+    const port = (r, side, shape = 'rect', offset = null) => {
+      const hasOffset = offset !== null && offset !== undefined && Number.isFinite(Number(offset));
+      return r.width === 0 && r.height === 0 ? { x: r.x, y: r.y } : ({
+      x: side === 'left' ? r.x + inset : side === 'right' ? r.x + r.width - inset
+        : r.x + r.width * (hasOffset ? Math.min(82, Math.max(18, Number(offset))) / 100 : 0.5),
       y: side === 'top' ? r.y + inset : side === 'bottom' ? r.y + r.height - inset
-        : r.y + Math.min(options.portOffsetY ?? r.height / 2, r.height / 2)
-    });
+        : r.y + (hasOffset ? r.height * Math.min(82, Math.max(18, Number(offset))) / 100
+          : (['circle', 'polygon'].includes(shape) ? r.height / 2 : Math.min(options.portOffsetY ?? r.height / 2, r.height / 2)))
+      });
+    };
     const dx = target.x + target.width / 2 - source.x - source.width / 2;
     const dy = target.y + target.height / 2 - source.y - source.height / 2;
     const horizontal = [dx >= 0 ? 'right' : 'left', dx >= 0 ? 'left' : 'right'];
@@ -99,7 +110,9 @@
     for (const a of Object.keys(normals)) for (const b of Object.keys(normals)) {
       if (!pairs.some(pair => pair[0] === a && pair[1] === b)) pairs.push([a, b]);
     }
-    if (options.sourceSide) pairs.splice(0, pairs.length, ...pairs.filter(pair => pair[0] === options.sourceSide));
+    if (options.sourceSide || options.targetSide) pairs.splice(0, pairs.length, ...pairs.filter(pair => (
+      (!options.sourceSide || pair[0] === options.sourceSide) && (!options.targetSide || pair[1] === options.targetSide)
+    )));
     const others = obstacles.map(r => expand(r, padding));
     const curveObstacles = [...others, expand(source, -2), expand(target, -2)].filter(r => r.width > 0 && r.height > 0);
     const midpoint = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
@@ -134,7 +147,8 @@
     let fallback;
     const candidates = [];
     for (const [sourceSide, targetSide] of pairs) {
-      const a = port(source, sourceSide), b = port(target, targetSide);
+      const a = port(source, sourceSide, options.sourceShape, options.sourcePortOffset);
+      const b = port(target, targetSide, options.targetShape, options.targetPortOffset);
       const normalA = normals[sourceSide], normalB = normals[targetSide];
       // Tangents stay local to the cards. Growing them with a distant target
       // creates huge loops when a card in the first row must escape backwards.
@@ -165,7 +179,8 @@
       other.sourceSide === item.sourceSide && other.targetSide === item.targetSide
     )) === index).slice(0, 4);
     for (const { sourceSide, targetSide } of channelPairs) {
-      const a = port(source, sourceSide), b = port(target, targetSide), na = normals[sourceSide], nb = normals[targetSide];
+      const a = port(source, sourceSide, options.sourceShape, options.sourcePortOffset);
+      const b = port(target, targetSide, options.targetShape, options.targetPortOffset), na = normals[sourceSide], nb = normals[targetSide];
       const stub = padding + inset + 1;
       const start = { x: a.x + na[0] * stub, y: a.y + na[1] * stub }, end = { x: b.x + nb[0] * stub, y: b.y + nb[1] * stub };
       if (boxes.some(r => inside(start, r) || inside(end, r)) || !clear(a, start, others) || !clear(end, b, others)) continue;
@@ -245,7 +260,8 @@
       for (let i = 1; i < pulled.length - 1; i++) {
         const p = pulled[i], prev = pulled[i - 1], next = pulled[i + 1];
         const incoming = Math.hypot(p.x - prev.x, p.y - prev.y), outgoing = Math.hypot(p.x - next.x, p.y - next.y);
-        let radius = Math.min(24, incoming / 2, outgoing / 2), rounded;
+        const maximumRadius = options.smoothChannels ? 120 : 24;
+        let radius = Math.min(maximumRadius, incoming * (options.smoothChannels ? 0.42 : 0.5), outgoing * (options.smoothChannels ? 0.42 : 0.5)), rounded;
         while (radius >= 0.5) {
           const before = { x: p.x + (prev.x - p.x) * radius / incoming, y: p.y + (prev.y - p.y) * radius / incoming };
           const after = { x: p.x + (next.x - p.x) * radius / outgoing, y: p.y + (next.y - p.y) * radius / outgoing };
@@ -255,7 +271,9 @@
           radius /= 2;
         }
         if (rounded) {
-          path += ` L ${rounded.before.x} ${rounded.before.y} Q ${p.x} ${p.y} ${rounded.after.x} ${rounded.after.y}`;
+          path += options.smoothChannels
+            ? ` L ${rounded.before.x} ${rounded.before.y} C ${rounded.controls[1].x} ${rounded.controls[1].y}, ${rounded.controls[2].x} ${rounded.controls[2].y}, ${rounded.after.x} ${rounded.after.y}`
+            : ` L ${rounded.before.x} ${rounded.before.y} Q ${p.x} ${p.y} ${rounded.after.x} ${rounded.after.y}`;
           sampled.push(...sampleCurve(rounded.controls));
         } else { path += ` L ${p.x} ${p.y}`; sampled.push(p); }
       }
@@ -267,17 +285,7 @@
   }
 
   function normalizeLayout(value = {}) {
-    const number = (candidate, fallback, min, max) => {
-      const parsed = Number(candidate);
-      return Number.isFinite(parsed) ? Math.min(max, Math.max(min, parsed)) : fallback;
-    };
-    return {
-      width: number(value.width, 280, 180, 840),
-      height: number(value.height, 132, 76, 588),
-      horizontalSpacing: number(value.horizontalSpacing, 64, 16, 180),
-      verticalSpacing: number(value.verticalSpacing, 36, 16, 140),
-      viewportAspectRatio: number(value.viewportAspectRatio, 1.6, 0.5, 3)
-    };
+    return LayoutPrimitives.normalizeLayout(value);
   }
 
   function compactTopologyLayout(deployments, layout) {
@@ -488,7 +496,7 @@
     if (buckets.has(sharedId)) groups.set(sharedId, {
       id: sharedId, type: 'group', name: '共享资源', transient: true, source: 'observed',
       details: { notes: '共用主机、跨项目仓库与访问点 · 保留唯一节点' },
-      runtime: { dynamicKind: 'coolify-project-group' }
+      runtime: { dynamicKind: 'coolify-shared-resources' }
     });
     const ordered = [...groups.values()].filter(group => buckets.has(group.id)).sort((a, b) => (
       a.id === sharedId ? -1 : b.id === sharedId ? 1 : a.name.localeCompare(b.name, 'zh-CN') || a.id.localeCompare(b.id)
@@ -522,33 +530,13 @@
     regions.forEach((region, index) => {
       const { x, y } = positions[index];
       for (const item of region.members) { item.x += x; item.y += y; }
-      placements.push({ entityId: region.group.id, x, y, dynamic: true });
+      placements.push({ entityId: region.group.id, x, y, dynamic: true, groupLayout: 'auto' });
     });
     return placements;
   }
 
   function packRegions(regions, aspect = 1.6, gap = 64) {
-    // Use measured bounds when available; uneven project sizes must not overlap.
-    let best;
-    for (let columns = 1; columns <= regions.length; columns++) {
-      const widths = Array(columns).fill(0);
-      const heights = Array(Math.ceil(regions.length / columns)).fill(0);
-      regions.forEach((region, index) => {
-        widths[index % columns] = Math.max(widths[index % columns], region.width);
-        heights[Math.floor(index / columns)] = Math.max(heights[Math.floor(index / columns)], region.height);
-      });
-      const width = widths.reduce((sum, size) => sum + size, 0) + gap * (widths.length - 1);
-      const height = heights.reduce((sum, size) => sum + size, 0) + gap * (heights.length - 1);
-      const score = Math.abs(Math.log(width / height / aspect));
-      if (!best || score < best.score) best = { columns, widths, heights, score };
-    }
-    return regions.map((region, index) => {
-      const column = index % best.columns;
-      const row = Math.floor(index / best.columns);
-      const x = 80 + best.widths.slice(0, column).reduce((sum, size) => sum + size + gap, 0);
-      const y = 80 + best.heights.slice(0, row).reduce((sum, size) => sum + size + gap, 0);
-      return { x, y };
-    });
+    return LayoutPrimitives.packRegions(regions, aspect, gap);
   }
 
   // A display projection only: source facts and the many-to-many links survive.
@@ -578,7 +566,8 @@
     }
     const visible = new Set(placements.filter(p => {
       const type = byId.get(p.entityId)?.type;
-      return !['repository', 'project'].includes(type) && (type !== 'group' || groups.has(p.entityId));
+      return !['repository', 'project'].includes(type) && (type !== 'group' || groups.has(p.entityId)
+        || (p.entityId !== 'entity_panel_shared_resources' && !byId.get(p.entityId)?.transient));
     }).map(p => p.entityId));
     const correlations = new Map(), repositoryNames = new Map(), repositoryMembers = new Map();
     const sources = new Map();
@@ -636,11 +625,16 @@
       if (ancestor === edge.targetId) continue;
       parent.set(edge.targetId, edge.sourceId); children.get(edge.sourceId).push(edge.targetId);
     }
-    const compare = (a, b) => byId.get(a).y - byId.get(b).y || byId.get(a).x - byId.get(b).x || a.localeCompare(b);
+    // A circular/bilateral result cannot be used as the next linear branch order:
+    // sorting it by y/x flips sides and rotates branches on every repeated click.
+    const compare = ['bilateral', 'radial'].includes(style) ? (a, b) => a.localeCompare(b)
+      : (a, b) => byId.get(a).y - byId.get(b).y || byId.get(a).x - byId.get(b).x || a.localeCompare(b);
     for (const ids of children.values()) ids.sort(compare);
     const size = (id, axis) => Number(byId.get(id)[axis]) || layout[axis];
     const regions = [];
-    for (const root of [...byId.keys()].filter(id => !parent.has(id)).sort(compare)) {
+    // Independent trees have different heights: their centered root y changes
+    // after packing. Use identity order so a second click cannot swap trees.
+    for (const root of [...byId.keys()].filter(id => !parent.has(id)).sort((a, b) => a.localeCompare(b))) {
       const members = [], levels = [], depthOf = new Map();
       const visit = (id, depth) => {
         members.push(byId.get(id)); depthOf.set(id, depth);
@@ -724,51 +718,115 @@
     return parent;
   }
 
-  function arrangeServerTree(graph, options = {}) {
-    const tree = serverTreeGraph(graph), layout = normalizeLayout(options), style = options.treeLayout || 'right';
-    const byId = new Map(tree.placements.map(item => [item.entityId, item]));
+  function applyProjectEndpointMembership(graph, include = true) {
+    return ProjectStructure.applyEndpointMembership(graph, include);
+  }
+
+  function endpointHostConflicts(graph) {
+    return ProjectStructure.endpointHostConflicts(graph);
+  }
+
+  function isProjectGroup(entity = {}) {
+    return ProjectStructure.isProjectGroup(entity);
+  }
+
+  function arrangeProjectGalaxies(graph, options = {}) {
+    return ProjectGalaxyLayout.arrange(graph, options);
+  }
+
+  function arrangeProjectContainer(group, members, options = {}) {
+    return ProjectGalaxyLayout.arrangeInterior(group, members, options);
+  }
+
+  // Pure positioning: group membership and source facts are inputs, never outputs.
+  // Nested groups are measured bottom-up; manual groups move as intact units.
+  function arrangeBoardLayout(graph, options = {}) {
+    const layout = normalizeLayout(options);
+    let style = options.style || 'right';
+    if (style === 'free') return graph;
+    if (style === 'galaxy') {
+      if (arrangeProjectGalaxies(graph, options)) return graph;
+      style = 'radial';
+    }
+    const byId = new Map(graph.placements.map(item => [item.entityId, item]));
     const types = new Map(graph.entities.map(entity => [entity.id, entity.type]));
-    const owner = new Map(), projects = new Map();
-    for (const item of tree.placements) if (types.get(item.entityId) === 'deployment' && byId.has(item.groupId)) owner.set(item.entityId, item.groupId);
-    // A shared endpoint remains outside all Project containers, with every fact link intact.
-    const endpointOwners = new Map();
-    for (const edge of tree.hierarchy) if (types.get(edge.targetId) === 'endpoint') {
-      if (!endpointOwners.has(edge.targetId)) endpointOwners.set(edge.targetId, new Set());
-      endpointOwners.get(edge.targetId).add(owner.get(edge.sourceId) || '');
+    const children = new Map();
+    for (const item of graph.placements) {
+      const owner = byId.has(item.groupId) && types.get(item.groupId) === 'group' ? item.groupId : '';
+      if (!children.has(owner)) children.set(owner, []);
+      children.get(owner).push(item);
     }
-    for (const [id, groups] of endpointOwners) if (groups.size === 1 && !groups.has('')) owner.set(id, [...groups][0]);
-    const size = item => ({ width: Number(item.width) || layout.width, height: Number(item.height) || layout.height });
-    for (const group of tree.placements.filter(item => types.get(item.entityId) === 'group')) {
-      const members = tree.placements.filter(item => owner.get(item.entityId) === group.entityId).map(item => ({ ...item, ...size(item) }));
-      if (!members.length) continue;
-      arrangeTreeUnits(members, tree.hierarchy, layout, style === 'down' ? 'down' : 'right');
-      const left = Math.min(...members.map(item => item.x)), top = Math.min(...members.map(item => item.y));
-      for (const item of members) { item.x += 28 - left; item.y += 54 - top; }
-      projects.set(group.entityId, { entityId: group.entityId, x: group.x, y: group.y, members,
-        width: Math.max(...members.map(item => item.x + item.width)) + 28,
-        height: Math.max(...members.map(item => item.y + item.height)) + 28 });
-    }
-    const units = tree.placements.filter(item => !owner.has(item.entityId)).map(item => projects.get(item.entityId) || { ...item, ...size(item) });
-    const unitEdges = tree.hierarchy.map(edge => ({ sourceId: owner.get(edge.sourceId) || edge.sourceId, targetId: owner.get(edge.targetId) || edge.targetId }));
-    const parents = arrangeTreeUnits(units, unitEdges, layout, style), unitById = new Map(units.map(item => [item.entityId, item]));
-    for (const unit of units) {
-      const original = byId.get(unit.entityId);
-      if (!unit.members) { original.x = unit.x; original.y = unit.y; if (types.get(unit.entityId) === 'endpoint') delete original.groupId; continue; }
-      const parent = unitById.get(parents.get(unit.entityId));
-      const mirror = ['bilateral', 'radial'].includes(style) && parent && unit.x + unit.width / 2 < parent.x + parent.width / 2;
-      for (const item of unit.members) {
-        const target = byId.get(item.entityId);
-        target.x = unit.x + (mirror ? unit.width - item.x - item.width : item.x); target.y = unit.y + item.y;
-        if (types.get(item.entityId) !== 'endpoint' || options.projectGroupIncludesEndpoints !== false) target.groupId = unit.entityId;
-        else delete target.groupId;
+    const edges = graph.hierarchy || graph.relationships.map(edge => (
+      ['runs_on', 'deployed_from', 'exposed_by', 'belongs_to'].includes(edge.type)
+        ? { sourceId: edge.targetId, targetId: edge.sourceId } : edge
+    ));
+    const shift = (unit, dx, dy) => {
+      for (const item of unit.members) { item.x += dx; item.y += dy; }
+      unit.x += dx; unit.y += dy;
+    };
+    const arrange = (units, currentStyle) => {
+      const owner = new Map(units.flatMap(unit => unit.members.map(item => [item.entityId, unit.entityId])));
+      const links = edges.map(edge => ({ sourceId: owner.get(edge.sourceId), targetId: owner.get(edge.targetId) }))
+        .filter(edge => edge.sourceId && edge.targetId && edge.sourceId !== edge.targetId);
+      // A group title sits outside its frame. Reserve it for placement only:
+      // never persist this space as extra container height or shift its members.
+      const titleSpace = units.map(unit => types.get(unit.entityId) === 'group' ? Math.max(0, Number(options.groupTitleSpace) || 0) : 0);
+      const targets = units.map((unit, i) => ({ entityId: unit.entityId, x: unit.x, y: unit.y - titleSpace[i],
+        width: unit.width, height: unit.height + titleSpace[i] }));
+      if (currentStyle === 'compact') {
+        const ordered = orderByTopologyAndPosition(targets, links);
+        const positions = packRegions(ordered, layout.viewportAspectRatio, Math.max(layout.horizontalSpacing, layout.verticalSpacing));
+        ordered.forEach((item, i) => Object.assign(item, positions[i]));
+      } else if (currentStyle === 'lanes') {
+        let x = 80;
+        for (const type of ['group', 'project', 'repository', 'deployment', 'server', 'endpoint', 'text', 'image', 'attachment']) {
+          const lane = orderByTopologyAndPosition(targets.filter(item => types.get(item.entityId) === type), links);
+          let y = 80;
+          for (const item of lane) { item.x = x; item.y = y; y += item.height + layout.verticalSpacing; }
+          if (lane.length) x += Math.max(...lane.map(item => item.width)) + layout.horizontalSpacing;
+        }
+      } else arrangeTreeUnits(targets, links, layout, currentStyle);
+      targets.forEach((target, i) => shift(units[i], target.x - units[i].x, target.y + titleSpace[i] - units[i].y));
+    };
+    const build = (item, ancestors = new Set()) => {
+      const unit = { entityId: item.entityId, x: item.x, y: item.y,
+        width: Number(item.width) || layout.width, height: Number(item.height) || layout.height, members: [item] };
+      if (types.get(item.entityId) !== 'group' || ancestors.has(item.entityId)) return unit;
+      const nested = (children.get(item.entityId) || []).map(child => build(child, new Set([...ancestors, item.entityId])));
+      if (!nested.length) return { ...unit, width: item.groupWidth || unit.width, height: item.groupHeight || unit.height };
+      if (!options.preserveGroupContents && item.groupLayout === 'auto' && !item.locked && !nested.some(child => child.members.some(p => p.locked))) {
+        arrange(nested, ['bilateral', 'radial'].includes(style) ? 'right' : style);
       }
-      const contained = unit.members.filter(item => byId.get(item.entityId).groupId === unit.entityId);
-      const left = Math.min(...contained.map(item => byId.get(item.entityId).x)) - 28;
-      const top = Math.min(...contained.map(item => byId.get(item.entityId).y)) - 54;
-      Object.assign(original, { x: left, y: top, groupLayout: 'manual',
-        groupWidth: Math.max(...contained.map(item => byId.get(item.entityId).x + item.width)) + 28 - left,
-        groupHeight: Math.max(...contained.map(item => byId.get(item.entityId).y + item.height)) + 28 - top });
+      unit.x = Math.min(...nested.map(child => child.x)) - 28;
+      unit.y = Math.min(...nested.map(child => child.y)) - 54;
+      unit.width = Math.max(...nested.map(child => child.x + child.width)) + 28 - unit.x;
+      unit.height = Math.max(...nested.map(child => child.y + child.height)) + 28 - unit.y;
+      if (options.preserveGroupContents || item.groupLayout !== 'auto' || item.locked || nested.some(child => child.members.some(p => p.locked))) {
+        const right = Math.max(unit.x + unit.width, item.x + (item.groupWidth || unit.width));
+        const bottom = Math.max(unit.y + unit.height, item.y + (item.groupHeight || unit.height));
+        unit.x = Math.min(unit.x, item.x); unit.y = Math.min(unit.y, item.y);
+        unit.width = right - unit.x; unit.height = bottom - unit.y;
+      }
+      unit.members.push(...nested.flatMap(child => child.members));
+      Object.assign(item, { x: unit.x, y: unit.y, groupWidth: unit.width, groupHeight: unit.height });
+      return unit;
+    };
+    const units = (children.get('') || []).map(item => build(item));
+    // Locked groups and descendants stay fixed, including their container bounds.
+    const fixed = units.filter(unit => unit.members.some(item => item.locked));
+    const movable = units.filter(unit => !unit.members.some(item => item.locked));
+    arrange(movable, style);
+    if (fixed.length && movable.length) {
+      const dx = Math.max(...fixed.map(unit => unit.x + unit.width)) + layout.horizontalSpacing - Math.min(...movable.map(unit => unit.x));
+      for (const unit of movable) shift(unit, dx, 0);
     }
+    for (const item of graph.placements) { item.x = Math.round(item.x); item.y = Math.round(item.y); }
+    return graph;
+  }
+
+  function arrangeServerTree(graph, options = {}) {
+    const tree = { ...serverTreeGraph(graph), entities: graph.entities };
+    arrangeBoardLayout(tree, { ...options, style: options.style || options.treeLayout || 'right' });
     return tree;
   }
 
@@ -1016,7 +1074,12 @@
 
     arrangeTopologyLanes({ entities, existingEntities, relationships, placements }, layout);
     if (options.groupByProject || options.serverTree) groupTopologyByProjects({ entities, existingEntities, relationships, placements }, layout, options.serverTree);
-    if (options.serverTree) arrangeServerTree({ entities: [...existingEntities, ...entities], relationships, placements }, { ...options.layout, ...layout });
+    if (options.serverTree) applyProjectEndpointMembership({ entities: [...existingEntities, ...entities], relationships, placements }, options.layout?.projectGroupIncludesEndpoints !== false);
+    if (options.layout?.style) {
+      const graph = { entities: [...existingEntities, ...entities], relationships, placements };
+      if (options.serverTree) arrangeServerTree(graph, options.layout);
+      else arrangeBoardLayout(graph, options.layout);
+    } else if (options.serverTree) arrangeServerTree({ entities: [...existingEntities, ...entities], relationships, placements }, { ...options.layout, ...layout });
     return {
       entities,
       relationships,
@@ -1034,5 +1097,5 @@
     };
   }
 
-  return { stableHash, dynamicEntityId, dynamicRelationshipId, orderByTopologyAndPosition, routeRelationship, arrangeTopologyLanes, arrangeAroundCenters, groupTopologyByProjects, packRegions, serverTreeGraph, arrangeServerTree, endpointHealthFields, buildProjection };
+  return { stableHash, dynamicEntityId, dynamicRelationshipId, orderByTopologyAndPosition, routeRelationship, arrangeTopologyLanes, arrangeAroundCenters, groupTopologyByProjects, packRegions, serverTreeGraph, arrangeServerTree, arrangeBoardLayout, arrangeProjectGalaxies, arrangeProjectContainer, applyProjectEndpointMembership, endpointHostConflicts, endpointHealthFields, buildProjection };
 });

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>React Flow 关系白板引擎切片</title>
+<link rel="stylesheet" href="../../src/renderer/generated/relationship-canvas.css">
+<style>
+  html, body { height: 100%; margin: 0; }
+  body { display: grid; grid-template-rows: auto 1fr; font-family: system-ui, sans-serif; }
+  header { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid #dfe3eb; background: #fff; }
+  header strong { margin-right: auto; } header span { color: #778397; font-size: 12px; }
+  button { padding: 7px 11px; border: 1px solid #d3d9e4; border-radius: 9px; background: #fff; cursor: pointer; }
+  #relationship-flow-root { min-height: 0; }
+</style>
+<header>
+  <strong>成熟画布引擎替换切片</strong>
+  <span id="fixture-status">Project 内含访问点</span>
+  <button id="toggle-endpoint" type="button">切换访问点内/外</button>
+  <button id="toggle-shape" type="button">切换容器形状</button>
+</header>
+<main id="relationship-flow-root"></main>
+<output id="fixture-data" hidden aria-hidden="true"></output>
+<script src="../../src/renderer/generated/relationship-canvas.js"></script>
+<script src="relationship-flow-engine.js"></script>
+</html>

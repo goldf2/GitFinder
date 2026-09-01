@@ -5,7 +5,7 @@ const { Controller, normalizeDynamicLayoutStore } = require('../src/renderer/scr
 
 function fixture(layout) {
   const c = new Controller({ bridge: {} });
-  const view = { ...globalThis.RelationshipGraphModel.defaultBoardView(), cardWidth: 280, horizontalSpacing: 64, verticalSpacing: 40 };
+  const view = { ...globalThis.RelationshipGraphModel.defaultBoardView(), layout: 'compact', cardWidth: 280, horizontalSpacing: 64, verticalSpacing: 40 };
   c.store = { activeBoardId: 'board_test001', entities: [
     { id: 'group', type: 'group', name: '项目', details: {} },
     ...['a', 'b', 'c', 'd'].map(id => ({ id, type: 'deployment', name: id, details: {} }))
@@ -13,7 +13,6 @@ function fixture(layout) {
     { entityId: 'group', x: -28, y: -54, ...(layout ? { groupLayout: layout, groupWidth: 680, groupHeight: 522 } : {}) },
     ...['a', 'b', 'c', 'd'].map((entityId, i) => ({ entityId, groupId: 'group', x: (i % 2) * 344, y: Math.floor(i / 2) * 240 }))
   ] }] };
-  c.cardHeights = new Map(['a', 'b', 'c', 'd'].map(id => [id, 200]));
   c._persistSoon = c._persistDynamicLayoutsSoon = () => {};
   return c;
 }
@@ -23,8 +22,7 @@ for (const layout of [undefined, 'manual', 'auto']) {
     const c = fixture(layout);
     const before = c._captureDisplayLayout();
     const original = c._displayGeometryMap(c._combinedPlacements());
-    Object.assign(c.store.boards[0].view, { cardWidth: 600, horizontalSpacing: 100, verticalSpacing: 80 });
-    c.cardHeights = new Map(['a', 'b', 'c', 'd'].map(id => [id, 300]));
+    Object.assign(c.store.boards[0].view, { cardWidth: 600, cardHeight: 300, horizontalSpacing: 100, verticalSpacing: 80 });
     c._reflowDisplayLayout(before);
     const geometry = c._displayGeometryMap(c._combinedPlacements());
     assert.equal(geometry.get('b').x - geometry.get('a').x - geometry.get('a').width, 100);
@@ -34,10 +32,14 @@ for (const layout of [undefined, 'manual', 'auto']) {
     assert.ok(geometry.get('group').height >= 762);
     assert.ok(c._combinedPlacements().filter(p => p.entityId !== 'group').every(p => p.groupId === 'group'));
     Object.assign(c.store.boards[0].view, before.display);
-    c.cardHeights = new Map(['a', 'b', 'c', 'd'].map(id => [id, 200]));
     c._reflowDisplayLayout(before);
     const restored = c._displayGeometryMap(c._combinedPlacements());
-    for (const [id, bounds] of original) for (const key of ['x', 'y', 'width', 'height']) assert.equal(restored.get(id)[key], bounds[key], `${id}.${key}`);
+    assert.equal(restored.get('b').x - restored.get('a').x - restored.get('a').width, before.display.horizontalSpacing);
+    assert.equal(restored.get('c').y - restored.get('a').y - restored.get('a').height, before.display.verticalSpacing);
+    for (const id of ['a', 'b', 'c', 'd']) {
+      assert.equal(restored.get(id).width, original.get(id).width, `${id}.width`);
+      assert.equal(restored.get(id).height, original.get(id).height, `${id}.height`);
+    }
   });
 }
 
@@ -77,6 +79,9 @@ test('显示尺寸滑块连续输入仅记一次撤销，外观修改不改变�
   t.after(() => { globalThis.FormData = previous; });
   const form = { values: { ...c._displayViewSettings() }, elements: { namedItem: key => ({ checked: form.values[key] }) } };
   const original = JSON.parse(c._historySnapshot());
+  form.values.groupTitleFontSize = 30;
+  c._updateBoardDisplayFromForm(form);
+  assert.equal(c.store.boards[0].view.groupTitleFontSize, 30);
   for (const width of [400, 500, 600]) { form.values.cardWidth = width; c._updateBoardDisplayFromForm(form); }
   assert.equal(c.undoStack.length, 1);
   const moved = structuredClone(c.store.boards[0].placements);

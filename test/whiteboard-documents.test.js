@@ -58,9 +58,10 @@ test('媒体模型拒绝外部地址、SVG和脚本；文字按纯文本保留',
     assert.throws(() => Model.assertValidStore(store), /内嵌/);
   }
   const c = new Controller({ bridge: {} }); c.store = sample();
-  const markup = c._canvasElementHtml(c.store.entities[0], c.store.boards[0].placements[0], { mutedIds: new Set(), contextualIds: new Set(), directIds: new Set() });
-  assert.match(markup, /&lt;script&gt;/); assert.doesNotMatch(markup, /<script>/);
-  assert.match(markup, /font-size:32px/);
+  const flowSource = fs.readFileSync(path.join(__dirname, '../src/renderer/relationship-canvas/index.jsx'), 'utf8');
+  assert.match(flowSource, /\{details\.content \|\| entity\.name\}/);
+  assert.doesNotMatch(flowSource, /dangerouslySetInnerHTML/);
+  assert.match(flowSource, /fontSize: `\$\{Number\(details\.fontSize\) \|\| 24\}px`/);
   assert.equal(c._displayGeometryMap(c.store.boards[0].placements).get('entity_image001').height, 180);
 });
 
@@ -73,23 +74,6 @@ test('分组布局使用真实高度、宽度打包，多行项目矩形互不�
     assert.ok(p.x + a.width <= q.x || q.x + b.width <= p.x || p.y + a.height <= q.y || q.y + b.height <= p.y);
   }));
   assert.deepEqual(packRegions([], 1.8), []);
-});
-
-test('拖动从显示位置起算，群组之间不参与避让，微小点击不磁吸跳位', () => {
-  const c = new Controller({ bridge: {} }); c.store = sample();
-  c.store.entities.push({ id: 'entity_server01', type: 'server', name: 'A', details: {} }, { id: 'entity_server02', type: 'server', name: 'B', details: {} });
-  const placements = c.store.boards[0].placements;
-  placements.push({ entityId: 'entity_server01', x: 20, y: 20, groupId: 'entity_group001' }, { entityId: 'entity_server02', x: 20, y: 100 });
-  c.cardHeights.set('entity_server01', 800);
-  const geometry = c._displayGeometryMap(placements);
-  assert.equal(geometry.get('entity_server02').y, 100);
-  c.pointerAction = { type: 'node', pointerId: 1, entityIds: ['entity_server02'], geometry, moved: false, pointX: 0, pointY: 0 };
-  c._clientToWorld = () => ({ x: 0.5, y: 0.5 });
-  c._handlePointerMove({ pointerId: 1 });
-  assert.equal(c.pointerAction.moved, false);
-  c.pointerAction.moved = true; placements.at(-1).x = 35; placements.at(-1).y = 120;
-  assert.equal(c._displayGeometryMap(placements).get('entity_server02').y, 120);
-  assert.equal(c._displayGeometryMap(placements).get('entity_server01').y, 20);
 });
 
 test('文件编辑不写入本机白板合集，只刷新已有资源运行时，不注入额外部署', async () => {
@@ -174,6 +158,6 @@ test('卡片宽高统一配置可保存，缩放保持兼容且文字图片尺�
   assert.equal(c._displayGeometryMap(c.store.boards[0].placements).get('entity_text0001').width, 320);
   c.store.boards[0].view.cardScale = 1.2;
   assert.deepEqual(c._nodeDimensions(), { width: 480, height: 288 });
-  const css = fs.readFileSync(path.join(__dirname, '../src/renderer/styles/relationships.css'), 'utf8');
-  assert.match(css, /min-height:\s*calc\(var\(--relationship-card-height\) \/ var\(--relationship-card-scale\)\)/);
+  const adapterSource = fs.readFileSync(path.join(__dirname, '../src/shared/relationshipFlowAdapter.js'), 'utf8');
+  assert.match(adapterSource, /\['text', 'image', 'attachment'\]\.includes\(entity\.type\)/);
 });

@@ -70,6 +70,7 @@ test('关系白板按白板保存卡片、文字和画布显示偏好', () => {
     ...RelationshipGraphModel.defaultBoardView(),
     cardScale: 1.25,
     textScale: 1.15,
+    groupTitleFontSize: 28,
     cardAppearance: 'flat',
     showGrid: false,
     showEdgeLabels: false,
@@ -90,13 +91,31 @@ test('关系白板按白板保存卡片、文字和画布显示偏好', () => {
   assert.deepEqual(normalized.boards[0].view, store.boards[0].view);
   assert.equal(RelationshipGraphModel.defaultBoardView().cardScale, 1);
   assert.equal(RelationshipGraphModel.defaultBoardView().textScale, 1);
+  assert.equal(RelationshipGraphModel.defaultBoardView().groupTitleFontSize, 20);
   assert.equal(RelationshipGraphModel.defaultBoardView().cardAppearance, 'elevated');
   assert.equal(RelationshipGraphModel.defaultBoardView().showGrid, true);
   assert.equal(RelationshipGraphModel.defaultBoardView().showEdgeLabels, true);
   assert.equal(RelationshipGraphModel.defaultBoardView().cardTitleSource, 'name');
+  assert.equal(RelationshipGraphModel.defaultBoardView().projectGroupShape, 'rounded');
   assert.equal(RelationshipGraphModel.defaultBoardView().showRuntimeStatus, true);
   assert.equal(RelationshipGraphModel.defaultBoardView().unmatchedDisplay, 'dim');
   assert.equal(RelationshipGraphModel.defaultBoardView().statusTintOpacity, 0.08);
+});
+
+test('Project 容器形状与布局分别保存，支持矩形和多边形并迁移旧圆形', () => {
+  for (const projectGroupShape of ['rounded', 'polygon']) {
+    const store = validStore();
+    store.boards[0].view = { ...RelationshipGraphModel.defaultBoardView(), layout: 'galaxy', projectGroupShape };
+    const view = RelationshipGraphModel.assertValidStore(store).boards[0].view;
+    assert.equal(view.layout, 'galaxy');
+    assert.equal(view.projectGroupShape, projectGroupShape);
+  }
+  const legacy = validStore();
+  legacy.boards[0].view = { ...RelationshipGraphModel.defaultBoardView(), projectGroupShape: 'circle' };
+  assert.equal(RelationshipGraphModel.assertValidStore(legacy).boards[0].view.projectGroupShape, 'rounded');
+  const invalid = validStore();
+  invalid.boards[0].view = { ...RelationshipGraphModel.defaultBoardView(), projectGroupShape: 'star' };
+  assert.throws(() => RelationshipGraphModel.assertValidStore(invalid), /projectGroupShape/);
 });
 
 test('关系模型接受常用 Git 关系预设和自定义显示名称', () => {
@@ -310,6 +329,24 @@ test('群组配色保存在白板布局，拒绝非法颜色和普通卡片的�
   assert.throws(() => RelationshipGraphModel.assertValidStore(store), /分组.*颜色/);
 });
 
+test('单个群组可保存矩形、多边形和三种显示样式，并迁移旧圆形', () => {
+  const store = validStore();
+  store.entities.push({ id: 'entity_group001', type: 'group', name: '项目容器', details: {} });
+  store.boards[0].placements.push({ entityId: 'entity_group001', x: 10, y: 10,
+    groupShape: 'polygon', groupAppearance: 'outline' });
+  const placement = RelationshipGraphModel.assertValidStore(store).boards[0].placements.at(-1);
+  assert.equal(placement.groupShape, 'polygon');
+  assert.equal(placement.groupAppearance, 'outline');
+  const legacy = structuredClone(store); legacy.boards[0].placements.at(-1).groupShape = 'circle';
+  assert.equal(RelationshipGraphModel.assertValidStore(legacy).boards[0].placements.at(-1).groupShape, 'rounded');
+  for (const [key, value] of [['groupShape', 'star'], ['groupAppearance', 'glass']]) {
+    const invalid = structuredClone(store); invalid.boards[0].placements.at(-1)[key] = value;
+    assert.throws(() => RelationshipGraphModel.assertValidStore(invalid), new RegExp(key));
+  }
+  store.boards[0].placements[0].groupShape = 'circle';
+  assert.throws(() => RelationshipGraphModel.assertValidStore(store), /groupShape/);
+});
+
 test('群组排列方式和尺寸可保存并校验，普通卡片不能使用群组字段', () => {
   const store = validStore();
   store.entities.push({ id: 'entity_group001', type: 'group', name: '生产环境', details: {} });
@@ -323,6 +360,18 @@ test('群组排列方式和尺寸可保存并校验，普通卡片不能使用�
   }
   store.boards[0].placements[0].groupLayout = 'auto';
   assert.throws(() => RelationshipGraphModel.assertValidStore(store), /groupLayout/);
+});
+
+test('访问点可按单张卡片保存卡片或网页预览模式', () => {
+  const store = validStore();
+  store.entities.push({ id: 'entity_endpoint01', type: 'endpoint', name: 'MES', details: { urlLabel: 'https://mes.example.com' } });
+  store.boards[0].placements.push({ entityId: 'entity_endpoint01', x: 1280, y: 0, endpointView: 'web' });
+  assert.equal(RelationshipGraphModel.assertValidStore(store).boards[0].placements.at(-1).endpointView, 'web');
+  store.boards[0].placements.at(-1).endpointView = 'invalid';
+  assert.throws(() => RelationshipGraphModel.assertValidStore(store), /endpointView/);
+  store.boards[0].placements.at(-1).endpointView = 'web';
+  store.boards[0].placements[0].endpointView = 'web';
+  assert.throws(() => RelationshipGraphModel.assertValidStore(store), /endpointView/);
 });
 
 test('事实来源和验证时间使用受控值并规范化为 ISO 时间', () => {
