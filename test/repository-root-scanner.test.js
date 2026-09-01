@@ -114,7 +114,7 @@ test('App 的后台核对、仓库集合和仪表盘共用可用根扫描，部�
   const appSource = fs.readFileSync(path.join(projectRoot, 'src/renderer/scripts/app.js'), 'utf8');
 
   assert.match(html, /repositoryRootScanner\.js[\s\S]*app\.js/);
-  assert.match(appSource, /setupRepositoryRootScanner/);
+  assert.ok(require('../src/renderer/scripts/appControllerRegistry').CONTROLLER_NAMESPACES.includes('RepositoryRootScanner'));
   assert.match(appSource, /scanManagedRepositories/);
   assert.equal((appSource.match(/scanManagedRepositories\(/g) || []).length, 4);
   assert.match(appSource, /if \(scan\.complete\)[\s\S]*repos\.set/);

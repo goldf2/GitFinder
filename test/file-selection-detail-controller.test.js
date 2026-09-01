@@ -105,6 +105,6 @@ test('页面先加载选择简介控制器，App 只保留显示委托', () => {
   const html = fs.readFileSync(path.join(root, 'src/renderer/index.html'), 'utf8');
   const appSource = fs.readFileSync(path.join(root, 'src/renderer/scripts/app.js'), 'utf8');
   assert.ok(html.indexOf('scripts/fileSelectionDetailController.js') < html.indexOf('scripts/app.js'));
-  assert.match(appSource, /setupFileSelectionDetailController/);
+  assert.ok(require('../src/renderer/scripts/appControllerRegistry').CONTROLLER_NAMESPACES.includes('FileSelectionDetailController'));
   assert.match(appSource, /return this\.fileSelectionDetailController\.show\(items\)/);
 });

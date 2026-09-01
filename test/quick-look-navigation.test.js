@@ -6,6 +6,7 @@ const path = require('node:path');
 const projectRoot = path.resolve(__dirname, '..');
 const html = fs.readFileSync(path.join(projectRoot, 'src/renderer/index.html'), 'utf8');
 const app = fs.readFileSync(path.join(projectRoot, 'src/renderer/scripts/app.js'), 'utf8');
+const registry = fs.readFileSync(path.join(projectRoot, 'src/renderer/scripts/appControllerRegistry.js'), 'utf8');
 const controller = fs.readFileSync(path.join(projectRoot, 'src/renderer/scripts/quickLookController.js'), 'utf8');
 const contentCss = fs.readFileSync(path.join(projectRoot, 'src/renderer/styles/content.css'), 'utf8');
 
@@ -15,9 +16,9 @@ test('Quick Look 提供可访问的连续浏览控件和方向键入口', () => 
   assert.match(html, /id="quick-look-position"[^>]+aria-live="polite"/);
   assert.match(controller, /quick-look-prev-btn[^\n]+navigate\(-1\)/);
   assert.match(controller, /quick-look-next-btn[^\n]+navigate\(1\)/);
-  assert.match(app, /getNavigationState:\s*itemPath\s*=>\s*this\.getQuickLookNavigationState\(itemPath\)/);
-  assert.match(app, /navigateItem:\s*\(direction, itemPath\)\s*=>\s*this\.selectQuickLookNavigationItem\(direction, itemPath\)/);
-  assert.match(app, /restoreSelectionFocus:\s*itemPath\s*=>\s*this\.directorySelectionController\.focusPath\(itemPath\)/);
+  assert.match(registry, /getNavigationState:\s*itemPath\s*=>\s*app\.getQuickLookNavigationState\(itemPath\)/);
+  assert.match(registry, /navigateItem:\s*\(direction, itemPath\)\s*=>\s*app\.selectQuickLookNavigationItem\(direction, itemPath\)/);
+  assert.match(registry, /restoreSelectionFocus:\s*itemPath\s*=>\s*app\.directorySelectionController\.focusPath\(itemPath\)/);
   assert.match(app, /\['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'\]\.includes\(event\.key\)/);
   assert.match(app, /quickLookController\.navigate\(direction\)/);
   assert.match(contentCss, /\.quick-look-navigation/);

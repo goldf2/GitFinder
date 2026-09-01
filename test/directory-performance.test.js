@@ -87,7 +87,7 @@ test('性能诊断模块在 App 前加载，入口收纳在显示菜单且不持
   assert.match(indexSource, /id="directory-performance-diagnostics"/);
   assert.match(indexSource, /id="directory-performance-modal"/);
   assert.match(indexSource, /本次会话内存/);
-  assert.match(appSource, /setupDirectoryPerformanceController/);
+  assert.ok(require('../src/renderer/scripts/appControllerRegistry').CONTROLLER_NAMESPACES.includes('DirectoryPerformanceController'));
   assert.match(appSource, /directoryPerformanceController\.markRead/);
   assert.match(appSource, /directoryPerformanceController\.markFirstDom/);
   assert.match(appSource, /directoryPerformanceController\.complete/);

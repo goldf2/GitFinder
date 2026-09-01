@@ -57,7 +57,7 @@ test('传输审查界面、预加载桥接和受信 IPC 使用同一组操作', 
     assert.match(ipc, new RegExp(`fileOps:${operation}`));
   }
   assert.match(html, /fileTransfers\.js[\s\S]*fileTransferController\.js[\s\S]*app\.js/);
-  assert.match(appSource, /setupFileTransferController/);
+  assert.ok(require('../src/renderer/scripts/appControllerRegistry').CONTROLLER_NAMESPACES.includes('FileTransferController'));
   assert.match(controllerSource, /transfer-conflict-policy/);
   assert.match(controllerSource, /conflictPolicy:\s*preview\.conflictPolicy/);
   assert.match(controllerSource, /transfer-structure-risk-ack/);

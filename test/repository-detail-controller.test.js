@@ -254,7 +254,7 @@ test('仓库详情控制器在 App 之前加载，App 只保留兼容委托', ()
   const appSource = fs.readFileSync(path.join(projectRoot, 'src/renderer/scripts/app.js'), 'utf8');
 
   assert.match(html, /repositoryDetailController\.js[\s\S]*app\.js/);
-  assert.match(appSource, /setupRepositoryDetailController/);
+  assert.ok(require('../src/renderer/scripts/appControllerRegistry').CONTROLLER_NAMESPACES.includes('RepositoryDetailController'));
   assert.match(appSource, /selectRepo\(repoPath\) \{\s*return this\.repositoryDetailController\.select\(repoPath\);/);
   assert.match(appSource, /updateDetailPanel\(\) \{\s*return this\.repositoryDetailController\.render\(\);/);
   assert.doesNotMatch(appSource, /window\.gitFinder\.fs\.getFileInfo\(repoPath\)[\s\S]{0,800}window\.gitFinder\.git\.getStatus\(repoPath/);

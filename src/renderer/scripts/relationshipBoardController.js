@@ -3105,6 +3105,13 @@
       field?.focus({ preventScroll: true });
     }
 
+    _hideInspector() {
+      const panel = this._panelElement('.relationship-inspector-panel');
+      if (panel) { panel.hidden = true; panel.innerHTML = ''; }
+      this.root?.querySelector('.relationship-body')?.classList.remove('has-inspector');
+      this._applyResourcePanelPosition();
+    }
+
     _handleContextMenuKeydown(event) {
       const menu = this.root.querySelector('.relationship-context-menu');
       if (!menu || menu.hidden) return false;
@@ -3923,7 +3930,9 @@
         && [...nextNodes].every(id => currentNodes.has(id))) return;
       this._setEntitySelection(nextNodes, nodeIds.at(-1) || '');
       this.selectedRelationshipId = nextEdge;
-      this._updateSelectionCss({ preserveDirtyInspector: true, syncFlow: false });
+      const groupOnly = nextNodes.size === 1 && this._allEntitiesById().get(nodeIds[0])?.type === 'group';
+      this._updateSelectionCss({ preserveDirtyInspector: true, syncFlow: false, renderInspector: !groupOnly });
+      if (groupOnly) this._hideInspector();
       this._updateSummary();
     }
 
@@ -3993,6 +4002,13 @@
       if (action === 'context-edge') return this._openFlowContextMenu('relationship', value, point);
       if (action === 'context-pane') return this._openFlowContextMenu('canvas', null, point);
       if (!value?.id) return;
+      if (action === 'select-group' || action === 'arrange-group') {
+        this._selectOnlyEntity(value.id);
+        this._updateSelectionCss({ renderInspector: false });
+        this._hideInspector();
+        if (action === 'arrange-group') return this._toggleGroupLayout(value.id);
+        return;
+      }
       if (action === 'resize-start') {
         if (!this.flowMutationActive) this._recordMutation();
         this.flowMutationActive = true;
@@ -4006,7 +4022,6 @@
       }
       this._selectOnlyEntity(value.id);
       this._updateSelectionCss();
-      if (action === 'arrange-group') return this._toggleGroupLayout(value.id);
       if (action === 'delete-group') return this._deleteSelection();
       if (action === 'edit-group') return this._revealInspector('[name="name"]');
       if (action === 'details') return this._revealInspector();

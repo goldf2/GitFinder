@@ -72,7 +72,7 @@ test('应用菜单、受信原生桥和渲染层文件路由完整连接', () =>
   assert.match(appSource, /EditActionRouter\.shortcutAction\(event, window\.gitFinder\.platform\)/);
   assert.match(appSource, /redoLastFileOperation\(\)/);
   assert.match(appSource, /selectAllVisibleFiles\(\)/);
-  assert.match(appSource, /new window\.FileOperationController\.Controller/);
+  assert.ok(require('../src/renderer/scripts/appControllerRegistry').CONTROLLER_NAMESPACES.includes('FileOperationController'));
   assert.match(controllerSource, /this\.bridge\.fileOps\.redo\(operation\.id\)/);
   assert.match(controllerSource, /this\.editActionRouter\.route/);
 });

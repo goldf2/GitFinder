@@ -206,7 +206,8 @@
 }
 
 .gf-flow-card button,
-.gf-flow-node-toolbar button {
+.gf-flow-node-toolbar button,
+.gf-flow-group-actions button {
   border: 1px solid #d3d9e4;
   border-radius: 9px;
   background: rgb(255 255 255 / 92%);
@@ -249,7 +250,7 @@
   font-size: var(--relationship-group-title-font-size, 20px);
 }
 
-.gf-flow-group-title-toolbar button {
+.gf-flow-group-title-button {
   flex: 0 0 auto;
   padding: 0;
   border: 0;
@@ -262,6 +263,19 @@
   flex: 0 0 auto;
   color: #8a94a6;
   font-size: 12px;
+}
+
+.gf-flow-group-actions {
+  display: flex;
+  gap: 6px;
+  margin-left: 4px;
+  padding-left: 10px;
+  border-left: 1px solid #d7dce6;
+}
+
+.gf-flow-group-actions button {
+  padding: 6px 9px;
+  pointer-events: auto;
 }
 
 .gf-flow-node-toolbar {
@@ -280,12 +294,14 @@
   padding: 7px 10px;
   pointer-events: auto;
 }
-.gf-flow-node-toolbar button.is-active {
+.gf-flow-node-toolbar button.is-active,
+.gf-flow-group-actions button.is-active {
   border-color: #3978ff;
   background: #eaf1ff;
   color: #2769e7;
 }
-.gf-flow-node-toolbar button.is-danger { color: #cc3f4b; }
+.gf-flow-node-toolbar button.is-danger,
+.gf-flow-group-actions button.is-danger { color: #cc3f4b; }
 
 .gf-flow-handle {
   width: 9px !important;

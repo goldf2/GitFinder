@@ -82,7 +82,7 @@ test('全局内容筛选可保存为本机智能集合并从侧栏恢复', () =>
   assert.match(html, /只保存本机筛选条件，不复制文件，也不会修改 Git 或项目配置/);
   assert.ok(html.indexOf('scripts/smartCollections.js') < html.indexOf('scripts/smartCollectionsController.js'));
   assert.ok(html.indexOf('scripts/smartCollectionsController.js') < html.indexOf('scripts/app.js'));
-  assert.match(appSource, /setupSmartCollectionsController\(\)/);
+  assert.ok(require('../src/renderer/scripts/appControllerRegistry').CONTROLLER_NAMESPACES.includes('SmartCollectionsController'));
   assert.match(appSource, /await this\.smartCollectionsController\.load\(\)/);
   assert.match(appSource, /smartCollectionsController\?\.updateControls\(\)/);
   assert.match(appSource, /id === 'smart-collections'[\s\S]*?locationsIndex \+ 1/);
@@ -104,7 +104,7 @@ test('更多筛选使用独立可访问弹窗并在标签页内保存高级条�
   assert.doesNotMatch(html, /id="content-filter-file-label-section"/);
   assert.doesNotMatch(html, /id="content-filter-file-labels"/);
   assert.ok(html.indexOf('scripts/contentFilterController.js') < html.indexOf('scripts/app.js'));
-  assert.match(appSource, /setupContentFilterController\(\)/);
+  assert.ok(require('../src/renderer/scripts/appControllerRegistry').CONTROLLER_NAMESPACES.includes('ContentFilterController'));
   assert.match(appSource, /advancedFilterCount\(query\)/);
   assert.match(appSource, /modifiedTime:\s*project\.modifiedTime/);
   assert.match(appSource, /filtered = filtered\.filter\(repo => window\.ContentQuery\.matchesAttributes/);

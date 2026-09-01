@@ -127,6 +127,7 @@ function ToolbarButton({ data, action, entity, children, className = '', ...prop
     type="button"
     className={`nodrag nopan${className ? ` ${className}` : ''}`}
     onPointerDown={event => event.stopPropagation()}
+    onMouseDown={event => event.stopPropagation()}
     onClick={event => {
       event.stopPropagation();
       data.onAction?.(action, action === 'toggle-descendants' ? (data.placement?.entityId || entity?.id) : entity);
@@ -217,20 +218,20 @@ const RelationshipGroup = memo(function RelationshipGroup({ id, data, selected }
       handleClassName="gf-flow-resize-handle"
     />
     <NodeToolbar isVisible className="gf-flow-group-title-toolbar" position={Position.Top} offset={8}>
-      <button type="button" className="nodrag nopan" onClick={() => data.onAction?.('details', entity)}><strong>{entity.name}</strong></button>
+      <button type="button" className="gf-flow-group-title-button nodrag nopan" onClick={() => data.onAction?.('select-group', entity)}><strong>{entity.name}</strong></button>
       <span>{data.memberCount || 0} 个成员</span>
-    </NodeToolbar>
-    <NodeToolbar isVisible={selected} className="gf-flow-node-toolbar" position={Position.Top} offset={52}>
-      <ToolbarButton data={data} action="arrange-group" entity={entity}>自动排列</ToolbarButton>
-      <ToolbarButton
-        data={data}
-        action="toggle-descendants"
-        entity={entity}
-        className={data.placement.moveWithDescendants ? 'is-active' : ''}
-        aria-pressed={data.placement.moveWithDescendants === true}
-      >固定下级</ToolbarButton>
-      <ToolbarButton data={data} action="edit-group" entity={entity}>编辑</ToolbarButton>
-      <ToolbarButton data={data} action="delete-group" entity={entity} className="is-danger">删除</ToolbarButton>
+      {selected ? <span className="gf-flow-group-actions" role="toolbar" aria-label={`${entity.name} 快捷操作`}>
+        <ToolbarButton data={data} action="arrange-group" entity={entity}>自动排列</ToolbarButton>
+        <ToolbarButton
+          data={data}
+          action="toggle-descendants"
+          entity={entity}
+          className={data.placement.moveWithDescendants ? 'is-active' : ''}
+          aria-pressed={data.placement.moveWithDescendants === true}
+        >固定下级</ToolbarButton>
+        <ToolbarButton data={data} action="edit-group" entity={entity}>编辑</ToolbarButton>
+        <ToolbarButton data={data} action="delete-group" entity={entity} className="is-danger">删除</ToolbarButton>
+      </span> : null}
     </NodeToolbar>
   </section>;
 });

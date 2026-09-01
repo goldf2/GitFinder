@@ -192,6 +192,6 @@ test('页面先加载操作栏控制器，App 只保留初始化和更新委托'
   const html = fs.readFileSync(path.join(root, 'src/renderer/index.html'), 'utf8');
   const appSource = fs.readFileSync(path.join(root, 'src/renderer/scripts/app.js'), 'utf8');
   assert.ok(html.indexOf('scripts/fileActionBarController.js') < html.indexOf('scripts/app.js'));
-  assert.match(appSource, /setupFileActionBarController/);
+  assert.ok(require('../src/renderer/scripts/appControllerRegistry').CONTROLLER_NAMESPACES.includes('FileActionBarController'));
   assert.match(appSource, /return this\.fileActionBarController\.update\(\)/);
 });

@@ -42,7 +42,7 @@ test('断开位置文案保留原路径并转义外部内容', () => {
 
 test('断开状态使用当前内容区提供重试和选择位置，不自动调用挂载或系统文件管理器', () => {
   assert.ok(html.indexOf('scripts/unavailableLocationController.js') < html.indexOf('scripts/app.js'));
-  assert.match(appSource, /setupUnavailableLocationController\(\)/);
+  assert.ok(require('../src/renderer/scripts/appControllerRegistry').CONTROLLER_NAMESPACES.includes('UnavailableLocationController'));
   assert.match(appSource, /data-app-action[^\n]*retry-unavailable-location|retry-unavailable-location/);
   assert.match(appSource, /choose-unavailable-location/);
   assert.match(appSource, /availability === 'root-unavailable'/);

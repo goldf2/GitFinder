@@ -72,7 +72,7 @@ test('历史面板由工具栏下拉与系统显示菜单打开，并保持非�
   assert.match(html, /aria-modal="false"/);
   assert.ok(html.indexOf('scripts/fileOperationHistoryController.js') < html.indexOf('scripts/app.js'));
   assert.match(mainSource, /open-file-history/);
-  assert.match(appSource, /setupFileOperationHistoryController/);
+  assert.ok(require('../src/renderer/scripts/appControllerRegistry').CONTROLLER_NAMESPACES.includes('FileOperationHistoryController'));
   assert.match(appSource, /fileOperationHistoryController\.open/);
 });
 

@@ -107,7 +107,7 @@ test('标签栏接入可访问的溢出按钮和独立控制器', () => {
   assert.ok(html.indexOf('scripts/workspaceTabOverflowController.js') < html.indexOf('scripts/app.js'));
   assert.match(css, /\.workspace-tab-overflow/);
   assert.match(css, /\.contains-active-tab/);
-  assert.match(appSource, /setupWorkspaceTabOverflowController\(\)/);
+  assert.ok(require('../src/renderer/scripts/appControllerRegistry').CONTROLLER_NAMESPACES.includes('WorkspaceTabOverflowController'));
   assert.match(appSource, /workspaceTabOverflowController\.afterRender\(\)/);
   assert.match(appSource, /aria-label="\$\{this\.escapeHtml\(`\$\{title\}，\$\{tabHelp\}`\)\}"/);
   assert.match(appSource, /title="\$\{this\.escapeHtml\(title\)\}"/);

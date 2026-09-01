@@ -182,7 +182,7 @@ test('页面先加载名称对话框控制器，App 只保留兼容委托', () =
   const html = fs.readFileSync(path.join(root, 'src/renderer/index.html'), 'utf8');
   const appSource = fs.readFileSync(path.join(root, 'src/renderer/scripts/app.js'), 'utf8');
   assert.ok(html.indexOf('scripts/fileOperationDialogController.js') < html.indexOf('scripts/app.js'));
-  assert.match(appSource, /setupFileOperationDialogController/);
+  assert.ok(require('../src/renderer/scripts/appControllerRegistry').CONTROLLER_NAMESPACES.includes('FileOperationDialogController'));
   assert.match(appSource, /return this\.fileOperationDialogController\.open\(options\)/);
   assert.match(appSource, /return this\.fileOperationDialogController\.submit\(\)/);
   assert.match(appSource, /return this\.fileOperationDialogController\.close\(value\)/);

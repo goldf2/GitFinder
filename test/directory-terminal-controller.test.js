@@ -105,7 +105,7 @@ test('目录操作、右键菜单、系统文件菜单和受信桥完整接入�
   assert.match(html, /data-context-action="open-terminal"/);
   assert.ok(html.indexOf('scripts/directoryTerminalController.js') < html.indexOf('scripts/app.js'));
   assert.match(actionBarSource, /file-open-terminal/);
-  assert.match(appSource, /setupDirectoryTerminalController/);
+  assert.ok(require('../src/renderer/scripts/appControllerRegistry').CONTROLLER_NAMESPACES.includes('DirectoryTerminalController'));
   assert.match(appSource, /openSelectedInTerminal/);
   assert.match(appSource, /action === 'open-terminal'/);
   assert.match(mainSource, /sendShortcut\('open-terminal'\)/);

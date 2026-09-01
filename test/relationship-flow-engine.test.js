@@ -106,6 +106,22 @@ test('Project 标题完整显示，成员数量不参与标题宽度竞争且字
   assert.match(controllerSource, /--relationship-group-title-font-size/);
 });
 
+test('Project 快捷操作复用标题栏，不创建第二条工具栏争抢顶部空间', () => {
+  assert.match(source, /className="gf-flow-group-actions" role="toolbar"/);
+  assert.match(source, /data\.onAction\?\.\('select-group', entity\)/);
+  assert.doesNotMatch(source, /gf-flow-group-title-button[^\n]*data\.onAction\?\.\('details', entity\)/);
+  assert.doesNotMatch(source, /<NodeToolbar isVisible=\{selected\} className="gf-flow-node-toolbar" position=\{Position\.Top\} offset=\{52\}>/);
+  assert.doesNotMatch(source, /className="gf-flow-node-toolbar gf-flow-group-action-toolbar"/);
+  assert.match(canvasCss, /\.gf-flow-card button,\s*\.gf-flow-node-toolbar button,\s*\.gf-flow-group-actions button/);
+  assert.match(controllerSource, /action === 'select-group' \|\| action === 'arrange-group'/);
+  assert.match(controllerSource, /if \(groupOnly\) this\._hideInspector\(\)/);
+});
+
+test('共用工具按钮阻止画布在 click 前取消选择，避免条件工具条按钮失效', () => {
+  assert.match(source, /onPointerDown=\{event => event\.stopPropagation\(\)\}/);
+  assert.match(source, /onMouseDown=\{event => event\.stopPropagation\(\)\}/);
+});
+
 test('部署节点在新卡片中显示提交和本地仓库关联信号', () => {
   assert.match(source, /最近部署 \$\{commit\.slice\(0, 8\)\}/);
   assert.match(source, /已关联本地/);

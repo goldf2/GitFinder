@@ -64,7 +64,7 @@ test('Quick Look 模块在 App 前加载并接管开发文件预览', () => {
   const css = fs.readFileSync(path.join(projectRoot, 'src/renderer/styles/content.css'), 'utf8');
   assert.match(html, /scripts\/syntaxHighlight\.js[\s\S]*scripts\/quickLook\.js[\s\S]*scripts\/quickLookController\.js[\s\S]*scripts\/app\.js/);
   assert.match(controllerSource, /developerModule\?\.renderDeveloperPreview\(preview\)/);
-  assert.match(appSource, /new window\.QuickLookController\.Controller/);
+  assert.ok(require('../src/renderer/scripts/appControllerRegistry').CONTROLLER_NAMESPACES.includes('QuickLookController'));
   assert.match(css, /\.quick-look-structured/);
   assert.match(css, /\.quick-look-log-line\.severity-error/);
 });

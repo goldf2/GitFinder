@@ -334,7 +334,7 @@ test('导航控制器在 App 之前加载且主对象只保留兼容委托', () 
   const appSource = fs.readFileSync(path.join(projectRoot, 'src/renderer/scripts/app.js'), 'utf8');
 
   assert.match(html, /directoryNavigationController\.js[\s\S]*app\.js/);
-  assert.match(appSource, /setupDirectoryNavigationController/);
+  assert.ok(require('../src/renderer/scripts/appControllerRegistry').CONTROLLER_NAMESPACES.includes('DirectoryNavigationController'));
   assert.match(appSource, /navigateTo\(path, replace = false\) \{\s*return this\.directoryNavigationController\.navigateTo\(path, replace\);/);
   assert.match(appSource, /getParentPath\(path\) \{\s*return this\.directoryNavigationController\.getParentPath\(path\);/);
 });
