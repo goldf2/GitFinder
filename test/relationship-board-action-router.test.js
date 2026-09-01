@@ -8,9 +8,12 @@ const controllerSource = fs.readFileSync(path.join(__dirname, '../src/renderer/s
 globalThis.RelationshipGraphModel = require('../src/shared/relationshipGraphModel');
 const { Controller } = require('../src/renderer/scripts/relationshipBoardController');
 
-function clickTarget(action) {
+function clickTarget(action, calls) {
   const button = { dataset: { relationshipAction: action } };
-  return { closest: selector => selector === '[data-relationship-action]' ? button : null };
+  return { closest: selector => {
+    calls?.push(selector);
+    return selector.includes('[data-relationship-action]') ? button : null;
+  } };
 }
 
 test('关系白板直接动作集中映射到真实控制器方法', () => {
@@ -24,14 +27,15 @@ test('关系白板直接动作集中映射到真实控制器方法', () => {
 
 test('直接动作复用参数路由且排列后不再额外整页重绘', () => {
   const controller = new Controller({ bridge: {} });
-  const calls = [];
+  const calls = [], selectors = [];
   controller.root = { querySelector: selector => selector === '.relationship-layout-trigger'
     ? { focus: () => calls.push(['focus']) } : null };
   controller._closeContextMenu = controller._closeLayoutMenu = () => {};
   controller._arrangeByCategory = () => calls.push(['arrange']);
   controller.render = () => calls.push(['render']);
-  controller._handleClick({ target: clickTarget('arrange-by-category') });
+  controller._handleClick({ target: clickTarget('arrange-by-category', selectors) });
   assert.deepEqual(calls, [['arrange'], ['focus']]);
+  assert.equal(selectors.filter(selector => selector.includes('[data-relationship-action]')).length, 1);
 
   controller._saveDocument = value => calls.push(['save', value]);
   controller._handleClick({ target: clickTarget('save-document-as') });
@@ -53,14 +57,14 @@ test('控制器只保留兼容入口，DOM 事件由动作路由统一分发', (
   const controller = new Controller({ bridge: {} });
   const calls = [];
   controller._setPanelSide = (...args) => calls.push(['side', ...args]);
-  controller._handleClick({ target: { closest: selector => selector === '[data-panel-side]'
+  controller._handleClick({ target: { closest: selector => selector.includes('[data-panel-side]')
     ? { dataset: { panelKey: 'library', panelSide: 'right' } } : null } });
   assert.deepEqual(calls.pop(), ['side', 'library', 'right']);
 
   controller._closeContextMenu = controller._closeLayoutMenu = () => {};
   controller.resourceMap.set('project:one', { key: 'project:one' });
   controller._addResource = resource => calls.push(['resource', resource.key]);
-  controller._handleClick({ target: { closest: selector => selector === '[data-add-resource]'
+  controller._handleClick({ target: { closest: selector => selector.includes('[data-add-resource]')
     ? { dataset: { addResource: 'project:one' } } : null } });
   assert.deepEqual(calls.pop(), ['resource', 'project:one']);
 });

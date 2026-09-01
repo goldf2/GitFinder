@@ -33,6 +33,16 @@
     ['select[data-selected-group-shape]', 'selectedGroupShape', '_setGroupShape'],
     ['select[data-selected-group-appearance]', 'selectedGroupAppearance', '_setGroupAppearance']
   ]);
+  const CLICK_TARGET_SELECTOR = [
+    '[data-endpoint-check]', '[data-panel-side]', '[data-panel-collapse]', '[data-board-context-action]',
+    '[data-board-layout]', '[data-board-structure]', '[data-relationship-action]', '[data-archive-deployment]',
+    '[data-open-document]', '[data-document-home]', '[data-remove-document]', '[data-trash-document]',
+    '[data-reveal-asset]', '[data-edit-canvas-element]', '[data-lock-canvas-element]', '[data-lock-descendants]',
+    '[data-group-auto-layout]', '[data-resource-section-toggle]', '[data-relationship-locate-entity]',
+    '[data-panel-open-external]', '[data-panel-reveal-repository]', '[data-panel-open-repository]',
+    '[data-panel-system-repository]', '[data-panel-association-action]', '[data-add-node-type]',
+    '[data-add-resource]', '[data-locate-resource]'
+  ].join(',');
 
   function resolve(action) {
     return ACTIONS[String(action || '')] || null;
@@ -163,32 +173,28 @@
 
   function handleClick(controller, event) {
     const target = event.target;
-    const endpointCheck = target.closest('[data-endpoint-check]');
-    if (endpointCheck) {
-      const entity = controller._allEntitiesById().get(endpointCheck.dataset.endpointCheck);
-      if (!endpointCheck.disabled && entity?.runtime?.dynamicKind === 'panel-endpoint') {
+    const routeTarget = target.closest(CLICK_TARGET_SELECTOR);
+    const data = routeTarget?.dataset || {};
+    if (data.endpointCheck) {
+      const entity = controller._allEntitiesById().get(data.endpointCheck);
+      if (!routeTarget.disabled && entity?.runtime?.dynamicKind === 'panel-endpoint') {
         void controller._refreshEndpointChecks({ providerId: entity.runtime.providerId, url: entity.runtime.url, force: true });
       }
       return;
     }
-    const move = target.closest('[data-panel-side]');
-    if (move) return controller._setPanelSide(move.dataset.panelKey, move.dataset.panelSide);
-    const collapse = target.closest('[data-panel-collapse]');
-    if (collapse) return controller._togglePanelCollapsed(collapse.dataset.panelCollapse);
-    const contextItem = target.closest('[data-board-context-action]');
-    if (contextItem) return contextItem.disabled ? undefined : controller._runContextAction(contextItem.dataset.boardContextAction);
+    if (data.panelSide) return controller._setPanelSide(data.panelKey, data.panelSide);
+    if (data.panelCollapse) return controller._togglePanelCollapsed(data.panelCollapse);
+    if (data.boardContextAction) return routeTarget.disabled ? undefined : controller._runContextAction(data.boardContextAction);
 
     const contextPoint = target.closest('.relationship-context-menu') ? controller.contextMenuPoint : null;
     controller._closeContextMenu(Boolean(contextPoint));
-    const action = target.closest('[data-relationship-action]')?.dataset.relationshipAction;
-    const layout = target.closest('[data-board-layout]')?.dataset.boardLayout;
-    if (layout) {
-      controller._closeLayoutMenu(); controller._setLayout(layout);
+    const action = data.relationshipAction;
+    if (data.boardLayout) {
+      controller._closeLayoutMenu(); controller._setLayout(data.boardLayout);
       controller.root?.querySelector('[data-layout-menu="layout"]')?.focus(); return;
     }
-    const structure = target.closest('[data-board-structure]')?.dataset.boardStructure;
-    if (structure) {
-      controller._closeLayoutMenu(); controller._setStructure(structure);
+    if (data.boardStructure) {
+      controller._closeLayoutMenu(); controller._setStructure(data.boardStructure);
       controller.root?.querySelector('[data-layout-menu="structure"]')?.focus(); return;
     }
     if (action !== 'toggle-layout-menu') controller._closeLayoutMenu();
@@ -202,7 +208,7 @@
       return;
     }
     if (action === 'toggle-layout-menu') {
-      const trigger = target.closest('.relationship-layout-trigger');
+      const trigger = routeTarget;
       const menu = trigger.closest('.relationship-layout-host').querySelector('.relationship-layout-menu');
       const opening = menu.hidden;
       controller._closeLayoutMenu();
@@ -231,34 +237,27 @@
       return;
     }
 
-    const archiveId = target.closest('[data-archive-deployment]')?.dataset.archiveDeployment;
-    if (archiveId || action === 'archive-selected-deployment') return controller._setDeploymentArchived(archiveId || controller.selectedEntityId, true);
-    const documentButton = target.closest('[data-open-document]');
-    if (documentButton) { void controller._openDocument(documentButton.dataset.openDocument); return; }
-    if (target.closest('[data-document-home]')) { void controller._showLocalWorkspace(); return; }
-    const removeDocument = target.closest('[data-remove-document], [data-trash-document]');
-    if (removeDocument) {
-      void controller._removeDocument(removeDocument.dataset.removeDocument || removeDocument.dataset.trashDocument, Boolean(removeDocument.dataset.trashDocument))
+    if (data.archiveDeployment || action === 'archive-selected-deployment') return controller._setDeploymentArchived(data.archiveDeployment || controller.selectedEntityId, true);
+    if (data.openDocument) { void controller._openDocument(data.openDocument); return; }
+    if ('documentHome' in data) { void controller._showLocalWorkspace(); return; }
+    if (data.removeDocument || data.trashDocument) {
+      void controller._removeDocument(data.removeDocument || data.trashDocument, Boolean(data.trashDocument))
         .catch(error => controller.notify(error.message, 'error'));
       return;
     }
-    const reveal = target.closest('[data-reveal-asset]');
-    if (reveal && controller.documentRecord) {
-      void controller.bridge.relationshipBoards.revealAsset({ id: controller.documentRecord.id, entityId: reveal.dataset.revealAsset })
+    if (data.revealAsset && controller.documentRecord) {
+      void controller.bridge.relationshipBoards.revealAsset({ id: controller.documentRecord.id, entityId: data.revealAsset })
         .catch(error => controller.notify(error.message, 'error'));
       return;
     }
-    const editElement = target.closest('[data-edit-canvas-element]');
-    if (editElement) { void controller._editCanvasElement(editElement.dataset.editCanvasElement); return; }
-    const lockElement = target.closest('[data-lock-canvas-element]');
-    if (lockElement) {
+    if (data.editCanvasElement) { void controller._editCanvasElement(data.editCanvasElement); return; }
+    if (data.lockCanvasElement) {
       controller._recordMutation();
-      const placement = controller._placementForEntity(lockElement.dataset.lockCanvasElement);
+      const placement = controller._placementForEntity(data.lockCanvasElement);
       if (placement.locked) delete placement.locked; else placement.locked = true;
       controller._persistSoon(0); controller._renderGraph(); return;
     }
-    const linkedMovement = target.closest('[data-lock-descendants]');
-    if (linkedMovement) return controller._toggleLinkedMovement(linkedMovement.dataset.lockDescendants);
+    if (data.lockDescendants) return controller._toggleLinkedMovement(data.lockDescendants);
 
     if (action === 'toggle-filter-menu') {
       const popover = controller.root.querySelector('.relationship-filter-popover');
@@ -331,7 +330,7 @@
       return controller._assignSelectionToGroup(controller.root.querySelector('[data-relationship-group-target]')?.value || '');
     }
     if (action === 'add-todo-row') {
-      const form = target.closest('form'), list = form?.querySelector('[data-todo-list]');
+      const form = routeTarget.closest('form'), list = form?.querySelector('[data-todo-list]');
       if (list && list.children.length < 20) {
         list.insertAdjacentHTML('beforeend', controller._todoRowHtml());
         list.lastElementChild?.querySelector('[data-todo-title]')?.focus();
@@ -340,48 +339,38 @@
       return;
     }
     if (action === 'remove-todo-row') {
-      const form = target.closest('form');
-      target.closest('.relationship-todo-row')?.remove();
+      const form = routeTarget.closest('form');
+      routeTarget.closest('.relationship-todo-row')?.remove();
       form?.dispatchEvent(new Event('input', { bubbles: true })); return;
     }
 
-    const groupLayoutId = target.closest('[data-group-auto-layout]')?.dataset.groupAutoLayout;
-    if (groupLayoutId) return controller._toggleGroupLayout(groupLayoutId);
-    const resourceSection = target.closest('[data-resource-section-toggle]')?.dataset.resourceSectionToggle;
-    if (resourceSection) {
-      if (controller.collapsedResourceSections.has(resourceSection)) controller.collapsedResourceSections.delete(resourceSection);
-      else controller.collapsedResourceSections.add(resourceSection);
-      const key = `resource:${resourceSection}`;
-      controller.panelLayout[key] = { ...controller.panelLayout[key], side: controller.panelLayout[key]?.side || controller.panelLayout.library?.side || 'left', collapsed: controller.collapsedResourceSections.has(resourceSection) };
+    if (data.groupAutoLayout) return controller._toggleGroupLayout(data.groupAutoLayout);
+    if (data.resourceSectionToggle) {
+      const section = data.resourceSectionToggle;
+      if (controller.collapsedResourceSections.has(section)) controller.collapsedResourceSections.delete(section);
+      else controller.collapsedResourceSections.add(section);
+      const key = `resource:${section}`;
+      controller.panelLayout[key] = { ...controller.panelLayout[key], side: controller.panelLayout[key]?.side || controller.panelLayout.library?.side || 'left', collapsed: controller.collapsedResourceSections.has(section) };
       controller._savePanelLayout(); controller._renderResources(); return;
     }
-    const locateEntityId = target.closest('[data-relationship-locate-entity]')?.dataset.relationshipLocateEntity;
-    if (locateEntityId) return controller._focusEntityOnBoard(locateEntityId);
-    const panelExternalUrl = target.closest('[data-panel-open-external]')?.dataset.panelOpenExternal;
-    if (panelExternalUrl) {
-      controller.bridge.panel?.openExternal?.(panelExternalUrl).catch(error => controller.notify(`无法打开链接：${error?.message || String(error)}`, 'error'));
+    if (data.relationshipLocateEntity) return controller._focusEntityOnBoard(data.relationshipLocateEntity);
+    if (data.panelOpenExternal) {
+      controller.bridge.panel?.openExternal?.(data.panelOpenExternal).catch(error => controller.notify(`无法打开链接：${error?.message || String(error)}`, 'error'));
       return;
     }
-    const revealRepository = target.closest('[data-panel-reveal-repository]');
-    if (revealRepository) return controller._locateRepositoryOnBoard(revealRepository.dataset.panelRevealRepository, revealRepository.dataset.deploymentId);
-    const openRepositoryId = target.closest('[data-panel-open-repository]')?.dataset.panelOpenRepository;
-    const systemRepositoryId = target.closest('[data-panel-system-repository]')?.dataset.panelSystemRepository;
-    if (openRepositoryId || systemRepositoryId) {
-      void controller._openRepositoryDirectory(openRepositoryId || systemRepositoryId, Boolean(systemRepositoryId)); return;
+    if (data.panelRevealRepository) return controller._locateRepositoryOnBoard(data.panelRevealRepository, data.deploymentId);
+    if (data.panelOpenRepository || data.panelSystemRepository) {
+      void controller._openRepositoryDirectory(data.panelOpenRepository || data.panelSystemRepository, Boolean(data.panelSystemRepository)); return;
     }
-    const associationButton = target.closest('[data-panel-association-action]');
-    if (associationButton) return controller._changeRepositoryAssociation(associationButton.dataset.entityId, associationButton.dataset.panelAssociationAction);
-    const nodeType = target.closest('[data-add-node-type]')?.dataset.addNodeType;
-    if (nodeType) {
+    if (data.panelAssociationAction) return controller._changeRepositoryAssociation(data.entityId, data.panelAssociationAction);
+    if (data.addNodeType) {
       controller.root.querySelector('.relationship-add-menu').hidden = true;
       controller.root.querySelector('.relationship-add-trigger').setAttribute('aria-expanded', 'false');
-      controller._createManualEntity(nodeType, contextPoint); return;
+      controller._createManualEntity(data.addNodeType, contextPoint); return;
     }
-    const resourceKey = target.closest('[data-add-resource]')?.dataset.addResource;
-    if (resourceKey) return controller._addResource(controller.resourceMap.get(resourceKey));
-    const locateResourceKey = target.closest('[data-locate-resource]')?.dataset.locateResource;
-    if (locateResourceKey) {
-      const resource = controller.resourceMap.get(locateResourceKey);
+    if (data.addResource) return controller._addResource(controller.resourceMap.get(data.addResource));
+    if (data.locateResource) {
+      const resource = controller.resourceMap.get(data.locateResource);
       if (resource?.entityId) controller._focusEntityOnBoard(resource.entityId);
       return;
     }

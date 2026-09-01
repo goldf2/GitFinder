@@ -1820,7 +1820,7 @@ test('自由摆放下服务器树结构在同一白板切换，保留坐标且�
   assert.equal(controller._isServerTree(), true);
   assert.equal(controller._filteredGraph().summaryRelationships.length, 1);
   assert.equal(controller._setStructure('server-tree'), false, '重复点击不增加新白板');
-  const click = () => controller._handleClick({ target: { closest: selector => selector === '[data-relationship-action]'
+  const click = () => controller._handleClick({ target: { closest: selector => selector.includes('[data-relationship-action]')
     ? { dataset: { relationshipAction: 'repository-relations' } } : null } });
   click();
   assert.equal(controller._boardView().showRepositoryRelations, true);
