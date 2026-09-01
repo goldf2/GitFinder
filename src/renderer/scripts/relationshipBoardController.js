@@ -63,6 +63,10 @@
     endpoint: '↗',
     group: '▢', text: 'T', image: '▧', attachment: '▱'
   });
+  const CARD_ICON_OPTIONS = Object.freeze([
+    ['none', '不显示'], ['server', '主机'], ['deployment', '部署'], ['endpoint', '访问 / 地球'],
+    ['repository', 'Git 分支'], ['project', '项目 / 文件夹'], ['database', '数据库'], ['service', '服务 / 方块']
+  ].map(option => Object.freeze(option)));
   const RESOURCE_CATEGORY_DEFINITIONS = ResourceView.RESOURCE_CATEGORY_DEFINITIONS;
   const RELATIONSHIP_LABELS = Object.freeze({
     contains: '包含',
@@ -163,6 +167,7 @@
     const titleText = Model.cleanText(value.titleText, 160);
     const titleSource = Model.PLACEMENT_TITLE_SOURCES.includes(value.titleSource) ? value.titleSource : 'inherit';
     const statusVisibility = Model.PLACEMENT_STATUS_VISIBILITIES.includes(value.statusVisibility) ? value.statusVisibility : 'inherit';
+    const iconKey = Model.PLACEMENT_ICON_KEYS.includes(value.iconKey) ? value.iconKey : 'inherit';
     const labelMap = new Map();
     for (const rawLabel of Array.isArray(value.labels) ? value.labels : []) {
       const label = Model.cleanText(rawLabel, 24);
@@ -189,6 +194,7 @@
       ...(titleText ? { titleMode, titleText } : {}),
       ...(titleSource !== 'inherit' ? { titleSource } : {}),
       ...(statusVisibility !== 'inherit' ? { statusVisibility } : {}),
+      ...(iconKey !== 'inherit' ? { iconKey } : {}),
       ...(labels.length ? { labels } : {}),
       ...(note ? { note } : {}),
       ...(todos.length ? { todos } : {}),
@@ -1578,6 +1584,12 @@
         showGrid: view.showGrid !== false,
         showEdgeLabels: view.showEdgeLabels !== false,
         cardTitleSource: view.cardTitleSource === 'note' ? 'note' : 'name',
+        deploymentTitleSource: view.deploymentTitleSource === 'note' ? 'note' : 'name',
+        endpointTitleSource: view.endpointTitleSource === 'website' ? 'website' : 'domain',
+        cardIcons: Object.fromEntries(Model.CARD_ICON_TYPES.map(type => {
+          const iconKey = view.cardIcons?.[type];
+          return [type, Model.CARD_ICON_KEYS.includes(iconKey) ? iconKey : Model.DEFAULT_CARD_ICONS[type]];
+        })),
         showRuntimeStatus: view.showRuntimeStatus !== false,
         unmatchedDisplay: view.unmatchedDisplay === 'hide' ? 'hide' : 'dim',
         filterContextOpacity: normalizedNumber(view.filterContextOpacity, defaults.filterContextOpacity, 0.15, 0.8),
@@ -2311,7 +2323,7 @@
         .sort((left, right) => left.localeCompare(right, 'zh-CN'));
       const panelStatus = this._panelStatusView();
       const displayPopover = ToolbarView.displayPopover({ view: displayView, boardView: board.view,
-        serverTree: this._isServerTree(), icon: toolbarIcon('display'), escapeHtml });
+        serverTree: this._isServerTree(), icon: toolbarIcon('display'), cardIconOptions: CARD_ICON_OPTIONS, escapeHtml });
       const filterPopover = ToolbarView.filterPopover({ view: {
         ...displayView,
         selectedEntityTypes: GraphProjection.selectedEntityTypes(board.view),
@@ -2702,12 +2714,13 @@
       trigger?.setAttribute('aria-expanded', 'false');
     }
 
-    _closeDisplayPopover() {
+    _closeDisplayPopover(restoreFocus = false) {
       this.displayLayoutEdit = null;
       const popover = this.root?.querySelector('.relationship-display-popover');
       const trigger = this.root?.querySelector('.relationship-display-trigger');
       if (popover) popover.hidden = true;
       trigger?.setAttribute('aria-expanded', 'false');
+      if (restoreFocus) trigger?.focus();
     }
 
     _syncDisplayForm() {
@@ -2727,6 +2740,12 @@
       form.elements.namedItem('cardAppearance').value = display.cardAppearance;
       form.elements.namedItem('projectGroupShape').value = display.projectGroupShape;
       form.elements.namedItem('cardTitleSource').value = display.cardTitleSource;
+      form.elements.namedItem('deploymentTitleSource').value = display.deploymentTitleSource;
+      form.elements.namedItem('endpointTitleSource').value = display.endpointTitleSource;
+      for (const type of Model.CARD_ICON_TYPES) {
+        const field = form.elements.namedItem(`cardIcon-${type}`);
+        if (field) field.value = display.cardIcons[type];
+      }
       form.elements.namedItem('showGrid').checked = display.showGrid;
       form.elements.namedItem('showEdgeLabels').checked = display.showEdgeLabels;
       form.elements.namedItem('showRuntimeStatus').checked = display.showRuntimeStatus;
@@ -2770,6 +2789,10 @@
       };
       const currentDisplay = this._displayViewSettings();
       const before = this.displayLayoutEdit || this._captureDisplayLayout();
+      const cardIcons = Object.fromEntries(Model.CARD_ICON_TYPES.map(type => {
+        const iconKey = String(data.get(`cardIcon-${type}`) || '');
+        return [type, Model.CARD_ICON_KEYS.includes(iconKey) ? iconKey : Model.DEFAULT_CARD_ICONS[type]];
+      }));
       board.view = {
         ...this._boardView(),
         mode: String(data.get('mode') || 'full') === 'compact' ? 'compact' : 'full',
@@ -2783,6 +2806,9 @@
         cardAppearance: String(data.get('cardAppearance') || '') === 'flat' ? 'flat' : 'elevated',
         projectGroupShape: Model.PROJECT_GROUP_SHAPES.includes(String(data.get('projectGroupShape') || '')) ? String(data.get('projectGroupShape')) : 'rounded',
         cardTitleSource: String(data.get('cardTitleSource') || '') === 'note' ? 'note' : 'name',
+        deploymentTitleSource: String(data.get('deploymentTitleSource') || '') === 'note' ? 'note' : 'name',
+        endpointTitleSource: String(data.get('endpointTitleSource') || '') === 'website' ? 'website' : 'domain',
+        cardIcons,
         showGrid: form.elements.namedItem('showGrid').checked,
         showEdgeLabels: form.elements.namedItem('showEdgeLabels').checked,
         showRuntimeStatus: form.elements.namedItem('showRuntimeStatus').checked,
@@ -2886,6 +2912,7 @@
         return {
           ...source,
           name: this._entityDisplayName(source),
+          iconKey: this._entityCardIcon(source),
           ...(asset?.imageData ? { details: { ...source.details, imageData: asset.imageData } } : {})
         };
       }).filter(Boolean);
@@ -3230,11 +3257,18 @@
       const placement = this._placementForEntity(entity?.id) || {};
       const annotations = normalizePlacementAnnotations(placement);
       const configuredSource = annotations.titleSource || 'inherit';
-      const source = configuredSource === 'inherit'
-        ? this._displayViewSettings().cardTitleSource
-        : configuredSource;
+      const display = this._displayViewSettings();
+      const source = configuredSource !== 'inherit' ? configuredSource
+        : entity?.type === 'deployment' ? display.deploymentTitleSource
+          : entity?.type === 'endpoint' ? display.endpointTitleSource
+            : display.cardTitleSource;
       if (source === 'note') {
         return Model.cleanText(annotations.note || entity?.details?.notes, 160) || this._entityBaseName(entity);
+      }
+      if (entity?.type === 'endpoint' && ['domain', 'website'].includes(source)) {
+        let domain = this._entityBaseName(entity);
+        try { domain = new URL(entity.runtime?.url || entity.details?.urlLabel).hostname || domain; } catch (_) {}
+        return source === 'website' ? Model.cleanText(entity.runtime?.pageTitle, 160) || domain : domain;
       }
       return this._entityBaseName(entity);
     }
@@ -3254,6 +3288,14 @@
       return annotations.titleMode === 'subtitle' && annotations.titleText
         ? `${annotations.titleText} · ${subtitle || TYPE_LABELS[entity?.type] || ''}`
         : subtitle;
+    }
+
+    _entityCardIcon(entity) {
+      const annotations = normalizePlacementAnnotations(this._placementForEntity(entity?.id) || {});
+      if (annotations.iconKey) return annotations.iconKey;
+      return this._displayViewSettings().cardIcons[entity?.type]
+        || Model.DEFAULT_CARD_ICONS[entity?.type]
+        || 'service';
     }
 
     _deploymentVersionContext(entity) {
@@ -3488,12 +3530,25 @@
       ].map(([value, label]) => `<option value="${value}"${annotations.titleMode === value ? ' selected' : ''}>${label}</option>`).join('');
       const titleSource = annotations.titleSource || 'inherit';
       const statusVisibility = annotations.statusVisibility || 'inherit';
+      const iconKey = annotations.iconKey || 'inherit';
+      const titleSourceOptions = entity?.type === 'deployment'
+        ? [['inherit', '继承白板默认'], ['name', '部署名称'], ['note', '备注描述']]
+        : entity?.type === 'endpoint'
+          ? [['inherit', '继承白板默认'], ['domain', '域名'], ['website', '网站标题']]
+          : [['inherit', '继承白板默认'], ['name', '资源名称'], ['note', '卡片备注']];
+      const titleSourceHtml = titleSourceOptions.map(([value, label]) => `<option value="${value}"${titleSource === value ? ' selected' : ''}>${label}</option>`).join('');
+      const iconOptions = [['inherit', '继承类型默认'], ...CARD_ICON_OPTIONS]
+        .map(([value, label]) => `<option value="${value}"${iconKey === value ? ' selected' : ''}>${label}</option>`).join('');
+      const iconField = Model.CARD_ICON_TYPES.includes(entity?.type)
+        ? `<label class="relationship-inspector-field"><span>左侧图标</span><select name="placementIconKey">${iconOptions}</select></label>`
+        : '';
       return `<details class="relationship-annotation-section" open>
         <summary><span>卡片显示与注释</span><small>可折叠 · 仅保存到白板</small></summary>
         <div class="relationship-annotation-fields">
           <div class="relationship-title-alias-editor">
-            <label class="relationship-inspector-field"><span>标题来源</span><select name="placementTitleSource"><option value="inherit"${titleSource === 'inherit' ? ' selected' : ''}>继承白板默认</option><option value="name"${titleSource === 'name' ? ' selected' : ''}>资源名称</option><option value="note"${titleSource === 'note' ? ' selected' : ''}>卡片备注</option></select></label>
+            <label class="relationship-inspector-field"><span>标题来源</span><select name="placementTitleSource">${titleSourceHtml}</select></label>
             <label class="relationship-inspector-field"><span>状态显示</span><select name="placementStatusVisibility"><option value="inherit"${statusVisibility === 'inherit' ? ' selected' : ''}>继承白板默认</option><option value="show"${statusVisibility === 'show' ? ' selected' : ''}>始终显示</option><option value="hide"${statusVisibility === 'hide' ? ' selected' : ''}>隐藏状态</option></select></label>
+            ${iconField}
             <label class="relationship-inspector-field"><span>名称显示</span><select name="placementTitleMode">${titleModeOptions}</select></label>
             <label class="relationship-inspector-field"><span>自定义名称</span><input name="placementTitleText" value="${escapeHtml(annotations.titleText || '')}" maxlength="160" placeholder="输入业务别名或补充名称"><small>原始名称：${escapeHtml(originalName)}</small></label>
           </div>
@@ -3511,6 +3566,7 @@
       const titleText = String(data.get('placementTitleText') || '');
       const titleSource = String(data.get('placementTitleSource') || 'inherit');
       const statusVisibility = String(data.get('placementStatusVisibility') || 'inherit');
+      const iconKey = String(data.get('placementIconKey') || 'inherit');
       const labels = String(data.get('placementLabels') || '')
         .split(/[，,\n]/)
         .map(label => label.trim())
@@ -3523,7 +3579,7 @@
         dueAt: row.querySelector('[data-todo-due]')?.value || '',
         reminderAt: row.querySelector('[data-todo-reminder]')?.value || ''
       })).filter(todo => String(todo.title).trim());
-      return normalizePlacementAnnotations({ titleMode, titleText, titleSource, statusVisibility, labels, note, todos });
+      return normalizePlacementAnnotations({ titleMode, titleText, titleSource, statusVisibility, iconKey, labels, note, todos });
     }
 
     _refreshLabelFilterOptions() {
@@ -3540,8 +3596,8 @@
     }
 
     _writePlacementAnnotations(placement, annotations) {
-      for (const key of ['titleMode', 'titleText', 'titleSource', 'statusVisibility', 'labels', 'note', 'todos']) {
-        if (annotations[key]?.length || (['titleMode', 'titleText', 'titleSource', 'statusVisibility', 'note'].includes(key) && annotations[key])) placement[key] = clone(annotations[key]);
+      for (const key of ['titleMode', 'titleText', 'titleSource', 'statusVisibility', 'iconKey', 'labels', 'note', 'todos']) {
+        if (annotations[key]?.length || (['titleMode', 'titleText', 'titleSource', 'statusVisibility', 'iconKey', 'note'].includes(key) && annotations[key])) placement[key] = clone(annotations[key]);
         else delete placement[key];
       }
     }
@@ -3615,6 +3671,7 @@
         add('镜像', runtime.imageReference, runtime.imageReference);
       } else if (entity.type === 'endpoint') {
         add('访问地址', runtime.url || entity.details.urlLabel);
+        add('网站标题', runtime.pageTitle);
         add('HTTP 响应', runtime.httpStatus);
         add('HTTP 延迟', Number.isFinite(runtime.latencyMs) ? `${runtime.latencyMs} ms` : '未取得');
         add('最后检测', runtime.observedAt ? this._relativeTime(runtime.observedAt) : '尚未检测', runtime.observedAt);

@@ -818,19 +818,6 @@ body {
   .status-work-spinner { animation: none; }
 }
 
-.status-version {
-  font-family: 'SF Mono', Monaco, monospace;
-  font-size: 10px;
-  color: var(--text-tertiary);
-  cursor: pointer;
-  opacity: 0.8;
-}
-
-.status-version:hover {
-  opacity: 1;
-  color: var(--text-secondary);
-}
-
 .status-update-btn {
   border: none;
   background: transparent;

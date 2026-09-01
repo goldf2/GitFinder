@@ -132,6 +132,12 @@
   font-weight: 800;
 }
 
+.gf-flow-card-icon svg {
+  display: block;
+  width: 24px;
+  height: 24px;
+}
+
 .gf-flow-card-heading {
   display: grid;
   flex: 1 1 auto;

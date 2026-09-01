@@ -302,13 +302,11 @@
       popover.hidden = !popover.hidden; trigger.setAttribute('aria-expanded', popover.hidden ? 'false' : 'true');
       if (!popover.hidden) {
         controller._closeFilterPopover(); controller._closeAddMenu(); controller._syncDisplayForm();
-        popover.style.transform = '';
-        const rect = popover.getBoundingClientRect(), view = popover.ownerDocument.defaultView;
-        popover.style.transform = `translateX(${Math.max(12 - rect.left, Math.min(0, view.innerWidth - 12 - rect.right))}px)`;
-        popover.style.maxHeight = `${Math.max(160, view.innerHeight - rect.top - 12)}px`;
+        queueMicrotask(() => popover.querySelector('[data-relationship-action="close-display-settings"]')?.focus());
       }
       return;
     }
+    if (action === 'close-display-settings') { controller._closeDisplayPopover(true); return; }
     if (action === 'close-resource-panel') {
       controller.resourcePanelVisible = false; controller._syncResourcePanelVisibility(); return;
     }
@@ -395,6 +393,20 @@
     const editing = event.target?.isContentEditable
       || event.target?.closest?.('input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"]');
     const mod = event.metaKey || event.ctrlKey;
+    const displayDialog = controller.root.querySelector('.relationship-display-popover:not([hidden])');
+    if (displayDialog) {
+      if (event.key === 'Escape') {
+        event.preventDefault(); controller._closeDisplayPopover(true); return;
+      }
+      if (event.key === 'Tab') {
+        const focusable = [...displayDialog.querySelectorAll('button:not(:disabled), input:not(:disabled), select:not(:disabled), [tabindex]:not([tabindex="-1"])')]
+          .filter(item => item.getClientRects().length > 0);
+        const active = displayDialog.ownerDocument.activeElement;
+        if (focusable.length && ((event.shiftKey && active === focusable[0]) || (!event.shiftKey && active === focusable.at(-1)))) {
+          event.preventDefault(); (event.shiftKey ? focusable.at(-1) : focusable[0]).focus();
+        }
+      }
+    }
     if (event.key === 'Escape' && !controller.root.querySelector('.relationship-filter-popover')?.hidden) {
       event.preventDefault();
       controller._closeFilterPopover();

@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const source = fs.readFileSync(path.join(__dirname, '../src/renderer/relationship-canvas/index.jsx'), 'utf8');
+const cardIconSource = fs.readFileSync(path.join(__dirname, '../src/renderer/relationship-canvas/CardIcon.jsx'), 'utf8');
 const canvasCss = fs.readFileSync(path.join(__dirname, '../src/renderer/relationship-canvas/relationshipCanvas.css'), 'utf8');
 const fixture = fs.readFileSync(path.join(__dirname, '../scripts/visual-fixtures/relationship-flow-engine.js'), 'utf8');
 const rendererHtml = fs.readFileSync(path.join(__dirname, '../src/renderer/index.html'), 'utf8');
@@ -84,6 +85,26 @@ test('访问点由新引擎显示 HTTP 摘要，并支持卡片和隔离网页�
   assert.match(source, /referrerPolicy="no-referrer"/);
   assert.match(controllerSource, /placement\.endpointView === 'web'/);
   assert.match(controllerSource, /delete placement\.endpointView/);
+});
+
+test('卡片底部操作复用统一事件按钮，避免详情打开后被节点点击立即关闭', () => {
+  assert.match(source, /<ToolbarButton data=\{data\} action="details" entity=\{entity\}>详情<\/ToolbarButton>/);
+  assert.match(source, /<ToolbarButton data=\{data\} action="toggle-endpoint-view" entity=\{entity\}>/);
+  assert.match(source, /<ToolbarButton data=\{data\} action="open-endpoint" entity=\{entity\}>访问<\/ToolbarButton>/);
+  assert.doesNotMatch(source, /<button[^>]+onClick=\{\(\) => data\.onAction\?\.\('details'/);
+});
+
+test('资源卡复用内部线性 SVG 图标且关闭图标时不保留空占位', () => {
+  assert.match(source, /import CardIcon, \{ defaultCardIcon \} from '\.\/CardIcon'/);
+  assert.match(cardIconSource, /function CardIcon\(\{ name \}\)/);
+  for (const icon of ['server', 'deployment', 'endpoint', 'repository', 'project', 'database', 'service']) {
+    if (icon === 'service') assert.match(cardIconSource, /data-card-icon="service"/);
+    else assert.match(cardIconSource, new RegExp(`name === '${icon}'`));
+  }
+  assert.match(cardIconSource, /data-card-icon=\{name\}/);
+  assert.match(source, /iconKey !== 'none' \? <span className="gf-flow-card-icon"/);
+  assert.match(canvasCss, /\.gf-flow-card-icon svg\s*\{[^}]*display:\s*block[^}]*width:\s*24px[^}]*height:\s*24px/s);
+  assert.doesNotMatch(source, /entityGlyph/);
 });
 
 test('文字、图片和附件由新引擎直接渲染并保留编辑入口', () => {

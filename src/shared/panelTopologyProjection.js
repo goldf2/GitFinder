@@ -837,6 +837,7 @@
       latencyMs: check.latencyMs ?? null,
       observedAt: check.checkedAt || null,
       checkMessage: check.message || '',
+      pageTitle: String(check.pageTitle || '').slice(0, 160),
       checking: check.checking === true
     };
   }

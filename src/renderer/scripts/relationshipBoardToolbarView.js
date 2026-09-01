@@ -10,9 +10,10 @@
   const slider = ({ key, label, value, output, min, max, step, data, aria = label }, escape) => `<label class="relationship-display-slider"><span><b>${label}</b><output data-${data}>${escape(output)}</output></span><input name="${key}" type="range" min="${min}" max="${max}" step="${step}" value="${escape(value)}" aria-label="${aria}"></label>`;
   const select = (name, label, value, items, escape) => `<label class="relationship-display-select"><span>${label}</span><select name="${name}">${items.map(item => option(item[0], item[1], value, escape)).join('')}</select></label>`;
 
-  function displayPopover({ view, boardView, serverTree, icon, escapeHtml: escape }) {
+  function displayPopover({ view, boardView, serverTree, icon, cardIconOptions = [], escapeHtml: escape }) {
     const percent = value => `${Math.round(value * 100)}%`;
     const px = value => `${Math.round(value)} px`;
+    const cardIcons = { server: 'server', deployment: 'deployment', endpoint: 'endpoint', repository: 'repository', project: 'project', ...(view.cardIcons || {}) };
     const sliders = [
       { key: 'cardScale', label: '卡片大小', value: view.cardScale, output: percent(view.cardScale), min: .8, max: 1.4, step: .05, data: 'display-card-scale' },
       { key: 'textScale', label: '文字大小', value: view.textScale, output: percent(view.textScale), min: .85, max: 1.3, step: .05, data: 'display-text-scale' },
@@ -27,23 +28,22 @@
       { key: 'filterMatchHaloOpacity', label: '命中高亮', value: view.filterMatchHaloOpacity, output: percent(view.filterMatchHaloOpacity), min: 0, max: .6, step: .01, data: 'display-match-halo', aria: '筛选命中高亮强度' }
     ];
     return `<div class="relationship-display-host">
-      <button class="relationship-tool-button relationship-display-trigger relationship-icon-tool" data-relationship-action="toggle-display-menu" type="button" aria-label="显示设置" title="显示设置：卡片大小、间距与颜色" aria-haspopup="dialog" aria-expanded="false">${icon}</button>
-      <div class="relationship-display-popover" role="dialog" aria-label="调整白板显示" hidden><form data-relationship-display-form>
-        <header><strong>白板显示</strong><small>只影响当前白板，不修改资源数据</small></header>
-        ${select('mode', '信息密度', view.mode, [['full', '完整'], ['compact', '精简']], escape)}
-        ${sliders.slice(0, 5).map(item => slider(item, escape)).join('')}<small>宽高随卡片缩放比例变化；详情按内容增高，文字和图片元素单独调节。</small>
-        ${sliders.slice(5, 7).map(item => slider(item, escape)).join('')}<small>调整尺寸或间距时，列间距与群组边界同步适配；手动群组保留排列顺序和额外留白。</small>
-        ${sliders.slice(7).map(item => slider(item, escape)).join('')}
-        ${select('cardAppearance', '卡片层次', view.cardAppearance, [['elevated', '层次阴影'], ['flat', '简洁平面']], escape)}
-        ${select('projectGroupShape', 'Project 容器形状', view.projectGroupShape, [['rounded', '矩形'], ['polygon', '多边形']], escape)}
-        <small>只改变容器外观，不改变 Project 归属或当前布局方式。</small>
-        ${select('cardTitleSource', '默认标题内容', view.cardTitleSource, [['name', '资源名称'], ['note', '卡片备注']], escape)}
-        <div class="relationship-display-toggles">
-          ${serverTree ? `<label><input name="projectGroupIncludesEndpoints" data-project-endpoints type="checkbox"${boardView.projectGroupIncludesEndpoints ? ' checked' : ''}><span>项目组包含访问点</span></label><small>开启后独占访问点放入项目容器；关闭后位于容器外。共享访问点保持独立。</small>` : ''}
-          <label><input name="showGrid" type="checkbox"${view.showGrid ? ' checked' : ''}><span>显示画布网格</span></label>
-          <label><input name="showEdgeLabels" type="checkbox"${view.showEdgeLabels ? ' checked' : ''}><span>显示关系文字</span></label>
-          <label><input name="showRuntimeStatus" type="checkbox"${view.showRuntimeStatus ? ' checked' : ''}><span>显示服务状态</span></label>
-        </div><footer><button type="button" data-relationship-action="reset-display-settings">恢复默认显示</button></footer>
+      <button class="relationship-tool-button relationship-display-trigger relationship-icon-tool" data-relationship-action="toggle-display-menu" type="button" aria-label="显示设置" title="显示设置：标题、卡片、布局与画布" aria-haspopup="dialog" aria-expanded="false">${icon}</button>
+      <div class="relationship-display-popover" role="dialog" aria-modal="true" aria-labelledby="relationship-display-title" hidden tabindex="-1"><form data-relationship-display-form>
+        <header class="relationship-display-header"><span><strong id="relationship-display-title" tabindex="-1">显示设置</strong><small>保存到当前白板；单张卡片可在详情中覆盖标题与图标</small></span><button type="button" data-relationship-action="close-display-settings" aria-label="关闭显示设置">×</button></header>
+        <div class="relationship-display-sections">
+          <section class="relationship-display-section"><header><h3>卡片与文字</h3><p>控制信息密度、尺寸和文字层级</p></header>${select('mode', '信息密度', view.mode, [['full', '完整'], ['compact', '精简']], escape)}${sliders.slice(0, 5).map(item => slider(item, escape)).join('')}</section>
+          <section class="relationship-display-section"><header><h3>布局与间距</h3><p>自动排列和容器边界使用同一组间距</p></header>${sliders.slice(5, 7).map(item => slider(item, escape)).join('')}${select('projectGroupShape', 'Project 容器形状', view.projectGroupShape, [['rounded', '矩形'], ['polygon', '多边形']], escape)}</section>
+          <section class="relationship-display-section"><header><h3>命名来源</h3><p>白板默认不改写部署、域名等事实名称</p></header>${select('cardTitleSource', '其他卡片', view.cardTitleSource, [['name', '资源名称'], ['note', '卡片备注']], escape)}${select('deploymentTitleSource', '部署点', view.deploymentTitleSource, [['name', '部署名称'], ['note', '备注描述']], escape)}${select('endpointTitleSource', '访问点', view.endpointTitleSource, [['domain', '域名'], ['website', '网站标题']], escape)}</section>
+          <section class="relationship-display-section"><header><h3>图标与识别</h3><p>类型默认图标；单张卡片可在详情中覆盖</p></header>${select('cardIcon-server', '主机', cardIcons.server, cardIconOptions, escape)}${select('cardIcon-deployment', '部署点', cardIcons.deployment, cardIconOptions, escape)}${select('cardIcon-endpoint', '访问点', cardIcons.endpoint, cardIconOptions, escape)}${select('cardIcon-repository', 'Git 仓库', cardIcons.repository, cardIconOptions, escape)}${select('cardIcon-project', '项目', cardIcons.project, cardIconOptions, escape)}</section>
+          <section class="relationship-display-section"><header><h3>状态与外观</h3><p>调整卡片层次、状态色和筛选强调</p></header>${select('cardAppearance', '卡片层次', view.cardAppearance, [['elevated', '层次阴影'], ['flat', '简洁平面']], escape)}${sliders.slice(7).map(item => slider(item, escape)).join('')}</section>
+          <section class="relationship-display-section relationship-display-section-wide"><header><h3>画布与关系</h3><p>这些选项只改变呈现，不修改关系事实</p></header><div class="relationship-display-toggles">
+            ${serverTree ? `<label><input name="projectGroupIncludesEndpoints" data-project-endpoints type="checkbox"${boardView.projectGroupIncludesEndpoints ? ' checked' : ''}><span>项目组包含访问点</span></label><small>独占访问点进入项目容器；共享访问点保持独立。</small>` : ''}
+            <label><input name="showGrid" type="checkbox"${view.showGrid ? ' checked' : ''}><span>显示画布网格</span></label>
+            <label><input name="showEdgeLabels" type="checkbox"${view.showEdgeLabels ? ' checked' : ''}><span>显示关系文字</span></label>
+            <label><input name="showRuntimeStatus" type="checkbox"${view.showRuntimeStatus ? ' checked' : ''}><span>显示服务状态</span></label>
+          </div></section>
+        </div><footer><button type="button" data-relationship-action="reset-display-settings">恢复默认显示</button><button class="relationship-display-done" type="button" data-relationship-action="close-display-settings">完成</button></footer>
       </form></div></div>`;
   }
 

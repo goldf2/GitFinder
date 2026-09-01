@@ -29,6 +29,9 @@ const displayView = Object.freeze({
   cardAppearance: 'flat',
   projectGroupShape: 'polygon',
   cardTitleSource: 'note',
+  deploymentTitleSource: 'note',
+  endpointTitleSource: 'website',
+  cardIcons: { server: 'server', deployment: 'database', endpoint: 'none', repository: 'repository', project: 'project' },
   showGrid: true,
   showEdgeLabels: false,
   showRuntimeStatus: true,
@@ -39,11 +42,13 @@ const displayView = Object.freeze({
 });
 
 test('显示弹层由纯视图模块按当前白板状态生成', () => {
+  const cardIconOptions = [['none', '不显示'], ['server', '主机'], ['deployment', '部署'], ['endpoint', '访问 / 地球'], ['repository', 'Git 分支'], ['project', '项目 / 文件夹'], ['database', '数据库'], ['service', '服务 / 方块']];
   const html = ToolbarView.displayPopover({
     view: displayView,
     boardView: { projectGroupIncludesEndpoints: true },
     serverTree: true,
     icon: '<svg data-icon="display"></svg>',
+    cardIconOptions,
     escapeHtml
   });
 
@@ -53,6 +58,18 @@ test('显示弹层由纯视图模块按当前白板状态生成', () => {
   assert.match(html, /data-display-card-scale>110%/);
   assert.match(html, /name="groupTitleFontSize"[^>]+value="24"/);
   assert.match(html, /name="projectGroupShape"[\s\S]*?<option value="polygon" selected>/);
+  assert.match(html, /role="dialog"[^>]+aria-modal="true"/);
+  assert.match(html, /id="relationship-display-title"/);
+  assert.match(html, /class="relationship-display-section"[\s\S]*?卡片与文字/);
+  assert.match(html, /class="relationship-display-section"[\s\S]*?布局与间距/);
+  assert.match(html, /class="relationship-display-section"[\s\S]*?命名来源/);
+  assert.match(html, /name="deploymentTitleSource"[\s\S]*?<option value="note" selected>备注描述<\/option>/);
+  assert.match(html, /name="endpointTitleSource"[\s\S]*?<option value="website" selected>网站标题<\/option>/);
+  assert.match(html, /图标与识别/);
+  assert.match(html, /name="cardIcon-deployment"[\s\S]*?<option value="database" selected>数据库<\/option>/);
+  assert.match(html, /name="cardIcon-endpoint"[\s\S]*?<option value="none" selected>不显示<\/option>/);
+  for (const type of ['server', 'deployment', 'endpoint', 'repository', 'project']) assert.match(html, new RegExp(`name="cardIcon-${type}"`));
+  assert.match(html, /data-relationship-action="close-display-settings"/);
   assert.match(html, /name="projectGroupIncludesEndpoints"[^>]+checked/);
   assert.match(html, /name="showGrid"[^>]+checked/);
   assert.doesNotMatch(html, /name="showEdgeLabels"[^>]+checked/);
@@ -62,6 +79,7 @@ test('显示弹层由纯视图模块按当前白板状态生成', () => {
     boardView: { projectGroupIncludesEndpoints: true },
     serverTree: false,
     icon: '',
+    cardIconOptions,
     escapeHtml
   });
   assert.doesNotMatch(nonTreeHtml, /name="projectGroupIncludesEndpoints"/);
@@ -119,9 +137,11 @@ test('正式页面与全部关系白板夹具均先加载工具栏视图再加�
   ];
   for (const page of pages) {
     const html = read(page);
+    const presentationIndex = html.indexOf('htmlPresentation.js');
     const toolbarIndex = html.indexOf('relationshipBoardToolbarView.js');
     const controllerIndex = html.indexOf('relationshipBoardController.js');
+    assert.ok(presentationIndex >= 0, `${page} 应加载安全呈现模块`);
     assert.ok(toolbarIndex >= 0, `${page} 应加载工具栏视图`);
-    assert.ok(controllerIndex > toolbarIndex, `${page} 应在工具栏视图之后加载控制器`);
+    assert.ok(controllerIndex > Math.max(presentationIndex, toolbarIndex), `${page} 应在安全呈现和工具栏视图之后加载控制器`);
   }
 });

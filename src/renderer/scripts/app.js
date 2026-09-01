@@ -2938,7 +2938,6 @@ const App = {
       // 点击拖拽手柄不触发折叠
       if (e.target.classList.contains('sidebar-drag-handle')) return;
       // 点击操作按钮不触发折叠
-      if (e.target.closest('.sidebar-tree-btn')) return;
       // 点击 sidebar-title 内的任意位置(箭头、文字)触发折叠
       const title = e.target.closest('.sidebar-title');
       if (!title) return;
@@ -5313,116 +5312,9 @@ const App = {
     this._showStatusMessage(`已创建 ${createdCount} 个控制文件${failedCount ? `，${failedCount} 个项目失败` : ''}`);
   },
 
-  getProjectCardShell(repo) {
-    const status = repo.gitStatus || {};
-    const overallStatus = status.overallStatus || 'clean';
-    const branch = status.branch || '';
-    const path = this.escapeHtml(repo.path);
-    return `
-      <div class="project-card status-${overallStatus}" data-path="${path}">
-        <div class="project-card-head">
-          <div class="project-card-title">
-            <span class="status-indicator status-${overallStatus}"></span>
-            <span>${this.escapeHtml(repo.name)}</span>
-          </div>
-          <span class="project-branch">${this.escapeHtml(branch || 'main')}</span>
-        </div>
-        <div class="project-card-path" title="${path}">${path}</div>
-        <div class="project-card-loading">
-          <div class="loading-spinner small"></div>
-          <span>读取项目控制文件...</span>
-        </div>
-      </div>
-    `;
-  },
-
-  bindProjectCardEvents(container) {
-    container.querySelectorAll('.project-card').forEach(card => {
-      card.addEventListener('click', (event) => {
-        const initButton = event.target.closest('.project-control-init-btn');
-        if (initButton) {
-          event.stopPropagation();
-          this.initializeProjectCardControlFiles(card.dataset.path);
-          return;
-        }
-        this.selectRepo(card.dataset.path);
-      });
-    });
-  },
-
-  async loadProjectCards(repos) {
-    const savedSelections = await window.gitFinder.config.get('projectControlSelections');
-    await Promise.all(repos.map(async repo => {
-      const card = document.querySelector(`.project-card[data-path="${this.cssEscape(repo.path)}"]`);
-      if (!card) return;
-      try {
-        const files = await window.gitFinder.fs.listProjectControlFiles(repo.path);
-        const control = await this.loadProjectControl(repo.path, files, savedSelections?.[repo.path]);
-        card.innerHTML = this.getProjectCardContent(repo, control);
-      } catch (error) {
-        card.classList.add('unavailable');
-        card.innerHTML = this.getProjectCardUnavailableContent(repo, error);
-      }
-    }));
-  },
-
-  getProjectCardUnavailableContent(repo, error) {
-    const message = this.isMissingProjectPathError(error)
-      ? '项目目录不存在，可能已移动或删除'
-      : '控制文件暂时无法读取';
-    return `
-      <div class="project-card-head">
-        <div class="project-card-title">
-          <span class="status-indicator status-none"></span>
-          <span>${this.escapeHtml(repo.name)}</span>
-        </div>
-        <span class="project-branch">${this.escapeHtml(repo.gitStatus?.branch || 'main')}</span>
-      </div>
-      <div class="project-card-path" title="${this.escapeHtml(repo.path)}">${this.escapeHtml(repo.path)}</div>
-      <div class="project-card-unavailable">
-        <div class="project-mini-label">状态</div>
-        <div>${this.escapeHtml(message)}</div>
-      </div>
-    `;
-  },
-
   isMissingProjectPathError(error) {
     const message = String(error?.message || error || '');
     return /项目目录不存在|no such file|ENOENT|not found/i.test(message);
-  },
-
-  getProjectCardContent(repo, control) {
-    const model = this.buildProjectControlModel(control);
-    const summary = this.getProjectSummary(model);
-    const missingFiles = this.getMissingProjectControlFiles(control).length;
-    return `
-      <div class="project-card-head">
-        <div class="project-card-title">
-          <span class="status-indicator status-${repo.gitStatus?.overallStatus || 'clean'}"></span>
-          <span>${this.escapeHtml(repo.name)}</span>
-        </div>
-        <span class="project-branch">${this.escapeHtml(repo.gitStatus?.branch || 'main')}</span>
-      </div>
-      <div class="project-card-path" title="${this.escapeHtml(repo.path)}">${this.escapeHtml(repo.path)}</div>
-      <div class="project-goal-box">
-        <div class="project-mini-label">目标</div>
-        <div class="project-goal-text">${this.escapeHtml(summary.goalText)}</div>
-      </div>
-      <div class="project-stat-row">
-        <div class="project-stat"><span>${summary.progressDone}/${summary.progressTotal}</span><em>进度</em></div>
-        <div class="project-stat"><span>${summary.milestoneDone}/${summary.milestoneTotal}</span><em>里程碑</em></div>
-        <div class="project-stat ${summary.blockedCount > 0 ? 'warn' : ''}"><span>${summary.blockedCount}</span><em>阻塞</em></div>
-      </div>
-      ${this.renderProjectGantt(model)}
-      <div class="project-card-files">
-        <span>${this.escapeHtml(control.selections.goalsFile)}</span>
-        <span>${this.escapeHtml(control.selections.progressFile)}</span>
-        <span>${this.escapeHtml(control.selections.milestoneFile)}</span>
-      </div>
-      ${missingFiles > 0 ? `
-        <button class="project-control-init-btn" type="button">初始化控制文件</button>
-      ` : ''}
-    `;
   },
 
   buildProjectControlModel(control) {
@@ -5442,52 +5334,6 @@ const App = {
     const milestoneDone = model.milestones.filter(item => this.isDoneStatus(item.status)).length;
     const blockedCount = model.progress.filter(item => /阻塞|blocked|block/i.test(item.status || item.blocker || item.blockers || '')).length;
     return { goalText, progressTotal, progressDone, milestoneTotal, milestoneDone, blockedCount };
-  },
-
-  renderProjectGantt(model) {
-    const rows = [...model.progress, ...model.milestones].map((item, index) => {
-      const start = this.parseProjectDate(item.start || item.startDate || item.date || item.日期 || item['开始']);
-      const end = this.parseProjectDate(item.end || item.endDate || item.due || item.deadline || item.date || item.日期 || item['结束'] || item['截止']);
-      const title = item.title || item.phase || item.stage || item.milestone || item.name || item.阶段 || item.里程碑 || `节点 ${index + 1}`;
-      return { ...item, start, end, title };
-    }).filter(item => item.start || item.end).slice(0, 8);
-
-    if (!rows.length) {
-      return '<div class="project-gantt-empty">暂无可绘制的日期节点</div>';
-    }
-
-    const times = rows.flatMap(item => [item.start, item.end]).filter(Boolean).map(date => date.getTime());
-    const min = Math.min(...times);
-    const max = Math.max(...times);
-    const span = Math.max(max - min, 86400000);
-    const today = Date.now();
-    const todayLeft = today >= min && today <= max ? ((today - min) / span) * 100 : null;
-
-    return `
-      <div class="project-gantt">
-        <div class="project-gantt-scale">
-          <span>${this.formatDateShort(new Date(min))}</span>
-          <span>${this.formatDateShort(new Date(max))}</span>
-        </div>
-        <div class="project-gantt-track">
-          ${todayLeft === null ? '' : `<span class="project-gantt-today" style="left:${todayLeft}%"></span>`}
-          ${rows.map(item => {
-            const start = (item.start || item.end).getTime();
-            const end = (item.end || item.start).getTime();
-            const left = Math.max(0, ((Math.min(start, end) - min) / span) * 100);
-            const width = Math.max(3, (Math.abs(end - start) / span) * 100);
-            const done = this.isDoneStatus(item.status);
-            return `
-              <div class="project-gantt-row">
-                <span class="project-gantt-label" title="${this.escapeHtml(item.title)}">${this.escapeHtml(item.title)}</span>
-                <span class="project-gantt-line">
-                  <span class="project-gantt-bar ${done ? 'done' : ''}" style="left:${left}%;width:${width}%"></span>
-                </span>
-              </div>`;
-          }).join('')}
-        </div>
-      </div>
-    `;
   },
 
   // 按选中分类过滤仓库
@@ -7956,31 +7802,6 @@ const App = {
       this.updateProgressSaveStatus(created.length ? `已创建 ${created.length} 个控制文件` : '控制文件已存在');
     } catch (error) {
       this.updateProgressSaveStatus(`初始化失败：${error.message || error}`);
-    }
-  },
-
-  async initializeProjectCardControlFiles(repoPath) {
-    const card = document.querySelector(`.project-card[data-path="${this.cssEscape(repoPath)}"]`);
-    if (!card) return;
-    const button = card.querySelector('.project-control-init-btn');
-    if (button) {
-      button.disabled = true;
-      button.textContent = '初始化中...';
-    }
-    try {
-      const savedSelections = await window.gitFinder.config.get('projectControlSelections');
-      const files = await window.gitFinder.fs.listProjectControlFiles(repoPath);
-      const control = await this.loadProjectControl(repoPath, files, savedSelections?.[repoPath]);
-      await this.initializeProjectControlFiles(repoPath, control);
-      const nextFiles = await window.gitFinder.fs.listProjectControlFiles(repoPath);
-      const nextControl = await this.loadProjectControl(repoPath, nextFiles, control.selections);
-      const repo = (AppState.enrichedRepos.length ? AppState.enrichedRepos : AppState.allRepos).find(item => item.path === repoPath) || { path: repoPath, name: repoPath.split(/[\\/]/).pop() };
-      card.classList.remove('unavailable');
-      card.innerHTML = this.getProjectCardContent(repo, nextControl);
-    } catch (error) {
-      card.classList.add('unavailable');
-      const repo = (AppState.enrichedRepos.length ? AppState.enrichedRepos : AppState.allRepos).find(item => item.path === repoPath) || { path: repoPath, name: repoPath.split(/[\\/]/).pop() };
-      card.innerHTML = this.getProjectCardUnavailableContent(repo, error);
     }
   },
 

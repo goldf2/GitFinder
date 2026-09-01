@@ -99,7 +99,7 @@ function createHarness(t) {
 test('访问点检测独立于拓扑加载，只能重测已发现地址，断开后撤销目标', async t => {
   const { service } = createHarness(t);
   const probes = [];
-  service.endpointHealth.probe = async url => { probes.push(url); return { status: 'reachable', httpStatus: 200, latencyMs: 42, checkedAt: '2026-08-31T01:00:00Z' }; };
+  service.endpointHealth.probe = async url => { probes.push(url); return { status: 'reachable', httpStatus: 200, latencyMs: 42, checkedAt: '2026-08-31T01:00:00Z', pageTitle: 'MES 控制台' }; };
   const provider = await service.connect({ baseUrl: 'https://cool.example.com', token: 'fixture-read-token' });
   const topology = await service.getTopology();
   assert.deepEqual(probes, []);
@@ -108,6 +108,7 @@ test('访问点检测独立于拓扑加载，只能重测已发现地址，断�
   assert.equal(service.checkEndpoints().pending, 1);
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(service.getEndpointChecks().checks[0].httpStatus, 200);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(service.configDirectory, 'coolify-topology-cache.json'), 'utf8')).snapshot.topology.endpointChecks[0].pageTitle, 'MES 控制台');
   assert.deepEqual(probes, ['https://mes.example.com/']);
   assert.doesNotMatch(JSON.stringify(service.getEndpointChecks()), /token|Authorization/);
   assert.equal((await service.getTopology()).topology.endpointChecks[0].latencyMs, 42);

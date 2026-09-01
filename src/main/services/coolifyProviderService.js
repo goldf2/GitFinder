@@ -412,6 +412,7 @@ class CoolifyProviderService {
     this.providers = null;
     this.allowedExternalUrls = new Set();
     this.endpointHealth = options.endpointHealth || new EndpointHealthService();
+    this.endpointChecksCacheKey = '';
   }
 
   _configDirectory() {
@@ -792,7 +793,23 @@ class CoolifyProviderService {
 
   checkEndpoints(values = {}) { return this.endpointHealth.start(values); }
 
-  getEndpointChecks() { return this.endpointHealth.snapshot(); }
+  getEndpointChecks() {
+    const snapshot = this.endpointHealth.snapshot();
+    if (!snapshot.pending) {
+      const cacheKey = JSON.stringify(snapshot.checks);
+      if (cacheKey !== this.endpointChecksCacheKey) {
+        try {
+          const envelope = this._readTopologyCacheEnvelope();
+          if (envelope) {
+            envelope.snapshot.topology.endpointChecks = snapshot.checks;
+            writeJsonAtomic(this._topologyCachePath(), envelope);
+            this.endpointChecksCacheKey = cacheKey;
+          }
+        } catch (_) {}
+      }
+    }
+    return snapshot;
+  }
 
   _bindingsPath(directory) { return path.join(directory, '.gitfinder', 'deployments.json'); }
 

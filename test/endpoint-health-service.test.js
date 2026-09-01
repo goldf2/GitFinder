@@ -11,9 +11,17 @@ function transport(responses, calls = []) {
       calls.push({ url: url.href, options });
       const value = responses.shift();
       if (value instanceof Error) return req.emit('error', value);
-      const res = { statusCode: value.status, headers: value.headers || {}, destroy: () => { res.destroyed = true; } };
+      const res = new EventEmitter();
+      Object.assign(res, { statusCode: value.status, headers: value.headers || {}, destroyed: false });
+      res.destroy = () => { res.destroyed = true; };
       callback(res);
-      assert.equal(res.destroyed, true, '不下载响应正文');
+      if (!res.destroyed) {
+        for (const chunk of Array.isArray(value.body) ? value.body : [value.body || '']) {
+          if (!res.destroyed && chunk) res.emit('data', Buffer.from(chunk));
+        }
+        if (!res.destroyed) res.emit('end');
+      }
+      assert.equal(res.destroyed, true, '检测完成后必须立即关闭响应流');
     });
     return req;
   };
@@ -35,6 +43,33 @@ test('HTTP 检测跟随公开重定向，不支持 HEAD 时只读 GET，不携�
     assert.equal(error, null);
     assert.deepEqual(addresses, [{ address: '93.184.216.34', family: 4 }]);
   });
+});
+
+test('HTML 访问点只读取有界正文标题并清理外部标记', async () => {
+  const calls = [];
+  const result = await probeEndpoint('https://site.example/app', {
+    lookup: publicLookup,
+    request: transport([
+      { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' } },
+      { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' }, body: [
+        '<!doctype html><html><head><title>  GitFinder &amp; ',
+        '<b>部署</b>  </title><script>secret()</script></head></html>'
+      ] }
+    ], calls)
+  });
+  assert.equal(result.status, 'reachable');
+  assert.equal(result.pageTitle, 'GitFinder & 部署');
+  assert.deepEqual(calls.map(call => call.options.method), ['HEAD', 'GET']);
+  assert.match(calls[1].options.headers.Accept, /text\/html/);
+  assert.ok(calls.every(call => !Object.keys(call.options.headers).some(key => /authorization|cookie|token/i.test(key))));
+
+  const jsonCalls = [];
+  const json = await probeEndpoint('https://api.example/data', {
+    lookup: publicLookup,
+    request: transport([{ status: 200, headers: { 'content-type': 'application/json' } }], jsonCalls)
+  });
+  assert.equal(json.pageTitle, '');
+  assert.deepEqual(jsonCalls.map(call => call.options.method), ['HEAD']);
 });
 
 test('401/403 为受限，404/500 为 HTTP 异常，不能伪装成正常', async () => {

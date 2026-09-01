@@ -85,10 +85,13 @@ test('访问点只使用独立 HTTP 检测结果和时间，不能继承部署�
   assert.equal(endpoint.runtime.latencyMs, null);
   assert.equal(endpoint.verifiedAt, '');
   const checked = buildProjection({ ...input, topology: { ...topology, endpointChecks: [{
-    providerId: 'coolify_one', url: 'https://mes.example.com', status: 'http_error', httpStatus: 503, latencyMs: 55, checkedAt: '2026-08-31T02:00:00Z', message: 'HTTP 503'
+    providerId: 'coolify_one', url: 'https://mes.example.com', status: 'http_error', httpStatus: 503, latencyMs: 55,
+    checkedAt: '2026-08-31T02:00:00Z', message: 'HTTP 503', pageTitle: 'MES 生产中心'
   }] } });
   const result = checked.entities.find(entity => entity.type === 'endpoint');
   assert.equal(result.id, endpoint.id);
+  assert.equal(result.name, 'mes.example.com');
+  assert.equal(result.runtime.pageTitle, 'MES 生产中心');
   assert.equal(result.runtime.httpStatus, 503);
   assert.equal(result.runtime.observedAt, '2026-08-31T02:00:00Z');
   assert.equal(result.runtime.checkMessage, 'HTTP 503');

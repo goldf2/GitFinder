@@ -21,6 +21,7 @@ import {
 import '@xyflow/react/dist/style.css';
 import './relationshipCanvas.css';
 import Adapter from '../../shared/relationshipFlowAdapter';
+import CardIcon, { defaultCardIcon } from './CardIcon';
 
 const HANDLE_POSITIONS = {
   top: Position.Top,
@@ -59,10 +60,6 @@ function ConnectionHandles({ nodeId, handles = [] }) {
       ? { top: `${handle.offset}%` }
       : { left: `${handle.offset}%` }}
   />);
-}
-
-function entityGlyph(type) {
-  return { server: '▰', deployment: '◆', endpoint: '↗', repository: '⑂', text: 'T', note: 'T', image: '▧', attachment: '⌁' }[type] || '•';
 }
 
 function entityKind(type) {
@@ -143,6 +140,7 @@ const RelationshipCard = memo(function RelationshipCard({ id, data, selected }) 
   const showsEndpointPreview = entity.type === 'endpoint' && data.placement.endpointView === 'web' && endpointUrl;
   const isCanvasElement = ['text', 'image', 'attachment'].includes(entity.type);
   const deploymentMeta = deploymentSignals(entity);
+  const iconKey = entity.iconKey || defaultCardIcon(entity.type);
   if (isCanvasElement) return <article className={`gf-flow-canvas-element is-${entity.type}${selected ? ' is-selected' : ''}`}>
     <ConnectionHandles nodeId={id} handles={data.connectionHandles} />
     <NodeToolbar isVisible={selected} className="gf-flow-node-toolbar" position={Position.Bottom} offset={12}>
@@ -169,7 +167,7 @@ const RelationshipCard = memo(function RelationshipCard({ id, data, selected }) 
     </NodeToolbar>
     <div className="gf-flow-card-accent" />
     <header>
-      <span className="gf-flow-card-icon" aria-hidden="true">{entityGlyph(entity.type)}</span>
+      {iconKey !== 'none' ? <span className="gf-flow-card-icon" aria-hidden="true"><CardIcon name={iconKey} /></span> : null}
       <span className="gf-flow-card-heading">
         <small>{entityKind(entity.type)}</small>
         <strong title={entity.name}>{entity.name}</strong>
@@ -189,10 +187,10 @@ const RelationshipCard = memo(function RelationshipCard({ id, data, selected }) 
       <span>{entityUpdatedLabel(entity)}</span>
       {entity.type === 'endpoint' && endpointUrl
         ? <span className="gf-flow-endpoint-actions">
-          <button type="button" className="nodrag nopan" onClick={() => data.onAction?.('toggle-endpoint-view', entity)}>{showsEndpointPreview ? '卡片' : '预览'}</button>
-          <button type="button" className="nodrag nopan" onClick={() => data.onAction?.('open-endpoint', entity)}>访问</button>
+          <ToolbarButton data={data} action="toggle-endpoint-view" entity={entity}>{showsEndpointPreview ? '卡片' : '预览'}</ToolbarButton>
+          <ToolbarButton data={data} action="open-endpoint" entity={entity}>访问</ToolbarButton>
         </span>
-        : <button type="button" className="nodrag nopan" onClick={() => data.onAction?.('details', entity)}>详情</button>}
+        : <ToolbarButton data={data} action="details" entity={entity}>详情</ToolbarButton>}
     </footer>
   </article>;
 });

@@ -5,6 +5,7 @@ const path = require('node:path');
 
 const ActionRouter = require('../src/renderer/scripts/relationshipBoardActionRouter');
 const controllerSource = fs.readFileSync(path.join(__dirname, '../src/renderer/scripts/relationshipBoardController.js'), 'utf8');
+const actionRouterSource = fs.readFileSync(path.join(__dirname, '../src/renderer/scripts/relationshipBoardActionRouter.js'), 'utf8');
 globalThis.RelationshipGraphModel = require('../src/shared/relationshipGraphModel');
 const { Controller } = require('../src/renderer/scripts/relationshipBoardController');
 
@@ -105,4 +106,11 @@ test('正式页面和全部白板夹具均先加载动作路由再加载控制�
     const source = fs.readFileSync(path.join(root, file), 'utf8');
     assert.ok(source.indexOf('relationshipBoardActionRouter.js') < source.indexOf('relationshipBoardController.js'), file);
   }
+});
+
+test('大型显示设置打开后聚焦可循环控件并支持 Tab 与 Escape', () => {
+  assert.match(actionRouterSource, /queueMicrotask\(\(\) => popover\.querySelector\('\[data-relationship-action="close-display-settings"\]'\)\?\.focus\(\)\)/);
+  assert.match(actionRouterSource, /if \(event\.key === 'Tab'\)[\s\S]*?focusable\.at\(-1\)/);
+  assert.match(actionRouterSource, /if \(event\.key === 'Escape'\)[\s\S]*?_closeDisplayPopover\(true\)/);
+  assert.doesNotMatch(actionRouterSource, /queueMicrotask\(\(\) => popover\.querySelector\('#relationship-display-title'\)/);
 });

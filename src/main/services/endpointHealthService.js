@@ -29,20 +29,61 @@ function probeUrl(value) {
   return url;
 }
 
-function readHeaders(url, addresses, method, signal, requestImpl) {
+const MAX_TITLE_BODY_BYTES = 64 * 1024;
+
+function decodeHtmlEntities(value) {
+  const named = { amp: '&', apos: "'", gt: '>', lt: '<', nbsp: ' ', quot: '"' };
+  return value.replace(/&(#x[0-9a-f]+|#\d+|amp|apos|gt|lt|nbsp|quot);/gi, (match, token) => {
+    if (token[0] !== '#') return named[token.toLowerCase()] || match;
+    const codePoint = token[1].toLowerCase() === 'x'
+      ? Number.parseInt(token.slice(2), 16) : Number.parseInt(token.slice(1), 10);
+    try { return Number.isFinite(codePoint) ? String.fromCodePoint(codePoint) : match; } catch (_) { return match; }
+  });
+}
+
+function extractPageTitle(body, contentType = '') {
+  if (!body?.length) return '';
+  const charset = /charset\s*=\s*["']?([^;\s"']+)/i.exec(contentType)?.[1] || 'utf-8';
+  let html;
+  try { html = new TextDecoder(charset).decode(body); } catch (_) { html = body.toString('utf8'); }
+  const match = /<title\b[^>]*>([\s\S]*?)<\/title\s*>/i.exec(html);
+  return match ? decodeHtmlEntities(match[1].replace(/<[^>]*>/g, ' '))
+    .replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160) : '';
+}
+
+function readResponse(url, addresses, method, signal, requestImpl) {
   return new Promise((resolve, reject) => {
     const request = requestImpl || (url.protocol === 'https:' ? https.request : http.request);
     const req = request(url, {
       method, signal, agent: false, rejectUnauthorized: true, maxHeaderSize: 16384,
-      headers: { 'User-Agent': 'GitFinder-Endpoint-Check', Accept: '*/*', 'Cache-Control': 'no-cache' },
+      headers: { 'User-Agent': 'GitFinder-Endpoint-Check', Accept: method === 'GET' ? 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.1' : '*/*', 'Cache-Control': 'no-cache' },
       // Pin the validated DNS result, including dual-stack connection attempts.
       lookup: (_host, options, callback) => options.all
         ? callback(null, addresses)
         : callback(null, addresses[0].address, addresses[0].family)
     }, res => {
-      const result = { status: res.statusCode, location: res.headers.location };
-      res.destroy();
-      resolve(result);
+      const contentType = String(res.headers['content-type'] || '');
+      const html = /^(?:text\/html|application\/xhtml\+xml)\b/i.test(contentType)
+        && !res.headers['content-encoding'];
+      const result = { status: res.statusCode, location: res.headers.location, contentType, body: Buffer.alloc(0) };
+      if (method !== 'GET' || !html) { res.destroy(); resolve(result); return; }
+      const chunks = [];
+      let bytes = 0, settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        res.destroy();
+        resolve({ ...result, body: Buffer.concat(chunks, bytes) });
+      };
+      res.on('data', chunk => {
+        if (settled) return;
+        const buffer = Buffer.from(chunk);
+        const remaining = MAX_TITLE_BODY_BYTES - bytes;
+        if (remaining > 0) { const part = buffer.subarray(0, remaining); chunks.push(part); bytes += part.length; }
+        if (bytes >= MAX_TITLE_BODY_BYTES || /<\/title\s*>/i.test(Buffer.concat(chunks, bytes).toString('utf8'))) finish();
+      });
+      res.on('end', finish);
+      res.on('error', error => { if (!settled) { settled = true; reject(error); } });
     });
     req.on('error', reject);
     req.end();
@@ -62,7 +103,7 @@ async function probeEndpoint(value, options = {}) {
     if (controller.signal.aborted) abortListener();
     else controller.signal.addEventListener('abort', abortListener, { once: true });
   });
-  const result = (status, values = {}) => ({ status, httpStatus: null, latencyMs: null, checkedAt: new Date().toISOString(), message: '', ...values });
+  const result = (status, values = {}) => ({ status, httpStatus: null, latencyMs: null, checkedAt: new Date().toISOString(), message: '', pageTitle: '', ...values });
   try {
     return await Promise.race([aborted, (async () => {
       let url = probeUrl(value);
@@ -76,7 +117,7 @@ async function probeEndpoint(value, options = {}) {
         controller.signal.throwIfAborted();
         if (!addresses.length) throw Object.assign(new Error('dns'), { code: 'ENOTFOUND' });
         if (addresses.some(item => !isPublicAddress(item.address))) throw blocked('域名解析到内网或保留地址，未检测');
-        const response = await readHeaders(url, addresses, method, controller.signal, options.request);
+        let response = await readResponse(url, addresses, method, controller.signal, options.request);
         if (method === 'HEAD' && [405, 501].includes(response.status)) { method = 'GET'; continue; }
         if ([301, 302, 303, 307, 308].includes(response.status)) {
           if (!response.location || ++redirects > 5) return result('redirect_error', { httpStatus: response.status, message: '重定向缺少地址或超过 5 次' });
@@ -85,9 +126,14 @@ async function probeEndpoint(value, options = {}) {
           url = next;
           continue;
         }
+        if (method === 'HEAD' && response.status >= 200 && response.status < 300
+          && response.status !== 204 && /^(?:text\/html|application\/xhtml\+xml)\b/i.test(response.contentType)) {
+          response = { ...response, ...(await readResponse(url, addresses, 'GET', controller.signal, options.request)) };
+        }
         const status = response.status >= 200 && response.status < 400 ? 'reachable'
           : [401, 403].includes(response.status) ? 'restricted' : 'http_error';
         return result(status, { httpStatus: response.status, latencyMs: Math.round(performance.now() - started),
+          pageTitle: extractPageTitle(response.body, response.contentType),
           message: status === 'restricted' ? '站点已响应，但需要认证或拒绝访问' : status === 'http_error' ? `HTTP ${response.status}` : '' });
       }
     })()]);
@@ -166,7 +212,7 @@ class EndpointHealthService {
       entry.controller = new AbortController();
       this.active++;
       Promise.resolve().then(() => this.probe(entry.url, { signal: entry.controller.signal }))
-        .catch(() => ({ status: 'unreachable', httpStatus: null, latencyMs: null, checkedAt: new Date(this.now()).toISOString(), message: '检测失败' }))
+        .catch(() => ({ status: 'unreachable', httpStatus: null, latencyMs: null, checkedAt: new Date(this.now()).toISOString(), message: '检测失败', pageTitle: '' }))
         .then(result => { entry.result = result; entry.completedAt = this.now(); })
         .finally(() => { entry.checking = false; this.active--; this._drain(); });
     }
@@ -175,7 +221,7 @@ class EndpointHealthService {
   snapshot() {
     const checks = [...this.providers].flatMap(([providerId, targets]) => [...targets].map(([url, key]) => {
       const entry = this.entries.get(key);
-      return { providerId, url, ...(entry.result || { status: 'unknown', httpStatus: null, latencyMs: null, checkedAt: null, message: '' }), checking: entry.checking };
+      return { providerId, url, ...(entry.result || { status: 'unknown', httpStatus: null, latencyMs: null, checkedAt: null, message: '', pageTitle: '' }), checking: entry.checking };
     }));
     return { checks, pending: [...this.entries.values()].filter(entry => entry.checking).length };
   }

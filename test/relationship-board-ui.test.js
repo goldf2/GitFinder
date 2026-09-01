@@ -182,21 +182,26 @@ test('访问点区分正常、认证、HTTP、网络、未检测和过期，不�
 
 test('后台检测只更新运行时，不改变布局或待办，重复快照不重绘', () => {
   const controller = new Controller({ bridge: {} });
-  const entity = { id: 'endpoint1', runtime: { dynamicKind: 'panel-endpoint', providerId: 'one', url: 'https://example.com' } };
+  const entity = { id: 'endpoint1', type: 'endpoint', name: 'example.com', details: {}, runtime: { dynamicKind: 'panel-endpoint', providerId: 'one', url: 'https://example.com' } };
   controller.panelProjection = { entities: [entity], placements: [{ entityId: 'endpoint1', x: 380, y: 42, note: 'keep me' }] };
   const placements = structuredClone(controller.panelProjection.placements);
   let rendered = 0;
   controller._renderGraph = () => rendered++;
   controller._updateFilterSummary = controller._updateSummary = () => {};
-  const checks = [{ providerId: 'one', url: 'https://example.com', status: 'reachable', httpStatus: 200, latencyMs: 42, checkedAt: '2026-08-31T02:00:00Z' }];
+  const checks = [{ providerId: 'one', url: 'https://example.com', status: 'reachable', httpStatus: 200, latencyMs: 42,
+    checkedAt: '2026-08-31T02:00:00Z', pageTitle: 'Example 控制台' }];
   controller._applyEndpointChecks(checks);
   assert.equal(entity.runtime.httpStatus, 200);
+  assert.equal(entity.runtime.pageTitle, 'Example 控制台');
+  assert.equal(entity.name, 'example.com');
+  assert.match(controller._runtimeInspectorRows(entity), /网站标题[\s\S]*Example 控制台/);
   assert.deepEqual(controller.panelProjection.placements, placements);
   controller._applyEndpointChecks(checks);
   assert.equal(rendered, 1);
   controller._applyEndpointChecks([]);
   assert.equal(entity.runtime.status, 'unknown');
   assert.equal(entity.runtime.observedAt, null);
+  assert.equal(entity.name, 'example.com');
 });
 
 test('后台检测不打断拖动，关闭白板后的旧响应被丢弃', async () => {
@@ -839,7 +844,7 @@ test('单卡标题来源和状态可覆盖白板默认且继续支持别名重�
       id: 'board_override01',
       name: '覆盖测试',
       viewport: { x: 0, y: 0, zoom: 1 },
-      view: { ...RelationshipGraphModel.defaultBoardView(), cardTitleSource: 'note', showRuntimeStatus: false },
+      view: { ...RelationshipGraphModel.defaultBoardView(), deploymentTitleSource: 'note', showRuntimeStatus: false },
       placements: [{ entityId: 'entity_deploy01', x: 0, y: 0, note: '生产主站', titleMode: 'suffix', titleText: '华东' }]
     }]
   };
@@ -851,6 +856,57 @@ test('单卡标题来源和状态可覆盖白板默认且继续支持别名重�
   assert.match(controllerSource, /name="placementTitleSource"/);
   assert.match(controllerSource, /name="placementStatusVisibility"/);
   assert.match(controllerSource, /showRuntimeStatus: display\.showRuntimeStatus/);
+  const editor = controller._annotationEditorHtml('entity_deploy01');
+  assert.match(editor, /value="name"[^>]*>部署名称/);
+  assert.match(editor, /value="note"[^>]*>备注描述/);
+});
+
+test('访问点标题可按白板默认或单卡在域名与网站标题之间切换', () => {
+  const controller = new Controller({ bridge: {} });
+  const endpoint = { id: 'entity_endpoint01', type: 'endpoint', name: '生产站点', details: { urlLabel: 'https://site.example/path' },
+    runtime: { dynamicKind: 'panel-endpoint', url: 'https://site.example/path', pageTitle: '生产站点' } };
+  controller.store = {
+    schemaVersion: 1,
+    activeBoardId: 'board_endpoint_title',
+    entities: [endpoint], relationships: [],
+    boards: [{ id: 'board_endpoint_title', name: '标题来源', viewport: { x: 0, y: 0, zoom: 1 },
+      view: { ...RelationshipGraphModel.defaultBoardView(), endpointTitleSource: 'website' },
+      placements: [{ entityId: endpoint.id, x: 0, y: 0 }] }]
+  };
+  assert.equal(controller._entityDisplayName(endpoint), '生产站点');
+  controller.store.boards[0].placements[0].titleSource = 'domain';
+  assert.equal(controller._entityDisplayName(endpoint), 'site.example');
+  const editor = controller._annotationEditorHtml(endpoint.id);
+  assert.match(editor, /value="domain"[^>]*>域名/);
+  assert.match(editor, /value="website"[^>]*>网站标题/);
+});
+
+test('资源卡图标遵循单卡覆盖、类型默认和内置默认的优先级', () => {
+  const controller = new Controller({ bridge: {} });
+  const deployment = { id: 'entity_icon0001', type: 'deployment', name: 'Production', details: {} };
+  controller.store = {
+    schemaVersion: 1,
+    activeBoardId: 'board_icon0001',
+    entities: [deployment], relationships: [],
+    boards: [{ id: 'board_icon0001', name: '图标测试', viewport: { x: 0, y: 0, zoom: 1 },
+      view: { ...RelationshipGraphModel.defaultBoardView(), cardIcons: { ...RelationshipGraphModel.DEFAULT_CARD_ICONS, deployment: 'database' } },
+      placements: [{ entityId: deployment.id, x: 0, y: 0 }] }]
+  };
+
+  assert.equal(controller._entityCardIcon(deployment), 'database');
+  controller.store.boards[0].placements[0].iconKey = 'service';
+  assert.equal(controller._entityCardIcon(deployment), 'service');
+  controller.store.boards[0].placements[0].iconKey = 'none';
+  assert.equal(controller._entityCardIcon(deployment), 'none');
+  const flow = controller._flowGraphInput({ placements: controller.store.boards[0].placements, relationships: [], summaryRelationships: [] }, []);
+  assert.equal(flow.entities[0].iconKey, 'none');
+  assert.equal(deployment.iconKey, undefined);
+  assert.match(controller._annotationEditorHtml(deployment.id), /name="placementIconKey"[\s\S]*?<option value="none" selected>/);
+
+  const text = { id: 'entity_text00001', type: 'text', name: '说明', details: { content: '说明' } };
+  controller.store.entities.push(text);
+  controller.store.boards[0].placements.push({ entityId: text.id, x: 320, y: 0 });
+  assert.doesNotMatch(controller._annotationEditorHtml(text.id), /name="placementIconKey"/);
 });
 
 test('部署节点用结构化版本上下文生成可扫描副标题', () => {
@@ -1053,7 +1109,8 @@ test('白板筛选采用锚定弹层并在工具栏只保留一个入口', () =>
   assert.match(toolbarViewSource, /name="verification"/);
   assert.match(toolbarViewSource, /name="mode"/);
   assert.match(toolbarViewSource, /name="projection"/);
-  assert.match(relationshipCss, /\.relationship-display-popover,\s*\.relationship-filter-popover\s*\{[^}]*position:\s*absolute/s);
+  assert.match(relationshipCss, /\.relationship-filter-popover\s*\{[^}]*position:\s*absolute/s);
+  assert.match(relationshipCss, /\.relationship-display-popover\s*\{[^}]*position:\s*fixed/s);
   assert.doesNotMatch(boardRendererSource, /data-relationship-action="filter-(project|repository|server)"/);
 });
 
@@ -1348,6 +1405,7 @@ test('重复自动分组不增加节点或关系，并保留手工群组、卡�
   const card = controller.panelProjection.placements.find(item => controller.panelProjection.entities.find(entity => entity.id === item.entityId)?.type === 'deployment');
   card.titleMode = 'replace';
   card.titleText = '生产应用';
+  card.iconKey = 'database';
   card.note = '保留原有备注';
   controller._saveDynamicPlacementOverrides([card.entityId]);
   controller._arrangeByCoolifyProjects();
@@ -1358,6 +1416,7 @@ test('重复自动分组不增加节点或关系，并保留手工群组、卡�
   assert.deepEqual(controller.store.boards[0].placements, originalPlacements);
   assert.equal(controller.panelProjection.placements.find(item => item.entityId === card.entityId).note, '保留原有备注');
   assert.equal(controller.panelProjection.placements.find(item => item.entityId === card.entityId).titleText, '生产应用');
+  assert.equal(controller.panelProjection.placements.find(item => item.entityId === card.entityId).iconKey, 'database');
 });
 
 test('无 Coolify 部署数据时自动分组给出提示且不改动布局或历史', () => {

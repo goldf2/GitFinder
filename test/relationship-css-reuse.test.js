@@ -15,19 +15,22 @@ function block(selector, options = {}) {
 test('显示与筛选弹层复用同一外壳且各自只保留尺寸层级', () => {
   const shared = block('.relationship-display-popover,\n.relationship-filter-popover');
   for (const declaration of [
-    'position: absolute',
     'border: 1px solid var(--border-color)',
     'background: var(--bg-primary)',
     'box-shadow: 0 14px 38px var(--shadow-overlay)',
     'backdrop-filter: blur(18px) saturate(140%)'
   ]) assert.match(shared, new RegExp(declaration.replace(/[()]/g, '\\$&')));
 
-  for (const selector of ['.relationship-display-popover', '.relationship-filter-popover']) {
-    const specific = block(selector, { last: true });
-    assert.doesNotMatch(specific, /position:|border:|background:|box-shadow:|backdrop-filter:/);
-    assert.match(specific, /width:/);
-    assert.match(specific, /z-index:/);
-  }
+  const display = block('.relationship-display-popover');
+  assert.match(display, /position: fixed/);
+  assert.match(display, /width: min\(880px/);
+  assert.match(display, /z-index:/);
+  const filter = block('.relationship-filter-popover', { last: true });
+  assert.match(filter, /position: absolute/);
+  assert.match(filter, /width:/);
+  assert.match(filter, /z-index:/);
+  assert.doesNotMatch(display, /border:|background:|box-shadow:|backdrop-filter:/);
+  assert.doesNotMatch(filter, /border:|background:|box-shadow:|backdrop-filter:/);
 });
 
 test('关系白板表单控件复用边框、文字和字体原语', () => {
@@ -48,4 +51,12 @@ test('关系白板表单控件复用边框、文字和字体原语', () => {
   assert.match(shared, /color: var\(--text-primary\)/);
   assert.match(shared, /font: inherit/);
   assert.ok((css.match(/border: 1px solid var\(--border-color\);/g) || []).length <= 18);
+});
+
+test('大型显示设置只滚动内容区且每个分区按内容高度展开', () => {
+  const sections = block('.relationship-display-sections');
+  assert.match(sections, /overflow:\s*auto/);
+  assert.match(sections, /grid-auto-rows:\s*max-content/);
+  const section = block('.relationship-display-section');
+  assert.match(section, /overflow:\s*visible/);
 });

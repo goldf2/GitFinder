@@ -13,6 +13,10 @@ const rendererBoardScripts = fs.readdirSync(path.join(root, 'src/renderer/script
   .filter(name => /^relationshipBoard.*\.js$/.test(name))
   .sort()
   .map(name => `src/renderer/scripts/${name}`);
+const rendererCanvasFiles = fs.readdirSync(path.join(root, 'src/renderer/relationship-canvas'))
+  .filter(name => /\.(?:css|jsx)$/.test(name))
+  .sort()
+  .map(name => `src/renderer/relationship-canvas/${name}`);
 const files = [
   'src/main/ipc/relationshipBoards.js',
   'src/main/services/relationshipBoardExportService.js',
@@ -21,8 +25,7 @@ const files = [
   'src/main/services/relationshipBoardService.js',
   'src/main/services/whiteboardDocumentService.js',
   'src/main/services/whiteboardPackageService.js',
-  'src/renderer/relationship-canvas/index.jsx',
-  'src/renderer/relationship-canvas/relationshipCanvas.css',
+  ...rendererCanvasFiles,
   ...rendererBoardScripts,
   'src/renderer/styles/relationships.css',
   ...sharedFiles

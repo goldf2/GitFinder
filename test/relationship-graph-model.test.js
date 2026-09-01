@@ -109,6 +109,9 @@ test('关系白板按白板保存卡片、文字和画布显示偏好', () => {
     showGrid: false,
     showEdgeLabels: false,
     cardTitleSource: 'note',
+    deploymentTitleSource: 'note',
+    endpointTitleSource: 'website',
+    cardIcons: { server: 'database', deployment: 'service', endpoint: 'none', repository: 'project', project: 'repository' },
     showRuntimeStatus: false,
     unmatchedDisplay: 'hide',
     filterContextOpacity: 0.42,
@@ -130,6 +133,9 @@ test('关系白板按白板保存卡片、文字和画布显示偏好', () => {
   assert.equal(RelationshipGraphModel.defaultBoardView().showGrid, true);
   assert.equal(RelationshipGraphModel.defaultBoardView().showEdgeLabels, true);
   assert.equal(RelationshipGraphModel.defaultBoardView().cardTitleSource, 'name');
+  assert.equal(RelationshipGraphModel.defaultBoardView().deploymentTitleSource, 'name');
+  assert.equal(RelationshipGraphModel.defaultBoardView().endpointTitleSource, 'domain');
+  assert.deepEqual(RelationshipGraphModel.defaultBoardView().cardIcons, RelationshipGraphModel.DEFAULT_CARD_ICONS);
   assert.equal(RelationshipGraphModel.defaultBoardView().projectGroupShape, 'rounded');
   assert.equal(RelationshipGraphModel.defaultBoardView().showRuntimeStatus, true);
   assert.equal(RelationshipGraphModel.defaultBoardView().unmatchedDisplay, 'dim');
@@ -221,6 +227,7 @@ test('白板元素保存标签、可折叠备注和带截止提醒的待办，�
     titleText: '核心',
     titleSource: 'note',
     statusVisibility: 'hide',
+    iconKey: 'database',
     labels: ['生产', '关键'],
     note: '发布前复核数据库备份。',
     todos: [{
@@ -242,6 +249,7 @@ test('白板元素保存标签、可折叠备注和带截止提醒的待办，�
     titleText: '核心',
     titleSource: 'note',
     statusVisibility: 'hide',
+    iconKey: 'database',
     labels: ['生产', '关键'],
     note: '发布前复核数据库备份。',
     todos: [{
@@ -253,6 +261,36 @@ test('白板元素保存标签、可折叠备注和带截止提醒的待办，�
     }]
   });
   assert.equal(normalized.entities[0].details.notes, undefined);
+});
+
+test('访问点单卡可覆盖域名或网站标题来源', () => {
+  const store = validStore();
+  store.boards[0].placements[0].titleSource = 'website';
+  assert.equal(RelationshipGraphModel.assertValidStore(store).boards[0].placements[0].titleSource, 'website');
+  store.boards[0].placements[0].titleSource = 'domain';
+  assert.equal(RelationshipGraphModel.assertValidStore(store).boards[0].placements[0].titleSource, 'domain');
+});
+
+test('图标设置只改变白板显示偏好并拒绝未知图标', () => {
+  const store = validStore();
+  store.boards[0].view = {
+    ...RelationshipGraphModel.defaultBoardView(),
+    cardIcons: { ...RelationshipGraphModel.DEFAULT_CARD_ICONS, deployment: 'database', endpoint: 'none' }
+  };
+  store.boards[0].placements[2].iconKey = 'service';
+  const normalized = RelationshipGraphModel.assertValidStore(store);
+  assert.equal(normalized.boards[0].view.cardIcons.deployment, 'database');
+  assert.equal(normalized.boards[0].view.cardIcons.endpoint, 'none');
+  assert.equal(normalized.boards[0].placements[2].iconKey, 'service');
+  assert.equal(normalized.entities[2].type, 'deployment');
+
+  const legacy = validStore();
+  legacy.boards[0].view = { ...RelationshipGraphModel.defaultBoardView() };
+  delete legacy.boards[0].view.cardIcons;
+  assert.deepEqual(RelationshipGraphModel.assertValidStore(legacy).boards[0].view.cardIcons, RelationshipGraphModel.DEFAULT_CARD_ICONS);
+
+  store.boards[0].placements[2].iconKey = 'unknown-icon';
+  assert.throws(() => RelationshipGraphModel.assertValidStore(store), /iconKey 无效/);
 });
 
 test('白板视图配置拒绝未知模式、筛选枚举和额外字段', () => {
