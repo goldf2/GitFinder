@@ -68,6 +68,41 @@ test('跨主机共用访问点显示可展开警报详情并标记冲突连线',
   assert.equal(flow.relationships.find(edge => edge.id === 'host-a').diagnostic, undefined);
 });
 
+test('同主机复用域名同样显示左上角警报并标记全部访问连线', () => {
+  const controller = new Controller({ bridge: {} });
+  const entities = [
+    ['server', 'server', '主机'], ['deploy-a', 'deployment', '部署 A'],
+    ['deploy-b', 'deployment', '部署 B'], ['endpoint', 'endpoint', 'oaktechz.com']
+  ].map(([id, type, name]) => ({ id, type, name, details: {} }));
+  const relationships = [
+    ['host-a', 'runs_on', 'deploy-a', 'server'], ['host-b', 'runs_on', 'deploy-b', 'server'],
+    ['expose-a', 'exposes', 'deploy-a', 'endpoint'], ['expose-b', 'exposes', 'deploy-b', 'endpoint']
+  ].map(([id, type, sourceId, targetId]) => ({ id, type, sourceId, targetId, source: 'manual' }));
+  controller.store = {
+    schemaVersion: 1,
+    activeBoardId: 'board-same-host-alert',
+    entities,
+    relationships,
+    boards: [{ id: 'board-same-host-alert', name: '警报', viewport: { x: 0, y: 0, zoom: 1 },
+      view: globalThis.RelationshipGraphModel.defaultBoardView(),
+      placements: entities.map((entity, index) => ({ entityId: entity.id, x: index * 360, y: index * 120 })) }]
+  };
+
+  const alerts = controller._topologyAlerts();
+  const flow = controller._flowGraphInput({
+    entities,
+    placements: controller._combinedPlacements(),
+    relationships,
+    summaryRelationships: []
+  }, alerts);
+
+  assert.equal(alerts.length, 1);
+  assert.match(controller._topologyAlertItemsHtml(alerts), /oaktechz\.com/);
+  assert.match(alerts[0].message, /同一主机/);
+  assert.equal(flow.relationships.find(edge => edge.id === 'expose-a').diagnostic.severity, 'error');
+  assert.equal(flow.relationships.find(edge => edge.id === 'expose-b').diagnostic.severity, 'error');
+});
+
 test('访问点区分正常、认证、HTTP、网络、未检测和过期，不使用部署时间', () => {
   const controller = new Controller({ bridge: {}, now: () => new Date('2026-08-31T02:01:00Z') });
   const entity = { id: 'endpoint1', type: 'endpoint', details: {}, runtime: { dynamicKind: 'panel-endpoint', status: 'reachable', url: 'https://example.com', observedAt: '2026-08-31T02:00:00Z', httpStatus: 200, latencyMs: 42 } };

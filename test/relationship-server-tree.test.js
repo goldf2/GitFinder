@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { serverTreeGraph, arrangeServerTree, applyProjectEndpointMembership, endpointHostConflicts } = require('../src/shared/panelTopologyProjection');
+const { serverTreeGraph, arrangeServerTree, applyProjectEndpointMembership, endpointReuseAlerts } = require('../src/shared/panelTopologyProjection');
 const Model = require('../src/shared/relationshipGraphModel');
 
 function fixture() {
@@ -93,7 +93,7 @@ test('项目容器包裹部署，可选择包含独占访问点，共享访问�
 test('同一访问点跨主机复用会派生配置警报，并定位全部部署关系', () => {
   const graph = fixture();
   graph.relationships = graph.relationships.filter(edge => edge.id !== 'relationship_treelink_1');
-  const alerts = endpointHostConflicts(graph);
+  const alerts = endpointReuseAlerts(graph);
   const alert = alerts.find(item => item.endpointId === 'entity_tree_end2');
 
   assert.equal(alert?.severity, 'error');
@@ -102,6 +102,24 @@ test('同一访问点跨主机复用会派生配置警报，并定位全部部�
   assert.deepEqual(alert.relationshipIds, ['relationship_treelink_5', 'relationship_treelink_6']);
   assert.equal(alerts.some(item => item.endpointId === 'entity_tree_end1'), false, '单主机访问点不应警报');
   assert.match(alert.message, /不同主机/);
+});
+
+test('同一访问点在同一主机被多个部署复用也会派生配置警报', () => {
+  const graph = fixture();
+  graph.relationships = graph.relationships.filter(edge => edge.id !== 'relationship_treelink_1');
+  graph.relationships.push({
+    id: 'relationship_same_host_reuse',
+    sourceId: 'entity_tree_app2',
+    targetId: 'entity_tree_end1',
+    type: 'exposes'
+  });
+  const alert = endpointReuseAlerts(graph).find(item => item.endpointId === 'entity_tree_end1');
+
+  assert.equal(alert?.severity, 'error');
+  assert.deepEqual(alert.hostIds, ['entity_tree_host1']);
+  assert.deepEqual(alert.deploymentIds, ['entity_tree_app1', 'entity_tree_app2']);
+  assert.deepEqual(alert.relationshipIds, ['relationship_same_host_reuse', 'relationship_treelink_4']);
+  assert.match(alert.message, /同一主机/);
 });
 
 function branchingFixture() {

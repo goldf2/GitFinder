@@ -1468,7 +1468,7 @@
 
     _topologyAlerts() {
       const placements = this._unarchivedPlacements();
-      return PanelTopologyProjection.endpointHostConflicts({
+      return PanelTopologyProjection.endpointReuseAlerts({
         entities: this._combinedEntities(),
         relationships: this._combinedRelationships(placements),
         placements

@@ -29,7 +29,7 @@
     return graph;
   }
 
-  function endpointHostConflicts(graph = {}) {
+  function endpointReuseAlerts(graph = {}) {
     const entities = new Map((graph.entities || []).map(entity => [entity.id, entity]));
     const deploymentHosts = new Map();
     const endpointDeployments = new Map();
@@ -54,14 +54,17 @@
     return [...endpointDeployments].map(([endpointId, deploymentSet]) => {
       const deploymentIds = [...deploymentSet].sort();
       const hostIds = [...new Set(deploymentIds.flatMap(id => [...(deploymentHosts.get(id) || [])]))].sort();
-      if (hostIds.length < 2) return null;
+      if (deploymentIds.length < 2) return null;
       const endpoint = entities.get(endpointId);
+      const scope = hostIds.length > 1
+        ? `${hostIds.length} 台不同主机`
+        : (hostIds.length === 1 ? '同一主机' : '主机信息未知的部署');
       return {
-        id: `topology_alert_endpoint_hosts_${endpointId}`,
-        type: 'endpoint_host_conflict',
+        id: `topology_alert_endpoint_reuse_${endpointId}`,
+        type: 'endpoint_reuse_conflict',
         severity: 'error',
-        title: '访问点跨主机复用',
-        message: `${endpoint?.name || endpointId} 同时由 ${deploymentIds.length} 个部署在 ${hostIds.length} 台不同主机提供，请检查域名与路由配置。`,
+        title: '访问点被多个部署复用',
+        message: `${endpoint?.name || endpointId} 同时由 ${deploymentIds.length} 个部署在${scope}提供，请检查域名与路由配置。`,
         endpointId,
         deploymentIds,
         hostIds,
@@ -71,5 +74,5 @@
     }).filter(Boolean).sort((left, right) => left.endpointId.localeCompare(right.endpointId));
   }
 
-  return Object.freeze({ isProjectGroup, applyEndpointMembership, endpointHostConflicts });
+  return Object.freeze({ isProjectGroup, applyEndpointMembership, endpointReuseAlerts });
 });

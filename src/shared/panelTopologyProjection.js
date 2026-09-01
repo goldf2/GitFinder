@@ -722,8 +722,8 @@
     return ProjectStructure.applyEndpointMembership(graph, include);
   }
 
-  function endpointHostConflicts(graph) {
-    return ProjectStructure.endpointHostConflicts(graph);
+  function endpointReuseAlerts(graph) {
+    return ProjectStructure.endpointReuseAlerts(graph);
   }
 
   function isProjectGroup(entity = {}) {
@@ -1097,5 +1097,5 @@
     };
   }
 
-  return { stableHash, dynamicEntityId, dynamicRelationshipId, orderByTopologyAndPosition, routeRelationship, arrangeTopologyLanes, arrangeAroundCenters, groupTopologyByProjects, packRegions, serverTreeGraph, arrangeServerTree, arrangeBoardLayout, arrangeProjectGalaxies, arrangeProjectContainer, applyProjectEndpointMembership, endpointHostConflicts, endpointHealthFields, buildProjection };
+  return { stableHash, dynamicEntityId, dynamicRelationshipId, orderByTopologyAndPosition, routeRelationship, arrangeTopologyLanes, arrangeAroundCenters, groupTopologyByProjects, packRegions, serverTreeGraph, arrangeServerTree, arrangeBoardLayout, arrangeProjectGalaxies, arrangeProjectContainer, applyProjectEndpointMembership, endpointReuseAlerts, endpointHealthFields, buildProjection };
 });

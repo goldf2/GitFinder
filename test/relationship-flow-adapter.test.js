@@ -103,8 +103,8 @@ test('React Flow 连线复用避障路由并绕开中间卡片', () => {
 test('拓扑配置警报关系使用红色连线并保留警报身份', () => {
   const graph = fixture();
   graph.relationships[0].diagnostic = {
-    alertId: 'topology_alert_endpoint_hosts_endpoint',
-    code: 'endpoint_host_conflict',
+    alertId: 'topology_alert_endpoint_reuse_endpoint',
+    code: 'endpoint_reuse_conflict',
     severity: 'error'
   };
 
@@ -112,7 +112,7 @@ test('拓扑配置警报关系使用红色连线并保留警报身份', () => {
 
   assert.equal(edge.className, 'is-topology-alert');
   assert.equal(edge.style.stroke, '#d9485f');
-  assert.equal(edge.data.diagnostic.alertId, 'topology_alert_endpoint_hosts_endpoint');
+  assert.equal(edge.data.diagnostic.alertId, 'topology_alert_endpoint_reuse_endpoint');
 });
 
 test('缩小视图不会把避障安全距放大到堵死 Project 内部通道', () => {
