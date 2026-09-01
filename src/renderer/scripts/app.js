@@ -4448,9 +4448,7 @@ const App = {
             <span class="go-to-folder-suggestion-path">${this.escapeHtml(item.path)}</span>
           </button>`).join('')}`
       : '';
-    modal.inert = false;
-    modal.setAttribute('aria-hidden', 'false');
-    modal.style.display = 'flex';
+    window.HtmlPresentation.setModalVisibility(modal, true);
     requestAnimationFrame(() => {
       input.focus();
       input.select();
@@ -4475,11 +4473,7 @@ const App = {
         activeElement.blur();
       }
     }
-    if (modal) {
-      modal.inert = true;
-      modal.setAttribute('aria-hidden', 'true');
-      modal.style.display = 'none';
-    }
+    window.HtmlPresentation.setModalVisibility(modal, false);
     this._goToFolderBusy = false;
     if (submit) {
       submit.disabled = false;

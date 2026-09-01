@@ -2,10 +2,11 @@
   const contentQuery = typeof module !== 'undefined' && module.exports
     ? require('./contentQuery')
     : root?.ContentQuery;
-  const api = factory(contentQuery, root);
+  const presentation = root?.HtmlPresentation || (typeof module !== 'undefined' && module.exports ? require('./htmlPresentation') : null);
+  const api = factory(contentQuery, root, presentation);
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) root.ContentFilterController = api;
-})(typeof window !== 'undefined' ? window : globalThis, function createContentFilterControllerApi(ContentQuery, root) {
+})(typeof window !== 'undefined' ? window : globalThis, function createContentFilterControllerApi(ContentQuery, root, Presentation) {
   function parseExtensions(value) {
     return String(value || '')
       .split(/[\s,;，；]+/)
@@ -289,9 +290,7 @@
       this.app.closeQuickLook();
       this.restoreFocus = this.document?.activeElement || null;
       this.populate();
-      modal.inert = false;
-      modal.setAttribute('aria-hidden', 'false');
-      modal.style.display = 'flex';
+      Presentation.setModalVisibility(modal, true);
       this.window?.requestAnimationFrame?.(() => {
         const firstEnabled = this.lifecycleInputs().find(input => !input.disabled)
           || this.element('content-filter-modified');
@@ -304,9 +303,7 @@
       if (!modal) return;
       const active = this.document?.activeElement;
       if (active && modal.contains?.(active)) active.blur?.();
-      modal.inert = true;
-      modal.setAttribute('aria-hidden', 'true');
-      modal.style.display = 'none';
+      Presentation.setModalVisibility(modal, false);
       if (restoreFocus) this.restoreFocus?.focus?.();
       this.restoreFocus = null;
     }

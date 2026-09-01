@@ -1,8 +1,9 @@
 (function exposeDirectoryPerformanceController(root, factory) {
-  const api = factory(root);
+  const presentation = root?.HtmlPresentation || (typeof module !== 'undefined' && module.exports ? require('./htmlPresentation') : null);
+  const api = factory(root, presentation);
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) root.DirectoryPerformanceController = api;
-})(typeof window !== 'undefined' ? window : globalThis, function createDirectoryPerformanceControllerApi(root) {
+})(typeof window !== 'undefined' ? window : globalThis, function createDirectoryPerformanceControllerApi(root, Presentation) {
   class Controller {
     constructor(options = {}) {
       this.app = options.app;
@@ -141,9 +142,7 @@
       grid.innerHTML = this.performanceApi.diagnosticRows(this.state.directoryPerformance)
         .map(row => `<dt>${escapeHtml(row.label)}</dt><dd>${escapeHtml(row.value)}</dd>`)
         .join('');
-      modal.removeAttribute('inert');
-      modal.setAttribute('aria-hidden', 'false');
-      modal.style.display = 'flex';
+      Presentation.setModalVisibility(modal, true);
       this._element('directory-performance-close-btn')?.focus();
       return true;
     }
@@ -151,9 +150,7 @@
     close() {
       const modal = this._element('directory-performance-modal');
       if (!modal || modal.style.display === 'none') return false;
-      modal.style.display = 'none';
-      modal.setAttribute('aria-hidden', 'true');
-      modal.setAttribute('inert', '');
+      Presentation.setModalVisibility(modal, false);
       this._element('sort-menu-trigger')?.focus();
       return true;
     }

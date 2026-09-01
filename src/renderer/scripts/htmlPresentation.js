@@ -9,6 +9,15 @@
     })[character]);
   }
 
+  function setModalVisibility(modal, visible, display = 'flex') {
+    if (!modal) return false;
+    modal.inert = !visible;
+    if (visible) modal.removeAttribute?.('inert'); else modal.setAttribute('inert', '');
+    modal.setAttribute('aria-hidden', String(!visible));
+    modal.style.display = visible ? display : 'none';
+    return true;
+  }
+
   function renderInlineMarkdown(value, options = {}) {
     const linkTitle = escapeHtml(options.linkTitle || '预览中不打开外部链接');
     return escapeHtml(value)
@@ -62,5 +71,5 @@
     return html || options.emptyHtml || '';
   }
 
-  return { escapeHtml, renderInlineMarkdown, renderMarkdown };
+  return { escapeHtml, setModalVisibility, renderInlineMarkdown, renderMarkdown };
 });

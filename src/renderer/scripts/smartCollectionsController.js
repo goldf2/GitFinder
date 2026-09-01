@@ -2,10 +2,11 @@
   const smartCollections = typeof module !== 'undefined' && module.exports
     ? require('./smartCollections')
     : root?.SmartCollections;
-  const api = factory(smartCollections, root);
+  const presentation = root?.HtmlPresentation || (typeof module !== 'undefined' && module.exports ? require('./htmlPresentation') : null);
+  const api = factory(smartCollections, root, presentation);
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) root.SmartCollectionsController = api;
-})(typeof window !== 'undefined' ? window : globalThis, function createSmartCollectionsControllerApi(SmartCollections, root) {
+})(typeof window !== 'undefined' ? window : globalThis, function createSmartCollectionsControllerApi(SmartCollections, root, Presentation) {
   const LIFECYCLE_LABELS = {
     inbox: '待整理', planned: '已规划', active: '开发中', validation: '验证中', deployed: '已部署',
     maintenance: '维护中', paused: '暂停', frozen: '已冻结', abandoned: '已废弃', archived: '已归档'
@@ -185,9 +186,7 @@
       if (saveButton) saveButton.textContent = '保存集合';
       const summary = this.element('smart-collection-summary');
       if (summary) summary.textContent = this.describe({ ...this.currentContext(), name: input.value });
-      modal.inert = false;
-      modal.setAttribute('aria-hidden', 'false');
-      modal.style.display = 'flex';
+      Presentation.setModalVisibility(modal, true);
       this.window?.requestAnimationFrame?.(() => {
         input.focus();
         input.select?.();
@@ -213,9 +212,7 @@
       if (saveButton) saveButton.textContent = '保存名称';
       const summary = this.element('smart-collection-summary');
       if (summary) summary.textContent = this.describe(collection);
-      modal.inert = false;
-      modal.setAttribute('aria-hidden', 'false');
-      modal.style.display = 'flex';
+      Presentation.setModalVisibility(modal, true);
       this.window?.requestAnimationFrame?.(() => {
         input.focus();
         input.select?.();
@@ -227,9 +224,7 @@
       if (!modal) return;
       const active = this.document?.activeElement;
       if (active && modal.contains?.(active)) active.blur?.();
-      modal.inert = true;
-      modal.setAttribute('aria-hidden', 'true');
-      modal.style.display = 'none';
+      Presentation.setModalVisibility(modal, false);
       if (restoreFocus) this.restoreFocus?.focus?.();
       this.restoreFocus = null;
       this.editingId = null;

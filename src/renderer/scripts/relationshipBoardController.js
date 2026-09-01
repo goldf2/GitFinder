@@ -13,10 +13,12 @@
     || (typeof module !== 'undefined' && module.exports ? require('./relationshipBoardResourceView') : null);
   const toolbarView = root?.RelationshipBoardToolbarView
     || (typeof module !== 'undefined' && module.exports ? require('./relationshipBoardToolbarView') : null);
-  const api = factory(root?.RelationshipGraphModel, projection, scanner, primitives, graphProjection, actionRouter, resourceView, toolbarView);
+  const presentation = root?.HtmlPresentation
+    || (typeof module !== 'undefined' && module.exports ? require('./htmlPresentation') : null);
+  const api = factory(root?.RelationshipGraphModel, projection, scanner, primitives, graphProjection, actionRouter, resourceView, toolbarView, presentation);
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) root.RelationshipBoardController = api;
-})(typeof window !== 'undefined' ? window : globalThis, function createRelationshipBoardController(Model, PanelTopologyProjection, RepositoryRootScanner, LayoutPrimitives, GraphProjection, ActionRouter, ResourceView, ToolbarView) {
+})(typeof window !== 'undefined' ? window : globalThis, function createRelationshipBoardController(Model, PanelTopologyProjection, RepositoryRootScanner, LayoutPrimitives, GraphProjection, ActionRouter, ResourceView, ToolbarView, Presentation) {
   const NODE_WIDTH = 280;
   const NODE_HEIGHT = 143;
   const COMPACT_NODE_WIDTH = 236;
@@ -30,6 +32,7 @@
   const HISTORY_LIMIT = 50;
   const PANEL_REFRESH_INTERVAL_MS = 30_000;
   const PANEL_STALE_AFTER_MS = 90_000;
+  const escapeHtml = Presentation.escapeHtml;
 
   function toolbarIcon(name) {
     const paths = {
@@ -224,15 +227,6 @@
       if (Object.keys(boardLayout).length) normalized.boards[boardId] = boardLayout;
     }
     return normalized;
-  }
-
-  function escapeHtml(value) {
-    return String(value ?? '')
-      .replaceAll('&', '&amp;')
-      .replaceAll('<', '&lt;')
-      .replaceAll('>', '&gt;')
-      .replaceAll('"', '&quot;')
-      .replaceAll("'", '&#039;');
   }
 
   function makeId(prefix) {

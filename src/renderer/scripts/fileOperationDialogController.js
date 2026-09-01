@@ -1,8 +1,9 @@
 (function exposeFileOperationDialogController(root, factory) {
-  const api = factory(root);
+  const presentation = root?.HtmlPresentation || (typeof module !== 'undefined' && module.exports ? require('./htmlPresentation') : null);
+  const api = factory(root, presentation);
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) root.FileOperationDialogController = api;
-})(typeof window !== 'undefined' ? window : globalThis, function createFileOperationDialogControllerApi(root) {
+})(typeof window !== 'undefined' ? window : globalThis, function createFileOperationDialogControllerApi(root, Presentation) {
   class Controller {
     constructor(options = {}) {
       this.document = options.document || root?.document || null;
@@ -60,9 +61,7 @@
       hintElement.textContent = hint;
       hintElement.classList.remove('error');
       input.value = value;
-      modal.removeAttribute('inert');
-      modal.setAttribute('aria-hidden', 'false');
-      modal.style.display = 'flex';
+      Presentation.setModalVisibility(modal, true);
       this.requestAnimationFrame(() => {
         input.focus();
         const extensionIndex = selectBaseName ? input.value.lastIndexOf('.') : -1;
@@ -90,11 +89,7 @@
 
     close(value, { restoreFocus = true } = {}) {
       const modal = this._element('file-operation-modal');
-      if (modal) {
-        modal.style.display = 'none';
-        modal.setAttribute('aria-hidden', 'true');
-        modal.setAttribute('inert', '');
-      }
+      Presentation.setModalVisibility(modal, false);
       const resolve = this.resolveRequest;
       this.resolveRequest = null;
       if (resolve) resolve(value);

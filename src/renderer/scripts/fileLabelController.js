@@ -1,8 +1,9 @@
 (function exposeFileLabelController(root, factory) {
-  const api = factory(root);
+  const presentation = root?.HtmlPresentation || (typeof module !== 'undefined' && module.exports ? require('./htmlPresentation') : null);
+  const api = factory(root, presentation);
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) root.FileLabelController = api;
-})(typeof window !== 'undefined' ? window : globalThis, function createFileLabelControllerApi(root) {
+})(typeof window !== 'undefined' ? window : globalThis, function createFileLabelControllerApi(root, Presentation) {
   class Controller {
     constructor(options = {}) {
       this.app = options.app;
@@ -237,9 +238,7 @@
         await this.load();
         this.assignments = this.paths.length ? await this.bridge.fileLabels.getForPaths(this.paths) : {};
         this.render();
-        modal.inert = false;
-        modal.setAttribute('aria-hidden', 'false');
-        modal.style.display = 'flex';
+        Presentation.setModalVisibility(modal, true);
         this.window?.requestAnimationFrame?.(() => (
           this.element('file-label-list')?.querySelector?.('input:not(:disabled)') || this.element('file-label-create-name')
         )?.focus?.());
@@ -253,9 +252,7 @@
       if (!modal) return;
       const active = this.document?.activeElement;
       if (active && modal.contains?.(active)) active.blur?.();
-      modal.inert = true;
-      modal.setAttribute('aria-hidden', 'true');
-      modal.style.display = 'none';
+      Presentation.setModalVisibility(modal, false);
       this.restoreFocus?.focus?.();
       this.restoreFocus = null;
       this.paths = [];

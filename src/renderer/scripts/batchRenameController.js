@@ -1,8 +1,9 @@
 (function exposeBatchRenameController(root, factory) {
-  const api = factory(root);
+  const presentation = root?.HtmlPresentation || (typeof module !== 'undefined' && module.exports ? require('./htmlPresentation') : null);
+  const api = factory(root, presentation);
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) root.BatchRenameController = api;
-})(typeof window !== 'undefined' ? window : globalThis, function createBatchRenameControllerApi(root) {
+})(typeof window !== 'undefined' ? window : globalThis, function createBatchRenameControllerApi(root, Presentation) {
   class Controller {
     constructor(options = {}) {
       this.app = options.app;
@@ -77,9 +78,7 @@
       this.setFooterStatus('尚未生成可执行预览');
       this.updateModeFields();
       this.updateApplyState();
-      this.modal.style.display = 'flex';
-      this.modal.setAttribute('aria-hidden', 'false');
-      this.modal.removeAttribute('inert');
+      Presentation.setModalVisibility(this.modal, true);
       this.window?.requestAnimationFrame?.(() => this.document.getElementById('batch-rename-search')?.focus());
       return true;
     }
@@ -89,9 +88,7 @@
       this.previewGeneration += 1;
       this.preview = null;
       this.items = [];
-      this.modal.style.display = 'none';
-      this.modal.setAttribute('aria-hidden', 'true');
-      this.modal.setAttribute('inert', '');
+      Presentation.setModalVisibility(this.modal, false);
       this.lastFocusedElement?.focus?.();
       this.lastFocusedElement = null;
     }

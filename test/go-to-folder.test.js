@@ -40,7 +40,7 @@ test('前往文件夹关闭前先移出焦点，并用 inert 隔离隐藏内容'
   const closeSource = appSource.slice(closeStart, closeEnd);
 
   assert.match(htmlSource, /id="go-to-folder-modal"[^>]+aria-hidden="true"[^>]+inert/);
-  assert.match(openSource, /modal\.inert = false;[\s\S]*aria-hidden', 'false'/);
-  assert.match(closeSource, /modal\.inert = true;[\s\S]*aria-hidden', 'true'/);
-  assert.ok(closeSource.indexOf('restoreTarget.focus()') < closeSource.indexOf("modal.setAttribute('aria-hidden', 'true')"));
+  assert.match(openSource, /HtmlPresentation\.setModalVisibility\(modal, true\)/);
+  assert.match(closeSource, /HtmlPresentation\.setModalVisibility\(modal, false\)/);
+  assert.ok(closeSource.indexOf('restoreTarget.focus()') < closeSource.indexOf('HtmlPresentation.setModalVisibility(modal, false)'));
 });
