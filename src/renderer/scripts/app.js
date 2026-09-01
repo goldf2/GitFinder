@@ -7989,76 +7989,10 @@ const App = {
   },
 
   renderMarkdown(content) {
-    const lines = String(content || '').split(/\r?\n/);
-    let html = '';
-    let inCode = false;
-    let inList = false;
-    let paragraph = [];
-
-    const flushParagraph = () => {
-      if (!paragraph.length) return;
-      html += `<p>${paragraph.map(line => this.escapeInlineMarkdown(line)).join(' ')}</p>`;
-      paragraph = [];
-    };
-    const closeList = () => {
-      if (inList) {
-        html += '</ul>';
-        inList = false;
-      }
-    };
-
-    for (const line of lines) {
-      if (/^```/.test(line.trim())) {
-        flushParagraph();
-        closeList();
-        if (inCode) {
-          html += '</code></pre>';
-        } else {
-          html += '<pre><code>';
-        }
-        inCode = !inCode;
-        continue;
-      }
-      if (inCode) {
-        html += `${this.escapeHtml(line)}\n`;
-        continue;
-      }
-      if (!line.trim()) {
-        flushParagraph();
-        closeList();
-        continue;
-      }
-      const heading = line.match(/^(#{1,4})\s+(.+)$/);
-      if (heading) {
-        flushParagraph();
-        closeList();
-        const level = heading[1].length;
-        html += `<h${level}>${this.escapeInlineMarkdown(heading[2])}</h${level}>`;
-        continue;
-      }
-      const list = line.match(/^\s*[-*]\s+(.+)$/);
-      if (list) {
-        flushParagraph();
-        if (!inList) {
-          html += '<ul>';
-          inList = true;
-        }
-        html += `<li>${this.escapeInlineMarkdown(list[1])}</li>`;
-        continue;
-      }
-      paragraph.push(line.trim());
-    }
-    flushParagraph();
-    closeList();
-    if (inCode) html += '</code></pre>';
-    return html || '<div class="document-empty">暂无内容</div>';
-  },
-
-  escapeInlineMarkdown(value) {
-    return this.escapeHtml(value)
-      .replace(/`([^`]+)`/g, '<code>$1</code>')
-      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-      .replace(/\[([^\]]+)\]\((?:[^()]|\([^()]*\))*\)/g, '<span class="markdown-link" title="Quick Look 中不打开外部链接">$1</span>');
+    return window.HtmlPresentation.renderMarkdown(content, {
+      linkTitle: 'Quick Look 中不打开外部链接',
+      emptyHtml: '<div class="document-empty">暂无内容</div>'
+    });
   },
 
   getMarkdownDocumentTemplate(projectName) {
@@ -8509,13 +8443,7 @@ const App = {
   },
 
   escapeHtml(value) {
-    return String(value).replace(/[&<>'"]/g, char => ({
-      '&': '&amp;',
-      '<': '&lt;',
-      '>': '&gt;',
-      "'": '&#39;',
-      '"': '&quot;'
-    })[char]);
+    return window.HtmlPresentation.escapeHtml(String(value));
   },
 
   safeColor(value) {

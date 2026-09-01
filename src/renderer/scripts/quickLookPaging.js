@@ -1,16 +1,11 @@
 (function exposeQuickLookPaging(root, factory) {
-  const api = factory();
+  const htmlPresentation = root?.HtmlPresentation
+    || (typeof require === 'function' ? require('./htmlPresentation') : null);
+  const api = factory(htmlPresentation);
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) root.QuickLookPaging = api;
-})(typeof window !== 'undefined' ? window : globalThis, function createQuickLookPagingApi() {
-  function escapeHtml(value) {
-    return String(value ?? '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
-  }
+})(typeof window !== 'undefined' ? window : globalThis, function createQuickLookPagingApi(HtmlPresentation) {
+  const { escapeHtml } = HtmlPresentation;
 
   function formatBytes(value) {
     const bytes = Math.max(0, Number(value) || 0);

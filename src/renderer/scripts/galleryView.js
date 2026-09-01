@@ -1,19 +1,13 @@
 (function exposeGalleryView(root, factory) {
-  const api = factory();
+  const htmlPresentation = root?.HtmlPresentation
+    || (typeof require === 'function' ? require('./htmlPresentation') : null);
+  const api = factory(htmlPresentation);
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) root.GalleryView = api;
-})(typeof window !== 'undefined' ? window : globalThis, function createGalleryViewApi() {
+})(typeof window !== 'undefined' ? window : globalThis, function createGalleryViewApi(HtmlPresentation) {
   const MAX_TEXT_CHARACTERS = 8000;
   const SAFE_IMAGE_DATA_URL = /^data:image\/(png|jpeg|gif|webp|bmp);base64,[a-z0-9+/=\r\n]+$/i;
-
-  function escapeHtml(value) {
-    return String(value ?? '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
-  }
+  const { escapeHtml } = HtmlPresentation;
 
   function finiteCount(value) {
     const number = Number(value);
@@ -79,72 +73,11 @@
     };
   }
 
-  function renderInlineMarkdown(value) {
-    return escapeHtml(value)
-      .replace(/`([^`]+)`/g, '<code>$1</code>')
-      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-      .replace(/\[([^\]]+)\]\((?:[^()]|\([^()]*\))*\)/g, '<span class="markdown-link" title="图库预览中不打开外部链接">$1</span>');
-  }
-
   function renderMarkdown(content) {
-    const lines = String(content || '').split(/\r?\n/);
-    let html = '';
-    let inCode = false;
-    let inList = false;
-    let paragraph = [];
-
-    const flushParagraph = () => {
-      if (!paragraph.length) return;
-      html += `<p>${paragraph.map(renderInlineMarkdown).join(' ')}</p>`;
-      paragraph = [];
-    };
-    const closeList = () => {
-      if (!inList) return;
-      html += '</ul>';
-      inList = false;
-    };
-
-    for (const line of lines) {
-      if (/^```/.test(line.trim())) {
-        flushParagraph();
-        closeList();
-        html += inCode ? '</code></pre>' : '<pre><code>';
-        inCode = !inCode;
-        continue;
-      }
-      if (inCode) {
-        html += `${escapeHtml(line)}\n`;
-        continue;
-      }
-      if (!line.trim()) {
-        flushParagraph();
-        closeList();
-        continue;
-      }
-      const heading = line.match(/^(#{1,4})\s+(.+)$/);
-      if (heading) {
-        flushParagraph();
-        closeList();
-        const level = heading[1].length;
-        html += `<h${level}>${renderInlineMarkdown(heading[2])}</h${level}>`;
-        continue;
-      }
-      const list = line.match(/^\s*[-*]\s+(.+)$/);
-      if (list) {
-        flushParagraph();
-        if (!inList) {
-          html += '<ul>';
-          inList = true;
-        }
-        html += `<li>${renderInlineMarkdown(list[1])}</li>`;
-        continue;
-      }
-      paragraph.push(line.trim());
-    }
-    flushParagraph();
-    closeList();
-    if (inCode) html += '</code></pre>';
-    return html || '<div class="finder-gallery-empty-preview">暂无内容</div>';
+    return HtmlPresentation.renderMarkdown(content, {
+      linkTitle: '图库预览中不打开外部链接',
+      emptyHtml: '<div class="finder-gallery-empty-preview">暂无内容</div>'
+    });
   }
 
   function truncatedNotice(preview, domTruncated) {

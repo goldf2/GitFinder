@@ -3,23 +3,18 @@
   if (!syntaxHighlight && typeof module !== 'undefined' && module.exports && typeof require === 'function') {
     syntaxHighlight = require('./syntaxHighlight');
   }
-  const api = factory(syntaxHighlight);
+  const htmlPresentation = root?.HtmlPresentation
+    || (typeof require === 'function' ? require('./htmlPresentation') : null);
+  const api = factory(syntaxHighlight, htmlPresentation);
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) root.QuickLook = api;
-})(typeof window !== 'undefined' ? window : globalThis, function createQuickLookApi(SyntaxHighlight) {
+})(typeof window !== 'undefined' ? window : globalThis, function createQuickLookApi(SyntaxHighlight, HtmlPresentation) {
   const STRUCTURED_LANGUAGES = new Set(['yaml', 'toml', 'plist']);
   const MAX_SOURCE_LINES = 2000;
   const MAX_LOG_LINES = 1500;
   const MAX_OUTLINE_ITEMS = 120;
 
-  function escapeHtml(value) {
-    return String(value ?? '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
-  }
+  const { escapeHtml } = HtmlPresentation;
 
   function normalizedLines(content) {
     return String(content || '').replace(/\r\n?/g, '\n').split('\n');

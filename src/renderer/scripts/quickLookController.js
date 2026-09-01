@@ -1,16 +1,11 @@
 (function exposeQuickLookController(root, factory) {
-  const api = factory(root);
+  const htmlPresentation = root?.HtmlPresentation
+    || (typeof require === 'function' ? require('./htmlPresentation') : null);
+  const api = factory(root, htmlPresentation);
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) root.QuickLookController = api;
-})(typeof window !== 'undefined' ? window : globalThis, function createQuickLookControllerApi(root) {
-  function escapeHtml(value) {
-    return String(value ?? '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
-  }
+})(typeof window !== 'undefined' ? window : globalThis, function createQuickLookControllerApi(root, HtmlPresentation) {
+  const { escapeHtml } = HtmlPresentation;
 
   class Controller {
     constructor(options = {}) {

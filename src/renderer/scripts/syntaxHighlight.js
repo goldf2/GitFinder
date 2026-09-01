@@ -1,8 +1,10 @@
 (function exposeSyntaxHighlight(root, factory) {
-  const api = factory();
+  const htmlPresentation = root?.HtmlPresentation
+    || (typeof require === 'function' ? require('./htmlPresentation') : null);
+  const api = factory(htmlPresentation);
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) root.SyntaxHighlight = api;
-})(typeof window !== 'undefined' ? window : globalThis, function createSyntaxHighlightApi() {
+})(typeof window !== 'undefined' ? window : globalThis, function createSyntaxHighlightApi(HtmlPresentation) {
   const MAX_HIGHLIGHT_LINE_CHARACTERS = 4096;
   const MAX_TOKENS_PER_LINE = 192;
   const MARKUP_LANGUAGES = new Set(['html', 'xml', 'plist']);
@@ -47,14 +49,7 @@
   });
   const LITERALS = new Set(['true', 'false', 'null', 'undefined', 'none', 'nil', 'self', 'super', 'this']);
 
-  function escapeHtml(value) {
-    return String(value ?? '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
-  }
+  const { escapeHtml } = HtmlPresentation;
 
   function normalizeLanguage(value) {
     return String(value || 'text').trim().toLowerCase();
