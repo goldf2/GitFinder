@@ -1563,35 +1563,10 @@
       }
 
       if (GraphProjection.hasActiveFilters(board.view)) {
-        const { mode, projection, snapMode, structure, layout, projectGroupIncludesEndpoints, showRepositoryRelations } = this._boardView();
-        board.view = {
-          ...Model.defaultBoardView(),
-          ...this._displayViewSettings(),
-          mode,
-          projection: projection || 'facts',
-          snapMode, structure, layout, projectGroupIncludesEndpoints, showRepositoryRelations
-        };
+        board.view = this._filterFreeView();
       }
       this._selectOnlyEntity(entity.id);
-      const canvas = this.root?.querySelector('.relationship-canvas');
-      const rect = canvas?.getBoundingClientRect();
-      if (rect?.width && rect?.height) {
-        const { width, height } = this._nodeDimensions();
-        const zoom = board.viewport.zoom;
-        board.viewport.x = rect.width / 2 - (placement.x + width / 2) * zoom;
-        board.viewport.y = rect.height / 2 - (placement.y + height / 2) * zoom;
-      }
-      this._applyViewMode();
-      this._persistSoon(0);
-      this._renderGraph();
-      if (this.flowCanvas?.setCenter) {
-        const geometry = this._displayGeometryMap(this._combinedPlacements(board)).get(entityId);
-        if (geometry) requestAnimationFrame(() => {
-          void this.flowCanvas?.setCenter?.(geometry.x + geometry.width / 2, geometry.y + geometry.height / 2, {
-            zoom: Math.max(0.7, board.viewport.zoom), duration: 220
-          });
-        });
-      }
+      this._renderAndCenterEntity(entity.id, placement, board);
       this._updateFilterSummary();
       this._updateSummary();
       this._setCanvasAnnouncement(`已在白板中显示 ${resource.name}`);
@@ -1618,6 +1593,18 @@
       delete board.view.topologyLayout;
       delete board.view.treeLayout;
       return board.view;
+    }
+
+    _filterFreeView(options = {}) {
+      const view = this._boardView();
+      const { mode, projection, snapMode, structure, layout, projectGroupIncludesEndpoints, showRepositoryRelations } = view;
+      return {
+        ...Model.defaultBoardView(),
+        ...this._displayViewSettings(view),
+        mode,
+        projection: options.projection ?? projection ?? 'facts',
+        snapMode, structure, layout, projectGroupIncludesEndpoints, showRepositoryRelations
+      };
     }
 
     _displayViewSettings(view = this._boardView()) {
@@ -1654,8 +1641,7 @@
       };
     }
 
-    _nodeDimensions() {
-      const display = this._displayViewSettings();
+    _nodeDimensions(display = this._displayViewSettings()) {
       const dimensions = display.mode === 'compact'
         ? { width: COMPACT_NODE_WIDTH, height: COMPACT_NODE_HEIGHT }
         : { width: NODE_WIDTH, height: NODE_HEIGHT };
@@ -2980,14 +2966,7 @@
       }
       if (action === 'clear-filters') {
         const board = activeBoard(this.store);
-        const { mode, projection, snapMode, structure, layout, projectGroupIncludesEndpoints, showRepositoryRelations } = this._boardView();
-        board.view = {
-          ...Model.defaultBoardView(),
-          ...this._displayViewSettings(),
-          mode,
-          projection: projection || 'facts',
-          snapMode, structure, layout, projectGroupIncludesEndpoints, showRepositoryRelations
-        };
+        board.view = this._filterFreeView();
         const form = this.root.querySelector('[data-relationship-filter-form]');
         if (form) {
           form.elements.namedItem('query').value = '';
@@ -3774,16 +3753,18 @@
       if (!board || !host || !globalThis.RelationshipCanvasEngine?.mount) return false;
       this._updateAllGroupLayoutButton();
       const graph = this._filteredGraph();
+      const view = this._boardView();
+      const display = this._displayViewSettings(view);
       const visibleIds = new Set(graph.placements.map(placement => placement.entityId));
       this._pruneEntitySelection(visibleIds);
       if (this.selectedRelationshipId && !graph.relationships.some(item => item.id === this.selectedRelationshipId)) this.selectedRelationshipId = '';
       this.root.dataset.filterActive = String(graph.filterActive);
       this.root.dataset.serverTree = String(this._isServerTree());
-      this.root.dataset.activeBoardLayout = this._boardView().layout;
-      this.root.dataset.projectGroupShape = this._displayViewSettings().projectGroupShape;
+      this.root.dataset.activeBoardLayout = view.layout;
+      this.root.dataset.projectGroupShape = display.projectGroupShape;
       const topologyAlerts = this._topologyAlerts();
       this._updateTopologyAlerts(topologyAlerts);
-      const dimensions = this._nodeDimensions();
+      const dimensions = this._nodeDimensions(display);
       const linkedNodeIds = Object.fromEntries(graph.placements.map(placement => [
         placement.entityId,
         placement.moveWithDescendants === true ? this._expandMovingIds([placement.entityId]) : [placement.entityId]
@@ -3803,7 +3784,7 @@
       const model = globalThis.RelationshipCanvasEngine.toFlowModel(this._flowGraphInput(graph, topologyAlerts), {
         cardWidth: dimensions.width,
         cardHeight: dimensions.height,
-        showRuntimeStatus: this._displayViewSettings().showRuntimeStatus,
+        showRuntimeStatus: display.showRuntimeStatus,
         selectedIds: this._entitySelectionIds(),
         selectedRelationshipId: this.selectedRelationshipId,
         directIds: graph.directIds,
@@ -3812,16 +3793,16 @@
         linkedNodeIds,
         undraggableIds,
         zoom: board.viewport.zoom,
-        groupTitleFontSize: this._displayViewSettings().groupTitleFontSize
+        groupTitleFontSize: display.groupTitleFontSize
       });
       this.flowRenderOptions = {
         model,
         fitView: false,
         initialViewport: board.viewport,
-        snapMode: this._boardView().snapMode || 'smart',
-        horizontalSpacing: this._displayViewSettings().horizontalSpacing,
-        verticalSpacing: this._displayViewSettings().verticalSpacing,
-        groupTitleFontSize: this._displayViewSettings().groupTitleFontSize,
+        snapMode: view.snapMode || 'smart',
+        horizontalSpacing: display.horizontalSpacing,
+        verticalSpacing: display.verticalSpacing,
+        groupTitleFontSize: display.groupTitleFontSize,
         onModelChange: next => this._handleFlowModelChange(next),
         onSelectionChange: selection => this._handleFlowSelection(selection),
         onInteractionStart: (kind, node) => {
@@ -4061,17 +4042,18 @@
         this.notify('该关联节点未放在当前白板中', 'warning');
         return false;
       }
-      const { mode, structure, layout, projectGroupIncludesEndpoints, showRepositoryRelations } = this._boardView();
       if (GraphProjection.hasActiveFilters(board.view) || board.view.projection !== 'facts') {
-        board.view = {
-          ...Model.defaultBoardView(),
-          ...this._displayViewSettings(),
-          mode,
-          structure, layout, projectGroupIncludesEndpoints, showRepositoryRelations,
-          projection: 'facts'
-        };
+        board.view = this._filterFreeView({ projection: 'facts' });
       }
       this._selectOnlyEntity(entityId);
+      this._renderAndCenterEntity(entityId, placement, board);
+      this._updateFilterSummary();
+      this._updateSummary();
+      this._setCanvasAnnouncement(`已在当前白板定位 ${this._entityDisplayName(entity)}`);
+      return true;
+    }
+
+    _renderAndCenterEntity(entityId, placement, board = activeBoard(this.store)) {
       const canvas = this.root?.querySelector('.relationship-canvas');
       const rect = canvas?.getBoundingClientRect();
       if (rect?.width && rect?.height) {
@@ -4083,18 +4065,13 @@
       this._applyViewMode();
       this._persistSoon(0);
       this._renderGraph();
-      if (this.flowCanvas?.setCenter) {
-        const geometry = this._displayGeometryMap(this._combinedPlacements(board)).get(entityId);
-        if (geometry) requestAnimationFrame(() => {
-          void this.flowCanvas?.setCenter?.(geometry.x + geometry.width / 2, geometry.y + geometry.height / 2, {
-            zoom: Math.max(0.7, board.viewport.zoom), duration: 220
-          });
-        });
-      }
-      this._updateFilterSummary();
-      this._updateSummary();
-      this._setCanvasAnnouncement(`已在当前白板定位 ${this._entityDisplayName(entity)}`);
-      return true;
+      if (!this.flowCanvas?.setCenter) return;
+      const geometry = this._displayGeometryMap(this._combinedPlacements(board)).get(entityId);
+      if (geometry) requestAnimationFrame(() => void this.flowCanvas?.setCenter?.(
+        geometry.x + geometry.width / 2,
+        geometry.y + geometry.height / 2,
+        { zoom: Math.max(0.7, board.viewport.zoom), duration: 220 }
+      ));
     }
 
     _selectedFact() {
@@ -4489,29 +4466,47 @@
           </div>
           <footer><button class="btn" type="button" data-dialog-cancel>取消</button><button class="btn btn-primary" type="submit" ${repos.length ? '' : 'disabled'}>保存关联</button></footer>
         </form>`;
-        const finish = value => {
-          document.removeEventListener('keydown', onKeydown, true);
-          overlay.remove();
-          resolve(value);
-        };
-        const onKeydown = event => {
-          if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); finish(null); }
-        };
-        overlay.addEventListener('click', event => { if (event.target.closest('[data-dialog-cancel]')) finish(null); });
         overlay.querySelector('input[type="search"]').addEventListener('input', event => {
           const query = event.target.value.toLocaleLowerCase().trim();
           overlay.querySelectorAll('[data-repository-choice]').forEach(row => { row.hidden = !row.textContent.toLocaleLowerCase().includes(query); });
         });
-        overlay.querySelector('form').addEventListener('submit', event => {
-          event.preventDefault();
-          const ids = [...new Set(new FormData(event.currentTarget).getAll('repositoryId'))];
-          if (!ids.length || ids.length > 8) { overlay.querySelector('[role="alert"]').textContent = '请选择 1–8 个本地仓库'; return; }
-          finish(ids);
+        this._bindDialogLifecycle(overlay, resolve, {
+          focusSelector: 'input[type="search"]',
+          onSubmit: event => {
+            const ids = [...new Set(new FormData(event.currentTarget).getAll('repositoryId'))];
+            if (!ids.length || ids.length > 8) { overlay.querySelector('[role="alert"]').textContent = '请选择 1–8 个本地仓库'; return undefined; }
+            return ids;
+          }
         });
-        document.body.appendChild(overlay);
-        document.addEventListener('keydown', onKeydown, true);
-        overlay.querySelector('input[type="search"]').focus();
       });
+    }
+
+    _bindDialogLifecycle(overlay, resolve, options = {}) {
+      let settled = false;
+      const finish = value => {
+        if (settled) return;
+        settled = true;
+        document.removeEventListener('keydown', onKeydown, true);
+        overlay.remove();
+        resolve(value);
+      };
+      const onKeydown = event => {
+        if (event.key !== 'Escape') return;
+        event.preventDefault();
+        event.stopPropagation();
+        finish(options.cancelValue ?? null);
+      };
+      overlay.addEventListener('click', event => {
+        if (event.target.closest('[data-dialog-cancel]')) finish(options.cancelValue ?? null);
+      });
+      overlay.querySelector('form').addEventListener('submit', event => {
+        event.preventDefault();
+        const value = options.onSubmit?.(event);
+        if (value !== undefined) finish(value);
+      });
+      document.body.appendChild(overlay);
+      document.addEventListener('keydown', onKeydown, true);
+      requestAnimationFrame(() => overlay.querySelector(options.focusSelector || 'input, [type="submit"]')?.focus());
     }
 
     _renderTransientInspector(selected) {
@@ -5883,27 +5878,11 @@
             </div>
             <footer><button class="btn" type="button" data-dialog-cancel>取消</button><button class="btn btn-primary" type="submit">确认合并 ${Number(preview.totalChanges || 0)} 项</button></footer>
           </form>`;
-        const finish = value => {
-          document.removeEventListener('keydown', escapeListener, true);
-          overlay.remove();
-          resolve(value);
-        };
-        const escapeListener = event => {
-          if (event.key !== 'Escape') return;
-          event.preventDefault();
-          event.stopPropagation();
-          finish(false);
-        };
-        overlay.addEventListener('click', event => {
-          if (event.target.closest('[data-dialog-cancel]')) finish(false);
+        this._bindDialogLifecycle(overlay, resolve, {
+          cancelValue: false,
+          focusSelector: '[type="submit"]',
+          onSubmit: () => true
         });
-        overlay.querySelector('form').addEventListener('submit', event => {
-          event.preventDefault();
-          finish(true);
-        });
-        document.body.appendChild(overlay);
-        document.addEventListener('keydown', escapeListener, true);
-        requestAnimationFrame(() => overlay.querySelector('[type="submit"]')?.focus());
       });
     }
 
@@ -5929,35 +5908,18 @@
             <div class="relationship-dialog-body">${fieldHtml}<p>仅编辑白板内容，不修改 Git 仓库或部署服务。</p></div>
             <footer><button class="btn" type="button" data-dialog-cancel>取消</button><button class="btn btn-primary" type="submit">${escapeHtml(options.submitLabel || '保存')}</button></footer>
           </form>`;
-        const finish = value => {
-          document.removeEventListener('keydown', escapeListener, true);
-          overlay.remove();
-          resolve(value);
-        };
-        const escapeListener = event => {
-          if (event.key === 'Escape') {
-            event.preventDefault();
-            event.stopPropagation();
-            finish(null);
+        this._bindDialogLifecycle(overlay, resolve, {
+          onSubmit: event => {
+            const data = new FormData(event.currentTarget);
+            const values = {};
+            for (const field of options.fields) {
+              const value = field.multiline ? String(data.get(field.key) || '').slice(0, field.maxLength || 10000) : Model.cleanText(data.get(field.key), field.maxLength || 240);
+              if (field.required && !value) return undefined;
+              values[field.key] = value;
+            }
+            return values;
           }
-        };
-        overlay.addEventListener('click', event => {
-          if (event.target.closest('[data-dialog-cancel]')) finish(null);
         });
-        overlay.querySelector('form').addEventListener('submit', event => {
-          event.preventDefault();
-          const data = new FormData(event.currentTarget);
-          const values = {};
-          for (const field of options.fields) {
-            const value = field.multiline ? String(data.get(field.key) || '').slice(0, field.maxLength || 10000) : Model.cleanText(data.get(field.key), field.maxLength || 240);
-            if (field.required && !value) return;
-            values[field.key] = value;
-          }
-          finish(values);
-        });
-        document.body.appendChild(overlay);
-        document.addEventListener('keydown', escapeListener, true);
-        requestAnimationFrame(() => overlay.querySelector('input')?.focus());
       });
     }
   }

@@ -798,7 +798,7 @@ test('单卡标题来源和状态可覆盖白板默认且继续支持别名重�
   assert.equal(controller._entityDisplayName(controller.store.entities[0]), 'MES production · 华东');
   assert.match(controllerSource, /name="placementTitleSource"/);
   assert.match(controllerSource, /name="placementStatusVisibility"/);
-  assert.match(controllerSource, /showRuntimeStatus: this\._displayViewSettings\(\)\.showRuntimeStatus/);
+  assert.match(controllerSource, /showRuntimeStatus: display\.showRuntimeStatus/);
 });
 
 test('部署节点用结构化版本上下文生成可扫描副标题', () => {
@@ -1992,21 +1992,33 @@ test('项目和仓库可按稳定身份加入当前白板并清除遮挡它的�
   controller._updateFilterSummary = () => {};
   controller._updateSummary = () => {};
   controller._setCanvasAnnouncement = () => {};
+  let centeredId = '';
+  controller.flowCanvas = { setCenter: () => {} };
+  controller._displayGeometryMap = () => ({ get: entityId => {
+    centeredId = entityId;
+    return { x: 80, y: 80, width: 280, height: 143 };
+  } });
+  const originalAnimationFrame = globalThis.requestAnimationFrame;
+  globalThis.requestAnimationFrame = callback => callback();
+  try {
+    assert.equal(controller.revealResource('project', 'project_alpha01'), true);
+    assert.equal(controller.store.entities.length, 1);
+    assert.equal(controller.store.entities[0].refId, 'project_alpha01');
+    assert.equal(controller.store.boards[0].placements.length, 1);
+    assert.equal(controller.store.boards[0].view.mode, 'compact');
+    assert.equal(controller.store.boards[0].view.query, '');
+    assert.equal(controller.store.boards[0].view.entityType, 'all');
+    assert.equal(controller.selectedEntityId, controller.store.entities[0].id);
+    assert.equal(centeredId, controller.store.entities[0].id);
+    assert.equal(controller.undoStack.length, 1);
 
-  assert.equal(controller.revealResource('project', 'project_alpha01'), true);
-  assert.equal(controller.store.entities.length, 1);
-  assert.equal(controller.store.entities[0].refId, 'project_alpha01');
-  assert.equal(controller.store.boards[0].placements.length, 1);
-  assert.equal(controller.store.boards[0].view.mode, 'compact');
-  assert.equal(controller.store.boards[0].view.query, '');
-  assert.equal(controller.store.boards[0].view.entityType, 'all');
-  assert.equal(controller.selectedEntityId, controller.store.entities[0].id);
-  assert.equal(controller.undoStack.length, 1);
-
-  assert.equal(controller.revealResource('project', 'project_alpha01'), true);
-  assert.equal(controller.store.entities.length, 1);
-  assert.equal(controller.store.boards[0].placements.length, 1);
-  assert.equal(controller.undoStack.length, 1);
+    assert.equal(controller.revealResource('project', 'project_alpha01'), true);
+    assert.equal(controller.store.entities.length, 1);
+    assert.equal(controller.store.boards[0].placements.length, 1);
+    assert.equal(controller.undoStack.length, 1);
+  } finally {
+    globalThis.requestAnimationFrame = originalAnimationFrame;
+  }
 });
 
 test('项目首页、目录详情和仓库详情均提供关系白板下钻入口', () => {

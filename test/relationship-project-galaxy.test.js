@@ -366,7 +366,7 @@ test('正式控制器切换“项目组包含访问点”后立即更新归属�
 test('项目星系根样式状态不复用布局菜单的事件属性', () => {
   const controllerSource = fs.readFileSync(require.resolve('../src/renderer/scripts/relationshipBoardController'), 'utf8');
   const css = fs.readFileSync(require.resolve('../src/renderer/relationship-canvas/relationshipCanvas.css'), 'utf8');
-  assert.match(controllerSource, /dataset\.activeBoardLayout\s*=\s*this\._boardView\(\)\.layout/);
+  assert.match(controllerSource, /dataset\.activeBoardLayout\s*=\s*view\.layout/);
   assert.doesNotMatch(controllerSource, /this\.root\.dataset\.boardLayout\s*=/);
   assert.doesNotMatch(css, /\.gf-flow-group\.is-circle/);
 });
