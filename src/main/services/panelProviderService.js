@@ -1,6 +1,14 @@
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
+const {
+  cleanText,
+  normalizeIdentifier,
+  normalizeBaseUrl: normalizeProviderBaseUrl,
+  normalizeToken: normalizeProviderToken,
+  normalizeExternalUrl,
+  writeJsonAtomic
+} = require('./providerUtils');
 
 const SESSION_SCHEMA_VERSION = 2;
 const SINGLE_SESSION_SCHEMA_VERSION = 1;
@@ -16,55 +24,12 @@ const MAX_TOPOLOGY_DEPLOYMENTS = 2_000;
 const MAX_PROJECT_BINDINGS = 50;
 const MAX_BINDING_REPOSITORIES = 8;
 const MAX_PANEL_PROVIDERS = 12;
-const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
-const ID_PATTERN = /^[a-z0-9][a-z0-9_.:-]{0,179}$/i;
-
-function cleanText(value, maximum = 240, fallback = '') {
-  const cleaned = String(value ?? '')
-    .replace(/[\u0000-\u001f\u007f]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-  return (cleaned || fallback).slice(0, maximum);
-}
-
-function normalizeIdentifier(value, label, { required = true } = {}) {
-  const identifier = cleanText(value, 180);
-  if (!identifier && !required) return '';
-  if (!ID_PATTERN.test(identifier)) throw new Error(`${label} 无效`);
-  return identifier;
-}
-
 function normalizeBaseUrl(value) {
-  const input = String(value || '').trim();
-  if (!input || input.length > 2048 || /[\u0000-\u001f\u007f]/.test(input)) {
-    throw new Error('Panel 地址无效');
-  }
-  let parsed;
-  try {
-    parsed = new URL(input);
-  } catch (_) {
-    throw new Error('Panel 地址必须是完整 URL');
-  }
-  const hostname = parsed.hostname.toLowerCase();
-  const loopback = LOOPBACK_HOSTS.has(hostname) || hostname.startsWith('127.');
-  if (parsed.protocol !== 'https:' && !(parsed.protocol === 'http:' && loopback)) {
-    throw new Error('Panel 必须使用 HTTPS；仅本机 localhost 允许 HTTP');
-  }
-  if (parsed.username || parsed.password || parsed.search || parsed.hash) {
-    throw new Error('Panel 地址不能包含凭据、查询参数或片段');
-  }
-  if (parsed.pathname !== '/' && parsed.pathname !== '') {
-    throw new Error('Panel 地址只填写站点根地址');
-  }
-  return parsed.origin;
+  return normalizeProviderBaseUrl(value, { label: 'Panel', allowedPaths: ['', '/'] });
 }
 
 function normalizeToken(value) {
-  const token = String(value || '').trim();
-  if (token.length < 8 || token.length > 4096 || /[\u0000-\u0020\u007f]/.test(token)) {
-    throw new Error('Panel 访问令牌无效');
-  }
-  return token;
+  return normalizeProviderToken(value, 'Panel 访问令牌无效');
 }
 
 function normalizeApiVersion(value) {
@@ -77,15 +42,7 @@ function normalizeApiVersion(value) {
 }
 
 function normalizeUrl(value, { optional = true } = {}) {
-  const input = cleanText(value, 2048);
-  if (!input && optional) return '';
-  let parsed;
-  try { parsed = new URL(input); } catch (_) { throw new Error('Panel 返回了无效跳转地址'); }
-  if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password) {
-    throw new Error('Panel 返回了不安全的跳转地址');
-  }
-  parsed.hash = '';
-  return parsed.toString().replace(/\/$/, '');
+  return normalizeExternalUrl(value, { providerLabel: 'Panel', optional });
 }
 
 function normalizeDomains(value) {
@@ -348,24 +305,6 @@ class PanelProviderService {
     return path.join(this._configDirectory(), 'panel-provider.json');
   }
 
-  _writeJsonAtomic(filePath, value) {
-    const temporaryPath = `${filePath}.${process.pid}.${crypto.randomUUID()}.tmp`;
-    let handle = null;
-    try {
-      handle = fs.openSync(temporaryPath, 'wx', 0o600);
-      fs.writeFileSync(handle, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
-      fs.fsyncSync(handle);
-      fs.closeSync(handle);
-      handle = null;
-      fs.renameSync(temporaryPath, filePath);
-    } finally {
-      if (handle !== null) {
-        try { fs.closeSync(handle); } catch (_) {}
-      }
-      if (fs.existsSync(temporaryPath)) fs.rmSync(temporaryPath, { force: true });
-    }
-  }
-
   _normalizeStoredProvider(value = {}, { legacy = false } = {}) {
     const baseUrl = normalizeBaseUrl(value.baseUrl);
     const accessToken = legacy || !value.accessToken ? '' : normalizeToken(value.accessToken);
@@ -436,7 +375,7 @@ class PanelProviderService {
   _saveProviders(providers = []) {
     const values = Array.isArray(providers) ? providers.slice(0, MAX_PANEL_PROVIDERS) : [];
     if (values.length) {
-      this._writeJsonAtomic(this._sessionPath(), { schemaVersion: SESSION_SCHEMA_VERSION, providers: values });
+      writeJsonAtomic(this._sessionPath(), { schemaVersion: SESSION_SCHEMA_VERSION, providers: values });
     } else if (fs.existsSync(this._sessionPath())) {
       fs.rmSync(this._sessionPath(), { force: true });
     }
@@ -603,14 +542,14 @@ class PanelProviderService {
     if (replacementIndex >= 0) bindings.splice(replacementIndex, 1, binding);
     else bindings.push(binding);
     if (bindings.length > MAX_PROJECT_BINDINGS) throw new Error('项目部署关联数量超过安全上限');
-    this._writeJsonAtomic(filePath, { schemaVersion: BINDINGS_SCHEMA_VERSION, bindings });
+    writeJsonAtomic(filePath, { schemaVersion: BINDINGS_SCHEMA_VERSION, bindings });
     return { projectId: project.projectId, bindings };
   }
 
   clearProjectBindings(directoryPath) {
     const project = this.projectService.getProject(directoryPath);
     const filePath = this._bindingsPath(project.path);
-    this._writeJsonAtomic(filePath, { schemaVersion: BINDINGS_SCHEMA_VERSION, bindings: [] });
+    writeJsonAtomic(filePath, { schemaVersion: BINDINGS_SCHEMA_VERSION, bindings: [] });
     return { projectId: project.projectId, bindings: [] };
   }
 

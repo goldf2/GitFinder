@@ -961,21 +961,11 @@
   height: 18px;
   border: none;
   background: transparent;
-  color: var(--text-tertiary);
-  border-radius: 4px;
-  font-size: 14px;
   display: none;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
-  flex-shrink: 0;
 }
 
 .sidebar-item:hover .sidebar-item-remove {
   display: flex;
-}
-
-.sidebar-item-remove:hover {
-  background: color-mix(in srgb, var(--status-dirty) 12%, transparent);
-  color: var(--status-dirty);
 }
