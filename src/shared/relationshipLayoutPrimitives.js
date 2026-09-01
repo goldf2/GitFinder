@@ -41,5 +41,39 @@
     });
   }
 
-  return Object.freeze({ normalizeLayout, packRegions });
+  function indexPlacements(placements = []) {
+    const byId = new Map(placements.map(item => [item.entityId, item]));
+    const childrenByGroup = new Map();
+    for (const item of placements) if (item.groupId) {
+      if (!childrenByGroup.has(item.groupId)) childrenByGroup.set(item.groupId, []);
+      childrenByGroup.get(item.groupId).push(item);
+    }
+    const children = id => childrenByGroup.get(id) || [];
+    const descendants = id => {
+      const seen = new Set([id]), result = [], queue = [...children(id)];
+      for (const item of queue) {
+        if (seen.has(item.entityId)) continue;
+        seen.add(item.entityId); result.push(item); queue.push(...children(item.entityId));
+      }
+      return result;
+    };
+    const depth = id => {
+      const seen = new Set([id]); let value = 0, parent = byId.get(id)?.groupId;
+      while (parent && !seen.has(parent)) { seen.add(parent); value++; parent = byId.get(parent)?.groupId; }
+      return value;
+    };
+    const canNest = (id, groupId) => {
+      if (!groupId) return true;
+      if (!byId.has(groupId)) return false;
+      const seen = new Set([id]); let parent = groupId;
+      while (parent) {
+        if (seen.has(parent)) return false;
+        seen.add(parent); parent = byId.get(parent)?.groupId;
+      }
+      return true;
+    };
+    return Object.freeze({ byId, childrenByGroup, children, descendants, depth, canNest });
+  }
+
+  return Object.freeze({ normalizeLayout, packRegions, indexPlacements });
 });

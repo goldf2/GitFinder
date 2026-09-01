@@ -159,12 +159,6 @@
   font-size: 11px;
 }
 
-.local-project-repositories li span:last-child {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .local-project-repo-mark {
   color: var(--repository-color);
   font-weight: 700;
@@ -247,11 +241,6 @@
   transform: scale(0.97);
 }
 
-.file-action-btn:focus-visible {
-  outline: 2px solid var(--accent-primary);
-  outline-offset: 1px;
-}
-
 .file-action-btn:disabled {
   opacity: 0.4;
   cursor: default;
@@ -290,11 +279,6 @@
   background: var(--bg-primary);
   box-shadow: 0 1px 2px var(--shadow-overlay);
   font-weight: 600;
-}
-
-.directory-type-btn:focus-visible {
-  outline: 2px solid var(--accent-primary);
-  outline-offset: 1px;
 }
 
 .directory-filter-empty {
@@ -660,7 +644,8 @@ body.file-drag-active.file-drag-copy {
   flex-direction: column;
 }
 
-.batch-rename-description {
+.batch-rename-description,
+.external-import-description {
   margin-top: 3px;
   color: var(--text-tertiary);
   font-size: 11px;
@@ -833,7 +818,18 @@ body.file-drag-active.file-drag-copy {
 }
 
 .batch-rename-preview code,
-.batch-rename-preview small {
+.batch-rename-preview small,
+.external-import-item-text strong,
+.external-import-item-text span,
+.local-project-repositories li span:last-child,
+.quick-look-outline-key,
+.quick-look-outline-value,
+.quick-look-paging-copy span,
+.quick-look-archive-entry-name,
+.project-card-title span:last-child,
+.finder-gallery-preview-copy strong,
+.finder-gallery-preview-copy small,
+.finder-gallery-sample span:last-child {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -888,7 +884,8 @@ body.file-drag-active.file-drag-copy {
   margin-top: 1px;
 }
 
-.batch-rename-footer {
+.batch-rename-footer,
+.external-import-footer {
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
@@ -909,12 +906,6 @@ body.file-drag-active.file-drag-copy {
 .external-import-modal {
   width: min(680px, 92vw);
   max-height: min(760px, 88vh);
-}
-
-.external-import-description {
-  margin-top: 3px;
-  color: var(--text-tertiary);
-  font-size: 11px;
 }
 
 .external-import-body {
@@ -969,7 +960,11 @@ body.file-drag-active.file-drag-copy {
   white-space: nowrap;
 }
 
-.external-import-stat span {
+.external-import-stat span,
+.external-import-item-text span,
+.quick-look-archive-summary span,
+.quick-look-archive-notice,
+.finder-gallery-preview-copy small {
   color: var(--text-tertiary);
   font-size: 10px;
 }
@@ -1030,28 +1025,19 @@ body.file-drag-active.file-drag-copy {
   font-size: 20px;
 }
 
-.external-import-item-text {
+.external-import-item-text,
+.task-relation-peer-main,
+.task-relation-kind,
+.task-acceptance-gate-main {
   min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
-.external-import-item-text strong,
-.external-import-item-text span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .external-import-item-text strong {
   color: var(--text-primary);
   font-size: 12px;
-}
-
-.external-import-item-text span {
-  color: var(--text-tertiary);
-  font-size: 10px;
 }
 
 .external-import-conflict,
@@ -1090,12 +1076,6 @@ body.file-drag-active.file-drag-copy {
 .external-import-validations li span {
   color: var(--status-clean);
   font-weight: 700;
-}
-
-.external-import-footer {
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
 }
 
 .external-import-footer > span {
@@ -1339,11 +1319,6 @@ body.file-drag-active.file-drag-copy {
 .app-settings-navigation-item[aria-selected="true"] {
   background: var(--accent-bg);
   color: var(--accent-primary);
-}
-
-.app-settings-navigation-item:focus-visible {
-  outline: 2px solid var(--accent-primary);
-  outline-offset: -2px;
 }
 
 .app-settings-navigation-item[data-settings-section="settings-browsing"] { --settings-navigation-accent: #3b82d0; }
@@ -1605,7 +1580,9 @@ body.file-drag-active.file-drag-copy {
   line-height: 1.45;
 }
 
-.semantic-lifecycle-grid {
+.semantic-lifecycle-grid,
+.quick-look-samples,
+.finder-gallery-samples {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px;
@@ -2241,11 +2218,6 @@ body.file-drag-active.file-drag-copy {
   font-weight: 620;
 }
 
-.task-view-switch button:focus-visible {
-  outline: 2px solid var(--accent-primary);
-  outline-offset: 1px;
-}
-
 .task-split-layout {
   flex: 1;
   min-height: 0;
@@ -2274,7 +2246,8 @@ body.file-drag-active.file-drag-copy {
   padding: 8px;
 }
 
-.task-timeline-readonly {
+.task-timeline-readonly,
+.task-repository small {
   color: var(--text-tertiary);
   font-size: 9px;
   white-space: nowrap;
@@ -2292,11 +2265,6 @@ body.file-drag-active.file-drag-copy {
   overflow-y: auto;
   overscroll-behavior: contain;
   background: color-mix(in srgb, var(--bg-secondary) 65%, var(--bg-primary));
-}
-
-.task-timeline-scroll:focus-visible {
-  outline: 2px solid var(--accent-primary);
-  outline-offset: -2px;
 }
 
 .task-timeline {
@@ -2452,7 +2420,8 @@ body.file-drag-active.file-drag-copy {
   font-size: 9px;
 }
 
-.task-timeline-context span {
+.task-timeline-context span,
+.task-repository span {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2522,11 +2491,6 @@ body.file-drag-active.file-drag-copy {
   overscroll-behavior: contain;
   scroll-snap-type: x proximity;
   background: var(--bg-secondary);
-}
-
-.task-board-scroll:focus-visible {
-  outline: 2px solid var(--accent-primary);
-  outline-offset: -2px;
 }
 
 .task-board {
@@ -2644,11 +2608,6 @@ body.file-drag-active.file-drag-copy {
   border-color: color-mix(in srgb, var(--accent-primary) 52%, var(--border-light));
   background: var(--accent-bg);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-primary) 12%, transparent);
-}
-
-.task-board-card:focus-visible {
-  outline: 2px solid var(--accent-primary);
-  outline-offset: 1px;
 }
 
 .task-board-card-topline,
@@ -2822,15 +2781,6 @@ body.file-drag-active.file-drag-copy {
 .task-relation-counts .complete {
   background: color-mix(in srgb, var(--status-clean) 11%, var(--bg-tertiary));
   color: var(--status-clean);
-}
-
-.task-row:focus-visible,
-.task-relation-row:focus-visible,
-.task-relation-peer:focus-visible,
-.task-filter-row select:focus-visible,
-.task-repository:focus-visible {
-  outline: 2px solid var(--accent-primary);
-  outline-offset: 1px;
 }
 
 .task-status-dot {
@@ -3081,14 +3031,6 @@ body.file-drag-active.file-drag-copy {
   font-size: 11px;
 }
 
-.task-relation-peer-main,
-.task-relation-kind {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
 .task-relation-peer-main strong {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -3143,13 +3085,6 @@ body.file-drag-active.file-drag-copy {
 
 .task-acceptance-gates li.pending {
   background: color-mix(in srgb, var(--status-ahead) 5%, var(--bg-secondary));
-}
-
-.task-acceptance-gate-main {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
 }
 
 .task-acceptance-gate-main strong {
@@ -3280,12 +3215,6 @@ body.file-drag-active.file-drag-copy {
   color: var(--text-primary);
   font: inherit;
   font-size: 10px;
-}
-
-.task-status-action-controls select:focus-visible,
-.task-status-action-controls .btn:focus-visible {
-  outline: 2px solid var(--accent-primary);
-  outline-offset: 1px;
 }
 
 .task-status-action-feedback {
@@ -3819,19 +3748,6 @@ body.file-drag-active.file-drag-copy {
   cursor: default;
 }
 
-.task-repository span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.task-repository small {
-  color: var(--text-tertiary);
-  font-size: 9px;
-  white-space: nowrap;
-}
-
 .task-git-evidence-heading > div {
   min-width: 0;
 }
@@ -3981,13 +3897,6 @@ body.file-drag-active.file-drag-copy {
 
 .task-git-layer-evidence {
   border-top: 0;
-}
-
-.task-git-layer-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
 }
 
 .task-git-layer-heading strong {
@@ -4781,13 +4690,6 @@ body.file-drag-active.file-drag-copy {
 .quick-look-outline-item.depth-5 { padding-left: 57px; }
 .quick-look-outline-item.depth-6 { padding-left: 67px; }
 
-.quick-look-outline-key,
-.quick-look-outline-value {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .quick-look-outline-key {
   color: var(--text-primary);
   font-weight: 600;
@@ -4952,6 +4854,7 @@ body.file-drag-active.file-drag-copy {
 }
 
 .file-operation-history-item-header,
+.task-git-layer-heading,
 .file-operation-history-item-footer {
   display: flex;
   align-items: center;
@@ -5563,12 +5466,6 @@ body.file-drag-active.file-drag-copy {
   font-size: 11px;
 }
 
-.quick-look-paging-copy span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .quick-look-paging-error {
   color: var(--status-dirty);
 }
@@ -5620,7 +5517,8 @@ body.file-drag-active.file-drag-copy {
   margin-bottom: 24px;
 }
 
-.quick-look-stat {
+.quick-look-stat,
+.finder-gallery-stat-grid > div {
   padding: 14px;
   border: 1px solid var(--border-light);
   border-radius: 10px;
@@ -5638,12 +5536,6 @@ body.file-drag-active.file-drag-copy {
   margin-top: 4px;
   color: var(--text-tertiary);
   font-size: 10px;
-}
-
-.quick-look-samples {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px;
 }
 
 .quick-look-sample {
@@ -5671,12 +5563,6 @@ body.file-drag-active.file-drag-copy {
 .quick-look-archive-summary strong {
   color: var(--text-primary);
   font-size: 18px;
-}
-
-.quick-look-archive-summary span,
-.quick-look-archive-notice {
-  color: var(--text-tertiary);
-  font-size: 10px;
 }
 
 .quick-look-archive-notice {
@@ -5722,12 +5608,6 @@ body.file-drag-active.file-drag-copy {
   font-weight: 650;
 }
 
-.quick-look-archive-entry-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .quick-look-archive-encrypted {
   display: inline-flex;
   padding: 2px 5px;
@@ -5757,39 +5637,13 @@ body.file-drag-active.file-drag-copy {
   flex-shrink: 0;
 }
 
-.sort-options {
-  display: flex;
-  gap: 2px;
-}
-
+.sort-options,
 .group-options {
   display: flex;
   gap: 2px;
 }
 
-.group-btn {
-  padding: 3px 10px;
-  border: none;
-  background: transparent;
-  border-radius: 4px;
-  font-size: 12px;
-  color: var(--text-tertiary);
-  cursor: pointer;
-  transition: all 0.15s ease;
-  font-family: inherit;
-}
-
-.group-btn:hover {
-  color: var(--text-primary);
-  background: var(--bg-input);
-}
-
-.group-btn.active {
-  color: var(--accent-primary);
-  background: var(--accent-bg);
-  font-weight: 500;
-}
-
+.group-btn,
 .sort-btn {
   padding: 3px 10px;
   border: none;
@@ -5802,11 +5656,13 @@ body.file-drag-active.file-drag-copy {
   font-family: inherit;
 }
 
+.group-btn:hover,
 .sort-btn:hover {
   color: var(--text-primary);
   background: var(--bg-input);
 }
 
+.group-btn.active,
 .sort-btn.active {
   color: var(--accent-primary);
   background: var(--accent-bg);
@@ -5949,12 +5805,6 @@ body.file-drag-active.file-drag-copy {
 .repository-category-dropdown .sidebar-item {
   min-height: 30px;
   border-radius: 6px;
-}
-
-.repository-category-dropdown .sidebar-item:focus-visible,
-.repository-category-add:focus-visible {
-  outline: 2px solid var(--accent-primary);
-  outline-offset: -2px;
 }
 
 .repository-category-add {
@@ -6345,12 +6195,6 @@ body.file-drag-active.file-drag-copy {
   font-weight: 650;
 }
 
-.project-card-title span:last-child {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .project-branch {
   flex-shrink: 0;
   max-width: 120px;
@@ -6642,12 +6486,6 @@ body.file-drag-active.file-drag-copy {
 
 .repo-card:active {
   transform: scale(0.985);
-}
-
-.repo-card:focus-visible,
-.repo-list-item:focus-visible {
-  outline: 2px solid var(--accent-primary);
-  outline-offset: -2px;
 }
 
 .repo-card.selected {
@@ -6992,7 +6830,8 @@ body.file-drag-active.file-drag-copy {
   background: var(--bg-secondary);
 }
 
-.virtual-directory-viewport {
+.virtual-directory-viewport,
+.virtual-directory-card-viewport {
   position: relative;
   width: 100%;
   min-height: 0;
@@ -7003,12 +6842,6 @@ body.file-drag-active.file-drag-copy {
   inset: 0 0 auto;
   width: 100%;
   will-change: transform;
-}
-
-.virtual-directory-card-viewport {
-  position: relative;
-  width: 100%;
-  min-height: 0;
 }
 
 .virtual-directory-card-window {
@@ -7147,23 +6980,11 @@ body.file-drag-active.file-drag-copy {
   gap: 2px;
 }
 
-.finder-gallery-preview-copy strong,
-.finder-gallery-preview-copy small {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .finder-gallery-preview-copy strong {
   color: var(--text-primary);
   font-size: 13px;
   font-weight: 650;
   letter-spacing: -0.005em;
-}
-
-.finder-gallery-preview-copy small {
-  color: var(--text-tertiary);
-  font-size: 10px;
 }
 
 .finder-gallery-preview-body {
@@ -7249,13 +7070,6 @@ body.file-drag-active.file-drag-copy {
   margin-bottom: 20px;
 }
 
-.finder-gallery-stat-grid > div {
-  padding: 14px;
-  border: 1px solid var(--border-light);
-  border-radius: 10px;
-  background: var(--bg-secondary);
-}
-
 .finder-gallery-stat-grid strong,
 .finder-gallery-stat-grid span {
   display: block;
@@ -7274,12 +7088,6 @@ body.file-drag-active.file-drag-copy {
   font-size: 10px;
 }
 
-.finder-gallery-samples {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px;
-}
-
 .finder-gallery-sample {
   display: flex;
   min-width: 0;
@@ -7290,12 +7098,6 @@ body.file-drag-active.file-drag-copy {
   color: var(--text-secondary);
   background: var(--bg-secondary);
   font-size: 11px;
-}
-
-.finder-gallery-sample span:last-child {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .finder-gallery-empty-preview {
@@ -7963,4 +7765,30 @@ body.file-drag-active.file-drag-copy {
   color: var(--text-tertiary);
   font-size: 10px;
   margin-left: auto;
+}
+
+.file-action-btn:focus-visible,
+.directory-type-btn:focus-visible,
+.task-view-switch button:focus-visible,
+.task-board-card:focus-visible,
+.task-row:focus-visible,
+.task-relation-row:focus-visible,
+.task-relation-peer:focus-visible,
+.task-filter-row select:focus-visible,
+.task-repository:focus-visible,
+.task-status-action-controls select:focus-visible,
+.task-status-action-controls .btn:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 1px;
+}
+
+.app-settings-navigation-item:focus-visible,
+.task-timeline-scroll:focus-visible,
+.task-board-scroll:focus-visible,
+.repository-category-dropdown .sidebar-item:focus-visible,
+.repository-category-add:focus-visible,
+.repo-card:focus-visible,
+.repo-list-item:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: -2px;
 }

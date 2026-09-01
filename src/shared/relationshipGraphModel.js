@@ -773,6 +773,32 @@
       boards.push(board);
     }
     const requestedActiveBoardId = String(candidate.activeBoardId || '');
+    const legacyTreeSuffix = ' · 服务器树状图';
+    const legacyGroups = new Map();
+    for (const board of boards) {
+      let name = board.name, depth = 0;
+      while (name.endsWith(legacyTreeSuffix)) { name = name.slice(0, -legacyTreeSuffix.length); depth++; }
+      if (!depth) continue;
+      if (!legacyGroups.has(name)) legacyGroups.set(name, []);
+      legacyGroups.get(name).push({ board, depth });
+    }
+    const obsoleteBoardIds = new Set();
+    for (const [name, copies] of legacyGroups) {
+      const base = boards.find(board => board.name === name);
+      // A repeated suffix was generated only by alpha.39's "create a copy"
+      // action. Requiring a chain avoids treating a deliberately named board as legacy.
+      if (!base || !copies.some(item => item.depth > 1)) continue;
+      const family = [base, ...copies.map(item => item.board)];
+      const keeper = family.find(board => board.id === requestedActiveBoardId) || base;
+      keeper.name = name;
+      family.forEach(board => { if (board !== keeper) obsoleteBoardIds.add(board.id); });
+      issues.push(`已合并 ${family.length - 1} 个旧版服务器树状图副本`);
+    }
+    if (obsoleteBoardIds.size) {
+      const kept = boards.filter(board => !obsoleteBoardIds.has(board.id));
+      boards.splice(0, boards.length, ...kept);
+      obsoleteBoardIds.forEach(id => boardIds.delete(id));
+    }
     const activeBoardId = boardIds.has(requestedActiveBoardId) ? requestedActiveBoardId : (boards[0]?.id || '');
     if (strict && requestedActiveBoardId && !boardIds.has(requestedActiveBoardId)) {
       issues.push('activeBoardId 引用了不存在的白板');

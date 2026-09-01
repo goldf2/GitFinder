@@ -54,6 +54,40 @@ test('关系模型接受项目到仓库再到部署和服务器的受约束链�
   });
 });
 
+test('旧版服务器树状图副本链只保留当前白板并恢复原名称', () => {
+  const store = validStore();
+  const base = store.boards[0];
+  const first = structuredClone(base);
+  Object.assign(first, { id: 'board_legacy001', name: `${base.name} · 服务器树状图` });
+  const active = structuredClone(base);
+  Object.assign(active, {
+    id: 'board_legacy002',
+    name: `${first.name} · 服务器树状图`,
+    placements: active.placements.slice(0, 2),
+    view: { ...RelationshipGraphModel.defaultBoardView(), structure: 'server-tree', layout: 'bilateral' }
+  });
+  store.boards.push(first, active);
+  store.activeBoardId = active.id;
+
+  const normalized = RelationshipGraphModel.normalizeStore(store);
+
+  assert.equal(normalized.value.boards.length, 1);
+  assert.equal(normalized.value.activeBoardId, active.id);
+  assert.equal(normalized.value.boards[0].name, base.name);
+  assert.equal(normalized.value.boards[0].placements.length, 2);
+  assert.equal(normalized.value.boards[0].view.structure, 'server-tree');
+  assert.match(normalized.issues.join('\n'), /旧版服务器树状图副本/);
+});
+
+test('没有对应原白板时不把用户名称误判为旧版副本链', () => {
+  const store = validStore();
+  store.boards[0].name = '仅存档 · 服务器树状图';
+  const normalized = RelationshipGraphModel.normalizeStore(store);
+  assert.equal(normalized.value.boards.length, 1);
+  assert.equal(normalized.value.boards[0].name, store.boards[0].name);
+  assert.doesNotMatch(normalized.issues.join('\n'), /旧版服务器树状图副本/);
+});
+
 test('白板保存和重新读取保留 5% 到 800% 缩放范围', () => {
   for (const zoom of [0.05, 0.1, 0.25, 1, 4, 8]) {
     const store = validStore();

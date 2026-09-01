@@ -3,10 +3,12 @@
     || (typeof module !== 'undefined' && module.exports ? require('../../shared/panelTopologyProjection') : null);
   const scanner = root?.RepositoryRootScanner
     || (typeof module !== 'undefined' && module.exports ? require('./repositoryRootScanner') : null);
-  const api = factory(root?.RelationshipGraphModel, projection, scanner);
+  const primitives = root?.RelationshipLayoutPrimitives
+    || (typeof module !== 'undefined' && module.exports ? require('../../shared/relationshipLayoutPrimitives') : null);
+  const api = factory(root?.RelationshipGraphModel, projection, scanner, primitives);
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) root.RelationshipBoardController = api;
-})(typeof window !== 'undefined' ? window : globalThis, function createRelationshipBoardController(Model, PanelTopologyProjection, RepositoryRootScanner) {
+})(typeof window !== 'undefined' ? window : globalThis, function createRelationshipBoardController(Model, PanelTopologyProjection, RepositoryRootScanner, LayoutPrimitives) {
   const NODE_WIDTH = 280;
   const NODE_HEIGHT = 143;
   const COMPACT_NODE_WIDTH = 236;
@@ -1679,6 +1681,7 @@
     _reflowDisplayLayout(before) {
       if (before.boardId !== activeBoard(this.store)?.id) return;
       const placements = this._combinedPlacements();
+      const placementIndex = LayoutPrimitives.indexPlacements(placements);
       const entities = this._allEntitiesById();
       const spacing = this._displayViewSettings();
       const dimensions = this._nodeDimensions();
@@ -1692,7 +1695,7 @@
       const bounds = item => geometry.get(item.entityId);
       const oldBounds = item => before.geometry.get(item.entityId);
       const shift = (item, dx, dy) => {
-        for (const child of [item, ...this._groupDescendants(item.entityId, placements)]) {
+        for (const child of [item, ...placementIndex.descendants(item.entityId)]) {
           const rect = bounds(child);
           if (rect) { rect.x += dx; rect.y += dy; }
         }
@@ -1722,7 +1725,7 @@
         }
       };
       const arrange = items => {
-        if (items.some(item => item.locked || this._groupDescendants(item.entityId, placements).some(child => child.locked))) return;
+        if (items.some(item => item.locked || placementIndex.descendants(item.entityId).some(child => child.locked))) return;
         const columns = tracks(items, 'x', 'width');
         for (const column of columns) arrangeTracks(tracks(column, 'y', 'height'), 'y', 'height', spacing.verticalSpacing, before.display.verticalSpacing);
         const previous = [];
@@ -1741,15 +1744,15 @@
         }
       };
       const groups = placements.filter(item => entities.get(item.entityId)?.type === 'group' && bounds(item))
-        .sort((a, b) => this._groupDepth(b.entityId, placements) - this._groupDepth(a.entityId, placements));
+        .sort((a, b) => placementIndex.depth(b.entityId) - placementIndex.depth(a.entityId));
       const blocked = new Set();
       for (const item of placements.filter(item => item.locked)) {
         blocked.add(item.entityId);
-        this._groupDescendants(item.entityId, placements).forEach(child => blocked.add(child.entityId));
+        placementIndex.descendants(item.entityId).forEach(child => blocked.add(child.entityId));
       }
       for (const group of groups) {
         if (blocked.has(group.entityId)) continue;
-        const members = placements.filter(item => item.groupId === group.entityId && bounds(item));
+        const members = placementIndex.children(group.entityId).filter(bounds);
         if (!members.length) continue;
         arrange(members);
         const old = oldBounds(group), rect = bounds(group);
@@ -1784,7 +1787,8 @@
       const spacing = this._displayViewSettings();
       const linkedRoots = placements.filter(item => item.moveWithDescendants).map(item => item.entityId);
       const linkedBranch = new Set(linkedRoots.length ? this._expandMovingIds(linkedRoots) : []);
-      const placementsById = new Map(placements.map(item => [item.entityId, item]));
+      const placementIndex = LayoutPrimitives.indexPlacements(placements);
+      const placementsById = placementIndex.byId;
       const regular = placements
         .filter(placement => entitiesById.get(placement.entityId)?.type !== 'group')
         .slice()
@@ -1813,11 +1817,11 @@
         geometryById.set(placement.entityId, geometry);
       }
       const groups = placements.filter(item => entitiesById.get(item.entityId)?.type === 'group')
-        .sort((a, b) => this._groupDepth(b.entityId, placements) - this._groupDepth(a.entityId, placements) || a.y - b.y || a.x - b.x);
+        .sort((a, b) => placementIndex.depth(b.entityId) - placementIndex.depth(a.entityId) || a.y - b.y || a.x - b.x);
       const resolvedGroups = [];
       for (const group of groups) {
-        const members = placements.filter(item => item.groupId === group.entityId);
-        const descendants = this._groupDescendants(group.entityId, placements);
+        const members = placementIndex.children(group.entityId);
+        const descendants = placementIndex.descendants(group.entityId);
         const autoLayout = group.groupLayout === 'auto' && !group.locked && !descendants.some(item => item.locked);
         const projectGroup = entitiesById.get(group.entityId)?.runtime?.dynamicKind === 'coolify-project-group'
           || group.entityId.startsWith('entity_panel_projectgroup_');
@@ -1860,7 +1864,7 @@
             if (x > 0 && x + bounds.width > innerWidth) { x = 0; y += rowHeight + spacing.verticalSpacing; rowHeight = 0; }
             const dx = group.x + GROUP_PADDING_X + x - bounds.x;
             const dy = group.y + GROUP_HEADER_HEIGHT + y - bounds.y;
-            for (const item of [member, ...this._groupDescendants(member.entityId, placements)]) {
+            for (const item of [member, ...placementIndex.descendants(member.entityId)]) {
               const child = geometryById.get(item.entityId);
               if (child) geometryById.set(item.entityId, { ...child, x: child.x + dx, y: child.y + dy });
             }
@@ -1920,14 +1924,8 @@
       return PanelTopologyProjection.orderByTopologyAndPosition(items, relationships, axis);
     }
 
-    _groupDescendants(groupId, placements = this._combinedPlacements()) {
-      const ids = new Set([groupId]);
-      const result = [];
-      for (const id of ids) for (const item of placements) {
-        if (item.groupId !== id || ids.has(item.entityId)) continue;
-        ids.add(item.entityId); result.push(item);
-      }
-      return result;
+    _groupDescendants(groupId, placements = this._combinedPlacements(), index = LayoutPrimitives.indexPlacements(placements)) {
+      return index.descendants(groupId);
     }
 
     _materializeGroupGeometry(groupId, geometry = this._displayGeometryMap(this._combinedPlacements())) {
@@ -1947,14 +1945,15 @@
 
     _autoLayoutGroups() {
       const placements = this._combinedPlacements();
+      const placementIndex = LayoutPrimitives.indexPlacements(placements);
       const entities = this._allEntitiesById();
       const blocked = new Set();
       for (const item of placements.filter(item => item.locked)) {
         blocked.add(item.entityId);
-        this._groupDescendants(item.entityId, placements).forEach(child => blocked.add(child.entityId));
+        placementIndex.descendants(item.entityId).forEach(child => blocked.add(child.entityId));
       }
       return this._unarchivedPlacements().filter(item => entities.get(item.entityId)?.type === 'group'
-        && !blocked.has(item.entityId) && !this._groupDescendants(item.entityId, placements).some(child => child.locked));
+        && !blocked.has(item.entityId) && !placementIndex.descendants(item.entityId).some(child => child.locked));
     }
 
     _updateAllGroupLayoutButton() {
@@ -1995,7 +1994,8 @@
           // A batch tidy also replaces oversized legacy wrapping widths. A
           // single group's switch/resize still honors its user-chosen width.
           const placements = this._combinedPlacements(), spacing = this._displayViewSettings();
-          for (const group of [...groups].sort((a, b) => this._groupDepth(b.entityId, placements) - this._groupDepth(a.entityId, placements))) {
+          const placementIndex = LayoutPrimitives.indexPlacements(placements);
+          for (const group of [...groups].sort((a, b) => placementIndex.depth(b.entityId) - placementIndex.depth(a.entityId))) {
             const geometry = this._displayGeometryMap(placements);
             const members = placements.filter(item => item.groupId === group.entityId).map(item => geometry.get(item.entityId)).filter(Boolean);
             if (!members.length) continue;
@@ -2278,33 +2278,17 @@
       return [...changed];
     }
 
-    _groupDepth(entityId, placements = this._combinedPlacements()) {
-      const byId = new Map(placements.map(item => [item.entityId, item]));
-      const seen = new Set([entityId]);
-      let parent = byId.get(entityId)?.groupId;
-      let depth = 0;
-      while (parent && !seen.has(parent)) {
-        seen.add(parent);
-        depth++;
-        parent = byId.get(parent)?.groupId;
-      }
-      return depth;
+    _groupDepth(entityId, placements = this._combinedPlacements(), index = LayoutPrimitives.indexPlacements(placements)) {
+      return index.depth(entityId);
     }
 
-    _canJoinGroup(entityId, groupId) {
+    _canJoinGroup(entityId, groupId, context = {}) {
       if (!groupId) return true;
+      const entities = context.entities || this._allEntitiesById();
       if (activeBoard(this.store)?.placements.some(item => item.entityId === entityId)
-        && this._allEntitiesById().get(groupId)?.transient) return false;
-      const placements = new Map(this._combinedPlacements().map(item => [item.entityId, item]));
-      if (this._allEntitiesById().get(groupId)?.type !== 'group' || !placements.has(groupId)) return false;
-      const seen = new Set([entityId]);
-      let parent = groupId;
-      while (parent) {
-        if (seen.has(parent)) return false;
-        seen.add(parent);
-        parent = placements.get(parent)?.groupId;
-      }
-      return true;
+        && entities.get(groupId)?.transient) return false;
+      const index = context.index || LayoutPrimitives.indexPlacements(context.placements || this._combinedPlacements());
+      return entities.get(groupId)?.type === 'group' && index.canNest(entityId, groupId);
     }
 
     _entitySelectionIds() {
@@ -4851,13 +4835,19 @@
       if (selectedIds.size > 1) {
         const selectedEntities = this._combinedEntities().filter(entity => selectedIds.has(entity.id));
         const selectedMembers = this._selectedMemberPlacements();
+        const placements = this._combinedPlacements();
+        const groupContext = {
+          placements,
+          index: LayoutPrimitives.indexPlacements(placements),
+          entities: this._allEntitiesById()
+        };
         const board = activeBoard(this.store);
         const groupOptions = (board?.placements || []).map(placement => (
           this.store.entities.find(entity => entity.id === placement.entityId)
-        )).filter(entity => entity?.type === 'group' && selectedMembers.every(item => this._canJoinGroup(item.entityId, entity.id))).map(entity => (
+        )).filter(entity => entity?.type === 'group' && selectedMembers.every(item => this._canJoinGroup(item.entityId, entity.id, groupContext))).map(entity => (
           `<option value="${escapeHtml(entity.id)}">${escapeHtml(entity.name)}</option>`
         )).join('');
-        const hasGroupedMembers = this._combinedPlacements().some(placement => (
+        const hasGroupedMembers = placements.some(placement => (
           selectedIds.has(placement.entityId) && Boolean(placement.groupId)
         ));
         panel.hidden = false;
@@ -5159,8 +5149,10 @@
     _groupAppearanceEditorHtml(entityId) {
       const placement = this._placementForEntity(entityId) || {};
       const inheritedShape = this._groupShape(entityId);
-      const options = this._combinedPlacements().filter(item => this._canJoinGroup(entityId, item.entityId))
-        .map(item => `<option value="${escapeHtml(item.entityId)}" ${placement.groupId === item.entityId ? 'selected' : ''}>${escapeHtml(this._allEntitiesById().get(item.entityId).name)}</option>`).join('');
+      const placements = this._combinedPlacements(), entities = this._allEntitiesById();
+      const context = { placements, entities, index: LayoutPrimitives.indexPlacements(placements) };
+      const options = placements.filter(item => this._canJoinGroup(entityId, item.entityId, context))
+        .map(item => `<option value="${escapeHtml(item.entityId)}" ${placement.groupId === item.entityId ? 'selected' : ''}>${escapeHtml(entities.get(item.entityId).name)}</option>`).join('');
       return `<section class="relationship-group-appearance" aria-label="群组外观与嵌套">
         <label class="relationship-inspector-field"><span>上级群组</span><select name="parentGroup"><option value="">无（顶层）</option>${options}</select></label>
         <div class="relationship-group-colors">
@@ -5516,7 +5508,9 @@
       }
       const members = this._selectedMemberPlacements().filter(placement => placement.groupId !== groupId);
       if (!members.length) return false;
-      if (!members.every(item => this._canJoinGroup(item.entityId, groupId))) {
+      const placements = this._combinedPlacements();
+      const context = { placements, entities: this._allEntitiesById(), index: LayoutPrimitives.indexPlacements(placements) };
+      if (!members.every(item => this._canJoinGroup(item.entityId, groupId, context))) {
         this.notify('群组不能加入自身或自己的子群组', 'warning');
         return false;
       }

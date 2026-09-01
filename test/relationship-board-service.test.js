@@ -101,6 +101,32 @@ test('语义损坏配置会保留原始副本后再写入可用部分', t => {
   assert.equal(new RelationshipBoardService({ baseDirectory: directory }).load().recovered, false);
 });
 
+test('旧版树状白板副本迁移前备份原文件并保留当前白板', t => {
+  const directory = makeTemporaryDirectory();
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const store = minimalStore();
+  const legacy = structuredClone(store.boards[0]);
+  Object.assign(legacy, { id: 'board_legacy001', name: `${store.boards[0].name} · 服务器树状图` });
+  const active = structuredClone(legacy);
+  Object.assign(active, { id: 'board_legacy002', name: `${legacy.name} · 服务器树状图` });
+  store.boards.push(legacy, active);
+  store.activeBoardId = active.id;
+  fs.writeFileSync(path.join(directory, FILE_NAME), JSON.stringify(store), { mode: 0o600 });
+  const service = new RelationshipBoardService({
+    baseDirectory: directory,
+    now: () => new Date('2026-09-01T14:40:00.000Z')
+  });
+
+  const loaded = service.load();
+
+  assert.equal(loaded.recovered, true);
+  assert.equal(loaded.store.boards.length, 1);
+  assert.equal(loaded.store.activeBoardId, active.id);
+  assert.equal(loaded.store.boards[0].name, '部署拓扑');
+  assert.equal(JSON.parse(fs.readFileSync(loaded.backupPath, 'utf8')).boards.length, 3);
+  assert.equal(new RelationshipBoardService({ baseDirectory: directory }).load().recovered, false);
+});
+
 test('保存端严格拒绝敏感字段且不覆盖上一份有效数据', t => {
   const directory = makeTemporaryDirectory();
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
