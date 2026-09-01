@@ -124,7 +124,8 @@
   outline: none;
 }
 
-.relationship-board-control {
+.relationship-board-control,
+.relationship-resource-heading-actions {
   display: flex;
   align-items: center;
   gap: 5px;
@@ -777,12 +778,6 @@
   font-size: 10px;
 }
 
-.relationship-resource-heading-actions {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
 .relationship-resource-heading-actions > span {
   color: var(--text-tertiary);
   font-size: 10px;
@@ -1269,7 +1264,9 @@
   font-size: 17px;
 }
 
-.relationship-dialog header > div {
+.relationship-dialog header > div,
+.relationship-fact-status > div,
+.relationship-server-context li > div {
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -1603,7 +1600,8 @@
   gap: 8px;
 }
 
-.relationship-todo-heading > span {
+.relationship-todo-heading > span,
+.relationship-panel-repository-list li > div {
   min-width: 0;
   display: grid;
   gap: 2px;
@@ -1754,12 +1752,6 @@
   border-style: dashed;
 }
 
-.relationship-panel-repository-list li > div {
-  min-width: 0;
-  display: grid;
-  gap: 2px;
-}
-
 .relationship-panel-repository-list strong {
   font-size: 10px;
 }
@@ -1851,7 +1843,9 @@
   background: var(--bg-primary);
 }
 
-.relationship-semantics-editor > small {
+.relationship-semantics-editor > small,
+.relationship-inspector-field > small,
+.relationship-fact-status small {
   color: var(--text-tertiary);
   font-size: 9px;
   line-height: 1.45;
@@ -1875,12 +1869,6 @@
   color: var(--text-secondary);
   font-size: 10px;
   font-weight: 600;
-}
-
-.relationship-inspector-field > small {
-  color: var(--text-tertiary);
-  font-size: 9px;
-  line-height: 1.45;
 }
 
 .relationship-inspector-field input,
@@ -1923,21 +1911,8 @@
   background: var(--text-tertiary);
 }
 
-.relationship-fact-status > div {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
 .relationship-fact-status strong {
   font-size: 11px;
-}
-
-.relationship-fact-status small {
-  color: var(--text-tertiary);
-  font-size: 9px;
-  line-height: 1.45;
 }
 
 .relationship-inspector-error {
@@ -2022,13 +1997,6 @@
   border: 1px solid var(--border-light);
   border-radius: 9px;
   background: var(--bg-primary);
-}
-
-.relationship-server-context li > div {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
 }
 
 .relationship-server-context strong {

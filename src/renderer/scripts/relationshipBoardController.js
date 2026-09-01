@@ -1987,7 +1987,7 @@
         if (arrangeBoard && this._boardView().layout !== 'free') this._arrangeCurrentLayout();
       }
       this._saveDynamicPlacementOverrides(items.filter(item => item.dynamic).map(item => item.entityId));
-      this._persistSoon(0); this._renderGraph(); this._refreshHistoryButtons(); this._updateSummary();
+      this._finishBoardMutation();
       if (enabled && arrangeBoard && this._boardView().layout !== 'free') this.fitContent();
     }
 
@@ -2029,10 +2029,7 @@
         original.y = Math.round(item.y);
       }
       this._saveDynamicPlacementOverrides([group, ...members].filter(item => item.dynamic).map(item => item.entityId));
-      this._persistSoon(0);
-      this._renderGraph();
-      this._refreshHistoryButtons();
-      this._updateSummary();
+      this._finishBoardMutation();
       this._setCanvasAnnouncement(`已按当前间距重新排列 ${members.length} 个 Project 成员`);
       return true;
     }
@@ -2212,9 +2209,7 @@
         }
       }
       this._saveDynamicPlacementOverrides(ids);
-      this._persistSoon(0);
-      this._renderGraph();
-      this._refreshHistoryButtons();
+      this._finishBoardMutation({ updateSummary: false });
       this._setCanvasAnnouncement(placement.moveWithDescendants ? '已锁定下级链接，拖动时保持整条分支的相对位置' : '已解除下级链接锁定');
       return placement.moveWithDescendants;
     }
@@ -3704,9 +3699,7 @@
         if (placement.endpointView === 'web') delete placement.endpointView;
         else placement.endpointView = 'web';
         if (placement.dynamic) this._saveDynamicPlacementOverrides([value.id]);
-        this._persistSoon(0);
-        this._renderGraph();
-        this._refreshHistoryButtons();
+        this._finishBoardMutation({ updateSummary: false });
         return true;
       }
       if (action === 'edit-canvas-element' && ['text', 'image', 'attachment'].includes(value?.type)) {
@@ -4830,10 +4823,7 @@
         const normalized = Model.assertValidStore(nextStore);
         this._recordMutation();
         this.store = normalized;
-        this._persistSoon(0);
-        this._renderGraph();
-        this._refreshHistoryButtons();
-        this._updateSummary();
+        this._finishBoardMutation();
         this._setCanvasAnnouncement('已记录本次人工验证时间');
         return true;
       } catch (error) {
@@ -4871,10 +4861,7 @@
         const normalized = Model.assertValidStore(nextStore);
         this._recordMutation();
         this.store = normalized;
-        this._persistSoon(0);
-        this._renderGraph();
-        this._refreshHistoryButtons();
-        this._updateSummary();
+        this._finishBoardMutation();
         this._setCanvasAnnouncement(`关系方向已反转为“${this._relationshipLabel(relationship)}”`);
         return true;
       } catch (error) {
@@ -4934,7 +4921,7 @@
       }
       if (this._boardView().layout === 'galaxy' && this._isProjectGroup(entityId)) this._arrangeCurrentLayout();
       this._saveDynamicPlacementOverrides([entityId]);
-      this._persistSoon(0); this._renderGraph(); this._refreshHistoryButtons(); this._updateSummary();
+      this._finishBoardMutation();
       this._setCanvasAnnouncement(`已将容器形状设为${{ rounded: '矩形', polygon: '多边形' }[effective]}`);
       return true;
     }
@@ -4948,7 +4935,7 @@
       this._recordMutation();
       if (value === 'soft') delete placement.groupAppearance; else placement.groupAppearance = value;
       this._saveDynamicPlacementOverrides([entityId]);
-      this._persistSoon(0); this._renderGraph(); this._refreshHistoryButtons(); this._updateSummary();
+      this._finishBoardMutation();
       this._setCanvasAnnouncement(`已更新容器显示样式`);
       return true;
     }
@@ -5057,7 +5044,7 @@
           delete edited.details.assetPath; delete edited.details.referencePath;
         }
         const normalized = Model.assertValidStore(next);
-        this._recordMutation(); this.store = normalized; this._persistSoon(0); this._renderGraph(); this._refreshHistoryButtons();
+        this._recordMutation(); this.store = normalized; this._finishBoardMutation({ updateSummary: false });
       } catch (error) { this.notify(error.message, 'error'); }
     }
 
@@ -5178,10 +5165,7 @@
       const placement = point || { x: 80 + (fallbackIndex % 3) * 280, y: 80 + Math.floor(fallbackIndex / 3) * 140 };
       board.placements.push({ entityId: entity.id, x: Math.round(placement.x), y: Math.round(placement.y) });
       this._selectOnlyEntity(entity.id);
-      this._persistSoon(0);
-      this._renderGraph();
-      this._refreshHistoryButtons();
-      this._updateSummary();
+      this._finishBoardMutation();
     }
 
     _selectedMemberPlacements() {
@@ -5232,10 +5216,7 @@
       for (const placement of members) placement.groupId = groupId;
       this._saveDynamicPlacementOverrides(members.filter(item => item.dynamic).map(item => item.entityId));
       this._selectOnlyEntity(groupId);
-      this._persistSoon(0);
-      this._renderGraph();
-      this._refreshHistoryButtons();
-      this._updateSummary();
+      this._finishBoardMutation();
       this._setCanvasAnnouncement(`已建立视觉分组 ${values.name}，包含 ${members.length} 个节点`);
       return true;
     }
@@ -5258,10 +5239,7 @@
       this._recordMutation();
       for (const placement of members) placement.groupId = groupId;
       this._saveDynamicPlacementOverrides(members.filter(item => item.dynamic).map(item => item.entityId));
-      this._persistSoon(0);
-      this._renderGraph();
-      this._refreshHistoryButtons();
-      this._updateSummary();
+      this._finishBoardMutation();
       this._setCanvasAnnouncement(`已将 ${members.length} 个节点归入 ${group.name}`);
       return true;
     }
@@ -5272,10 +5250,7 @@
       this._recordMutation();
       for (const placement of members) delete placement.groupId;
       this._saveDynamicPlacementOverrides(members.filter(item => item.dynamic).map(item => item.entityId));
-      this._persistSoon(0);
-      this._renderGraph();
-      this._refreshHistoryButtons();
-      this._updateSummary();
+      this._finishBoardMutation();
       this._setCanvasAnnouncement(`已将 ${members.length} 个节点移出视觉分组`);
       return true;
     }
@@ -5327,10 +5302,14 @@
         ));
         this._clearEntitySelection();
       } else return;
+      this._finishBoardMutation();
+    }
+
+    _finishBoardMutation({ updateSummary = true } = {}) {
       this._persistSoon(0);
       this._renderGraph();
       this._refreshHistoryButtons();
-      this._updateSummary();
+      if (updateSummary) this._updateSummary();
     }
 
     _recordMutation() {

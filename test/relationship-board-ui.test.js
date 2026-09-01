@@ -29,6 +29,19 @@ const {
   COMPACT_NODE_HEIGHT
 } = require('../src/renderer/scripts/relationshipBoardController');
 
+test('白板变更统一完成保存、重绘、历史和摘要刷新', () => {
+  const controller = new Controller({ bridge: {} });
+  const calls = [];
+  for (const name of ['_persistSoon', '_renderGraph', '_refreshHistoryButtons', '_updateSummary']) {
+    controller[name] = () => calls.push(name);
+  }
+  controller._finishBoardMutation();
+  assert.deepEqual(calls, ['_persistSoon', '_renderGraph', '_refreshHistoryButtons', '_updateSummary']);
+  calls.length = 0;
+  controller._finishBoardMutation({ updateSummary: false });
+  assert.deepEqual(calls, ['_persistSoon', '_renderGraph', '_refreshHistoryButtons']);
+});
+
 test('跨主机共用访问点显示可展开警报详情并标记冲突连线', () => {
   const controller = new Controller({ bridge: {} });
   const entities = [
