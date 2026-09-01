@@ -9,6 +9,10 @@ const sharedFiles = fs.readdirSync(path.join(root, 'src/shared'))
   .filter(name => name === 'panelTopologyProjection.js' || /^relationship.*\.js$/.test(name))
   .sort()
   .map(name => `src/shared/${name}`);
+const rendererBoardScripts = fs.readdirSync(path.join(root, 'src/renderer/scripts'))
+  .filter(name => /^relationshipBoard.*\.js$/.test(name))
+  .sort()
+  .map(name => `src/renderer/scripts/${name}`);
 const files = [
   'src/main/ipc/relationshipBoards.js',
   'src/main/services/relationshipBoardExportService.js',
@@ -19,7 +23,7 @@ const files = [
   'src/main/services/whiteboardPackageService.js',
   'src/renderer/relationship-canvas/index.jsx',
   'src/renderer/relationship-canvas/relationshipCanvas.css',
-  'src/renderer/scripts/relationshipBoardController.js',
+  ...rendererBoardScripts,
   'src/renderer/styles/relationships.css',
   ...sharedFiles
 ];

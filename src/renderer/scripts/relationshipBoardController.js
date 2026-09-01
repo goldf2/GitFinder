@@ -7,10 +7,12 @@
     || (typeof module !== 'undefined' && module.exports ? require('../../shared/relationshipLayoutPrimitives') : null);
   const graphProjection = root?.RelationshipGraphProjection
     || (typeof module !== 'undefined' && module.exports ? require('../../shared/relationshipGraphProjection') : null);
-  const api = factory(root?.RelationshipGraphModel, projection, scanner, primitives, graphProjection);
+  const actionRouter = root?.RelationshipBoardActionRouter
+    || (typeof module !== 'undefined' && module.exports ? require('./relationshipBoardActionRouter') : null);
+  const api = factory(root?.RelationshipGraphModel, projection, scanner, primitives, graphProjection, actionRouter);
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) root.RelationshipBoardController = api;
-})(typeof window !== 'undefined' ? window : globalThis, function createRelationshipBoardController(Model, PanelTopologyProjection, RepositoryRootScanner, LayoutPrimitives, GraphProjection) {
+})(typeof window !== 'undefined' ? window : globalThis, function createRelationshipBoardController(Model, PanelTopologyProjection, RepositoryRootScanner, LayoutPrimitives, GraphProjection, ActionRouter) {
   const NODE_WIDTH = 280;
   const NODE_HEIGHT = 143;
   const COMPACT_NODE_WIDTH = 236;
@@ -2878,6 +2880,19 @@
       const structure = event.target.closest('[data-board-structure]')?.dataset.boardStructure;
       if (structure) { this._closeLayoutMenu(); this._setStructure(structure); this.root?.querySelector('[data-layout-menu="structure"]')?.focus(); return; }
       if (action !== 'toggle-layout-menu') this._closeLayoutMenu();
+      const directAction = ActionRouter?.resolve(action);
+      if (directAction) {
+        const [method, args = [], closeAddMenu = false, focusSelector = ''] = directAction;
+        if (closeAddMenu) this._closeAddMenu();
+        this[method](...args);
+        if (focusSelector) this.root?.querySelector(focusSelector)?.focus();
+        if (ActionRouter.dismissesTransientMenus(action)) {
+          if (!event.target.closest('.relationship-filter-host')) this._closeFilterPopover();
+          if (!event.target.closest('.relationship-menu-host')) this._closeAddMenu();
+          if (!event.target.closest('.relationship-display-host')) this._closeDisplayPopover();
+        }
+        return;
+      }
       if (action === 'toggle-layout-menu') {
         const trigger = event.target.closest('.relationship-layout-trigger');
         const menu = trigger.closest('.relationship-layout-host').querySelector('.relationship-layout-menu');
@@ -2908,7 +2923,6 @@
         }
         return;
       }
-      if (action === 'deployment-archive') { this._openDeploymentArchive(); return; }
       const archiveId = event.target.closest('[data-archive-deployment]')?.dataset.archiveDeployment;
       if (archiveId || action === 'archive-selected-deployment') { this._setDeploymentArchived(archiveId || this.selectedEntityId, true); return; }
       const documentButton = event.target.closest('[data-open-document]');
@@ -2916,15 +2930,8 @@
       if (event.target.closest('[data-document-home]')) { void this._showLocalWorkspace(); return; }
       const removeDocument = event.target.closest('[data-remove-document], [data-trash-document]');
       if (removeDocument) { void this._removeDocument(removeDocument.dataset.removeDocument || removeDocument.dataset.trashDocument, Boolean(removeDocument.dataset.trashDocument)).catch(error => this.notify(error.message, 'error')); return; }
-      if (action === 'open-document') { void this._openDocument(); return; }
-      if (action === 'import-package') { this._closeAddMenu(); void this._openDocument(null, true); return; }
-      if (action === 'export-package') { this._closeAddMenu(); void this._exportPackage(); return; }
-      if (action === 'new-document') { void this._newDocument(); return; }
-      if (action === 'add-files') { void this._addFiles(); return; }
       const reveal = event.target.closest('[data-reveal-asset]');
       if (reveal && this.documentRecord) { void this.bridge.relationshipBoards.revealAsset({ id: this.documentRecord.id, entityId: reveal.dataset.revealAsset }).catch(error => this.notify(error.message, 'error')); return; }
-      if (action === 'save-document' || action === 'save-document-as') { void this._saveDocument(action.endsWith('-as')); return; }
-      if (action === 'add-text' || action === 'add-image') { void this._createCanvasElement(action === 'add-text' ? 'text' : 'image'); return; }
       const editElement = event.target.closest('[data-edit-canvas-element]');
       if (editElement) { void this._editCanvasElement(editElement.dataset.editCanvasElement); return; }
       const lockElement = event.target.closest('[data-lock-canvas-element]');
@@ -2936,14 +2943,6 @@
       }
       const linkedMovement = event.target.closest('[data-lock-descendants]');
       if (linkedMovement) { this._toggleLinkedMovement(linkedMovement.dataset.lockDescendants); return; }
-      if (action === 'check-endpoints') {
-        void this._refreshEndpointChecks({ force: true });
-        return;
-      }
-      if (action === 'scan-repositories') {
-        void this._scanManagedRepositories();
-        return;
-      }
       if (action === 'toggle-filter-menu') {
         const popover = this.root.querySelector('.relationship-filter-popover');
         const trigger = this.root.querySelector('.relationship-filter-trigger');
@@ -3012,57 +3011,17 @@
         }
         return;
       }
-      if (action === 'reset-display-settings') {
-        this._resetDisplaySettings();
-        return;
-      }
-      if (action === 'toggle-all-group-layouts') {
-        this._toggleAllGroupLayouts();
-        return;
-      }
-      if (action === 'toggle-resource-panel') {
-        this._togglePanelCollapsed('library');
-        return;
-      }
       if (action === 'close-resource-panel') {
         this.resourcePanelVisible = false;
         this._syncResourcePanelVisibility();
         return;
       }
-      if (action === 'new-board') this._createBoard();
-      if (action === 'rename-board') this._renameBoard();
-      if (action === 'undo') this.undo();
-      if (action === 'redo') this.redo();
-      if (action === 'fit') this.fitContent();
-      if (action === 'reset-dynamic-layout') this._resetDynamicLayout();
-      if (action === 'arrange-by-category') this._arrangeByCategory();
-      if (action === 'arrange-by-coolify-projects') this._arrangeByCoolifyProjects();
-      if (action === 'server-tree') this._setStructure('server-tree');
       if (action === 'project-endpoints') { this._setProjectEndpoints(!this._boardView().projectGroupIncludesEndpoints); return; }
       if (action === 'repository-relations') {
         this._recordMutation();
         const view = this._boardView();
         view.showRepositoryRelations = !view.showRepositoryRelations;
         this._persistSoon(0); this.render(); this._refreshHistoryButtons();
-        return;
-      }
-      if (action === 'arrange-around-selection') this._arrangeAround('selection-centered');
-      if (action === 'arrange-around-servers') this._arrangeAround('server-centered');
-      if (['arrange-by-category', 'arrange-by-coolify-projects', 'arrange-around-selection', 'arrange-around-servers'].includes(action)) {
-        this.render(); this.root?.querySelector('.relationship-layout-trigger')?.focus(); return;
-      }
-      if (action === 'refresh-panel') {
-        this._refreshPanelTopology({ announce: true });
-        return;
-      }
-      if (action === 'import-json') {
-        this._closeAddMenu();
-        this._importRelationshipJson();
-        return;
-      }
-      if (action === 'export-json') {
-        this._closeAddMenu();
-        this._exportCurrentBoard();
         return;
       }
       if (action === 'close-inspector') {
@@ -3078,25 +3037,9 @@
         this._setCanvasAnnouncement(this.inspectorPinned ? '详情窗口已固定在白板上' : '详情窗口已取消固定');
         return;
       }
-      if (action === 'verify-now') {
-        this._verifySelectedNow();
-        return;
-      }
-      if (action === 'reverse-relationship') {
-        this._reverseSelectedRelationship();
-        return;
-      }
-      if (action === 'create-group-from-selection') {
-        this._createGroupFromSelection();
-        return;
-      }
       if (action === 'assign-selection-group') {
         const groupId = this.root.querySelector('[data-relationship-group-target]')?.value || '';
         this._assignSelectionToGroup(groupId);
-        return;
-      }
-      if (action === 'remove-selection-group') {
-        this._removeSelectionFromGroups();
         return;
       }
       if (action === 'add-todo-row') {
