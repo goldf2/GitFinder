@@ -5,10 +5,12 @@
     || (typeof module !== 'undefined' && module.exports ? require('./repositoryRootScanner') : null);
   const primitives = root?.RelationshipLayoutPrimitives
     || (typeof module !== 'undefined' && module.exports ? require('../../shared/relationshipLayoutPrimitives') : null);
-  const api = factory(root?.RelationshipGraphModel, projection, scanner, primitives);
+  const graphProjection = root?.RelationshipGraphProjection
+    || (typeof module !== 'undefined' && module.exports ? require('../../shared/relationshipGraphProjection') : null);
+  const api = factory(root?.RelationshipGraphModel, projection, scanner, primitives, graphProjection);
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) root.RelationshipBoardController = api;
-})(typeof window !== 'undefined' ? window : globalThis, function createRelationshipBoardController(Model, PanelTopologyProjection, RepositoryRootScanner, LayoutPrimitives) {
+})(typeof window !== 'undefined' ? window : globalThis, function createRelationshipBoardController(Model, PanelTopologyProjection, RepositoryRootScanner, LayoutPrimitives, GraphProjection) {
   const NODE_WIDTH = 280;
   const NODE_HEIGHT = 143;
   const COMPACT_NODE_WIDTH = 236;
@@ -262,15 +264,6 @@
     const date = new Date(input);
     if (!Number.isFinite(date.getTime())) throw new Error('验证时间无效');
     return date.toISOString();
-  }
-
-  function sameLocalDay(left, right) {
-    const a = new Date(left);
-    const b = new Date(right);
-    return Number.isFinite(a.getTime()) && Number.isFinite(b.getTime())
-      && a.getFullYear() === b.getFullYear()
-      && a.getMonth() === b.getMonth()
-      && a.getDate() === b.getDate();
   }
 
   class Controller {
@@ -1569,7 +1562,7 @@
         this._refreshHistoryButtons();
       }
 
-      if (this._hasActiveFilters(board.view)) {
+      if (GraphProjection.hasActiveFilters(board.view)) {
         const { mode, projection, snapMode, structure, layout, projectGroupIncludesEndpoints, showRepositoryRelations } = this._boardView();
         board.view = {
           ...Model.defaultBoardView(),
@@ -2322,20 +2315,6 @@
       );
     }
 
-    _selectedEntityTypes(view = this._boardView()) {
-      if (Array.isArray(view.entityTypes) && view.entityTypes.length) return view.entityTypes;
-      return view.entityType && view.entityType !== 'all' ? [view.entityType] : [];
-    }
-
-    _selectedTaskFilters(view = this._boardView()) {
-      if (Array.isArray(view.taskFilters) && view.taskFilters.length) return view.taskFilters;
-      return view.task && view.task !== 'all' ? [view.task] : [];
-    }
-
-    _selectedRuntimeStates(view = this._boardView()) {
-      return Array.isArray(view.runtimeStates) ? view.runtimeStates : [];
-    }
-
     _entityRuntimeTone(entity) {
       const availability = this._entityAvailability(entity);
       if (availability.missing) return 'inactive';
@@ -2346,218 +2325,6 @@
       return 'normal';
     }
 
-    _todosMatchAnyFilter(todos, filters, now) {
-      if (!filters.length) return true;
-      return filters.some(filter => {
-        if (filter === 'has-todos') return todos.length > 0;
-        if (filter === 'no-todos') return todos.length === 0;
-        if (filter === 'open') return todos.some(todo => !todo.completed);
-        if (filter === 'completed') return todos.some(todo => todo.completed);
-        if (filter === 'overdue') return todos.some(todo => !todo.completed && todo.dueAt && new Date(todo.dueAt) < now);
-        if (filter === 'due-today') return todos.some(todo => !todo.completed && todo.dueAt && sameLocalDay(todo.dueAt, now));
-        if (filter === 'reminder-today') return todos.some(todo => !todo.completed && todo.reminderAt && sameLocalDay(todo.reminderAt, now));
-        return false;
-      });
-    }
-
-    _hasActiveFilters(view = this._boardView()) {
-      return Boolean(view.query || this._selectedEntityTypes(view).length || view.environment || view.verification !== 'all'
-        || view.annotation !== 'all' || this._selectedTaskFilters(view).length || this._selectedRuntimeStates(view).length || view.label);
-    }
-
-    _activeFilterCount(view = this._boardView()) {
-      return [
-        view.query,
-        ...this._selectedEntityTypes(view),
-        view.environment,
-        view.verification !== 'all',
-        view.annotation !== 'all',
-        ...this._selectedTaskFilters(view),
-        ...this._selectedRuntimeStates(view),
-        view.label
-      ].filter(Boolean).length;
-    }
-
-    _entityMatchesView(entity, view, resource, placement = {}) {
-      const entityTypes = this._selectedEntityTypes(view);
-      if (entityTypes.length && !entityTypes.includes(entity.type)) return false;
-      const runtimeStates = this._selectedRuntimeStates(view);
-      if (runtimeStates.length && !runtimeStates.includes(this._entityRuntimeTone(entity))) return false;
-      if (view.environment && Model.cleanText(entity.details?.environment, 80) !== view.environment) return false;
-      if (view.verification !== 'all') {
-        const status = Model.verificationStatus(entity, { now: this.now() });
-        if (status.state !== view.verification) return false;
-      }
-      const annotations = normalizePlacementAnnotations(placement);
-      const todos = annotations.todos || [];
-      const now = new Date(this.now());
-      const taskFilters = this._selectedTaskFilters(view);
-      if (view.annotation === 'has-note' && !annotations.note) return false;
-      if (view.label && !(annotations.labels || []).some(label => label.toLocaleLowerCase('zh-CN') === view.label.toLocaleLowerCase('zh-CN'))) return false;
-      if (!this._todosMatchAnyFilter(todos, taskFilters, now)) return false;
-      const query = view.query.toLocaleLowerCase('zh-CN');
-      if (!query) return true;
-      const details = Object.values(entity.details || {}).join(' ');
-      const haystack = [
-        resource?.name,
-        resource?.path,
-        resource?.secondary,
-        entity.name,
-        entity.refId,
-        TYPE_LABELS[entity.type],
-        details,
-        entity.evidenceSummary,
-        annotations.titleText,
-        (annotations.labels || []).join(' '),
-        annotations.note,
-        todos.map(todo => todo.title).join(' ')
-      ].filter(Boolean).join(' ').toLocaleLowerCase('zh-CN');
-      return haystack.includes(query);
-    }
-
-    _summaryVerificationState(facts) {
-      const states = facts.map(fact => Model.verificationStatus(fact, { now: this.now() }).state);
-      if (states.includes('unverified')) return 'unverified';
-      if (states.includes('stale')) return 'stale';
-      return 'verified';
-    }
-
-    _deploymentSummaryProjection(graph, entitiesById) {
-      if (this._boardView().projection !== 'deployment-summary') {
-        return { ...graph, summaryRelationships: [] };
-      }
-      if (graph.filterActive) {
-        return { ...graph, summaryRelationships: [] };
-      }
-      const contains = graph.relationships.filter(item => item.type === 'contains');
-      const sourceOf = graph.relationships.filter(item => item.type === 'source_of');
-      const runsOn = graph.relationships.filter(item => item.type === 'runs_on');
-      const sourceByRepository = new Map();
-      const runsByDeployment = new Map();
-      for (const relationship of sourceOf) {
-        if (!sourceByRepository.has(relationship.sourceId)) sourceByRepository.set(relationship.sourceId, []);
-        sourceByRepository.get(relationship.sourceId).push(relationship);
-      }
-      for (const relationship of runsOn) {
-        if (!runsByDeployment.has(relationship.sourceId)) runsByDeployment.set(relationship.sourceId, []);
-        runsByDeployment.get(relationship.sourceId).push(relationship);
-      }
-
-      const chains = [];
-      for (const projectToRepository of contains) {
-        for (const repositoryToDeployment of sourceByRepository.get(projectToRepository.targetId) || []) {
-          for (const deploymentToServer of runsByDeployment.get(repositoryToDeployment.targetId) || []) {
-            chains.push({
-              projectId: projectToRepository.sourceId,
-              repositoryId: projectToRepository.targetId,
-              deploymentId: repositoryToDeployment.targetId,
-              serverId: deploymentToServer.targetId,
-              facts: [projectToRepository, repositoryToDeployment, deploymentToServer]
-            });
-          }
-        }
-      }
-      if (!chains.length) return { ...graph, summaryRelationships: [] };
-
-      const relationshipsByEntity = new Map();
-      for (const relationship of graph.relationships) {
-        for (const entityId of [relationship.sourceId, relationship.targetId]) {
-          if (!relationshipsByEntity.has(entityId)) relationshipsByEntity.set(entityId, []);
-          relationshipsByEntity.get(entityId).push(relationship);
-        }
-      }
-      const protectedIds = graph.filterActive ? graph.directIds : new Set();
-      let deploymentIds = new Set(chains.map(chain => chain.deploymentId).filter(entityId => {
-        if (protectedIds.has(entityId)) return false;
-        const relationships = relationshipsByEntity.get(entityId) || [];
-        return relationships.length > 0 && relationships.every(relationship => (
-          (relationship.type === 'source_of' && relationship.targetId === entityId)
-          || (relationship.type === 'runs_on' && relationship.sourceId === entityId)
-        ));
-      }));
-      let repositoryIds = new Set(chains.map(chain => chain.repositoryId).filter(entityId => {
-        if (protectedIds.has(entityId)) return false;
-        const relationships = relationshipsByEntity.get(entityId) || [];
-        return relationships.length > 0 && relationships.every(relationship => (
-          (relationship.type === 'contains' && relationship.targetId === entityId)
-          || (relationship.type === 'source_of' && relationship.sourceId === entityId && deploymentIds.has(relationship.targetId))
-        ));
-      }));
-
-      let changed = true;
-      while (changed) {
-        changed = false;
-        const nextDeployments = new Set([...deploymentIds].filter(entityId => (
-          (relationshipsByEntity.get(entityId) || []).every(relationship => (
-            relationship.type !== 'source_of' || repositoryIds.has(relationship.sourceId)
-          ))
-        )));
-        const nextRepositories = new Set([...repositoryIds].filter(entityId => (
-          (relationshipsByEntity.get(entityId) || []).every(relationship => (
-            relationship.type !== 'source_of' || nextDeployments.has(relationship.targetId)
-          ))
-        )));
-        if (nextDeployments.size !== deploymentIds.size || nextRepositories.size !== repositoryIds.size) changed = true;
-        deploymentIds = nextDeployments;
-        repositoryIds = nextRepositories;
-      }
-
-      const projectedChains = chains.filter(chain => (
-        repositoryIds.has(chain.repositoryId) && deploymentIds.has(chain.deploymentId)
-      ));
-      if (!projectedChains.length) return { ...graph, summaryRelationships: [] };
-      const collapsedIds = new Set([
-        ...projectedChains.map(chain => chain.repositoryId),
-        ...projectedChains.map(chain => chain.deploymentId)
-      ]);
-      const summaries = new Map();
-      for (const chain of projectedChains) {
-        const key = `${chain.projectId}\u0000${chain.serverId}`;
-        if (!summaries.has(key)) {
-          summaries.set(key, {
-            id: `summary_${chain.projectId}_${chain.serverId}`,
-            type: 'deployment_summary',
-            sourceId: chain.projectId,
-            targetId: chain.serverId,
-            chains: []
-          });
-        }
-        summaries.get(key).chains.push(chain);
-      }
-      const summaryRelationships = [...summaries.values()].map(summary => {
-        const deployments = [...new Set(summary.chains.map(chain => chain.deploymentId))];
-        const deploymentLabels = deployments.map(entityId => {
-          const entity = entitiesById.get(entityId);
-          return [
-            entity?.name,
-            entity?.details?.environment,
-            entity?.details?.version,
-            entity?.details?.branch,
-            entity?.details?.revision
-          ].filter(Boolean).join(' · ');
-        }).filter(Boolean);
-        const facts = summary.chains.flatMap(chain => chain.facts);
-        return {
-          ...summary,
-          count: deployments.length,
-          label: deployments.length > 1 ? `部署 ×${deployments.length}` : '部署',
-          title: deploymentLabels.join('；'),
-          verificationState: this._summaryVerificationState(facts)
-        };
-      });
-      return {
-        ...graph,
-        placements: graph.placements.filter(placement => !collapsedIds.has(placement.entityId)),
-        relationships: graph.relationships.filter(relationship => (
-          !collapsedIds.has(relationship.sourceId) && !collapsedIds.has(relationship.targetId)
-        )),
-        summaryRelationships,
-        directIds: new Set([...graph.directIds].filter(entityId => !collapsedIds.has(entityId))),
-        contextualIds: new Set([...graph.contextualIds].filter(entityId => !collapsedIds.has(entityId))),
-        mutedIds: new Set([...graph.mutedIds].filter(entityId => !collapsedIds.has(entityId)))
-      };
-    }
-
     _filteredGraph() {
       const board = activeBoard(this.store);
       if (!board) return { placements: [], relationships: [], summaryRelationships: [], directIds: new Set(), contextualIds: new Set(), mutedIds: new Set(), filterActive: false };
@@ -2565,42 +2332,36 @@
       const entitiesById = this._allEntitiesById();
       const placements = this._unarchivedPlacements();
       const boardRelationships = this._combinedRelationships(placements);
-      const filterActive = this._hasActiveFilters(view);
-      const directIds = new Set();
-      for (const placement of placements) {
-        const entity = entitiesById.get(placement.entityId);
-        if (!entity) continue;
-        const resource = entity.refId ? this.resourceMap.get(`${entity.type}:${entity.refId}`) : null;
-        if (!filterActive || this._entityMatchesView(entity, view, resource, placement)) directIds.add(entity.id);
-      }
-      const contextualIds = new Set();
-      if (filterActive) {
-        for (const relationship of boardRelationships) {
-          if (directIds.has(relationship.sourceId) || directIds.has(relationship.targetId)) {
-            if (!directIds.has(relationship.sourceId)) contextualIds.add(relationship.sourceId);
-            if (!directIds.has(relationship.targetId)) contextualIds.add(relationship.targetId);
-          }
-        }
-      }
-      const allIds = new Set(placements.map(placement => placement.entityId));
-      const mutedIds = new Set([...allIds].filter(entityId => !directIds.has(entityId) && !contextualIds.has(entityId)));
-      const hideUnmatched = filterActive && this._displayViewSettings(view).unmatchedDisplay === 'hide';
-      const visibleIds = hideUnmatched ? directIds : allIds;
-      const graph = {
-        placements: placements.filter(placement => visibleIds.has(placement.entityId)),
-        relationships: boardRelationships.filter(relationship => (
-          visibleIds.has(relationship.sourceId) && visibleIds.has(relationship.targetId)
-        )),
-        directIds,
-        contextualIds,
-        mutedIds,
-        filterActive
-      };
+      const now = this.now();
+      const graph = GraphProjection.filterGraph({
+        view,
+        entitiesById,
+        placements,
+        relationships: boardRelationships,
+        unmatchedDisplay: this._displayViewSettings(view).unmatchedDisplay,
+        matchesEntity: (entity, placement) => GraphProjection.entityMatchesView({
+          entity,
+          view,
+          resource: entity.refId ? this.resourceMap.get(`${entity.type}:${entity.refId}`) : null,
+          placement,
+          model: Model,
+          typeLabels: TYPE_LABELS,
+          now,
+          runtimeTone: candidate => this._entityRuntimeTone(candidate),
+          normalizeAnnotations: normalizePlacementAnnotations
+        })
+      });
       if (this._isServerTree()) {
         const tree = PanelTopologyProjection.serverTreeGraph({ ...graph, entities: [...entitiesById.values()] }, view.showRepositoryRelations);
         return { ...graph, ...tree };
       }
-      return this._deploymentSummaryProjection(graph, entitiesById);
+      return GraphProjection.deploymentSummaryProjection({
+        graph,
+        entitiesById,
+        projection: view.projection,
+        model: Model,
+        now
+      });
     }
 
     render() {
@@ -2616,9 +2377,9 @@
         `<option value="${escapeHtml(candidate.id)}"${candidate.id === board.id ? ' selected' : ''}>${escapeHtml(candidate.name)}</option>`
       )).join('');
       const environmentOptions = this._environmentOptions(board.view.environment);
-      const selectedEntityTypes = new Set(this._selectedEntityTypes(board.view));
-      const selectedTaskFilters = new Set(this._selectedTaskFilters(board.view));
-      const selectedRuntimeStates = new Set(this._selectedRuntimeStates(board.view));
+      const selectedEntityTypes = new Set(GraphProjection.selectedEntityTypes(board.view));
+      const selectedTaskFilters = new Set(GraphProjection.selectedTaskFilters(board.view));
+      const selectedRuntimeStates = new Set(GraphProjection.selectedRuntimeStates(board.view));
       const entityTypeChecks = Model.ENTITY_TYPES.map(type => (
         `<label><input name="entityTypes" type="checkbox" value="${type}"${selectedEntityTypes.has(type) ? ' checked' : ''}><span>${TYPE_LABELS[type]}</span></label>`
       )).join('');
@@ -4301,7 +4062,7 @@
         return false;
       }
       const { mode, structure, layout, projectGroupIncludesEndpoints, showRepositoryRelations } = this._boardView();
-      if (this._hasActiveFilters(board.view) || board.view.projection !== 'facts') {
+      if (GraphProjection.hasActiveFilters(board.view) || board.view.projection !== 'facts') {
         board.view = {
           ...Model.defaultBoardView(),
           ...this._displayViewSettings(),
@@ -5236,7 +4997,7 @@
       const summary = this.root?.querySelector('.relationship-filter-summary');
       if (!trigger || !count || !summary) return;
       const graph = this._filteredGraph();
-      const activeCount = this._activeFilterCount();
+      const activeCount = GraphProjection.activeFilterCount(this._boardView());
       trigger.classList.toggle('is-active', activeCount > 0);
       count.hidden = activeCount === 0;
       count.textContent = activeCount ? String(activeCount) : '';

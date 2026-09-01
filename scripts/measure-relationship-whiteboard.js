@@ -5,6 +5,10 @@ const path = require('node:path');
 const root = path.resolve(__dirname, '..');
 const baseline = 14545;
 const target = Math.floor(baseline / 3);
+const sharedFiles = fs.readdirSync(path.join(root, 'src/shared'))
+  .filter(name => name === 'panelTopologyProjection.js' || /^relationship.*\.js$/.test(name))
+  .sort()
+  .map(name => `src/shared/${name}`);
 const files = [
   'src/main/ipc/relationshipBoards.js',
   'src/main/services/relationshipBoardExportService.js',
@@ -17,13 +21,7 @@ const files = [
   'src/renderer/relationship-canvas/relationshipCanvas.css',
   'src/renderer/scripts/relationshipBoardController.js',
   'src/renderer/styles/relationships.css',
-  'src/shared/panelTopologyProjection.js',
-  'src/shared/relationshipFlowAdapter.js',
-  'src/shared/relationshipPortRouter.js',
-  'src/shared/relationshipGraphModel.js',
-  'src/shared/relationshipLayoutPrimitives.js',
-  'src/shared/relationshipProjectGalaxyLayout.js',
-  'src/shared/relationshipProjectStructure.js'
+  ...sharedFiles
 ];
 
 const measured = files.map(file => {

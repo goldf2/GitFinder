@@ -333,6 +333,7 @@ test('当前白板资源包含文字、媒体、群组和缺失仓库，并随�
 test('关系白板作为结构独立工作区接入菜单、渲染生命周期和本机 IPC', () => {
   assert.match(html, /data-view="relationships"[\s\S]*?<span>关系白板<\/span>/);
   assert.ok(html.indexOf('../shared/relationshipGraphModel.js') < html.indexOf('scripts/relationshipBoardController.js'));
+  assert.ok(html.indexOf('../shared/relationshipGraphProjection.js') < html.indexOf('scripts/relationshipBoardController.js'));
   assert.ok(html.indexOf('scripts/relationshipBoardController.js') < html.indexOf('scripts/app.js'));
   assert.match(appSource, /\['tree', 'dashboard', 'tasks', 'relationships'\]\.includes\(view\)/);
   assert.match(appSource, /AppState\.currentMode === 'relationships'[\s\S]*?relationshipBoardController\.open\(contentArea,/);
