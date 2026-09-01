@@ -8,6 +8,8 @@ const read = relativePath => fs.readFileSync(path.join(projectRoot, relativePath
 const html = read('src/renderer/index.html');
 const appSource = read('src/renderer/scripts/app.js');
 const controllerSource = read('src/renderer/scripts/relationshipBoardController.js');
+const toolbarViewSource = read('src/renderer/scripts/relationshipBoardToolbarView.js');
+const boardRendererSource = `${controllerSource}\n${toolbarViewSource}`;
 const selectionDetailSource = read('src/renderer/scripts/fileSelectionDetailController.js');
 const relationshipCss = read('src/renderer/styles/relationships.css');
 const contentCss = read('src/renderer/styles/content.css');
@@ -367,8 +369,8 @@ test('关系白板作为结构独立工作区接入菜单、渲染生命周期�
 
 test('关系白板文件导入导出只通过系统文件选择、主进程预览令牌和确认应用', () => {
   const relationshipPreloadBlock = preloadSource.match(/relationshipBoards:\s*\{[\s\S]*?\n\s*\},/)?.[0] || '';
-  assert.match(controllerSource, /data-relationship-action="export-json"/);
-  assert.match(controllerSource, /data-relationship-action="import-json"/);
+  assert.match(toolbarViewSource, /data-relationship-action="export-json"/);
+  assert.match(toolbarViewSource, /data-relationship-action="import-json"/);
   assert.match(controllerSource, /relationshipBoards\.exportCurrent\(\{ store \}\)/);
   assert.match(controllerSource, /relationshipBoards\.previewImport\(\)/);
   assert.match(controllerSource, /relationshipBoards\.applyImport\(\{[\s\S]*?operationId:[\s\S]*?previewToken:/);
@@ -459,9 +461,9 @@ test('确认 JSON 差异后控制器载入主进程结果并保留一次撤销�
 test('白板不在画布内重复暴露 Coolify Token，连接统一放在应用设置', () => {
   const relationshipPreloadBlock = preloadSource.match(/relationshipBoards:\s*\{[\s\S]*?\n\s*\},/)?.[0] || '';
   assert.equal(fs.existsSync(path.join(projectRoot, 'src/main/services/coolifyReadOnlyConnectorService.js')), false);
-  assert.doesNotMatch(controllerSource, /data-relationship-action="connect-coolify"/);
+  assert.doesNotMatch(boardRendererSource, /data-relationship-action="connect-coolify"/);
   assert.doesNotMatch(controllerSource, /连接 Coolify（只读）/);
-  assert.doesNotMatch(controllerSource, /name="accessToken"/);
+  assert.doesNotMatch(boardRendererSource, /name="accessToken"/);
   assert.doesNotMatch(relationshipPreloadBlock, /previewCoolify|applyCoolify/);
   assert.doesNotMatch(relationshipIpcSource, /previewCoolify|applyCoolify|coolifyReadOnlyConnectorService/);
 });
@@ -1005,17 +1007,17 @@ test('事实检查器显示自定义复核周期和默认周期说明', () => {
 });
 
 test('白板筛选采用锚定弹层并在工具栏只保留一个入口', () => {
-  assert.match(controllerSource, /class="relationship-filter-host"/);
-  assert.match(controllerSource, /data-relationship-action="toggle-filter-menu"/);
-  assert.match(controllerSource, /class="relationship-filter-popover" role="dialog"/);
-  assert.match(controllerSource, /data-relationship-filter-form/);
-  assert.match(controllerSource, /name="entityType"/);
-  assert.match(controllerSource, /name="environment"/);
-  assert.match(controllerSource, /name="verification"/);
-  assert.match(controllerSource, /name="mode"/);
-  assert.match(controllerSource, /name="projection"/);
+  assert.match(toolbarViewSource, /class="relationship-filter-host"/);
+  assert.match(toolbarViewSource, /data-relationship-action="toggle-filter-menu"/);
+  assert.match(toolbarViewSource, /class="relationship-filter-popover" role="dialog"/);
+  assert.match(toolbarViewSource, /data-relationship-filter-form/);
+  assert.match(toolbarViewSource, /name="entityType"/);
+  assert.match(toolbarViewSource, /name="environment"/);
+  assert.match(toolbarViewSource, /name="verification"/);
+  assert.match(toolbarViewSource, /name="mode"/);
+  assert.match(toolbarViewSource, /name="projection"/);
   assert.match(relationshipCss, /\.relationship-filter-popover\s*\{[^}]*position:\s*absolute/s);
-  assert.doesNotMatch(controllerSource, /data-relationship-action="filter-(project|repository|server)"/);
+  assert.doesNotMatch(boardRendererSource, /data-relationship-action="filter-(project|repository|server)"/);
 });
 
 test('部署摘要从完整事实链派生并聚合同一项目到服务器的部署', () => {

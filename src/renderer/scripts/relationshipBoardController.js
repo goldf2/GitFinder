@@ -9,10 +9,12 @@
     || (typeof module !== 'undefined' && module.exports ? require('../../shared/relationshipGraphProjection') : null);
   const actionRouter = root?.RelationshipBoardActionRouter
     || (typeof module !== 'undefined' && module.exports ? require('./relationshipBoardActionRouter') : null);
-  const api = factory(root?.RelationshipGraphModel, projection, scanner, primitives, graphProjection, actionRouter);
+  const toolbarView = root?.RelationshipBoardToolbarView
+    || (typeof module !== 'undefined' && module.exports ? require('./relationshipBoardToolbarView') : null);
+  const api = factory(root?.RelationshipGraphModel, projection, scanner, primitives, graphProjection, actionRouter, toolbarView);
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) root.RelationshipBoardController = api;
-})(typeof window !== 'undefined' ? window : globalThis, function createRelationshipBoardController(Model, PanelTopologyProjection, RepositoryRootScanner, LayoutPrimitives, GraphProjection, ActionRouter) {
+})(typeof window !== 'undefined' ? window : globalThis, function createRelationshipBoardController(Model, PanelTopologyProjection, RepositoryRootScanner, LayoutPrimitives, GraphProjection, ActionRouter, ToolbarView) {
   const NODE_WIDTH = 280;
   const NODE_HEIGHT = 143;
   const COMPACT_NODE_WIDTH = 236;
@@ -2360,38 +2362,20 @@
         `<option value="${escapeHtml(candidate.id)}"${candidate.id === board.id ? ' selected' : ''}>${escapeHtml(candidate.name)}</option>`
       )).join('');
       const environmentOptions = this._environmentOptions(board.view.environment);
-      const selectedEntityTypes = new Set(GraphProjection.selectedEntityTypes(board.view));
-      const selectedTaskFilters = new Set(GraphProjection.selectedTaskFilters(board.view));
-      const selectedRuntimeStates = new Set(GraphProjection.selectedRuntimeStates(board.view));
-      const entityTypeChecks = Model.ENTITY_TYPES.map(type => (
-        `<label><input name="entityTypes" type="checkbox" value="${type}"${selectedEntityTypes.has(type) ? ' checked' : ''}><span>${TYPE_LABELS[type]}</span></label>`
-      )).join('');
-      const taskChecks = [
-        ['has-todos', '有待办'],
-        ['no-todos', '无待办'],
-        ['open', '未完成'],
-        ['overdue', '已逾期'],
-        ['due-today', '今天截止'],
-        ['reminder-today', '今天提醒'],
-        ['completed', '已完成']
-      ].map(([value, label]) => (
-        `<label><input name="taskFilters" type="checkbox" value="${value}"${selectedTaskFilters.has(value) ? ' checked' : ''}><span>${label}</span></label>`
-      )).join('');
-      const runtimeChecks = [
-        ['normal', '正常'],
-        ['warning', '预警 / 故障'],
-        ['inactive', '停止 / 无效']
-      ].map(([value, label]) => (
-        `<label><input name="runtimeStates" type="checkbox" value="${value}"${selectedRuntimeStates.has(value) ? ' checked' : ''}><span>${label}</span></label>`
-      )).join('');
-      const verificationOptions = Model.VERIFICATION_FILTERS.map(value => (
-        `<option value="${value}"${board.view.verification === value ? ' selected' : ''}>${VERIFICATION_LABELS[value]}</option>`
-      )).join('');
-      const labelOptions = [...new Set(this._combinedPlacements(board)
+      const labels = [...new Set(this._combinedPlacements(board)
         .flatMap(placement => normalizePlacementAnnotations(placement).labels || []))]
-        .sort((left, right) => left.localeCompare(right, 'zh-CN'))
-        .map(label => `<option value="${escapeHtml(label)}"${board.view.label === label ? ' selected' : ''}>${escapeHtml(label)}</option>`)
-        .join('');
+        .sort((left, right) => left.localeCompare(right, 'zh-CN'));
+      const panelStatus = this._panelStatusView();
+      const displayPopover = ToolbarView.displayPopover({ view: displayView, boardView: board.view,
+        serverTree: this._isServerTree(), icon: toolbarIcon('display'), escapeHtml });
+      const filterPopover = ToolbarView.filterPopover({ view: {
+        ...displayView,
+        selectedEntityTypes: GraphProjection.selectedEntityTypes(board.view),
+        selectedTaskFilters: GraphProjection.selectedTaskFilters(board.view),
+        selectedRuntimeStates: GraphProjection.selectedRuntimeStates(board.view)
+      }, boardView: board.view, entityTypes: Model.ENTITY_TYPES, typeLabels: TYPE_LABELS,
+      verificationFilters: Model.VERIFICATION_FILTERS, verificationLabels: VERIFICATION_LABELS,
+      environmentOptions, labels, icon: toolbarIcon('filter'), escapeHtml });
       this.container.innerHTML = `
         <section class="relationship-workspace" aria-label="关系白板">
           <nav class="whiteboard-document-tabs" aria-label="白板文档标签页">
@@ -2420,121 +2404,14 @@
             </label>
             <button class="relationship-tool-button" data-relationship-action="create-group-from-selection" type="button" title="将选中节点建立视觉分组 (⌘G)" disabled>群组</button>
             <div class="relationship-toolbar-spacer"></div>
-            <div class="relationship-panel-status" data-state="${escapeHtml(this._panelStatusView().state)}">
-              <span data-panel-topology-status title="${escapeHtml(this._panelStatusView().title)}">${escapeHtml(this._panelStatusView().label)}</span>
+            <div class="relationship-panel-status" data-state="${escapeHtml(panelStatus.state)}">
+              <span data-panel-topology-status title="${escapeHtml(panelStatus.title)}">${escapeHtml(panelStatus.label)}</span>
               <button class="relationship-tool-button" data-relationship-action="refresh-panel" type="button" title="刷新 Coolify 动态拓扑" aria-label="刷新 Coolify 动态拓扑">↻</button>
               <button class="relationship-tool-button relationship-icon-tool" data-relationship-action="check-endpoints" type="button" title="重新检测全部访问点（本机 HTTP 检测）" aria-label="重新检测全部访问点（本机 HTTP 检测）">◉</button>
             </div>
-            <div class="relationship-display-host">
-              <button class="relationship-tool-button relationship-display-trigger relationship-icon-tool" data-relationship-action="toggle-display-menu" type="button" aria-label="显示设置" title="显示设置：卡片大小、间距与颜色" aria-haspopup="dialog" aria-expanded="false">
-                ${toolbarIcon('display')}
-              </button>
-              <div class="relationship-display-popover" role="dialog" aria-label="调整白板显示" hidden>
-                <form data-relationship-display-form>
-                  <header><strong>白板显示</strong><small>只影响当前白板，不修改资源数据</small></header>
-                  <label class="relationship-display-select"><span>信息密度</span><select name="mode"><option value="full"${displayView.mode === 'full' ? ' selected' : ''}>完整</option><option value="compact"${displayView.mode === 'compact' ? ' selected' : ''}>精简</option></select></label>
-                  <label class="relationship-display-slider">
-                    <span><b>卡片大小</b><output data-display-card-scale>${Math.round(displayView.cardScale * 100)}%</output></span>
-                    <input name="cardScale" type="range" min="0.8" max="1.4" step="0.05" value="${displayView.cardScale}" aria-label="卡片大小">
-                  </label>
-                  <label class="relationship-display-slider">
-                    <span><b>文字大小</b><output data-display-text-scale>${Math.round(displayView.textScale * 100)}%</output></span>
-                    <input name="textScale" type="range" min="0.85" max="1.3" step="0.05" value="${displayView.textScale}" aria-label="文字大小">
-                  </label>
-                  <label class="relationship-display-slider">
-                    <span><b>群组标题字号</b><output data-display-group-title-size>${Math.round(displayView.groupTitleFontSize)} px</output></span>
-                    <input name="groupTitleFontSize" type="range" min="14" max="36" step="1" value="${displayView.groupTitleFontSize}" aria-label="群组标题字号">
-                  </label>
-                  <label class="relationship-display-slider"><span><b>卡片基础宽度</b><output data-display-card-width>${displayView.cardWidth} px</output></span><input name="cardWidth" type="range" min="220" max="600" step="10" value="${displayView.cardWidth}" aria-label="卡片宽度"></label>
-                  <label class="relationship-display-slider"><span><b>简略卡片最小高度</b><output data-display-card-height>${displayView.cardHeight} px</output></span><input name="cardHeight" type="range" min="143" max="420" step="1" value="${displayView.cardHeight}" aria-label="卡片高度"></label>
-                  <small>宽高随卡片缩放比例变化；详情按内容增高，文字和图片元素单独调节。</small>
-                  <label class="relationship-display-slider">
-                    <span><b>横向间距</b><output data-display-horizontal-spacing>${Math.round(displayView.horizontalSpacing)} px</output></span>
-                    <input name="horizontalSpacing" type="range" min="16" max="180" step="4" value="${displayView.horizontalSpacing}" aria-label="卡片横向间距">
-                  </label>
-                  <label class="relationship-display-slider">
-                    <span><b>纵向间距</b><output data-display-vertical-spacing>${Math.round(displayView.verticalSpacing)} px</output></span>
-                    <input name="verticalSpacing" type="range" min="16" max="140" step="4" value="${displayView.verticalSpacing}" aria-label="卡片纵向间距">
-                  </label>
-                  <small>调整尺寸或间距时，列间距与群组边界同步适配；手动群组保留排列顺序和额外留白。</small>
-                  <label class="relationship-display-slider">
-                    <span><b>状态底色</b><output data-display-status-tint>${Math.round(displayView.statusTintOpacity * 100)}%</output></span>
-                    <input name="statusTintOpacity" type="range" min="0" max="0.18" step="0.01" value="${displayView.statusTintOpacity}" aria-label="状态底色强度">
-                  </label>
-                  <label class="relationship-display-slider">
-                    <span><b>一跳上下文</b><output data-display-context-opacity>${Math.round(displayView.filterContextOpacity * 100)}%</output></span>
-                    <input name="filterContextOpacity" type="range" min="0.15" max="0.8" step="0.01" value="${displayView.filterContextOpacity}" aria-label="一跳上下文可视度">
-                  </label>
-                  <label class="relationship-display-slider">
-                    <span><b>其他未命中项</b><output data-display-muted-opacity>${Math.round(displayView.filterMutedOpacity * 100)}%</output></span>
-                    <input name="filterMutedOpacity" type="range" min="0.03" max="0.4" step="0.01" value="${displayView.filterMutedOpacity}" aria-label="其他未命中项可视度">
-                  </label>
-                  <label class="relationship-display-slider">
-                    <span><b>命中高亮</b><output data-display-match-halo>${Math.round(displayView.filterMatchHaloOpacity * 100)}%</output></span>
-                    <input name="filterMatchHaloOpacity" type="range" min="0" max="0.6" step="0.01" value="${displayView.filterMatchHaloOpacity}" aria-label="筛选命中高亮强度">
-                  </label>
-                  <label class="relationship-display-select"><span>卡片层次</span><select name="cardAppearance"><option value="elevated"${displayView.cardAppearance === 'elevated' ? ' selected' : ''}>层次阴影</option><option value="flat"${displayView.cardAppearance === 'flat' ? ' selected' : ''}>简洁平面</option></select></label>
-                  <label class="relationship-display-select"><span>Project 容器形状</span><select name="projectGroupShape"><option value="rounded"${displayView.projectGroupShape === 'rounded' ? ' selected' : ''}>矩形</option><option value="polygon"${displayView.projectGroupShape === 'polygon' ? ' selected' : ''}>多边形</option></select></label>
-                  <small>只改变容器外观，不改变 Project 归属或当前布局方式。</small>
-                  <label class="relationship-display-select"><span>默认标题内容</span><select name="cardTitleSource"><option value="name"${displayView.cardTitleSource === 'name' ? ' selected' : ''}>资源名称</option><option value="note"${displayView.cardTitleSource === 'note' ? ' selected' : ''}>卡片备注</option></select></label>
-                  <div class="relationship-display-toggles">
-                    ${this._isServerTree() ? `<label><input name="projectGroupIncludesEndpoints" data-project-endpoints type="checkbox"${board.view.projectGroupIncludesEndpoints ? ' checked' : ''}><span>项目组包含访问点</span></label><small>开启后独占访问点放入项目容器；关闭后位于容器外。共享访问点保持独立。</small>` : ''}
-                    <label><input name="showGrid" type="checkbox"${displayView.showGrid ? ' checked' : ''}><span>显示画布网格</span></label>
-                    <label><input name="showEdgeLabels" type="checkbox"${displayView.showEdgeLabels ? ' checked' : ''}><span>显示关系文字</span></label>
-                    <label><input name="showRuntimeStatus" type="checkbox"${displayView.showRuntimeStatus ? ' checked' : ''}><span>显示服务状态</span></label>
-                  </div>
-                  <footer><button type="button" data-relationship-action="reset-display-settings">恢复默认显示</button></footer>
-                </form>
-              </div>
-            </div>
-            <div class="relationship-filter-host">
-              <button class="relationship-tool-button relationship-filter-trigger relationship-icon-tool" data-relationship-action="toggle-filter-menu" type="button" aria-label="筛选" title="筛选：可同时选择多个条件" aria-haspopup="dialog" aria-expanded="false">
-                ${toolbarIcon('filter')}<span class="relationship-filter-count" hidden></span>
-              </button>
-              <div class="relationship-filter-popover" role="dialog" aria-label="筛选白板内容" hidden>
-                <form data-relationship-filter-form>
-                  <header><strong>筛选白板内容</strong><small>匹配结果会保留一跳关系上下文</small></header>
-                  <label class="relationship-filter-search">
-                    <span aria-hidden="true">⌕</span>
-                    <input name="query" type="search" maxlength="120" placeholder="搜索名称、环境或说明" value="${escapeHtml(board.view.query)}" autocomplete="off">
-                  </label>
-                  <div class="relationship-filter-grid">
-                    <input name="entityType" type="hidden" value="all">
-                    <input name="task" type="hidden" value="all">
-                    <fieldset class="relationship-filter-check-group"><legend>节点类型 · 可多选</legend><div>${entityTypeChecks}</div></fieldset>
-                    <fieldset class="relationship-filter-check-group"><legend>运行状态 · 可多选</legend><div>${runtimeChecks}</div></fieldset>
-                    <fieldset class="relationship-filter-check-group relationship-filter-check-group-wide"><legend>待办 · 可多选</legend><div>${taskChecks}</div></fieldset>
-                    <label><span>环境</span><select name="environment">${environmentOptions}</select></label>
-                    <label><span>核验状态</span><select name="verification">${verificationOptions}</select></label>
-                    <label><span>注释</span><select name="annotation"><option value="all"${board.view.annotation === 'all' ? ' selected' : ''}>全部</option><option value="has-note"${board.view.annotation === 'has-note' ? ' selected' : ''}>有备注</option></select></label>
-                    <label><span>标签</span><select name="label"><option value="">全部标签</option>${labelOptions}</select></label>
-                    <label><span>未命中项</span><select name="unmatchedDisplay"><option value="dim"${displayView.unmatchedDisplay === 'dim' ? ' selected' : ''}>低可视保留</option><option value="hide"${displayView.unmatchedDisplay === 'hide' ? ' selected' : ''}>隐藏</option></select></label>
-                    <label><span>节点显示</span><select name="mode"><option value="full"${board.view.mode === 'full' ? ' selected' : ''}>完整</option><option value="compact"${board.view.mode === 'compact' ? ' selected' : ''}>精简</option></select></label>
-                    <label><span>关系层级</span><select name="projection"><option value="facts"${board.view.projection === 'facts' ? ' selected' : ''}>完整事实</option><option value="deployment-summary"${board.view.projection === 'deployment-summary' ? ' selected' : ''}>部署摘要</option></select></label>
-                  </div>
-                  <footer><span class="relationship-filter-summary" role="status"></span><button type="button" data-relationship-action="clear-filters">清除筛选</button></footer>
-                </form>
-              </div>
-            </div>
-            <div class="relationship-menu-host">
-              <button class="relationship-tool-button relationship-add-trigger relationship-icon-tool" data-relationship-action="toggle-add-menu" type="button" aria-label="添加节点" title="添加文字、图片、文件或关系节点" aria-haspopup="menu" aria-expanded="false">
-                ${toolbarIcon('add')}
-              </button>
-              <div class="relationship-add-menu" role="menu" hidden>
-                <button type="button" role="menuitem" data-relationship-action="add-text"><span>T</span><span>文字</span><small>可编辑文字块</small></button>
-                <button type="button" role="menuitem" data-relationship-action="add-image"><span>▧</span><span>图片…</span><small>图片随白板文件保存</small></button>
-                <button type="button" role="menuitem" data-relationship-action="add-files"><span>▱</span><span>文件与媒体…</span><small>复制进项目或保留引用</small></button>
-                <button type="button" role="menuitem" data-add-node-type="server"><span>▰</span><span>服务器</span><small>不保存登录凭据</small></button>
-                <button type="button" role="menuitem" data-add-node-type="deployment"><span>◆</span><span>部署</span><small>环境与状态</small></button>
-                <button type="button" role="menuitem" data-add-node-type="endpoint"><span>↗</span><span>访问端点</span><small>仅显示标签</small></button>
-                <button type="button" role="menuitem" data-add-node-type="group"><span>▢</span><span>分组</span><small>视觉整理</small></button>
-                <div class="relationship-menu-separator" role="separator"></div>
-                <button type="button" role="menuitem" data-relationship-action="export-package"><span>⇧</span><span>导出白板包…</span><small>.gfb 标准 ZIP，包含媒体附件</small></button>
-                <button type="button" role="menuitem" data-relationship-action="import-package"><span>⇩</span><span>导入白板包…</span><small>创建项目文件夹并加入资源库</small></button>
-                <button type="button" role="menuitem" data-relationship-action="export-json"><span>⇧</span><span>导出白板 JSON…</span><small>仅关系快照，不包含附件文件</small></button>
-                <button type="button" role="menuitem" data-relationship-action="import-json"><span>⇩</span><span>导入合并 JSON…</span><small>先预览差异再合并</small></button>
-              </div>
-            </div>
+            ${displayPopover}
+            ${filterPopover}
+            ${ToolbarView.addMenu(toolbarIcon('add'))}
             <span class="relationship-toolbar-divider" aria-hidden="true"></span>
             <button class="relationship-tool-button" data-relationship-action="undo" type="button" title="撤销 (⌘Z)" ${this.undoStack.length ? '' : 'disabled'}>↶</button>
             <button class="relationship-tool-button" data-relationship-action="redo" type="button" title="重做 (⇧⌘Z)" ${this.redoStack.length ? '' : 'disabled'}>↷</button>
@@ -2549,7 +2426,7 @@
               <div class="relationship-resource-heading">
                 <button class="relationship-resource-library-trigger" type="button" data-panel-collapse="library" aria-label="折叠或展开资源库"><span>资源库</span><span class="relationship-library-disclosure" aria-hidden="true">▼</span></button>
                 <div class="relationship-resource-heading-actions">
-                  <span data-resource-total>${this._resourceCatalog().length}</span>
+                  <span data-resource-total></span>
                   ${this._panelMoveControls('library', '资源库')}
                 </div>
               </div>

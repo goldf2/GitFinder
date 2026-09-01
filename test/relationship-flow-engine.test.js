@@ -8,6 +8,7 @@ const canvasCss = fs.readFileSync(path.join(__dirname, '../src/renderer/relation
 const fixture = fs.readFileSync(path.join(__dirname, '../scripts/visual-fixtures/relationship-flow-engine.js'), 'utf8');
 const rendererHtml = fs.readFileSync(path.join(__dirname, '../src/renderer/index.html'), 'utf8');
 const controllerSource = fs.readFileSync(path.join(__dirname, '../src/renderer/scripts/relationshipBoardController.js'), 'utf8');
+const toolbarViewSource = fs.readFileSync(path.join(__dirname, '../src/renderer/scripts/relationshipBoardToolbarView.js'), 'utf8');
 
 test('新画布直接使用成熟库提供框选、平移、缩放、边缘滚动和小地图', () => {
   assert.match(source, /selectionOnDrag/);
@@ -102,7 +103,7 @@ test('Project 标题完整显示，成员数量不参与标题宽度竞争且字
   assert.match(canvasCss, /--relationship-group-title-font-size/);
   assert.doesNotMatch(canvasCss, /\.gf-flow-group-title-toolbar strong\s*\{[^}]*text-overflow:\s*ellipsis/s);
   assert.doesNotMatch(canvasCss, /\.gf-flow-group-title-toolbar button\s*\{[^}]*max-width:\s*calc/s);
-  assert.match(controllerSource, /name="groupTitleFontSize"/);
+  assert.match(toolbarViewSource, /key: 'groupTitleFontSize'/);
   assert.match(controllerSource, /--relationship-group-title-font-size/);
 });
 

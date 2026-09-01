@@ -374,9 +374,10 @@ test('项目星系根样式状态不复用布局菜单的事件属性', () => {
 test('Project 容器形状由显示设置控制，圆形选项已移除', () => {
   const css = fs.readFileSync(require.resolve('../src/renderer/relationship-canvas/relationshipCanvas.css'), 'utf8');
   const source = fs.readFileSync(require.resolve('../src/renderer/scripts/relationshipBoardController'), 'utf8');
-  assert.match(source, /name="projectGroupShape"/);
+  const toolbarViewSource = fs.readFileSync(require.resolve('../src/renderer/scripts/relationshipBoardToolbarView'), 'utf8');
+  assert.match(toolbarViewSource, /select\('projectGroupShape'/);
   assert.match(source, /data\.get\('projectGroupShape'\)/);
-  assert.doesNotMatch(source, /option value="circle"/);
+  assert.doesNotMatch(`${source}\n${toolbarViewSource}`, /option value="circle"/);
   assert.doesNotMatch(css, /\.gf-flow-group\.is-circle/);
   assert.match(css, /\.gf-flow-group\.is-polygon/);
   assert.doesNotMatch(css, /data-active-board-layout="galaxy"/);
