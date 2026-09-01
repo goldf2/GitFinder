@@ -5,7 +5,7 @@
 })(typeof window !== 'undefined' ? window : globalThis, function createAppControllerRegistry() {
   const CONTROLLER_KEYS = Object.freeze([
     'quickLookController', 'fileOperationController', 'fileOperationDialogController',
-    'fileActionBarController', 'directoryTerminalController', 'fileLabelController',
+    'fileActionBarController', 'directoryTerminalController',
     'fileSelectionDetailController', 'panelDeploymentController', 'repositoryDetailController',
     'fileOperationHistoryController', 'fileInfoController', 'batchRenameController',
     'fileTransferController', 'contentFilterController', 'smartCollectionsController',
@@ -15,7 +15,7 @@
   ]);
   const CONTROLLER_NAMESPACES = Object.freeze([
     'QuickLookController', 'FileOperationController', 'FileOperationDialogController',
-    'FileActionBarController', 'DirectoryTerminalController', 'FileLabelController',
+    'FileActionBarController', 'DirectoryTerminalController',
     'FileSelectionDetailController', 'PanelDeploymentController', 'RepositoryDetailController',
     'FileOperationHistoryController', 'FileInfoController', 'BatchRenameController',
     'FileTransferController', 'ContentFilterController', 'SmartCollectionsController',
@@ -24,7 +24,7 @@
     'DirectorySelectionController', 'RelationshipBoardController', 'WorkspaceTabOverflowController'
   ]);
   const BOUND_CONTROLLER_KEYS = Object.freeze([
-    'quickLookController', 'fileOperationDialogController', 'fileLabelController',
+    'quickLookController', 'fileOperationDialogController',
     'fileOperationHistoryController', 'fileInfoController', 'batchRenameController',
     'contentFilterController', 'smartCollectionsController', 'projectShortcutsController',
     'directoryPerformanceController'
@@ -60,7 +60,6 @@
     add('fileOperationDialogController', 'FileOperationDialogController', ['document', 'window'], {}, 'bind');
     add('fileActionBarController', 'FileActionBarController', ['app', 'state', 'document']);
     add('directoryTerminalController', 'DirectoryTerminalController', ['app', 'state', 'bridge']);
-    add('fileLabelController', 'FileLabelController', ['app', 'state', 'bridge', 'document', 'window'], {}, 'bind');
     add('fileSelectionDetailController', 'FileSelectionDetailController', ['app', 'state', 'document'], { fileBrowser: host.FileBrowser });
     add('panelDeploymentController', 'PanelDeploymentController', ['app', 'bridge', 'document']);
     add('repositoryDetailController', 'RepositoryDetailController', ['app', 'state', 'bridge', 'document'], { terminal });

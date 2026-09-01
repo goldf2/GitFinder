@@ -57,8 +57,6 @@ const AppState = {
   repoEnrichmentCancelling: false,
   groups: { groups: [], ungrouped: [] },
   tags: { tags: [], repoTags: {} },
-  fileLabels: window.FileLabels.defaultStore(),
-  fileLabelCollectionMeta: null,
   selectedTags: [],
   selectedStatuses: [], // 状态筛选:dirty|ahead|behind|clean
   selectedCategory: 'all', // 'all' | 'ungrouped' | groupId
@@ -368,19 +366,6 @@ const App = {
 
     document.querySelectorAll('.directory-base-btn').forEach(button => {
       button.addEventListener('click', () => {
-        if (this.contentCollectionKind() === 'file-labels') {
-          this.setContentQuery({
-            ...window.ContentQuery.normalize(AppState.contentQuery),
-            baseType: ['all', 'directory', 'file'].includes(button.dataset.contentBase)
-              ? button.dataset.contentBase
-              : 'all',
-            extensions: [],
-            sizeRange: 'any',
-            minSizeBytes: null,
-            maxSizeBytes: null
-          });
-          return;
-        }
         const presets = { all: 'current-all', directory: 'current-directories', file: 'current-files' };
         this.applyCurrentContentPreset(presets[button.dataset.contentBase] || 'current-all');
       });
@@ -2015,9 +2000,7 @@ const App = {
     const history = AppState.history.slice(-window.WorkspaceTabs.MAX_HISTORY);
     const dropped = Math.max(0, AppState.history.length - history.length);
     tab.path = AppState.currentPath;
-    tab.title = this.contentCollectionKind() === 'file-labels'
-      ? this.fileLabelCollectionTitle(AppState.contentQuery)
-      : window.WorkspaceTabs.tabTitle(AppState.currentPath);
+    tab.title = window.WorkspaceTabs.tabTitle(AppState.currentPath);
     tab.mode = AppState.currentMode;
     tab.history = history;
     tab.historyIndex = Math.max(0, AppState.historyIndex - dropped);
@@ -2066,27 +2049,21 @@ const App = {
         ? '✓'
         : (tab.mode === 'dashboard' ? '▦' : (collectionKind === 'projects'
           ? '◆'
-          : (collectionKind === 'repositories' ? '⑂' : (collectionKind === 'project-repositories'
-            ? '◆⑂'
-            : (collectionKind === 'file-labels' ? '●' : '📁')))));
+          : (collectionKind === 'repositories' ? '⑂' : (collectionKind === 'project-repositories' ? '◆⑂' : '📁'))));
       const title = tab.mode === 'tasks'
         ? '开发任务'
         : (collectionKind === 'projects'
           ? '所有项目'
           : (collectionKind === 'repositories'
             ? '所有仓库'
-            : (collectionKind === 'project-repositories'
-              ? '项目 + Git'
-              : (collectionKind === 'file-labels' ? this.fileLabelCollectionTitle(tab.contentQuery) : tab.title))));
+            : (collectionKind === 'project-repositories' ? '项目 + Git' : tab.title)));
       const tabHelp = tab.mode === 'tasks'
         ? '开发任务 · Local Project Manager 权威任务工作台'
         : (collectionKind === 'projects'
           ? '所有受管位置 · 项目筛选'
           : (collectionKind === 'repositories'
             ? '所有受管位置 · Git 仓库筛选'
-            : (collectionKind === 'project-repositories'
-              ? '所有受管位置 · 项目 + Git 仓库筛选'
-              : (collectionKind === 'file-labels' ? '所有受管位置 · 文件标签' : (tab.path || title)))));
+            : (collectionKind === 'project-repositories' ? '所有受管位置 · 项目 + Git 仓库筛选' : (tab.path || title))));
       return `
         <div class="workspace-tab ${active ? 'active' : ''}" data-tab-id="${this.escapeHtml(tab.id)}" role="tab" tabindex="${active ? '0' : '-1'}" aria-selected="${active ? 'true' : 'false'}" aria-label="${this.escapeHtml(`${title}，${tabHelp}`)}" aria-keyshortcuts="Alt+Shift+ArrowLeft Alt+Shift+ArrowRight" draggable="true" title="${this.escapeHtml(title)}">
           <span class="workspace-tab-icon" aria-hidden="true">${icon}</span>
@@ -2411,7 +2388,7 @@ const App = {
   },
 
   isFileBrowsingContext() {
-    return this.isDirectoryBrowsingContext() || this.contentCollectionKind() === 'file-labels';
+    return this.isDirectoryBrowsingContext();
   },
 
   isDirectoryLoadBlocked() {
@@ -2424,16 +2401,6 @@ const App = {
 
   contentCollectionKind() {
     return AppState.currentMode === 'tree' ? window.ContentQuery.collectionKind(AppState.contentQuery) : '';
-  },
-
-  fileLabelCollectionLabels(query = AppState.contentQuery) {
-    const ids = new Set(window.ContentQuery.normalize(query).fileLabelIds);
-    return (AppState.fileLabels?.labels || []).filter(label => ids.has(label.id));
-  },
-
-  fileLabelCollectionTitle(query = AppState.contentQuery) {
-    const names = this.fileLabelCollectionLabels(query).map(label => label.name);
-    return names.length ? `标签：${names.join(' + ')}` : '文件标签';
   },
 
   updateSearchScopeUI() {
@@ -2456,7 +2423,6 @@ const App = {
       else if (collectionKind === 'projects') input.placeholder = '筛选所有项目…';
       else if (collectionKind === 'repositories') input.placeholder = '筛选所有 Git 仓库…';
       else if (collectionKind === 'project-repositories') input.placeholder = '筛选所有项目中的根 Git 仓库…';
-      else if (collectionKind === 'file-labels') input.placeholder = '筛选带标签的文件与文件夹…';
       else if (global) {
         input.placeholder = AppState.globalSearchMode === 'content'
           ? '搜索文件内容（至少 3 个字符）…'
@@ -2877,14 +2843,6 @@ const App = {
         const locationsIndex = resolvedOrder.indexOf('locations');
         const tagsIndex = resolvedOrder.indexOf('tags');
         const insertAt = locationsIndex >= 0 ? locationsIndex + 1 : (tagsIndex >= 0 ? tagsIndex : resolvedOrder.length);
-        resolvedOrder.splice(insertAt, 0, id);
-      } else if (id === 'file-labels') {
-        const smartCollectionsIndex = resolvedOrder.indexOf('smart-collections');
-        const locationsIndex = resolvedOrder.indexOf('locations');
-        const tagsIndex = resolvedOrder.indexOf('tags');
-        const insertAt = smartCollectionsIndex >= 0
-          ? smartCollectionsIndex + 1
-          : (locationsIndex >= 0 ? locationsIndex + 1 : (tagsIndex >= 0 ? tagsIndex : resolvedOrder.length));
         resolvedOrder.splice(insertAt, 0, id);
       } else {
         resolvedOrder.push(id);
@@ -4085,18 +4043,6 @@ const App = {
     this.setContentQuery(window.ContentQuery.toggleCurrentAttribute(AppState.contentQuery, attribute));
   },
 
-  openFileLabelCollection(labelId) {
-    const label = (AppState.fileLabels?.labels || []).find(item => item.id === labelId);
-    if (!label) {
-      this._showStatusMessage('该文件标签已不存在', 'warning');
-      return;
-    }
-    AppState.searchQuery = '';
-    const input = document.getElementById('search-input');
-    if (input) input.value = '';
-    this.setContentQuery(window.ContentQuery.queryForFileLabels([label.id]));
-  },
-
   setContentQuery(query) {
     this.closeQuickLook();
     this.clearFileSelection();
@@ -4143,7 +4089,6 @@ const App = {
     );
     const tagsSection = document.getElementById('tags-sidebar-section');
     if (tagsSection) tagsSection.style.display = repositoryMetadataContext ? '' : 'none';
-    this.fileLabelController?.renderSidebar();
     const categoryFilter = document.getElementById('repository-category-filter');
     if (categoryFilter) categoryFilter.style.display = repositoryMetadataContext ? '' : 'none';
     document.querySelector('.main-container')?.classList.toggle('tasks-mode', tasksMode);
@@ -4174,7 +4119,7 @@ const App = {
       if (filterBar) filterBar.style.display = 'none';
     } else if (collectionMode) {
       sortBar.style.display = 'flex';
-      if (fileActionBar) fileActionBar.style.display = collectionKind === 'file-labels' ? 'flex' : 'none';
+      if (fileActionBar) fileActionBar.style.display = 'none';
       if (filterBar) filterBar.style.display = collectionKind === 'repositories' ? 'flex' : 'none';
     } else if (this.isGlobalSearchActive()) {
       sortBar.style.display = 'none';
@@ -4204,9 +4149,7 @@ const App = {
     const query = window.ContentQuery.normalize(AppState.contentQuery);
     const counts = window.FileBrowser.countDirectoryItems(items);
     const currentDirectoryMode = AppState.currentMode === 'tree' && query.scope === 'current';
-    const fileLabelCollectionMode = AppState.currentMode === 'tree'
-      && window.ContentQuery.collectionKind(query) === 'file-labels';
-    const fileContentMode = currentDirectoryMode || fileLabelCollectionMode;
+    const fileContentMode = currentDirectoryMode;
     const directoryLoadStatus = currentDirectoryMode
       ? window.DirectoryLoadState.status(AppState)
       : 'idle';
@@ -4220,7 +4163,7 @@ const App = {
         : (directoryLoadStatus === 'error' ? '当前目录无法载入' : '筛选当前目录内容');
     }
     const scopeHeading = document.getElementById('directory-filter-scope-heading');
-    if (scopeHeading) scopeHeading.textContent = fileLabelCollectionMode ? '标签集合' : '当前目录';
+    if (scopeHeading) scopeHeading.textContent = '当前目录';
     document.querySelectorAll('.directory-base-btn').forEach(button => {
       const type = button.dataset.contentBase;
       const active = fileContentMode && type === query.baseType;
@@ -4285,17 +4228,12 @@ const App = {
         : `所有 Git 仓库 ${allRepositoryCount}`;
     });
     const triggerLabel = document.getElementById('directory-filter-label');
-    const advancedCount = Math.max(0, window.ContentQuery.advancedFilterCount(query) - Number(fileLabelCollectionMode));
+    const advancedCount = window.ContentQuery.advancedFilterCount(query);
     const advancedSuffix = advancedCount ? ` · ${advancedCount} 条件` : '';
     if (triggerLabel) {
       const collectionKind = window.ContentQuery.collectionKind(query);
       if (directoryLoadStatus === 'loading') triggerLabel.textContent = '当前目录 · 正在载入…';
       else if (directoryLoadStatus === 'error') triggerLabel.textContent = '当前目录 · 无法载入';
-      else if (collectionKind === 'file-labels') {
-        const names = this.fileLabelCollectionLabels(query).map(label => label.name).join(' + ') || '文件标签';
-        const count = items.filter(item => window.ContentQuery.matchesAttributes(item, query)).length;
-        triggerLabel.textContent = `所有位置 · ${names} ${count}${advancedSuffix}`;
-      }
       else if (collectionKind === 'projects') triggerLabel.textContent = `所有位置 · 项目 ${projectCount}${advancedSuffix}`;
       else if (collectionKind === 'repositories') triggerLabel.textContent = `所有位置 · Git 仓库 ${repositoryCount}${advancedSuffix}`;
       else if (collectionKind === 'project-repositories') {
@@ -4784,11 +4722,6 @@ const App = {
       return;
     }
 
-    if (collectionKind === 'file-labels') {
-      await this.renderFileLabelCollectionView(renderContext);
-      return;
-    }
-
     if (!AppState.currentPath) {
       AppState.fileDisplayOrder = [];
       this.showEmptyState();
@@ -4891,94 +4824,6 @@ const App = {
     this.showFileSelectionDetail(this.getSelectedFileItems());
     this.directoryPerformanceController.complete(context, contentArea);
     this.updateStatusBar();
-  },
-
-  async renderFileLabelCollectionView(context) {
-    const contentArea = document.getElementById('content-area');
-    const emptyState = document.getElementById('empty-state');
-    const query = window.ContentQuery.normalize(AppState.contentQuery);
-    emptyState.style.display = 'none';
-    contentArea.innerHTML = '<div class="file-label-collection-loading"><div class="loading-spinner"></div><span>正在读取文件标签…</span></div>';
-    try {
-      const result = await window.gitFinder.fileLabels.getCollection(query.fileLabelIds);
-      if (!this.isDirectoryRenderContextCurrent(context) || this.contentCollectionKind() !== 'file-labels') return;
-      AppState.fileLabelCollectionMeta = result;
-      AppState.items = Array.isArray(result.items) ? result.items : [];
-      this.updateDirectoryTypeFilterUI(AppState.items);
-      let items = AppState.items.filter(item => window.ContentQuery.matchesAttributes(item, query));
-      if (AppState.searchScope === 'current' && AppState.filterEnabled.name && AppState.searchQuery) {
-        const needle = AppState.searchQuery;
-        items = items.filter(item => String(item.name || '').toLowerCase().includes(needle)
-          || String(item.path || '').toLowerCase().includes(needle));
-      }
-      AppState.visibleItems = items;
-      const visiblePaths = new Set(items.map(item => item.path));
-      AppState.selectedPaths = new Set([...AppState.selectedPaths].filter(itemPath => visiblePaths.has(itemPath)));
-      this.reconcileFileKeyboardFocus(items);
-
-      if (!items.length) {
-        AppState.fileDisplayOrder = [];
-        AppState.fileKeyboardFocusPath = null;
-        const assignedCount = Number(result.totalAssigned || 0);
-        contentArea.innerHTML = `<div class="file-label-collection-empty">
-          <span class="file-label-collection-empty-dot" aria-hidden="true"></span>
-          <strong>${assignedCount ? '没有符合当前内容条件的项目' : '这个标签还没有项目'}</strong>
-          <span>${assignedCount ? '可清除文件类型、扩展名、大小或时间条件。' : '在任意目录中选择文件或文件夹，然后通过“操作 → 标签…”分配。'}</span>
-        </div>`;
-      } else if (AppState.cardStyle === 'column') {
-        this.renderFileLabelColumnView(items, contentArea);
-      } else if (AppState.cardStyle === 'gallery') {
-        await this.renderGalleryView(items, contentArea);
-      } else if (AppState.cardStyle === 'list') {
-        await this.renderListView(items, contentArea);
-      } else {
-        await this.renderCardView(items, contentArea);
-      }
-      if (!this.isDirectoryRenderContextCurrent(context)) return;
-      const hiddenCount = Number(result.unavailableCount || 0);
-      const truncatedCount = Number(result.truncatedCount || 0);
-      if (hiddenCount || truncatedCount) {
-        contentArea.insertAdjacentHTML('afterbegin', `<div class="file-label-collection-notice" role="status">
-          ${hiddenCount ? `${hiddenCount} 个已标记项目当前不可用` : ''}${hiddenCount && truncatedCount ? ' · ' : ''}${truncatedCount ? `${truncatedCount} 个项目超过本次显示上限` : ''}
-        </div>`);
-      }
-      this.syncFileSelectionUI();
-      this.updateFileActionBar();
-      this.showFileSelectionDetail(this.getSelectedFileItems());
-      this.updateStatusBar();
-    } catch (error) {
-      if (!this.isDirectoryRenderContextCurrent(context)) return;
-      AppState.fileLabelCollectionMeta = null;
-      AppState.items = [];
-      AppState.visibleItems = [];
-      AppState.fileDisplayOrder = [];
-      contentArea.innerHTML = `<div class="file-label-collection-empty is-error">
-        <strong>文件标签集合加载失败</strong>
-        <span>${this.escapeHtml(error?.message || String(error))}</span>
-      </div>`;
-      this.updateFileActionBar();
-      this.updateStatusBar();
-    }
-  },
-
-  renderFileLabelColumnView(items, container) {
-    const directories = this.sortRepos(items.filter(item => item.type === 'directory'));
-    const files = this.sortRepos(items.filter(item => item.type === 'file'));
-    const orderedItems = [...directories, ...files];
-    AppState.fileDisplayOrder = orderedItems.map(item => item.path);
-    const heading = this.fileLabelCollectionTitle().replace(/^标签：/u, '') || '文件标签';
-    container.innerHTML = `<div class="finder-column-browser file-label-column-browser" role="group" aria-label="文件标签集合" style="--finder-column-width:${window.DirectoryViewPreferences.normalizeColumnWidth(AppState.columnViewWidth)}px">
-      <section class="finder-column finder-column-current">
-        <header class="finder-column-header">${this.escapeHtml(heading)}</header>
-        <div class="finder-column-list" role="listbox" aria-label="带标签的文件与文件夹" aria-multiselectable="true">
-          ${orderedItems.map(item => this._getColumnItemHtml(item, { current: true, trail: false })).join('')}
-        </div>
-        <div class="finder-column-resizer" role="separator" aria-orientation="vertical" aria-label="调整分栏宽度" aria-valuemin="${window.DirectoryViewPreferences.MIN_COLUMN_WIDTH}" aria-valuemax="${window.DirectoryViewPreferences.MAX_COLUMN_WIDTH}" aria-valuenow="${window.DirectoryViewPreferences.normalizeColumnWidth(AppState.columnViewWidth)}" aria-valuetext="${window.DirectoryViewPreferences.normalizeColumnWidth(AppState.columnViewWidth)} 像素" tabindex="0" title="拖动调整；方向键微调；Shift 加速；双击恢复默认"></div>
-      </section>
-    </div>`;
-    const browser = container.querySelector('.finder-column-browser');
-    if (browser) this.bindColumnViewSizing(browser);
-    this.bindCardEvents(container);
   },
 
   async renderGridView(forceRefresh = false) {
@@ -6197,7 +6042,6 @@ const App = {
         </div>
         <div class="repo-path">${itemPath}</div>
         ${projectLifecycle ? `<div>${this.getProjectLifecycleBadgeHtml(item, projectLifecycle)}</div>` : ''}
-        ${this.getFileLabelDotsHtml(item, { named: true })}
         ${tags.length > 0 ? `
           <div class="repo-tags">
             ${tags.map(t => {
@@ -6453,9 +6297,7 @@ const App = {
       AppState.fileKeyboardFocusPath
     );
 
-    const galleryIdentity = context
-      ? AppState.currentPath
-      : `file-labels:${window.ContentQuery.normalize(AppState.contentQuery).fileLabelIds.join(',')}`;
+    const galleryIdentity = AppState.currentPath;
     container.innerHTML = `
       <div class="finder-gallery-browser" data-gallery-directory="${this.escapeHtml(galleryIdentity)}">
         <section class="finder-gallery-preview" role="region" aria-label="图库预览">
@@ -6500,7 +6342,7 @@ const App = {
     this.galleryThumbnailLoader.observe(container, orderedItems, {
       isCurrent: () => this.isFileBrowsingContext()
         && AppState.cardStyle === 'gallery'
-        && (context ? AppState.currentPath === directoryPath : this.contentCollectionKind() === 'file-labels')
+        && AppState.currentPath === directoryPath
         && container.querySelector('.finder-gallery-browser')?.dataset.galleryDirectory === directoryPath
     });
   },
@@ -6522,7 +6364,6 @@ const App = {
           ${this.getItemKindIconHtml(item, 'finder-gallery-item-icon')}
         </span>
         <span class="finder-gallery-item-name" title="${this.escapeHtml(item.name)}">${this.escapeHtml(item.name)}</span>
-        ${this.getFileLabelDotsHtml(item)}
         <span class="finder-gallery-item-meta">${this.escapeHtml(metadata)}</span>
       </div>`;
   },
@@ -6544,9 +6385,7 @@ const App = {
   async renderGalleryPreview(item) {
     if (!item || !this.isFileBrowsingContext() || AppState.cardStyle !== 'gallery') return;
     const requestId = ++AppState.galleryPreviewRequestId;
-    const directoryPath = this.contentCollectionKind() === 'file-labels'
-      ? `file-labels:${window.ContentQuery.normalize(AppState.contentQuery).fileLabelIds.join(',')}`
-      : AppState.currentPath;
+    const directoryPath = AppState.currentPath;
     const formatters = {
       formatFileSize: value => this.formatFileSize(value),
       formatItemDate: value => this.formatItemDate(value)
@@ -6559,9 +6398,7 @@ const App = {
         { requestId, directoryPath },
         {
           requestId: AppState.galleryPreviewRequestId,
-          directoryPath: this.contentCollectionKind() === 'file-labels'
-            ? `file-labels:${window.ContentQuery.normalize(AppState.contentQuery).fileLabelIds.join(',')}`
-            : AppState.currentPath,
+          directoryPath: AppState.currentPath,
           mode: AppState.currentMode,
           style: AppState.cardStyle
         }
@@ -6574,9 +6411,7 @@ const App = {
         { requestId, directoryPath },
         {
           requestId: AppState.galleryPreviewRequestId,
-          directoryPath: this.contentCollectionKind() === 'file-labels'
-            ? `file-labels:${window.ContentQuery.normalize(AppState.contentQuery).fileLabelIds.join(',')}`
-            : AppState.currentPath,
+          directoryPath: AppState.currentPath,
           mode: AppState.currentMode,
           style: AppState.cardStyle
         }
@@ -6594,7 +6429,7 @@ const App = {
     return `
       <div class="${className} ${trail ? 'is-trail' : ''} ${item.isHidden ? 'is-hidden' : ''}"${projectStyle} data-path="${this.escapeHtml(item.path)}" data-type="${this.escapeHtml(item.type)}" data-is-git="${item.isGitRepo === true}" data-is-project="${item.isProject === true}" role="option" aria-selected="false" aria-label="${this.escapeHtml(this.getFileItemAriaLabel(item))}" tabindex="${focused || !current ? '0' : '-1'}">
         ${this.getItemKindIconHtml(item, 'finder-column-icon')}
-        <span class="finder-column-name">${this.escapeHtml(item.name)}${this.getFileLabelDotsHtml(item)}</span>
+        <span class="finder-column-name">${this.escapeHtml(item.name)}</span>
         <span class="finder-column-meta">${this.escapeHtml(lifecycle || gitStatus || (item.type === 'file' ? this.formatFileSize(item.size) : ''))}</span>
         ${item.type === 'directory' ? '<span class="finder-column-chevron" aria-hidden="true">›</span>' : ''}
       </div>`;
@@ -6641,7 +6476,7 @@ const App = {
       <div class="repo-list-item status-${overallStatus} ${item.isHidden ? 'is-hidden' : ''}"${projectStyle} data-path="${this.escapeHtml(item.path)}" data-type="${this.escapeHtml(item.type)}" data-is-git="${item.isGitRepo === true}" data-is-project="${item.isProject === true}" role="option" aria-selected="false" aria-label="${this.escapeHtml(this.getFileItemAriaLabel(item))}" tabindex="${focused ? '0' : '-1'}">
         <span class="list-status-dot">${item.isGitRepo ? `<span class="status-indicator status-${overallStatus}" title="${overallStatus}"></span>` : ''}</span>
         ${this.getItemKindIconHtml(item, 'list-repo-icon')}
-        <span class="list-repo-name">${this.escapeHtml(item.name)}${this.getFileLabelDotsHtml(item)}</span>
+        <span class="list-repo-name">${this.escapeHtml(item.name)}</span>
         <span class="list-item-type">${this.escapeHtml(typeLabel)}</span>
         <span class="list-item-modified">${this.escapeHtml(this.formatItemDate(item.modifiedTime))}</span>
         <span class="list-item-size">${item.type === 'file' ? this.escapeHtml(this.formatFileSize(item.size)) : '—'}</span>
@@ -6676,19 +6511,6 @@ const App = {
     return parts.join(' · ');
   },
 
-  getFileLabelDotsHtml(item, { named = false } = {}) {
-    const labels = Array.isArray(item?.fileLabels) ? item.fileLabels : [];
-    if (!labels.length) return '';
-    const content = labels.map(label => {
-      const color = this.safeColor(label.color);
-      const name = this.escapeHtml(label.name || '标签');
-      return named
-        ? `<span class="file-label-chip" style="--file-label-color:${color}"><span class="file-label-dot"></span>${name}</span>`
-        : `<span class="file-label-dot" style="--file-label-color:${color}" title="${name}"></span>`;
-    }).join('');
-    return `<span class="file-label-dots" aria-label="文件标签：${this.escapeHtml(labels.map(label => label.name).join('、'))}">${content}</span>`;
-  },
-
   getFileItemAriaLabel(item) {
     const lifecycle = window.FileBrowser.projectLifecycleLabel(item);
     const type = item.type === 'file'
@@ -6701,9 +6523,6 @@ const App = {
       if ((status.modified || 0) > 0) parts.push(`${status.modified} 项修改`);
       if ((status.ahead || 0) > 0) parts.push(`${status.ahead} 个未推送提交`);
       if ((status.behind || 0) > 0) parts.push(`${status.behind} 个待拉取提交`);
-    }
-    if (Array.isArray(item.fileLabels) && item.fileLabels.length) {
-      parts.push(`文件标签 ${item.fileLabels.map(label => label.name).join('、')}`);
     }
     return parts.join('，');
   },
@@ -7054,9 +6873,7 @@ const App = {
       const items = this.getSelectedFileItems();
       const singleDirectory = items.length === 1 && items[0].type === 'directory';
       const projectLabel = document.getElementById('file-context-project-label');
-      const favoriteLabel = document.getElementById('file-context-favorite-label');
       if (projectLabel) projectLabel.textContent = singleDirectory && items[0].isProject ? '项目设置…' : '设为项目…';
-      if (favoriteLabel) favoriteLabel.textContent = singleDirectory && this.isFavoritePath(items[0].path) ? '从收藏夹移除' : '添加到收藏夹';
       const renameLabel = menu.querySelector('[data-context-action="rename"] span');
       if (renameLabel) renameLabel.textContent = items.length > 1 ? `重命名 ${items.length} 个项目…` : '重命名';
       menu.querySelector('[data-context-action="open"]').disabled = items.length !== 1;
@@ -7066,8 +6883,6 @@ const App = {
       menu.querySelector('[data-context-action="rename"]').disabled = items.length === 0;
       menu.querySelector('[data-context-action="open-terminal"]').disabled = items.length !== 1;
       menu.querySelector('[data-context-action="open-editor"]').disabled = items.length !== 1;
-      menu.querySelector('[data-context-action="labels"]').disabled = items.length === 0;
-      menu.querySelector('[data-context-action="favorite"]').disabled = !singleDirectory;
       menu.querySelector('[data-context-action="project"]').disabled = !singleDirectory;
       menu.hidden = false;
       const width = menu.offsetWidth || 220;
@@ -7091,7 +6906,6 @@ const App = {
       if (action === 'move') this.moveSelectedItems();
       if (action === 'open-terminal') this.openSelectedInTerminal();
       if (action === 'open-editor') this.openSelectedInEditor();
-      if (action === 'labels') this.openSelectedFileLabels();
       if (action === 'favorite') this.toggleSelectedFavorite();
       if (action === 'project') this.openSelectedProjectSettings();
       if (action === 'trash') this.trashSelectedItems();
@@ -7183,10 +6997,6 @@ const App = {
     const items = this.getSelectedFileItems();
     if (items.length !== 1 || items[0].type !== 'directory') return;
     this.openLocalProjectDialog(items[0].path);
-  },
-
-  openSelectedFileLabels() {
-    return this.fileLabelController.open(this.getSelectedFileItems());
   },
 
   openLocalProject(projectPath) {
@@ -8498,14 +8308,6 @@ const App = {
       const stats = AppState.dashboardStats;
       leftText = `项目仪表板：${this.getSelectedCategoryLabel()}`;
       rightText = stats ? `${stats.total} 个项目 · 延期 ${stats.delayed} · 阻塞 ${stats.blocked} · 停滞 ${stats.stalled}` : '';
-    } else if (this.contentCollectionKind() === 'file-labels') {
-      const meta = AppState.fileLabelCollectionMeta || {};
-      const selectedCount = AppState.selectedPaths.size;
-      leftText = `所有位置 · ${this.fileLabelCollectionTitle().replace(/^标签：/u, '文件标签：')}`;
-      rightText = `${AppState.visibleItems.length} / ${Number(meta.totalAssigned || 0)} 项`
-        + (selectedCount ? ` · 已选择 ${selectedCount}` : '')
-        + (Number(meta.unavailableCount || 0) ? ` · ${Number(meta.unavailableCount)} 个不可用` : '')
-        + (Number(meta.truncatedCount || 0) ? ` · ${Number(meta.truncatedCount)} 个未显示` : '');
     } else if (['projects', 'project-repositories'].includes(this.contentCollectionKind())) {
       const visibleProjects = this.contentCollectionKind() === 'project-repositories'
         ? AppState.localProjects.filter(project => project.rootIsGitRepo === true)

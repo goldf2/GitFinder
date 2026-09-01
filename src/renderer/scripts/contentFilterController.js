@@ -58,7 +58,6 @@
 
   function scopeLabel(query) {
     const kind = ContentQuery.collectionKind(query);
-    if (kind === 'file-labels') return '所有受管位置 · 文件标签';
     if (kind === 'projects') return '所有受管位置 · 项目';
     if (kind === 'repositories') return '所有受管位置 · Git 仓库';
     if (kind === 'project-repositories') return '所有受管位置 · 项目 + Git 仓库';
@@ -87,38 +86,6 @@
       return [...(this.document?.querySelectorAll('input[name="content-filter-git-status"]') || [])];
     }
 
-    fileLabelInputs() {
-      return [...(this.document?.querySelectorAll('input[name="content-filter-file-label"]') || [])];
-    }
-
-    renderFileLabelInputs() {
-      const container = this.element('content-filter-file-labels');
-      if (!container || typeof this.document?.createElement !== 'function') return;
-      container.replaceChildren();
-      const labels = Array.isArray(this.state.fileLabels?.labels) ? this.state.fileLabels.labels : [];
-      if (!labels.length) {
-        const empty = this.document.createElement('span');
-        empty.className = 'content-filter-empty-labels';
-        empty.textContent = '尚未创建文件标签，可在“操作 → 分配标签…”中新建。';
-        container.appendChild(empty);
-        return;
-      }
-      for (const fileLabel of labels) {
-        const label = this.document.createElement('label');
-        const input = this.document.createElement('input');
-        const dot = this.document.createElement('span');
-        const name = this.document.createElement('span');
-        input.type = 'checkbox';
-        input.name = 'content-filter-file-label';
-        input.value = fileLabel.id;
-        dot.className = 'file-label-dot';
-        dot.style.setProperty('--file-label-color', fileLabel.color);
-        name.textContent = fileLabel.name;
-        label.append(input, dot, name);
-        container.appendChild(label);
-      }
-    }
-
     bind() {
       if (this.bound) return;
       this.bound = true;
@@ -129,7 +96,6 @@
       this.element('content-filter-apply-btn')?.addEventListener('click', () => this.apply());
       this.lifecycleInputs().forEach(input => input.addEventListener('change', () => this.updateDraftAvailability()));
       this.gitStatusInputs().forEach(input => input.addEventListener('change', () => this.updateDraftAvailability()));
-      this.element('content-filter-file-labels')?.addEventListener('change', () => this.updateDraftAvailability());
       this.element('content-filter-extensions')?.addEventListener('input', () => this.updateDraftAvailability());
       this.element('content-filter-modified')?.addEventListener('change', event => {
         if (event.target.value) {
@@ -185,13 +151,10 @@
 
     populate(query = this.state.contentQuery) {
       const value = ContentQuery.normalize(query);
-      this.renderFileLabelInputs();
       const selected = new Set(value.lifecycles);
       this.lifecycleInputs().forEach(input => { input.checked = selected.has(input.value); });
       const selectedGitStatuses = new Set(value.gitStatuses);
       this.gitStatusInputs().forEach(input => { input.checked = selectedGitStatuses.has(input.value); });
-      const selectedFileLabels = new Set(value.fileLabelIds);
-      this.fileLabelInputs().forEach(input => { input.checked = selectedFileLabels.has(input.value); });
       const extensions = this.element('content-filter-extensions');
       const modified = this.element('content-filter-modified');
       const modifiedFrom = this.element('content-filter-modified-from');
@@ -224,8 +187,6 @@
       const lifecycleSection = this.element('content-filter-lifecycle-section');
       const gitSection = this.element('content-filter-git-section');
       const fileSection = this.element('content-filter-file-section');
-      const fileLabelSection = this.element('content-filter-file-label-section');
-      const fileLabelHint = this.element('content-filter-file-label-hint');
       const fileHint = this.element('content-filter-file-hint');
       const gitHint = this.element('content-filter-git-hint');
       const lifecycleSelected = this.lifecycleInputs().some(input => input.checked);
@@ -234,27 +195,20 @@
       const exactSizeSelected = ['content-filter-size-min', 'content-filter-size-max']
         .some(id => String(this.element(id)?.value || '').trim() !== '');
       const fileSpecificSelected = extensions.length > 0 || sizeRange !== 'any' || exactSizeSelected;
-      const fileLabelCollection = collectionKind === 'file-labels';
-      const lifecycleUnavailable = collectionKind === 'repositories' || fileLabelCollection || fileSpecificSelected;
+      const lifecycleUnavailable = collectionKind === 'repositories' || fileSpecificSelected;
       const gitUnavailable = collectionKind !== 'repositories';
-      const fileUnavailable = (query.scope !== 'current' && !fileLabelCollection) || lifecycleSelected;
+      const fileUnavailable = query.scope !== 'current' || lifecycleSelected;
 
       if (lifecycleSection) lifecycleSection.disabled = lifecycleUnavailable;
       if (gitSection) gitSection.disabled = gitUnavailable;
       if (fileSection) fileSection.disabled = fileUnavailable;
-      if (fileLabelSection) fileLabelSection.disabled = query.scope !== 'current' && !fileLabelCollection;
-      if (fileLabelHint) fileLabelHint.textContent = fileLabelCollection
-        ? '这是当前聚合范围；至少保留一个标签，多选之间为“或”。'
-        : (query.scope === 'current'
-            ? '显示带有任一所选本机标签的文件或文件夹；多选之间为“或”。'
-            : '文件标签按具体路径保存在本机；可从左侧“文件标签”进入跨目录聚合。');
       if (gitHint) {
         gitHint.textContent = gitUnavailable
           ? '为避免普通目录浏览自动读取仓库状态，请在“所有 Git 仓库”范围中使用此条件。'
           : '与主界面仓库状态筛选栏同步；综合状态多选为“或”，“无远程”为“且”。';
       }
       if (fileHint) {
-        fileHint.textContent = query.scope !== 'current' && !fileLabelCollection
+        fileHint.textContent = query.scope !== 'current'
           ? '文件扩展名和大小只适用于当前目录；项目与仓库聚合不会递归读取全部文件。'
           : (lifecycleSelected ? '已选择项目生命周期；项目文件夹与文件条件不能同时成立。' : '扩展名和大小仅适用于当前目录中的文件。');
       }
@@ -309,13 +263,8 @@
     }
 
     resetDraft() {
-      const current = ContentQuery.normalize(this.state.contentQuery);
-      const preservedFileLabelIds = ContentQuery.collectionKind(current) === 'file-labels'
-        ? new Set(current.fileLabelIds)
-        : new Set();
       this.lifecycleInputs().forEach(input => { input.checked = false; });
       this.gitStatusInputs().forEach(input => { input.checked = false; });
-      this.fileLabelInputs().forEach(input => { input.checked = preservedFileLabelIds.has(input.value); });
       const extensions = this.element('content-filter-extensions');
       const modified = this.element('content-filter-modified');
       const modifiedFrom = this.element('content-filter-modified-from');
@@ -341,13 +290,12 @@
     readDraft() {
       const current = ContentQuery.normalize(this.state.contentQuery);
       const collectionKind = ContentQuery.collectionKind(current);
-      const fileLabelCollection = collectionKind === 'file-labels';
-      const lifecycleAllowed = collectionKind !== 'repositories' && !fileLabelCollection;
+      const lifecycleAllowed = collectionKind !== 'repositories';
       const gitStatusAllowed = collectionKind === 'repositories';
       const lifecycles = lifecycleAllowed
         ? this.lifecycleInputs().filter(input => input.checked).map(input => input.value)
         : current.lifecycles;
-      const fileAllowed = (current.scope === 'current' || fileLabelCollection) && lifecycles.length === 0;
+      const fileAllowed = current.scope === 'current' && lifecycles.length === 0;
       const extensions = fileAllowed ? parseExtensions(this.element('content-filter-extensions')?.value) : current.extensions;
       const modifiedFrom = parseDateDraft(this.element('content-filter-modified-from')?.value);
       const modifiedTo = parseDateDraft(this.element('content-filter-modified-to')?.value);
@@ -375,12 +323,6 @@
       const gitStatuses = gitStatusAllowed
         ? this.gitStatusInputs().filter(input => input.checked).map(input => input.value)
         : current.gitStatuses;
-      const fileLabelIds = current.scope === 'current' || fileLabelCollection
-        ? this.fileLabelInputs().filter(input => input.checked).map(input => input.value)
-        : [];
-      if (fileLabelCollection && !fileLabelIds.length) {
-        return { ok: false, error: '文件标签聚合至少需要保留一个标签', field: 'content-filter-file-labels' };
-      }
       const fileSpecific = extensions.length > 0 || sizeRange !== 'any' || exactSize;
       const query = ContentQuery.normalize({
         ...current,
@@ -389,7 +331,6 @@
         repositoryOnly: fileSpecific ? false : current.repositoryOnly,
         lifecycles,
         gitStatuses,
-        fileLabelIds,
         extensions,
         modifiedWithinDays: modifiedFrom.value || modifiedTo.value
           ? null

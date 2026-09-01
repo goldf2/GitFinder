@@ -22,7 +22,7 @@ function createHarness() {
   const ids = [
     'file-selection-summary',
     'file-preview', 'file-copy', 'file-copy-path', 'file-cut', 'file-paste', 'file-get-info',
-    'file-duplicate', 'file-rename', 'file-move', 'file-open-terminal', 'file-open-editor', 'file-labels',
+    'file-duplicate', 'file-rename', 'file-move', 'file-open-terminal', 'file-open-editor',
     'file-favorite', 'file-project-settings', 'file-trash',
     'file-new-folder', 'file-new-file', 'file-undo', 'file-redo',
     'file-create-menu-trigger', 'file-history', 'file-actions-menu-trigger'
@@ -71,7 +71,6 @@ test('没有选择时保持新建和历史入口，禁用需要选择或剪贴�
   assert.equal(element('file-copy-path').disabled, true);
   assert.equal(element('file-paste').disabled, true);
   assert.equal(element('file-rename').disabled, true);
-  assert.equal(element('file-labels').disabled, true);
   assert.equal(element('file-open-terminal').disabled, false);
   assert.equal(element('file-history').disabled, false);
   assert.equal(element('file-actions-menu-trigger').disabled, false);
@@ -93,7 +92,6 @@ test('单个项目文件夹同步收藏、项目设置和单项动作', () => {
   assert.equal(element('file-favorite').label.textContent, '从收藏夹移除');
   assert.equal(element('file-project-settings').label.textContent, '项目设置…');
   assert.equal(element('file-rename').label.textContent, '重命名');
-  assert.equal(element('file-labels').disabled, false);
 });
 
 test('多选和剪贴板更新批量文案，限制单项动作', () => {
@@ -115,7 +113,6 @@ test('多选和剪贴板更新批量文案，限制单项动作', () => {
   assert.equal(element('file-get-info').disabled, true);
   assert.equal(element('file-open-terminal').disabled, true);
   assert.equal(element('file-favorite').disabled, true);
-  assert.equal(element('file-labels').disabled, false);
 });
 
 test('忙碌、搜索与历史状态分别控制写操作和撤销重做', () => {
@@ -161,7 +158,7 @@ test('目录载入期间禁用文件写操作并显示真实状态', () => {
   assert.equal(element('file-history').disabled, false);
 });
 
-test('跨目录标签集合保留选择操作但禁用没有唯一目标目录的动作', () => {
+test('跨目录搜索结果保留选择操作但禁用没有唯一目标目录的动作', () => {
   const harness = createHarness();
   harness.state.selectedPaths = new Set(['/workspace/a']);
   harness.state.fileClipboard = { paths: ['/workspace/source'] };

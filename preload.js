@@ -208,16 +208,6 @@ contextBridge.exposeInMainWorld('gitFinder', {
     updateTreeRoot: (dirPath, updates) => ipcRenderer.invoke('config:updateTreeRoot', dirPath, updates)
   },
 
-  fileLabels: {
-    get: () => ipcRenderer.invoke('fileLabels:get'),
-    getForPaths: (paths) => ipcRenderer.invoke('fileLabels:getForPaths', paths),
-    getCollection: (labelIds) => ipcRenderer.invoke('fileLabels:getCollection', labelIds),
-    create: (name, color) => ipcRenderer.invoke('fileLabels:create', name, color),
-    update: (labelId, updates) => ipcRenderer.invoke('fileLabels:update', labelId, updates),
-    delete: (labelId) => ipcRenderer.invoke('fileLabels:delete', labelId),
-    updateAssignments: (paths, changes) => ipcRenderer.invoke('fileLabels:updateAssignments', paths, changes)
-  },
-
   groups: {
     get: () => ipcRenderer.invoke('groups:get'),
     create: (name, color, icon) => ipcRenderer.invoke('groups:create', name, color, icon),

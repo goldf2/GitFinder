@@ -39,7 +39,7 @@ test('共享 Markdown 只生成受控结构且不创建外部链接', () => {
 test('共享呈现模块先于所有消费者加载', () => {
   const page = fs.readFileSync(path.join(__dirname, '../src/renderer/index.html'), 'utf8');
   const shared = page.indexOf('scripts/htmlPresentation.js');
-  for (const consumer of ['syntaxHighlight.js', 'quickLook.js', 'quickLookPaging.js', 'quickLookController.js', 'galleryView.js', 'git.js', 'batchRenameController.js', 'contentFilterController.js', 'directoryPerformanceController.js', 'fileLabelController.js', 'fileOperationDialogController.js', 'smartCollectionsController.js', 'relationshipBoardController.js', 'app.js']) {
+  for (const consumer of ['syntaxHighlight.js', 'quickLook.js', 'quickLookPaging.js', 'quickLookController.js', 'galleryView.js', 'git.js', 'batchRenameController.js', 'contentFilterController.js', 'directoryPerformanceController.js', 'fileOperationDialogController.js', 'smartCollectionsController.js', 'relationshipBoardController.js', 'app.js']) {
     assert.ok(shared >= 0 && shared < page.indexOf(`scripts/${consumer}`), `${consumer} 应在共享呈现模块之后加载`);
   }
 });

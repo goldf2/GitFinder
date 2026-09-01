@@ -6,8 +6,13 @@ const path = require('node:path');
 const projectRoot = path.resolve(__dirname, '..');
 const html = fs.readFileSync(path.join(projectRoot, 'src/renderer/index.html'), 'utf8');
 const appSource = fs.readFileSync(path.join(projectRoot, 'src/renderer/scripts/app.js'), 'utf8');
+const preloadSource = fs.readFileSync(path.join(projectRoot, 'preload.js'), 'utf8');
+const configIpcSource = fs.readFileSync(path.join(projectRoot, 'src/main/ipc/config.js'), 'utf8');
+const configServiceSource = fs.readFileSync(path.join(projectRoot, 'src/main/services/configService.js'), 'utf8');
+const controllerRegistrySource = fs.readFileSync(path.join(projectRoot, 'src/renderer/scripts/appControllerRegistry.js'), 'utf8');
 const mainCss = fs.readFileSync(path.join(projectRoot, 'src/renderer/styles/main.css'), 'utf8');
 const contentCss = fs.readFileSync(path.join(projectRoot, 'src/renderer/styles/content.css'), 'utf8');
+const sidebarCss = fs.readFileSync(path.join(projectRoot, 'src/renderer/styles/sidebar.css'), 'utf8');
 
 test('Finder 风格工具栏提供明确的后退、前进和上级目录导航', () => {
   assert.match(html, /class="finder-nav-group"/);
@@ -110,11 +115,17 @@ test('更多筛选使用独立可访问弹窗并在标签页内保存高级条�
   assert.match(appSource, /filtered = filtered\.filter\(repo => window\.ContentQuery\.matchesAttributes/);
 });
 
-test('移除未使用的文件标签入口，仓库标签保持独立', () => {
+test('完整移除未使用的文件标签子系统，仓库标签保持独立', () => {
   assert.doesNotMatch(html, /id="file-labels"|data-context-action="labels"|id="file-label-modal"/);
   assert.doesNotMatch(html, /id="file-labels-sidebar-(?:section|list)"/);
-  assert.doesNotMatch(appSource, /data-app-action="manage-file-labels"/);
-  assert.doesNotMatch(appSource, /await this\.fileLabelController\.(?:load|enrichItems)\(/);
+  assert.doesNotMatch(html, /fileLabels\.js|fileLabelController\.js/);
+  assert.doesNotMatch(appSource, /fileLabels|file-label|FileLabel/);
+  assert.doesNotMatch(appSource, /data-context-action="labels"/);
+  assert.doesNotMatch(preloadSource, /fileLabels|file-label|FileLabel/);
+  assert.doesNotMatch(configIpcSource, /fileLabels|file-label|FileLabel/);
+  assert.doesNotMatch(configServiceSource, /FileLabels|file-label/);
+  assert.doesNotMatch(controllerRegistrySource, /fileLabels|file-label|FileLabel/);
+  assert.doesNotMatch(`${mainCss}\n${contentCss}\n${sidebarCss}`, /\.file-label-/);
   assert.match(html, /id="tags-sidebar-section"/);
   assert.match(html, /仓库标签/);
 });

@@ -4,7 +4,7 @@
   if (root) root.SettingsNavigation = api;
 })(typeof window !== 'undefined' ? window : globalThis, function createSettingsNavigation() {
   const ITEMS = Object.freeze([
-    Object.freeze({ id: 'settings-browsing', label: '目录显示', summary: '视图、排列与文件标签', glyph: '▦' }),
+    Object.freeze({ id: 'settings-browsing', label: '目录显示', summary: '视图、排列与隐藏项目', glyph: '▦' }),
     Object.freeze({ id: 'settings-sidebar', label: '侧边栏', summary: '项目快捷入口', glyph: '▤' }),
     Object.freeze({ id: 'settings-appearance', label: '外观', summary: '主题与语义色彩', glyph: '◐' }),
     Object.freeze({ id: 'settings-panel-provider', label: 'Coolify 数据源', summary: '服务器与部署连接', glyph: '⌁' }),

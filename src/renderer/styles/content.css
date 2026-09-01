@@ -315,55 +315,6 @@
   margin-bottom: 3px;
 }
 
-.file-label-collection-loading,
-.file-label-collection-empty {
-  min-height: min(420px, calc(100vh - 250px));
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 32px;
-  color: var(--text-tertiary);
-  text-align: center;
-  font-size: 12px;
-}
-
-.file-label-collection-loading .loading-spinner {
-  margin-bottom: 2px;
-}
-
-.file-label-collection-empty strong {
-  color: var(--text-primary);
-  font-size: 15px;
-}
-
-.file-label-collection-empty.is-error strong {
-  color: var(--status-dirty);
-}
-
-.file-label-collection-empty-dot {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: var(--accent-primary);
-  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 38%), 0 2px 8px var(--shadow-overlay);
-}
-
-.file-label-collection-notice {
-  margin: 0 0 12px;
-  padding: 8px 11px;
-  border: 1px solid color-mix(in srgb, var(--status-ahead) 30%, var(--border-light));
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--status-ahead) 9%, var(--bg-primary));
-  color: var(--text-secondary);
-  font-size: 11px;
-}
-
-.file-label-column-browser {
-  grid-auto-columns: minmax(var(--finder-column-width, 260px), 480px);
-}
-
 .directory-unavailable-state {
   min-height: min(460px, calc(100vh - 250px));
   padding: 48px 28px;
@@ -6702,41 +6653,6 @@ body.file-drag-active.file-drag-copy {
   min-height: 20px;
 }
 
-.file-label-dots {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
-  vertical-align: middle;
-}
-
-.repo-card > .file-label-dots {
-  flex-wrap: wrap;
-  margin: 0 0 8px;
-}
-
-.file-label-dot {
-  display: inline-block;
-  flex: 0 0 auto;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--file-label-color, var(--accent-primary));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, #000 16%, transparent);
-}
-
-.file-label-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 7px;
-  border: 1px solid color-mix(in srgb, var(--file-label-color) 36%, transparent);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--file-label-color) 12%, transparent);
-  color: var(--text-secondary);
-  font-size: 10px;
-}
-
 .repo-tag {
   padding: 1px 7px;
   border-radius: 8px;
@@ -7239,11 +7155,6 @@ body.file-drag-active.file-drag-copy {
   font-weight: 600;
 }
 
-.finder-gallery-item > .file-label-dots {
-  justify-content: center;
-  width: 100%;
-}
-
 .finder-gallery-item-meta {
   color: var(--text-tertiary);
   font-size: 8px;
@@ -7390,11 +7301,6 @@ body.file-drag-active.file-drag-copy {
   font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.finder-column-name .file-label-dots,
-.list-repo-name .file-label-dots {
-  margin-left: 6px;
 }
 
 .finder-column-meta {

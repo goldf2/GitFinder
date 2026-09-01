@@ -38,7 +38,6 @@ function createHarness(query = ContentQuery.defaultQuery()) {
     'content-filter-more', 'content-filter-modal', 'content-filter-close-btn',
     'content-filter-cancel-btn', 'content-filter-reset-btn', 'content-filter-apply-btn',
     'content-filter-scope', 'content-filter-lifecycle-section', 'content-filter-git-section', 'content-filter-file-section',
-    'content-filter-file-label-section', 'content-filter-file-labels', 'content-filter-file-label-hint',
     'content-filter-git-hint',
     'content-filter-file-hint', 'content-filter-extensions', 'content-filter-modified',
     'content-filter-modified-from', 'content-filter-modified-to',
@@ -58,11 +57,6 @@ function createHarness(query = ContentQuery.defaultQuery()) {
     input.name = 'content-filter-git-status';
     return input;
   });
-  const fileLabelInputs = ['fl_pending', 'fl_client'].map(value => {
-    const input = element(`file-label-${value}`, value);
-    input.name = 'content-filter-file-label';
-    return input;
-  });
   const modal = elements.get('content-filter-modal');
   const document = {
     activeElement: elements.get('content-filter-more'),
@@ -70,7 +64,6 @@ function createHarness(query = ContentQuery.defaultQuery()) {
     querySelectorAll(selector) {
       if (selector === 'input[name="content-filter-lifecycle"]') return lifecycleInputs;
       if (selector === 'input[name="content-filter-git-status"]') return gitStatusInputs;
-      if (selector === 'input[name="content-filter-file-label"]') return fileLabelInputs;
       if (selector === '.modal-overlay') return [modal];
       return [];
     },
@@ -78,8 +71,7 @@ function createHarness(query = ContentQuery.defaultQuery()) {
   };
   const state = {
     contentQuery: query,
-    searchScope: 'current',
-    fileLabels: { version: 1, labels: [], assignments: {} }
+    searchScope: 'current'
   };
   const app = {
     closeToolbarMenus: () => calls.push('close-menus'),
@@ -97,7 +89,7 @@ function createHarness(query = ContentQuery.defaultQuery()) {
   };
   const controller = new Controller({ app, state, document, window });
   controller.bind();
-  return { controller, state, app, document, window, elements, lifecycleInputs, gitStatusInputs, fileLabelInputs, calls };
+  return { controller, state, app, document, window, elements, lifecycleInputs, gitStatusInputs, calls };
 }
 
 test('扩展名输入接受常见分隔符并交给统一查询规范化', () => {
@@ -206,31 +198,6 @@ test('全部仓库中的 Git 状态与查询同步，普通目录不主动启用
   repositories.controller.apply();
   assert.deepEqual(repositories.state.contentQuery.gitStatuses, ['ahead', 'dirty']);
   assert.equal(ContentQuery.collectionKind(repositories.state.contentQuery), 'repositories');
-});
-
-test('文件标签条件按当前标签页保存，标签集合支持跨目录聚合', () => {
-  const current = createHarness();
-  current.controller.populate();
-  current.fileLabelInputs.find(input => input.value === 'fl_pending').checked = true;
-  current.controller.apply();
-  assert.deepEqual(current.state.contentQuery.fileLabelIds, ['fl_pending']);
-  assert.equal(current.elements.get('content-filter-file-label-section').disabled, false);
-
-  const all = createHarness(ContentQuery.queryForPreset('all-projects'));
-  all.controller.populate();
-  assert.equal(all.elements.get('content-filter-file-label-section').disabled, true);
-  assert.match(all.elements.get('content-filter-file-label-hint').textContent, /跨目录聚合/);
-
-  const collection = createHarness(ContentQuery.queryForFileLabels(['fl_pending']));
-  collection.controller.populate();
-  assert.equal(collection.elements.get('content-filter-file-label-section').disabled, false);
-  assert.equal(collection.elements.get('content-filter-file-section').disabled, false);
-  assert.equal(collection.elements.get('content-filter-lifecycle-section').disabled, true);
-  assert.equal(scopeLabel(collection.state.contentQuery), '所有受管位置 · 文件标签');
-  collection.controller.resetDraft();
-  collection.controller.apply();
-  assert.deepEqual(collection.state.contentQuery.fileLabelIds, ['fl_pending']);
-  assert.equal(ContentQuery.collectionKind(collection.state.contentQuery), 'file-labels');
 });
 
 test('重置只修改草稿，应用后清除高级条件并保留项目范围', () => {

@@ -22,6 +22,7 @@ test('移除独立收藏夹及菜单和详情入口', () => {
   const detailSource = fs.readFileSync(path.join(projectRoot, 'src', 'renderer', 'scripts', 'fileSelectionDetailController.js'), 'utf8');
 
   assert.doesNotMatch(htmlSource, /id="favorites-list"|id="file-favorite"|data-context-action="favorite"|id="detail-fav-btn"/);
+  assert.doesNotMatch(appSource, /file-context-favorite-label|data-context-action="favorite"/);
   assert.doesNotMatch(detailSource, /data-detail-action="toggle-favorite"/);
   assert.match(appSource, /async loadFavorites\(\)\s*\{\s*const container = document\.getElementById\('favorites-list'\);\s*if \(!container\) return;/);
 });

@@ -222,14 +222,6 @@
         container.textContent = '所有受管位置 · 项目 + Git 仓库';
         return;
       }
-      if (collectionKind === 'file-labels') {
-        const selectedIds = new Set(this.contentQuery?.normalize(this.state.contentQuery)?.fileLabelIds || []);
-        const names = (this.state.fileLabels?.labels || [])
-          .filter(label => selectedIds.has(label.id))
-          .map(label => label.name);
-        container.textContent = `所有受管位置 · 文件标签${names.length ? ` · ${names.join(' + ')}` : ''}`;
-        return;
-      }
       if (this.state.currentMode !== 'tree' || !this.state.currentPath) {
         container.textContent = '';
         return;

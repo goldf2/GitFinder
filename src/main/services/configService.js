@@ -6,7 +6,6 @@ const { execSync } = require('child_process');
 const { app } = require('electron');
 const SemanticColors = require('../../shared/semanticColors');
 const ProjectShortcuts = require('../../shared/projectShortcuts');
-const FileLabels = require('../../shared/fileLabels');
 
 const MAX_CONFIG_TRANSACTION_BYTES = 16 * 1024 * 1024;
 const MAX_FAVORITES = 200;
@@ -312,6 +311,10 @@ class ConfigService {
         this.config = this._defaultConfig();
         this.saveConfig();
       }
+      if (Object.hasOwn(this.config, 'fileLabels')) {
+        delete this.config.fileLabels;
+        this.saveConfig();
+      }
     }
     return this.config;
   }
@@ -344,7 +347,6 @@ class ConfigService {
       smartCollections: { version: 1, collections: [] },
       projectShortcuts: ProjectShortcuts.defaultStore(),
       projectShortcutPreferences: ProjectShortcuts.defaultPreferences(),
-      fileLabels: FileLabels.defaultStore(),
       relationshipDynamicLayouts: { version: 1, boards: {} }
     };
   }
@@ -386,65 +388,6 @@ class ConfigService {
   get(key) {
     const config = this.getConfig();
     return config[key];
-  }
-
-  // ============ 本机文件标签 ============
-
-  _fileLabelStore(config = this.getConfig()) {
-    config.fileLabels = FileLabels.normalizeStore(config.fileLabels);
-    return config.fileLabels;
-  }
-
-  _fileLabelPathKey(candidatePath) {
-    const normalized = path.normalize(String(candidatePath || ''));
-    return process.platform === 'win32' ? normalized.toLowerCase() : normalized;
-  }
-
-  getFileLabels() {
-    return this._cloneJson(this._fileLabelStore());
-  }
-
-  getFileLabelsForPaths(candidatePaths) {
-    const paths = [...new Set((candidatePaths || []).map(candidatePath => path.normalize(String(candidatePath || ''))).filter(Boolean))];
-    const keyed = FileLabels.labelsForPaths(this._fileLabelStore(), paths.map(candidatePath => this._fileLabelPathKey(candidatePath)));
-    return Object.fromEntries(paths.map(candidatePath => [candidatePath, keyed[this._fileLabelPathKey(candidatePath)] || []]));
-  }
-
-  createFileLabel(name, color) {
-    const config = this.getConfig();
-    const result = FileLabels.createLabel(this._fileLabelStore(config), { name, color }, {
-      idFactory: () => `fl_${crypto.randomUUID().replace(/-/g, '')}`
-    });
-    config.fileLabels = result.store;
-    this.saveConfig();
-    return this._cloneJson(result.label);
-  }
-
-  updateFileLabel(labelId, updates) {
-    const config = this.getConfig();
-    const result = FileLabels.updateLabel(this._fileLabelStore(config), labelId, updates);
-    config.fileLabels = result.store;
-    this.saveConfig();
-    return this._cloneJson(result.label);
-  }
-
-  deleteFileLabel(labelId) {
-    const config = this.getConfig();
-    config.fileLabels = FileLabels.deleteLabel(this._fileLabelStore(config), labelId);
-    this.saveConfig();
-    return this._cloneJson(config.fileLabels);
-  }
-
-  updateFileLabelAssignments(candidatePaths, changes) {
-    const config = this.getConfig();
-    const paths = [...new Set((candidatePaths || []).map(candidatePath => path.normalize(String(candidatePath || ''))).filter(Boolean))];
-    config.fileLabels = FileLabels.updateAssignments(
-      this._fileLabelStore(config),
-      paths.map(candidatePath => this._fileLabelPathKey(candidatePath)),
-      changes
-    );
-    this.saveConfig();
-    return this.getFileLabelsForPaths(paths);
   }
 
   // ============ 收藏夹 ============
@@ -811,15 +754,6 @@ class ConfigService {
         config[key] = remapped;
       }
 
-      const fileLabelStore = this._fileLabelStore(config);
-      const remappedFileLabels = {};
-      for (const [storedPath, labelIds] of Object.entries(fileLabelStore.assignments)) {
-        const nextPath = this._fileLabelPathKey(this._mapManagedPath(storedPath, normalized));
-        remappedFileLabels[nextPath] = [...new Set([...(remappedFileLabels[nextPath] || []), ...labelIds])]
-          .slice(0, FileLabels.MAX_LABELS_PER_PATH);
-      }
-      fileLabelStore.assignments = remappedFileLabels;
-
       const afterSnapshot = this._snapshotConfigTransactionFiles(transactionKeys);
       this._commitConfigTransaction('rebind-paths', beforeSnapshot, afterSnapshot);
     } catch (error) {
@@ -842,13 +776,6 @@ class ConfigService {
     const removedRepos = (repos.repos || []).filter(repo => isArchivedPath(repo.path));
     const archivedRepoIds = [];
     const workspaceTabSnapshot = this._archiveWorkspaceTabs(config, paths);
-    const fileLabelStore = this._fileLabelStore(config);
-    const removedFileLabelAssignments = Object.fromEntries(
-      Object.entries(fileLabelStore.assignments)
-        .filter(([assignedPath]) => isArchivedPath(assignedPath))
-        .map(([assignedPath, labelIds]) => [assignedPath, [...labelIds]])
-    );
-
     try {
       for (const entry of registry.repos || []) {
         if (isArchivedPath(entry.path)) {
@@ -858,9 +785,6 @@ class ConfigService {
       }
       repos.repos = (repos.repos || []).filter(repo => !isArchivedPath(repo.path));
       config.favorites = (config.favorites || []).filter(favorite => !favorite.path || !isArchivedPath(favorite.path));
-      for (const assignedPath of Object.keys(removedFileLabelAssignments)) {
-        delete fileLabelStore.assignments[assignedPath];
-      }
 
       const afterSnapshot = this._snapshotConfigTransactionFiles(transactionKeys);
       this._commitConfigTransaction('archive-paths', beforeSnapshot, afterSnapshot);
@@ -872,8 +796,7 @@ class ConfigService {
       removedFavorites,
       removedRepos,
       archivedRepoIds: [...new Set(archivedRepoIds)],
-      workspaceTabSnapshot,
-      removedFileLabelAssignments
+      workspaceTabSnapshot
     };
   }
 
@@ -913,18 +836,6 @@ class ConfigService {
       }
 
       this._restoreWorkspaceTabs(config, snapshot.workspaceTabSnapshot);
-
-      const fileLabelStore = this._fileLabelStore(config);
-      const knownLabelIds = new Set(fileLabelStore.labels.map(label => label.id));
-      for (const [assignedPath, labelIds] of Object.entries(snapshot.removedFileLabelAssignments || {})) {
-        if (!isRestoredPath(assignedPath) || !fs.existsSync(assignedPath)) continue;
-        const restoredLabelIds = (Array.isArray(labelIds) ? labelIds : []).filter(labelId => knownLabelIds.has(labelId));
-        if (!restoredLabelIds.length) continue;
-        fileLabelStore.assignments[assignedPath] = [...new Set([
-          ...(fileLabelStore.assignments[assignedPath] || []),
-          ...restoredLabelIds
-        ])].slice(0, FileLabels.MAX_LABELS_PER_PATH);
-      }
 
       const afterSnapshot = this._snapshotConfigTransactionFiles(transactionKeys);
       this._commitConfigTransaction('restore-archived-paths', beforeSnapshot, afterSnapshot);

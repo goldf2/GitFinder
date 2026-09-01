@@ -38,7 +38,6 @@
       const move = this._element('file-move');
       const openTerminal = this._element('file-open-terminal');
       const openEditor = this._element('file-open-editor');
-      const fileLabels = this._element('file-labels');
       const favorite = this._element('file-favorite');
       const projectSettings = this._element('file-project-settings');
       const trash = this._element('file-trash');
@@ -72,7 +71,6 @@
         openTerminal.disabled = busy || (count !== 1 && !canOpenCurrentDirectory);
       }
       if (openEditor) openEditor.disabled = busy || count !== 1;
-      if (fileLabels) fileLabels.disabled = busy || count === 0;
       if (trash) trash.disabled = busy || count === 0;
 
       const selectedItems = this.app.getSelectedFileItems();
@@ -111,7 +109,7 @@
       if (history) history.disabled = false;
       const actionTrigger = this._element('file-actions-menu-trigger');
       const actionItems = [
-        copy, copyPath, cut, paste, getInfo, duplicate, rename, move, openTerminal, openEditor, fileLabels,
+        copy, copyPath, cut, paste, getInfo, duplicate, rename, move, openTerminal, openEditor,
         favorite, projectSettings, trash, undo, redo, history
       ].filter(Boolean);
       if (actionTrigger) actionTrigger.disabled = !actionItems.some(button => !button.disabled);

@@ -49,14 +49,3 @@ test('内嵌终端限制受管工作目录并在主进程原生确认每条 shel
   assert.match(terminalSource, /cancelled:\s*true/);
   assert.match(terminalSource, /openInEditor[\s\S]*resolveManagedTarget/);
 });
-
-test('文件标签使用独立主进程接口并拒绝越过受管路径边界', () => {
-  const configIpcSource = fs.readFileSync(path.join(projectRoot, 'src/main/ipc/config.js'), 'utf8');
-  const preloadSource = fs.readFileSync(path.join(projectRoot, 'preload.js'), 'utf8');
-  assert.match(configIpcSource, /fileLabels:getForPaths[\s\S]*resolveManagedFileLabelPaths/);
-  assert.match(configIpcSource, /resolveManagedFileLabelPaths[\s\S]*resolveWorkspacePath/);
-  assert.match(configIpcSource, /\['file', 'directory'\]\.includes\(resolved\.type\)/);
-  assert.match(configIpcSource, /fileLabels:getCollection[\s\S]*resolveFileLabelCollection/);
-  assert.match(configIpcSource, /pathsForLabelIds\(store, selectedIds\)[\s\S]*resolveWorkspacePath/);
-  assert.match(preloadSource, /fileLabels:\s*\{[\s\S]*getCollection[\s\S]*updateAssignments/);
-});

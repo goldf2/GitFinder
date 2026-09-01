@@ -10,7 +10,6 @@ const dialogSources = [
   'batchRenameController.js',
   'contentFilterController.js',
   'directoryPerformanceController.js',
-  'fileLabelController.js',
   'fileOperationDialogController.js',
   'projectTasks.js',
   'quickLookController.js',

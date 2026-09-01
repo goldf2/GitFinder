@@ -3,7 +3,7 @@
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) root.ContentQuery = api;
 })(typeof window !== 'undefined' ? window : globalThis, function createContentQueryApi() {
-  const VERSION = 6;
+  const VERSION = 7;
   const VALID_SCOPES = new Set(['current', 'all']);
   const VALID_BASE_TYPES = new Set(['all', 'directory', 'file']);
   const VALID_LIFECYCLES = new Set([
@@ -24,7 +24,6 @@
       repositoryCategory: 'all',
       lifecycles: [],
       gitStatuses: [],
-      fileLabelIds: [],
       extensions: [],
       modifiedWithinDays: null,
       modifiedFrom: null,
@@ -61,11 +60,6 @@
   function normalizeGitStatus(value) {
     const status = String(value || '').trim();
     return VALID_GIT_STATUSES.has(status) ? status : '';
-  }
-
-  function normalizeFileLabelId(value) {
-    const id = String(value || '').trim();
-    return /^fl_[a-z0-9_-]{4,80}$/iu.test(id) ? id : '';
   }
 
   function normalizeRepositoryCategory(value) {
@@ -130,14 +124,6 @@
     return presets[name] ? { ...presets[name] } : null;
   }
 
-  function queryForFileLabels(labelIds) {
-    return normalize({
-      ...defaultQuery(),
-      scope: 'all',
-      fileLabelIds: Array.isArray(labelIds) ? labelIds : []
-    });
-  }
-
   function fromLegacy(mode, directoryType = 'all') {
     if (mode === 'projects') return queryForPreset('all-projects');
     if (mode === 'grid') return queryForPreset('all-repositories');
@@ -155,6 +141,10 @@
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
       return fromLegacy(legacy.mode, legacy.directoryType);
     }
+    const legacyFileLabelQuery = Number(value.version || 0) < VERSION
+      && Array.isArray(value.fileLabelIds)
+      && value.fileLabelIds.some(labelId => String(labelId || '').trim());
+    if (legacyFileLabelQuery) return defaultQuery();
     let modifiedFrom = normalizeDate(value.modifiedFrom);
     let modifiedTo = normalizeDate(value.modifiedTo);
     if (modifiedFrom && modifiedTo && modifiedFrom > modifiedTo) {
@@ -178,7 +168,6 @@
       repositoryCategory: normalizeRepositoryCategory(value.repositoryCategory),
       lifecycles: normalizeStringList(value.lifecycles, normalizeLifecycle, VALID_LIFECYCLES.size),
       gitStatuses: normalizeStringList(value.gitStatuses, normalizeGitStatus, VALID_GIT_STATUSES.size),
-      fileLabelIds: normalizeStringList(value.fileLabelIds, normalizeFileLabelId, 24),
       extensions: normalizeStringList(value.extensions, normalizeExtension, 12),
       modifiedWithinDays: VALID_MODIFIED_DAYS.has(Number(value.modifiedWithinDays))
         ? Number(value.modifiedWithinDays)
@@ -222,14 +211,7 @@
       || query.minSizeBytes !== null || query.maxSizeBytes !== null) {
       query.baseType = 'file';
     }
-    if (query.scope === 'all' && query.fileLabelIds.length) {
-      query.projectOnly = false;
-      query.repositoryOnly = false;
-      query.repositoryCategory = 'all';
-      query.lifecycles = [];
-      query.gitStatuses = [];
-    }
-    if (query.scope === 'all' && !query.projectOnly && !query.repositoryOnly && !query.fileLabelIds.length) {
+    if (query.scope === 'all' && !query.projectOnly && !query.repositoryOnly) {
       query.scope = 'current';
     }
     if (!(query.scope === 'all' && query.repositoryOnly && !query.projectOnly)) {
@@ -254,7 +236,6 @@
       && a.maxSizeBytes === b.maxSizeBytes
       && a.lifecycles.join('\0') === b.lifecycles.join('\0')
       && a.gitStatuses.join('\0') === b.gitStatuses.join('\0')
-      && a.fileLabelIds.join('\0') === b.fileLabelIds.join('\0')
       && a.extensions.join('\0') === b.extensions.join('\0');
   }
 
@@ -269,7 +250,6 @@
   function collectionKind(query) {
     const value = normalize(query);
     if (value.scope !== 'all') return '';
-    if (value.fileLabelIds.length) return 'file-labels';
     if (value.projectOnly && value.repositoryOnly) return 'project-repositories';
     if (value.projectOnly) return 'projects';
     if (value.repositoryOnly) return 'repositories';
@@ -318,10 +298,6 @@
       if (hasNoRemote && item?.gitStatus?.hasRemote !== false) return false;
       const overall = item?.gitStatus?.overallStatus || 'clean';
       if (overallStatuses.length && !overallStatuses.includes(overall)) return false;
-    }
-    if (value.fileLabelIds.length) {
-      const itemLabelIds = new Set((Array.isArray(item?.fileLabels) ? item.fileLabels : []).map(label => String(label?.id || '')));
-      if (!value.fileLabelIds.some(labelId => itemLabelIds.has(labelId))) return false;
     }
     if (value.extensions.length) {
       if (item?.type !== 'file') return false;
@@ -389,7 +365,6 @@
     const value = normalize(query);
     return Number(value.lifecycles.length > 0)
       + Number(value.gitStatuses.length > 0)
-      + Number(value.fileLabelIds.length > 0)
       + Number(value.extensions.length > 0)
       + Number(value.modifiedWithinDays !== null || value.modifiedFrom !== null || value.modifiedTo !== null)
       + Number(value.sizeRange !== 'any' || value.minSizeBytes !== null || value.maxSizeBytes !== null);
@@ -400,7 +375,6 @@
       ...normalize(query),
       lifecycles: [],
       gitStatuses: [],
-      fileLabelIds: [],
       extensions: [],
       modifiedWithinDays: null,
       modifiedFrom: null,
@@ -437,7 +411,6 @@
     matchesItem,
     normalize,
     queryForPreset,
-    queryForFileLabels,
     showsRepositoryMetadata,
     toggleCurrentAttribute
   };

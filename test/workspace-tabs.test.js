@@ -213,6 +213,24 @@ test('精确日期与大小边界随标签页保存并触发旧查询版本迁�
   }), true);
 });
 
+test('旧文件标签集合标签页不会把附带条件误迁移到当前目录', () => {
+  const session = WorkspaceTabs.normalizeSession({
+    version: 2,
+    tabs: [{
+      path: '/workspace',
+      contentQuery: {
+        version: 6,
+        scope: 'all',
+        baseType: 'file',
+        fileLabelIds: ['fl_pending'],
+        extensions: ['md'],
+        modifiedWithinDays: 30
+      }
+    }]
+  }, '/workspace');
+  assert.deepEqual(session.tabs[0].contentQuery, ContentQuery.defaultQuery());
+});
+
 test('旧版本、旧模式与旧目录字段会触发一次性内容查询迁移', () => {
   assert.equal(WorkspaceTabs.needsContentQueryMigration({ version: 1, tabs: [] }), true);
   assert.equal(WorkspaceTabs.needsContentQueryMigration({ version: 2, tabs: [{ mode: 'grid' }] }), true);

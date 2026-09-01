@@ -83,6 +83,25 @@ test('损坏的配置会保留备份并恢复为可写默认配置', (t) => {
   assert.equal(fs.readdirSync(configDir).some(name => name.endsWith('.tmp')), false);
 });
 
+test('旧文件标签配置在首次读取时原子移除且不影响其他配置', (t) => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'gitfinder-obsolete-file-labels-'));
+  t.after(() => fs.rmSync(tempRoot, { recursive: true, force: true }));
+  const configDir = path.join(tempRoot, 'config');
+  fs.mkdirSync(configDir);
+  const configFile = path.join(configDir, 'config.json');
+  fs.writeFileSync(configFile, JSON.stringify({
+    autoRefresh: false,
+    fileLabels: { version: 1, labels: [], assignments: {} }
+  }));
+  const service = createService(configDir);
+
+  const config = service.getConfig();
+  const persisted = JSON.parse(fs.readFileSync(configFile, 'utf8'));
+  assert.equal(config.autoRefresh, false);
+  assert.equal(Object.hasOwn(config, 'fileLabels'), false);
+  assert.equal(Object.hasOwn(persisted, 'fileLabels'), false);
+});
+
 test('目录移动、归档和恢复会同步仓库、分类与收藏路径', (t) => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'gitfinder-rebind-'));
   t.after(() => fs.rmSync(tempRoot, { recursive: true, force: true }));
@@ -115,9 +134,6 @@ test('目录移动、归档和恢复会同步仓库、分类与收藏路径', (t
     [oldParent]: { style: 'list', sortBy: 'time', sortOrder: 'desc', columnWidth: 312, updatedAt: 100 },
     [repoPath]: { style: 'card', sortBy: 'name', sortOrder: 'asc', updatedAt: 200 }
   });
-  const fileLabel = service.createFileLabel('待处理', '#ff5f57');
-  service.updateFileLabelAssignments([repoPath, path.join(repoPath, 'README.md')], { addIds: [fileLabel.id] });
-
   const newParent = path.join(managedRoot, 'new-parent');
   fs.renameSync(oldParent, newParent);
   service.validateRebindPaths([{ from: oldParent, to: newParent }]);
@@ -134,14 +150,6 @@ test('目录移动、归档和恢复会同步仓库、分类与收藏路径', (t
     [newParent]: { style: 'list', sortBy: 'time', sortOrder: 'desc', columnWidth: 312, updatedAt: 100 },
     [newRepoPath]: { style: 'card', sortBy: 'name', sortOrder: 'asc', updatedAt: 200 }
   });
-  assert.deepEqual(service.getFileLabelsForPaths([
-    newRepoPath,
-    path.join(newRepoPath, 'README.md')
-  ]), {
-    [newRepoPath]: [fileLabel],
-    [path.join(newRepoPath, 'README.md')]: [fileLabel]
-  });
-
   const snapshot = service.archivePaths([newParent]);
   assert.equal(service.listActive().some(repo => repo.id === repoId), false);
   assert.equal(service.getRepos().repos.length, 0);
@@ -149,8 +157,6 @@ test('目录移动、归档和恢复会同步仓库、分类与收藏路径', (t
   assert.equal(snapshot.removedFavorites.length, 1);
   assert.equal(service.get('workspaceTabSession').tabs[0].path, managedRoot);
   assert.equal(service.get('workspaceTabSession').closedTabs.length, 0);
-  assert.deepEqual(service.getFileLabels().assignments, {});
-  assert.equal(Object.keys(snapshot.removedFileLabelAssignments).length, 2);
 
   service.restoreArchivedPaths([newParent], snapshot);
   assert.equal(service.listActive().some(repo => repo.id === repoId), true);
@@ -159,7 +165,6 @@ test('目录移动、归档和恢复会同步仓库、分类与收藏路径', (t
   assert.deepEqual(service.getGroups().groups[0].repoPaths, [newRepoPath]);
   assert.equal(service.get('workspaceTabSession').tabs[0].path, newRepoPath);
   assert.equal(service.get('workspaceTabSession').closedTabs[0].path, newRepoPath);
-  assert.deepEqual(service.getFileLabelsForPaths([newRepoPath])[newRepoPath], [fileLabel]);
 });
 
 test('文件夹收藏只接受真实受管目录，重复添加幂等且可原子切换', { skip: false }, (t) => {

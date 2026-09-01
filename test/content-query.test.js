@@ -161,38 +161,24 @@ test('高级条件可计数和清除，旧查询会补齐安全默认值', () =>
     lifecycles: ['active'],
     modifiedWithinDays: 30
   });
-  assert.equal(ContentQuery.VERSION, 6);
+  assert.equal(ContentQuery.VERSION, 7);
   assert.equal(ContentQuery.advancedFilterCount(query), 2);
   assert.deepEqual(ContentQuery.clearAdvanced(query), ContentQuery.queryForPreset('current-projects'));
   assert.deepEqual(ContentQuery.normalize({ version: 1, scope: 'current', baseType: 'all' }), ContentQuery.defaultQuery());
 });
 
-test('文件标签筛选适用于当前目录与所有受管位置并使用 OR 语义', () => {
-  const labeledItems = [
-    { path: '/workspace/a', type: 'directory', fileLabels: [{ id: 'fl_pending', name: '待处理' }] },
-    { path: '/workspace/b.txt', type: 'file', fileLabels: [{ id: 'fl_client', name: '客户' }] },
-    { path: '/workspace/c', type: 'directory', fileLabels: [] }
-  ];
-  const query = ContentQuery.normalize({
-    ...ContentQuery.defaultQuery(),
-    fileLabelIds: ['fl_pending', 'invalid', 'fl_client', 'fl_pending']
+test('旧文件标签查询迁移为安全的当前目录默认查询', () => {
+  const migrated = ContentQuery.normalize({
+    version: 6,
+    scope: 'all',
+    baseType: 'all',
+    fileLabelIds: ['fl_pending'],
+    extensions: ['md'],
+    modifiedWithinDays: 30,
+    sizeRange: 'over-100mb'
   });
-  assert.deepEqual(query.fileLabelIds, ['fl_client', 'fl_pending']);
-  assert.deepEqual(ContentQuery.filterItems(labeledItems, query).map(item => item.path), [
-    '/workspace/a', '/workspace/b.txt'
-  ]);
-  assert.equal(ContentQuery.advancedFilterCount(query), 1);
-  assert.deepEqual(ContentQuery.clearAdvanced(query), ContentQuery.defaultQuery());
-  const collection = ContentQuery.normalize({
-    ...ContentQuery.queryForPreset('all-projects'),
-    fileLabelIds: ['fl_pending']
-  });
-  assert.equal(ContentQuery.collectionKind(collection), 'file-labels');
-  assert.deepEqual(collection.fileLabelIds, ['fl_pending']);
-  assert.equal(collection.projectOnly, false);
-  assert.deepEqual(labeledItems.filter(item => ContentQuery.matchesAttributes(item, collection)).map(item => item.path), [
-    '/workspace/a'
-  ]);
+  assert.deepEqual(migrated, ContentQuery.defaultQuery());
+  assert.equal(Object.hasOwn(migrated, 'fileLabelIds'), false);
 });
 
 test('Git 综合状态使用 OR，未添加远程作为独立 AND 条件', () => {
