@@ -9,12 +9,14 @@
     || (typeof module !== 'undefined' && module.exports ? require('../../shared/relationshipGraphProjection') : null);
   const actionRouter = root?.RelationshipBoardActionRouter
     || (typeof module !== 'undefined' && module.exports ? require('./relationshipBoardActionRouter') : null);
+  const resourceView = root?.RelationshipBoardResourceView
+    || (typeof module !== 'undefined' && module.exports ? require('./relationshipBoardResourceView') : null);
   const toolbarView = root?.RelationshipBoardToolbarView
     || (typeof module !== 'undefined' && module.exports ? require('./relationshipBoardToolbarView') : null);
-  const api = factory(root?.RelationshipGraphModel, projection, scanner, primitives, graphProjection, actionRouter, toolbarView);
+  const api = factory(root?.RelationshipGraphModel, projection, scanner, primitives, graphProjection, actionRouter, resourceView, toolbarView);
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) root.RelationshipBoardController = api;
-})(typeof window !== 'undefined' ? window : globalThis, function createRelationshipBoardController(Model, PanelTopologyProjection, RepositoryRootScanner, LayoutPrimitives, GraphProjection, ActionRouter, ToolbarView) {
+})(typeof window !== 'undefined' ? window : globalThis, function createRelationshipBoardController(Model, PanelTopologyProjection, RepositoryRootScanner, LayoutPrimitives, GraphProjection, ActionRouter, ResourceView, ToolbarView) {
   const NODE_WIDTH = 280;
   const NODE_HEIGHT = 143;
   const COMPACT_NODE_WIDTH = 236;
@@ -58,15 +60,7 @@
     endpoint: '↗',
     group: '▢', text: 'T', image: '▧', attachment: '▱'
   });
-  const RESOURCE_CATEGORY_DEFINITIONS = Object.freeze([
-    Object.freeze({ id: 'whiteboard', label: '白板文件', icon: '▧' }),
-    Object.freeze({ id: 'project', label: '项目', icon: TYPE_ICONS.project }),
-    Object.freeze({ id: 'repository', label: '仓库', icon: TYPE_ICONS.repository }),
-    Object.freeze({ id: 'server', label: '主机', icon: TYPE_ICONS.server }),
-    Object.freeze({ id: 'deployment', label: '站点与部署', icon: TYPE_ICONS.deployment }),
-    Object.freeze({ id: 'endpoint', label: '访问端点', icon: TYPE_ICONS.endpoint }),
-    Object.freeze({ id: 'other', label: '其他', icon: '•••' })
-  ]);
+  const RESOURCE_CATEGORY_DEFINITIONS = ResourceView.RESOURCE_CATEGORY_DEFINITIONS;
   const RELATIONSHIP_LABELS = Object.freeze({
     contains: '包含',
     belongs_to: '属于',
@@ -1124,60 +1118,17 @@
       this.resourceMap = new Map(resources.map(resource => [resource.key, resource]));
     }
 
-    _resourceCategory(resource) {
-      return RESOURCE_CATEGORY_DEFINITIONS.some(category => category.id === resource?.kind)
-        ? resource.kind
-        : 'other';
-    }
-
     _resourceCatalog() {
-      const entities = this._combinedEntities();
-      const placements = this._combinedPlacements();
-      const placedIds = new Set(placements.map(placement => placement.entityId));
-      const entitiesByReference = new Map();
-      for (const entity of entities.filter(item => item.refId)) {
-        const key = `${entity.type}:${entity.refId}`;
-        if (!entitiesByReference.has(key) || placedIds.has(entity.id)) entitiesByReference.set(key, entity);
-      }
-      const catalog = this.resources.map(resource => {
-        const entity = entitiesByReference.get(`${resource.kind}:${resource.refId}`);
-        return {
-          ...resource,
-          category: this._resourceCategory(resource),
-          ...(entity ? { entityId: entity.id, name: this._entityDisplayName(entity), transient: entity.transient === true, placed: placedIds.has(entity.id) } : {})
-        };
-      });
-      const representedIds = new Set(catalog.map(resource => resource.entityId).filter(Boolean));
-      for (const entity of entities) {
-        if (representedIds.has(entity.id)) continue;
-        const key = `entity:${entity.id}`;
-        const subtitle = this._entityDisplaySubtitle(entity, this._entitySubtitle(entity, null, false) || TYPE_LABELS[entity.type]);
-        catalog.push({
-          key,
-          kind: entity.type,
-          category: this._resourceCategory({ kind: entity.type }),
-          entityId: entity.id,
-          name: this._entityDisplayName(entity),
-          path: '',
-          secondary: subtitle,
-          transient: entity.transient === true,
-          placed: placedIds.has(entity.id)
-        });
-      }
-      catalog.push(...this.documentLibrary.map(item => ({ ...item, key: `whiteboard:${item.id}`, kind: 'whiteboard', category: 'whiteboard', secondary: item.missing ? '文件缺失 · 可移除记录' : `${item.nodeCount} 个元素`, path: item.path })));
-      return catalog.sort((left, right) => {
-        const categoryOrder = RESOURCE_CATEGORY_DEFINITIONS.findIndex(category => category.id === left.category)
-          - RESOURCE_CATEGORY_DEFINITIONS.findIndex(category => category.id === right.category);
-        return categoryOrder || left.name.localeCompare(right.name, 'zh-CN');
+      return ResourceView.catalog({ resources: this.resources, entities: this._combinedEntities(), placements: this._combinedPlacements(),
+        documents: this.documentLibrary, displayName: entity => this._entityDisplayName(entity), displaySubtitle: entity => {
+          const fallback = this._entitySubtitle(entity, null, false) || TYPE_LABELS[entity.type];
+          return this._entityDisplaySubtitle(entity, fallback);
+        }
       });
     }
 
     _resourceSections(catalog = this._resourceCatalog()) {
-      return RESOURCE_CATEGORY_DEFINITIONS.map(category => ({
-        ...category,
-        key: category.id,
-        items: catalog.filter(resource => resource.category === category.id)
-      }));
+      return ResourceView.sections(catalog);
     }
 
     _combinedEntities() {
@@ -3328,59 +3279,13 @@
     _renderResources() {
       const list = this._panelElement('.relationship-resource-list');
       if (!list) return;
-      const query = this.resourceSearch.trim().toLocaleLowerCase('zh-CN');
       const catalog = this._resourceCatalog();
       this.resourceMap = new Map(catalog.map(resource => [resource.key, resource]));
       const total = this._panelElement('[data-resource-total]');
       if (total) total.textContent = String(catalog.length);
-      const filtered = catalog.filter(resource => !query
-        || `${resource.name} ${resource.path} ${resource.secondary}`.toLocaleLowerCase('zh-CN').includes(query));
-      const sections = this._resourceSections(filtered)
-        .filter(section => !query || section.items.length);
       for (const dock of this._panelDocks()) dock?.querySelectorAll(':scope > [data-resource-section]').forEach(item => item.remove());
-      if (!sections.length || (query && !filtered.length)) {
-        list.innerHTML = `<div class="relationship-resource-empty">${query ? '没有匹配的资源' : '暂无资源'}</div>`;
-        this._placePanelComponents();
-        return;
-      }
-      const itemMarkup = resource => {
-        if (resource.kind === 'whiteboard') return `<article class="relationship-resource-item whiteboard-library-item">
-          <button type="button" class="whiteboard-library-open" data-open-document="${escapeHtml(resource.id)}" title="${escapeHtml(resource.path)}"><strong>▧ ${escapeHtml(resource.name)}</strong><small>${escapeHtml(resource.secondary)}</small></button>
-          <button type="button" data-remove-document="${escapeHtml(resource.id)}" title="仅从资源库移除" aria-label="移除 ${escapeHtml(resource.name)} 的资源库记录">×</button>
-          <button type="button" data-trash-document="${escapeHtml(resource.id)}" title="移到废纸篓" aria-label="将 ${escapeHtml(resource.name)} 移到废纸篓">♲</button></article>`;
-        const canLocate = resource.placed === true;
-        const canDrag = !canLocate && (!resource.transient || ['project', 'repository'].includes(resource.kind));
-        const action = canLocate
-          ? `data-locate-resource="${escapeHtml(resource.key)}" title="在白板中定位" aria-label="在白板中定位 ${escapeHtml(resource.name)}">⌖`
-          : `data-add-resource="${escapeHtml(resource.key)}" title="添加到白板" aria-label="将 ${escapeHtml(resource.name)} 添加到白板">＋`;
-        return `
-          <article class="relationship-resource-item" draggable="${canDrag}" data-resource-key="${escapeHtml(resource.key)}" data-resource-kind="${escapeHtml(resource.kind)}">
-            <span class="relationship-resource-icon" data-kind="${escapeHtml(resource.kind)}">${TYPE_ICONS[resource.kind] || '•'}</span>
-            <span class="relationship-resource-copy">
-              <strong>${escapeHtml(resource.name)}</strong>
-              <small title="${escapeHtml(resource.path || resource.secondary)}">${escapeHtml(resource.path || resource.secondary)}</small>
-            </span>
-            <button type="button" ${action}</button>
-          </article>`;
-      };
-      list.innerHTML = sections.map(section => {
-        const collapsed = !query && this.collapsedResourceSections.has(section.key);
-        return `
-          <section class="relationship-resource-section relationship-dock-component" data-panel-id="resource:${escapeHtml(section.key)}" data-resource-section="${escapeHtml(section.key)}">
-            <div class="relationship-resource-component-heading">
-            <button class="relationship-resource-section-trigger" type="button" data-resource-section-toggle="${escapeHtml(section.key)}" aria-expanded="${!collapsed}">
-              <span class="relationship-resource-section-disclosure" aria-hidden="true">⌄</span>
-              <span class="relationship-resource-section-icon" aria-hidden="true">${section.icon}</span>
-              <span class="relationship-resource-section-copy"><strong>${escapeHtml(section.label)}</strong>${section.secondary ? `<small title="${escapeHtml(section.secondary)}">${escapeHtml(section.secondary)}</small>` : ''}</span>
-              <span class="relationship-resource-section-count">${section.items.length}</span>
-            </button>
-            ${this._panelMoveControls(`resource:${section.key}`, section.label)}
-            </div>
-            <div class="relationship-resource-section-items"${collapsed ? ' hidden' : ''}>${section.items.length
-              ? section.items.map(itemMarkup).join('')
-              : '<div class="relationship-resource-section-empty">暂无资源</div>'}</div>
-          </section>`;
-      }).join('');
+      list.innerHTML = ResourceView.render({ items: catalog, query: this.resourceSearch, collapsed: this.collapsedResourceSections,
+        typeIcons: TYPE_ICONS, escapeHtml, panelMoveControls: (key, label) => this._panelMoveControls(key, label) });
       this._placePanelComponents();
     }
 

@@ -8,8 +8,9 @@ const read = relativePath => fs.readFileSync(path.join(projectRoot, relativePath
 const html = read('src/renderer/index.html');
 const appSource = read('src/renderer/scripts/app.js');
 const controllerSource = read('src/renderer/scripts/relationshipBoardController.js');
+const resourceViewSource = read('src/renderer/scripts/relationshipBoardResourceView.js');
 const toolbarViewSource = read('src/renderer/scripts/relationshipBoardToolbarView.js');
-const boardRendererSource = `${controllerSource}\n${toolbarViewSource}`;
+const boardRendererSource = `${controllerSource}\n${resourceViewSource}\n${toolbarViewSource}`;
 const selectionDetailSource = read('src/renderer/scripts/fileSelectionDetailController.js');
 const relationshipCss = read('src/renderer/styles/relationships.css');
 const contentCss = read('src/renderer/styles/content.css');
@@ -227,7 +228,7 @@ test('资源库直接显示分类搜索，不再显示范围切换按钮或外�
     ['whiteboard', 'project', 'repository', 'server', 'deployment', 'endpoint', 'other']
   );
   assert.doesNotMatch(controllerSource, /data-resource-scope=/);
-  assert.match(controllerSource, /data-resource-section/);
+  assert.match(resourceViewSource, /data-resource-section/);
   assert.match(controllerSource, /aria-label="白板资源库"/);
   assert.doesNotMatch(html, /<span class="sidebar-title-text">白板组件<\/span>/);
   assert.match(controllerSource, /getTreeRoots/);
