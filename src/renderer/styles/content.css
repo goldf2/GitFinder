@@ -4637,18 +4637,16 @@ body.file-drag-active.file-drag-copy {
   background: var(--bg-primary);
 }
 
-/* 文件操作历史是并行检查面板，不阻塞当前目录，也不使用遮罩。 */
-.file-operation-history-panel[hidden] {
+/* Finder 检查器是并行面板：不遮挡目录，也不接管页面导航。 */
+.finder-inspector-panel[hidden] {
   display: none;
 }
 
-.file-operation-history-panel {
+.finder-inspector-panel {
   position: fixed;
   top: 58px;
   right: 18px;
   bottom: 22px;
-  z-index: 980;
-  width: min(400px, calc(100vw - 36px));
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -4659,21 +4657,39 @@ body.file-drag-active.file-drag-copy {
   box-shadow: 0 22px 62px var(--shadow-overlay);
   backdrop-filter: blur(22px) saturate(150%);
   -webkit-backdrop-filter: blur(22px) saturate(150%);
-  animation: fileOperationHistoryIn 180ms cubic-bezier(0.16, 1, 0.3, 1);
+  animation: finderInspectorIn 180ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-@keyframes fileOperationHistoryIn {
+.file-operation-history-panel {
+  z-index: 980;
+  width: min(400px, calc(100vw - 36px));
+}
+
+.file-info-panel {
+  z-index: 981;
+  width: min(380px, calc(100vw - 36px));
+}
+
+@keyframes finderInspectorIn {
   from { opacity: 0; transform: translateX(12px) scale(0.985); }
   to { opacity: 1; transform: translateX(0) scale(1); }
 }
 
-.file-operation-history-header {
+.finder-inspector-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 14px;
-  padding: 17px 17px 13px;
   background: linear-gradient(to bottom, color-mix(in srgb, var(--bg-primary) 96%, transparent), color-mix(in srgb, var(--bg-primary) 82%, transparent));
+}
+
+.file-operation-history-header {
+  padding: 17px 17px 13px;
+}
+
+.file-info-header {
+  padding: 17px;
+  border-bottom: 1px solid var(--border-light);
 }
 
 .file-operation-history-header h2 {
@@ -4696,21 +4712,25 @@ body.file-drag-active.file-drag-copy {
   gap: 6px;
 }
 
-.file-operation-history-header-actions button,
+.finder-inspector-button,
 .file-operation-history-actions button {
-  min-height: 28px;
-  padding: 4px 9px;
   color: var(--text-secondary);
   background: var(--bg-secondary);
   border: 1px solid var(--border-light);
   border-radius: 7px;
   font: inherit;
-  font-size: 11px;
   cursor: pointer;
 }
 
-.file-operation-history-header-actions button:hover,
-.file-operation-history-header-actions button:focus-visible,
+.file-operation-history-header-actions .finder-inspector-button,
+.file-operation-history-actions button {
+  min-height: 28px;
+  padding: 4px 9px;
+  font-size: 11px;
+}
+
+.finder-inspector-button:hover:not(:disabled),
+.finder-inspector-button:focus-visible,
 .file-operation-history-actions button:hover,
 .file-operation-history-actions button:focus-visible {
   color: var(--accent-primary);
@@ -4877,76 +4897,6 @@ body.file-drag-active.file-drag-copy {
   font-size: 13px;
 }
 
-@media (max-width: 620px) {
-  .file-operation-history-panel {
-    top: 52px;
-    right: 8px;
-    bottom: 8px;
-    width: calc(100vw - 16px);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .file-operation-history-panel {
-    animation: none;
-  }
-}
-
-@media (prefers-reduced-transparency: reduce) {
-  .file-operation-history-panel {
-    background: var(--bg-primary);
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-  }
-}
-
-@media (prefers-contrast: more) {
-  .file-operation-history-panel,
-  .file-operation-history-item {
-    border-color: var(--text-secondary);
-  }
-}
-
-/* “显示简介”是 Finder 风格的并行检查器：不遮挡目录，也不接管页面导航。 */
-.file-info-panel[hidden] {
-  display: none;
-}
-
-.file-info-panel {
-  position: fixed;
-  top: 58px;
-  right: 18px;
-  bottom: 22px;
-  z-index: 981;
-  width: min(380px, calc(100vw - 36px));
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  color: var(--text-primary);
-  background: color-mix(in srgb, var(--bg-primary) 92%, transparent);
-  border: 1px solid var(--border-color);
-  border-radius: 14px;
-  box-shadow: 0 22px 62px var(--shadow-overlay);
-  backdrop-filter: blur(22px) saturate(150%);
-  -webkit-backdrop-filter: blur(22px) saturate(150%);
-  animation: fileInfoIn 180ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-@keyframes fileInfoIn {
-  from { opacity: 0; transform: translateX(12px) scale(0.985); }
-  to { opacity: 1; transform: translateX(0) scale(1); }
-}
-
-.file-info-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 14px;
-  padding: 17px;
-  background: linear-gradient(to bottom, color-mix(in srgb, var(--bg-primary) 96%, transparent), color-mix(in srgb, var(--bg-primary) 82%, transparent));
-  border-bottom: 1px solid var(--border-light);
-}
-
 .file-info-heading {
   display: flex;
   align-items: center;
@@ -4997,22 +4947,8 @@ body.file-drag-active.file-drag-copy {
   width: 28px;
   height: 28px;
   padding: 0;
-  color: var(--text-secondary);
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-light);
-  border-radius: 7px;
-  font: inherit;
   font-size: 18px;
   line-height: 1;
-  cursor: pointer;
-}
-
-.file-info-close:hover,
-.file-info-close:focus-visible {
-  color: var(--accent-primary);
-  background: var(--accent-bg);
-  border-color: var(--accent-primary);
-  outline: none;
 }
 
 .file-info-body {
@@ -5138,24 +5074,12 @@ body.file-drag-active.file-drag-copy {
   border-top: 1px solid var(--border-light);
 }
 
-.file-info-actions button {
+.file-info-actions .finder-inspector-button {
   min-height: 30px;
   padding: 5px 10px;
-  color: var(--text-secondary);
   background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-radius: 7px;
-  font: inherit;
+  border-color: var(--border-color);
   font-size: 10px;
-  cursor: pointer;
-}
-
-.file-info-actions button:hover:not(:disabled),
-.file-info-actions button:focus-visible {
-  color: var(--accent-primary);
-  background: var(--accent-bg);
-  border-color: var(--accent-primary);
-  outline: none;
 }
 
 .file-info-actions button:disabled {
@@ -5164,7 +5088,7 @@ body.file-drag-active.file-drag-copy {
 }
 
 @media (max-width: 620px) {
-  .file-info-panel {
+  .finder-inspector-panel {
     top: 52px;
     right: 8px;
     bottom: 8px;
@@ -5173,13 +5097,13 @@ body.file-drag-active.file-drag-copy {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .file-info-panel {
+  .finder-inspector-panel {
     animation: none;
   }
 }
 
 @media (prefers-reduced-transparency: reduce) {
-  .file-info-panel {
+  .finder-inspector-panel {
     background: var(--bg-primary);
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
@@ -5187,7 +5111,8 @@ body.file-drag-active.file-drag-copy {
 }
 
 @media (prefers-contrast: more) {
-  .file-info-panel,
+  .finder-inspector-panel,
+  .file-operation-history-item,
   .file-info-section {
     border-color: var(--text-secondary);
   }

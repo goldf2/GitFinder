@@ -70,6 +70,10 @@ test('历史面板由工具栏下拉与系统显示菜单打开，并保持非�
     assert.match(html, new RegExp(`id="${id}"`));
   }
   assert.match(html, /aria-modal="false"/);
+  assert.match(html, /class="finder-inspector-panel file-operation-history-panel"/);
+  assert.match(html, /class="finder-inspector-header file-operation-history-header"/);
+  assert.match(html, /class="finder-inspector-button" id="file-operation-history-refresh"/);
+  assert.match(html, /class="finder-inspector-button" id="file-operation-history-close"/);
   assert.ok(html.indexOf('scripts/fileOperationHistoryController.js') < html.indexOf('scripts/app.js'));
   assert.match(mainSource, /open-file-history/);
   assert.ok(require('../src/renderer/scripts/appControllerRegistry').CONTROLLER_NAMESPACES.includes('FileOperationHistoryController'));
@@ -82,8 +86,8 @@ test('历史面板只复用既有撤销重做与受管目录导航，不执行�
   assert.match(controllerSource, /revealFileOperationHistoryLocation/);
   assert.doesNotMatch(controllerSource, /showInFinder/);
   assert.match(controllerSource, /event\.key === 'Escape'/);
-  assert.match(cssSource, /\.file-operation-history-panel/);
-  assert.match(cssSource, /@media \(prefers-reduced-transparency: reduce\)[\s\S]*\.file-operation-history-panel/);
+  assert.match(cssSource, /\.finder-inspector-panel/);
+  assert.match(cssSource, /@media \(prefers-reduced-transparency: reduce\) \{\s*\.finder-inspector-panel/);
 });
 
 test('历史控制器立即打开面板，并只给当前候选生成撤销或重做按钮', async () => {

@@ -514,23 +514,23 @@
     </section>
   </div>
 
-  <aside class="file-operation-history-panel" id="file-operation-history-panel" role="dialog" aria-modal="false" aria-hidden="true" aria-labelledby="file-operation-history-title" hidden>
-    <header class="file-operation-history-header">
+  <aside class="finder-inspector-panel file-operation-history-panel" id="file-operation-history-panel" role="dialog" aria-modal="false" aria-hidden="true" aria-labelledby="file-operation-history-title" hidden>
+    <header class="finder-inspector-header file-operation-history-header">
       <div>
         <h2 id="file-operation-history-title">文件操作历史</h2>
         <p id="file-operation-history-summary">只记录 GitFinder 执行的文件操作</p>
       </div>
       <div class="file-operation-history-header-actions">
-        <button id="file-operation-history-refresh" type="button">刷新</button>
-        <button id="file-operation-history-close" type="button" aria-label="关闭文件操作历史" title="关闭 (Esc)">×</button>
+        <button class="finder-inspector-button" id="file-operation-history-refresh" type="button">刷新</button>
+        <button class="finder-inspector-button" id="file-operation-history-close" type="button" aria-label="关闭文件操作历史" title="关闭 (Esc)">×</button>
       </div>
     </header>
     <div class="file-operation-history-boundary">记录保存在本机；定位操作只在 GitFinder 内打开受管目录。</div>
     <div class="file-operation-history-list" id="file-operation-history-list" aria-live="polite"></div>
   </aside>
 
-  <aside class="file-info-panel" id="file-info-panel" role="dialog" aria-modal="false" aria-hidden="true" aria-labelledby="file-info-title" hidden>
-    <header class="file-info-header">
+  <aside class="finder-inspector-panel file-info-panel" id="file-info-panel" role="dialog" aria-modal="false" aria-hidden="true" aria-labelledby="file-info-title" hidden>
+    <header class="finder-inspector-header file-info-header">
       <div class="file-info-heading">
         <span class="file-info-icon" id="file-info-icon" aria-hidden="true">📄</span>
         <div>
@@ -538,12 +538,12 @@
           <p id="file-info-subtitle"></p>
         </div>
       </div>
-      <button class="file-info-close" id="file-info-close" type="button" aria-label="关闭简介" title="关闭 (Esc)">×</button>
+      <button class="finder-inspector-button file-info-close" id="file-info-close" type="button" aria-label="关闭简介" title="关闭 (Esc)">×</button>
     </header>
     <div class="file-info-body" id="file-info-body" aria-live="polite"></div>
     <footer class="file-info-actions">
-      <button id="file-info-open" type="button" disabled>使用默认应用打开</button>
-      <button id="file-info-reveal" type="button" disabled>在系统文件管理器中显示</button>
+      <button class="finder-inspector-button" id="file-info-open" type="button" disabled>使用默认应用打开</button>
+      <button class="finder-inspector-button" id="file-info-reveal" type="button" disabled>在系统文件管理器中显示</button>
     </footer>
   </aside>
 

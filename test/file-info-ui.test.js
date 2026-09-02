@@ -55,6 +55,11 @@ test('显示简介有工具栏、右键、系统菜单和跨平台快捷键入�
   }
   assert.match(html, /data-context-action="get-info"/);
   assert.match(html, /aria-modal="false"/);
+  assert.match(html, /class="finder-inspector-panel file-info-panel"/);
+  assert.match(html, /class="finder-inspector-header file-info-header"/);
+  assert.match(html, /class="finder-inspector-button file-info-close"/);
+  assert.match(html, /class="finder-inspector-button" id="file-info-open"/);
+  assert.match(html, /class="finder-inspector-button" id="file-info-reveal"/);
   assert.ok(html.indexOf('scripts/fileInfoController.js') < html.indexOf('scripts/app.js'));
   assert.match(mainSource, /show-file-info/);
   assert.match(mainSource, /Alt\+Enter/);
@@ -63,8 +68,9 @@ test('显示简介有工具栏、右键、系统菜单和跨平台快捷键入�
   assert.match(read('src/renderer/scripts/fileInfoController.js'), /calculateDirectorySize/);
   assert.match(read('src/renderer/scripts/fileInfoController.js'), /cancelDirectorySize/);
   assert.match(read('src/renderer/scripts/fileInfoController.js'), /已扫描/);
-  assert.match(cssSource, /\.file-info-panel/);
-  assert.match(cssSource, /@media \(prefers-reduced-transparency: reduce\)[\s\S]*\.file-info-panel/);
+  assert.match(cssSource, /@keyframes finderInspectorIn/);
+  assert.doesNotMatch(cssSource, /@keyframes file(?:OperationHistory|Info)In/);
+  assert.match(cssSource, /@media \(max-width: 620px\) \{\s*\.finder-inspector-panel/);
 });
 
 test('显示简介立即打开加载态，并忽略关闭后的迟到结果', async () => {
