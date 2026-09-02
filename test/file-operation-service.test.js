@@ -20,7 +20,7 @@ function createFixture(t, serviceOptions = {}) {
     rebindPaths: mappings => calls.push({ type: 'rebind', mappings }),
     archivePaths: paths => {
       calls.push({ type: 'archive', paths });
-      return { removedFavorites: [{ path: paths[0], name: path.basename(paths[0]) }] };
+      return { snapshotMarker: path.basename(paths[0]) };
     },
     restoreArchivedPaths: (paths, snapshot) => calls.push({ type: 'restore', paths, snapshot })
   };
@@ -128,7 +128,7 @@ test('移入废纸篓后可恢复原路径和配置快照', async (t) => {
   assert.equal(fs.existsSync(operation.items[0].target), false);
   const restoreCall = calls.find(call => call.type === 'restore');
   assert.deepEqual(restoreCall.paths, [source]);
-  assert.deepEqual(restoreCall.snapshot.removedFavorites, [{ path: source, name: 'notes.md' }]);
+  assert.equal(restoreCall.snapshot.snapshotMarker, 'notes.md');
 });
 
 test('废纸篓撤销可重做且重新归档路径关联', async (t) => {

@@ -34,7 +34,6 @@ function createHarness(overrides = {}) {
     refreshWorkspaceTabsFromConfig: async () => calls.push('refresh-tabs'),
     loadPersistedRepos: async () => calls.push('repos'),
     loadGroups: async () => calls.push('groups'),
-    loadFavorites: async () => calls.push('favorites'),
     renderSidebarTree: async () => calls.push('sidebar'),
     performGlobalSearch: async () => calls.push('global-search'),
     renderContent: async () => calls.push('content'),

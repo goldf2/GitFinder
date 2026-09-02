@@ -29,7 +29,7 @@ async function main() {
       getTreeRoots: () => managedRoots.map(root => ({ path: root, name: path.basename(root) })),
       validateRebindPaths: () => {},
       rebindPaths: () => {},
-      archivePaths: () => ({ removedFavorites: [], removedRepos: [] }),
+      archivePaths: () => ({ removedRepos: [] }),
       restoreArchivedPaths: () => {}
     };
     const service = new FileOperationService({ configService, historyDir });

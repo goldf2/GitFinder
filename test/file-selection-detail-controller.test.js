@@ -32,10 +32,8 @@ function createHarness() {
       .replaceAll('<', '&lt;')
       .replaceAll('>', '&gt;'),
     getFileItemSummary: item => item.summary || '',
-    isFavoritePath: itemPath => itemPath === '/workspace/project',
     getItemKindIconHtml: (item, className) => `<span class="${className}" data-kind="${item.kind}"></span>`,
     cancelRepoSelection: () => calls.push(['cancel-repo']),
-    toggleFavoritePath: itemPath => calls.push(['favorite', itemPath]),
     showResourceInRelationshipBoard: resource => calls.push(['relationship', resource])
   };
   const fileBrowser = {

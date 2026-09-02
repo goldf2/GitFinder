@@ -81,14 +81,6 @@ function registerFilesystemIPC() {
     return fileService.getWorkspaceDirectoryInfos(paths);
   });
 
-  ipcMain.handle('fs:getFavoriteDirectoryInfos', async (event, paths) => {
-    return fileService.inspectFavoriteDirectories(paths);
-  });
-
-  ipcMain.handle('fs:resolveFavoriteDirectory', async (event, favoritePath) => {
-    return fileService.resolveFavoriteDirectory(favoritePath);
-  });
-
   ipcMain.handle('fs:watchDirectory', async (event, directoryPath) => {
     registerWatchOwner(event.sender);
     return directoryWatchService.start(event.sender.id, directoryPath, payload => {
@@ -162,14 +154,6 @@ function registerFilesystemIPC() {
 
   ipcMain.handle('fs:getDefaultPath', async () => {
     return fileService.getDefaultPath();
-  });
-
-  ipcMain.handle('fs:getQuickLocations', async () => {
-    return fileService.getQuickLocations();
-  });
-
-  ipcMain.handle('fs:getMountedVolumes', async () => {
-    return fileService.getMountedVolumes();
   });
 
   ipcMain.handle('fs:selectFolder', async () => {

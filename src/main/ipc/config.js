@@ -20,22 +20,6 @@ function registerConfigIPC() {
     return configService.getConfigTransactionRecoveryStatus();
   });
 
-  ipcMain.handle('config:getFavorites', async () => {
-    return configService.getFavorites();
-  });
-
-  ipcMain.handle('config:addFavorite', async (event, item) => {
-    return configService.addFavorite(item);
-  });
-
-  ipcMain.handle('config:toggleFavoriteDirectory', async (event, directoryPath) => {
-    return configService.toggleFavoriteDirectory(directoryPath);
-  });
-
-  ipcMain.handle('config:removeFavorite', async (event, id) => {
-    return configService.removeFavorite(id);
-  });
-
   ipcMain.handle('config:getTreeRoots', async () => {
     return configService.getTreeRoots();
   });

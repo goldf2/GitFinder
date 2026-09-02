@@ -4,44 +4,49 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const projectRoot = path.join(__dirname, '..');
+const read = (...parts) => fs.readFileSync(path.join(projectRoot, ...parts), 'utf8');
 
-test('收藏夹写入通过受信主进程切换受管目录，不再借用仓库标签', () => {
-  const preloadSource = fs.readFileSync(path.join(projectRoot, 'preload.js'), 'utf8');
-  const ipcSource = fs.readFileSync(path.join(projectRoot, 'src', 'main', 'ipc', 'config.js'), 'utf8');
-  const appSource = fs.readFileSync(path.join(projectRoot, 'src', 'renderer', 'scripts', 'app.js'), 'utf8');
+test('已撤下的收藏夹不再保留渲染、桥接或主进程接口', () => {
+  const htmlSource = read('src', 'renderer', 'index.html');
+  const appSource = read('src', 'renderer', 'scripts', 'app.js');
+  const actionBarSource = read('src', 'renderer', 'scripts', 'fileActionBarController.js');
+  const operationSource = read('src', 'renderer', 'scripts', 'fileOperationController.js');
+  const preloadSource = read('preload.js');
+  const configIpcSource = read('src', 'main', 'ipc', 'config.js');
+  const filesystemIpcSource = read('src', 'main', 'ipc', 'filesystem.js');
+  const configServiceSource = read('src', 'main', 'services', 'configService.js');
+  const fileServiceSource = read('src', 'main', 'services', 'fileService.js');
 
-  assert.match(preloadSource, /toggleFavoriteDirectory:.*config:toggleFavoriteDirectory/);
-  assert.match(ipcSource, /config:toggleFavoriteDirectory[\s\S]*configService\.toggleFavoriteDirectory/);
-  assert.match(appSource, /toggleFavoritePath[\s\S]*config\.toggleFavoriteDirectory/);
-  assert.doesNotMatch(appSource, /tags\.create\('收藏'/);
+  assert.doesNotMatch(htmlSource, /favorites-list|file-favorite|data-context-action="favorite"|detail-fav-btn/);
+  assert.doesNotMatch(appSource, /AppState\.favorites|favoritePathKey|loadFavorites|toggleFavorite|favorites-list|action === 'favorite'/);
+  assert.doesNotMatch(actionBarSource, /file-favorite|isFavoritePath/);
+  assert.doesNotMatch(operationSource, /loadFavorites/);
+  assert.doesNotMatch(preloadSource, /FavoriteDirectory|config:getFavorites|config:addFavorite|config:toggleFavorite|config:removeFavorite/);
+  assert.doesNotMatch(configIpcSource, /config:(?:get|add|toggle|remove)Favorite/);
+  assert.doesNotMatch(filesystemIpcSource, /fs:(?:getFavoriteDirectoryInfos|resolveFavoriteDirectory)/);
+  assert.doesNotMatch(configServiceSource, /getFavorites\(|addFavorite\(|toggleFavorite|removeFavorite\(|removedFavorites/);
+  assert.doesNotMatch(fileServiceSource, /inspectFavoriteDirectories|resolveFavoriteDirectory/);
 });
 
-test('移除独立收藏夹及菜单和详情入口', () => {
-  const htmlSource = fs.readFileSync(path.join(projectRoot, 'src', 'renderer', 'index.html'), 'utf8');
-  const appSource = fs.readFileSync(path.join(projectRoot, 'src', 'renderer', 'scripts', 'app.js'), 'utf8');
-  const detailSource = fs.readFileSync(path.join(projectRoot, 'src', 'renderer', 'scripts', 'fileSelectionDetailController.js'), 'utf8');
+test('收藏夹专属系统快捷位置删除后仍保留受管目录与项目快捷入口', () => {
+  const appSource = read('src', 'renderer', 'scripts', 'app.js');
+  const preloadSource = read('preload.js');
+  const filesystemIpcSource = read('src', 'main', 'ipc', 'filesystem.js');
+  const fileServiceSource = read('src', 'main', 'services', 'fileService.js');
+  const configServiceSource = read('src', 'main', 'services', 'configService.js');
 
-  assert.doesNotMatch(htmlSource, /id="favorites-list"|id="file-favorite"|data-context-action="favorite"|id="detail-fav-btn"/);
-  assert.doesNotMatch(appSource, /file-context-favorite-label|data-context-action="favorite"/);
-  assert.doesNotMatch(detailSource, /data-detail-action="toggle-favorite"/);
-  assert.match(appSource, /async loadFavorites\(\)\s*\{\s*const container = document\.getElementById\('favorites-list'\);\s*if \(!container\) return;/);
-});
+  assert.doesNotMatch(appSource, /getQuickLocations|hiddenQuickLocations|favoritesIndex/);
+  assert.doesNotMatch(preloadSource, /getQuickLocations/);
+  assert.doesNotMatch(filesystemIpcSource, /fs:getQuickLocations/);
+  assert.doesNotMatch(fileServiceSource, /getQuickLocations\(/);
+  assert.doesNotMatch(preloadSource, /getMountedVolumes/);
+  assert.doesNotMatch(filesystemIpcSource, /fs:getMountedVolumes/);
+  assert.doesNotMatch(fileServiceSource, /getMountedVolumes\(/);
+  assert.match(configServiceSource, /obsoleteKeys = \['fileLabels', 'favorites', 'hiddenQuickLocations'\]/);
+  assert.equal((configServiceSource.match(/hiddenQuickLocations/g) || []).length, 1);
 
-test('侧栏收藏夹批量识别普通、Git 和项目文件夹并标记失效位置', () => {
-  const preloadSource = fs.readFileSync(path.join(projectRoot, 'preload.js'), 'utf8');
-  const filesystemIpcSource = fs.readFileSync(path.join(projectRoot, 'src', 'main', 'ipc', 'filesystem.js'), 'utf8');
-  const appSource = fs.readFileSync(path.join(projectRoot, 'src', 'renderer', 'scripts', 'app.js'), 'utf8');
-
-  assert.match(preloadSource, /getFavoriteDirectoryInfos:.*fs:getFavoriteDirectoryInfos/);
-  assert.match(filesystemIpcSource, /fs:getFavoriteDirectoryInfos[\s\S]*fileService\.inspectFavoriteDirectories/);
-  assert.match(appSource, /loadFavorites[\s\S]*getFavoriteDirectoryInfos[\s\S]*getItemKindIconHtml/);
-  assert.match(appSource, /is-unavailable[\s\S]*位置不可用/);
-});
-
-test('系统快捷位置先核对受管范围，未授权位置不能绕过目录读取边界', () => {
-  const appSource = fs.readFileSync(path.join(projectRoot, 'src', 'renderer', 'scripts', 'app.js'), 'utf8');
-
-  assert.match(appSource, /loadFavorites[\s\S]*inspectWorkspaceDirectories\(\(quickLocs/);
-  assert.match(appSource, /快捷位置尚未授权[\s\S]*添加目录/);
-  assert.match(appSource, /const unavailable = !item\.available/);
+  assert.match(preloadSource, /getWorkspaceDirectoryInfos/);
+  assert.match(preloadSource, /getTreeRoots/);
+  assert.match(preloadSource, /selectFolder/);
+  assert.match(configServiceSource, /projectShortcuts/);
 });

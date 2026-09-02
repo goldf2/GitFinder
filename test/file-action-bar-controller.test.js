@@ -23,7 +23,7 @@ function createHarness() {
     'file-selection-summary',
     'file-preview', 'file-copy', 'file-copy-path', 'file-cut', 'file-paste', 'file-get-info',
     'file-duplicate', 'file-rename', 'file-move', 'file-open-terminal', 'file-open-editor',
-    'file-favorite', 'file-project-settings', 'file-trash',
+    'file-project-settings', 'file-trash',
     'file-new-folder', 'file-new-file', 'file-undo', 'file-redo',
     'file-create-menu-trigger', 'file-history', 'file-actions-menu-trigger'
   ];
@@ -49,7 +49,6 @@ function createHarness() {
   const calls = [];
   const app = {
     getSelectedFileItems: () => selectedItems,
-    isFavoritePath: itemPath => itemPath === '/workspace/favorite',
     isFileBrowsingContext: () => true,
     isDirectoryBrowsingContext: () => true,
     isGlobalSearchActive: () => false,
@@ -76,7 +75,7 @@ test('没有选择时保持新建和历史入口，禁用需要选择或剪贴�
   assert.equal(element('file-actions-menu-trigger').disabled, false);
 });
 
-test('单个项目文件夹同步收藏、项目设置和单项动作', () => {
+test('单个项目文件夹同步项目设置和单项动作', () => {
   const harness = createHarness();
   const item = { path: '/workspace/favorite', type: 'directory', isProject: true };
   harness.selectedItems.push(item);
@@ -88,8 +87,6 @@ test('单个项目文件夹同步收藏、项目设置和单项动作', () => {
   assert.equal(element('file-copy-path').disabled, false);
   assert.equal(element('file-get-info').disabled, false);
   assert.equal(element('file-open-terminal').disabled, false);
-  assert.equal(element('file-favorite').disabled, false);
-  assert.equal(element('file-favorite').label.textContent, '从收藏夹移除');
   assert.equal(element('file-project-settings').label.textContent, '项目设置…');
   assert.equal(element('file-rename').label.textContent, '重命名');
 });
@@ -112,7 +109,6 @@ test('多选和剪贴板更新批量文案，限制单项动作', () => {
   assert.equal(element('file-preview').disabled, true);
   assert.equal(element('file-get-info').disabled, true);
   assert.equal(element('file-open-terminal').disabled, true);
-  assert.equal(element('file-favorite').disabled, true);
 });
 
 test('忙碌、搜索与历史状态分别控制写操作和撤销重做', () => {

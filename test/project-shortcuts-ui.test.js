@@ -35,10 +35,11 @@ test('项目快捷入口显示固定与最近项目，进入目录仍使用统�
   assert.match(css, /\.project-shortcut-pin/);
 });
 
-test('项目快捷偏好通过受限配置键保存且侧栏顺序迁移到收藏夹之后', () => {
+test('项目快捷偏好通过受限配置键保存且侧栏顺序位于目录之前', () => {
   assert.match(controllerSource, /config\.get\('projectShortcuts'\)/);
   assert.match(controllerSource, /config\.set\('projectShortcuts'/);
-  assert.match(appSource, /id === 'projects'[\s\S]*?favoritesIndex \+ 1/);
+  assert.match(appSource, /id === 'projects'[\s\S]*?locationsIndex[\s\S]*?resolvedOrder\.splice\(insertAt, 0, id\)/);
+  assert.doesNotMatch(appSource, /favoritesIndex/);
   assert.match(controllerSource, /项目位置不可用/);
 });
 

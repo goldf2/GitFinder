@@ -152,7 +152,7 @@ test('当前仓库读取失败时清空旧详情并显示经过转义的可恢�
   assert.equal(calls.length, 0);
 });
 
-test('仓库详情渲染保留项目、收藏和 Git 状态语义，并转义外部文本', async () => {
+test('仓库详情渲染保留项目和 Git 状态语义，并转义外部文本', async () => {
   class FakeElement {
     constructor() {
       this.style = {};
@@ -225,7 +225,6 @@ test('仓库详情渲染保留项目、收藏和 Git 状态语义，并转义外
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#039;'),
-    isFavoritePath: () => true,
     renderMarkdownDocuments: () => renderCalls.push('documents'),
     renderProjectProgress: () => renderCalls.push('progress'),
     safeColor: color => color,

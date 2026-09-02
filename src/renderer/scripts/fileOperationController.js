@@ -180,8 +180,7 @@
         this.state.selectionAnchorPath = null;
         await Promise.all([
           this.app.loadPersistedRepos(),
-          this.app.loadGroups(),
-          this.app.loadFavorites()
+          this.app.loadGroups()
         ]);
         await this.loadHistory();
         await this.app.renderSidebarTree();

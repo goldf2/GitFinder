@@ -83,7 +83,7 @@ test('损坏的配置会保留备份并恢复为可写默认配置', (t) => {
   assert.equal(fs.readdirSync(configDir).some(name => name.endsWith('.tmp')), false);
 });
 
-test('旧文件标签配置在首次读取时原子移除且不影响其他配置', (t) => {
+test('已撤下的文件标签与收藏配置在首次读取时原子移除且不影响受管位置', (t) => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'gitfinder-obsolete-file-labels-'));
   t.after(() => fs.rmSync(tempRoot, { recursive: true, force: true }));
   const configDir = path.join(tempRoot, 'config');
@@ -91,7 +91,12 @@ test('旧文件标签配置在首次读取时原子移除且不影响其他配�
   const configFile = path.join(configDir, 'config.json');
   fs.writeFileSync(configFile, JSON.stringify({
     autoRefresh: false,
-    fileLabels: { version: 1, labels: [], assignments: {} }
+    fileLabels: { version: 1, labels: [], assignments: {} },
+    favorites: [{ id: '/legacy', path: '/legacy', name: '旧收藏' }],
+    hiddenQuickLocations: ['/Users/demo/Downloads'],
+    sidebarSectionOrder: ['favorites', 'projects', 'locations'],
+    sidebarCollapsedSections: ['favorites', 'locations'],
+    treeRoots: [{ path: '/managed', name: '受管位置', expanded: true }]
   }));
   const service = createService(configDir);
 
@@ -99,10 +104,20 @@ test('旧文件标签配置在首次读取时原子移除且不影响其他配�
   const persisted = JSON.parse(fs.readFileSync(configFile, 'utf8'));
   assert.equal(config.autoRefresh, false);
   assert.equal(Object.hasOwn(config, 'fileLabels'), false);
+  assert.equal(Object.hasOwn(config, 'favorites'), false);
+  assert.equal(Object.hasOwn(config, 'hiddenQuickLocations'), false);
+  assert.deepEqual(config.sidebarSectionOrder, ['projects', 'locations']);
+  assert.deepEqual(config.sidebarCollapsedSections, ['locations']);
+  assert.deepEqual(config.treeRoots, [{ path: '/managed', name: '受管位置', expanded: true }]);
   assert.equal(Object.hasOwn(persisted, 'fileLabels'), false);
+  assert.equal(Object.hasOwn(persisted, 'favorites'), false);
+  assert.equal(Object.hasOwn(persisted, 'hiddenQuickLocations'), false);
+  assert.deepEqual(persisted.sidebarSectionOrder, ['projects', 'locations']);
+  assert.deepEqual(persisted.sidebarCollapsedSections, ['locations']);
+  assert.deepEqual(persisted.treeRoots, [{ path: '/managed', name: '受管位置', expanded: true }]);
 });
 
-test('目录移动、归档和恢复会同步仓库、分类与收藏路径', (t) => {
+test('目录移动、归档和恢复会同步仓库、分类、标签页与目录偏好', (t) => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'gitfinder-rebind-'));
   t.after(() => fs.rmSync(tempRoot, { recursive: true, force: true }));
   const managedRoot = path.join(tempRoot, 'managed');
@@ -112,7 +127,6 @@ test('目录移动、归档和恢复会同步仓库、分类与收藏路径', (t
   const service = createService(path.join(tempRoot, 'config'));
   service.addTreeRoot(managedRoot, 'managed');
   service.setRepos([{ path: repoPath, name: 'repo' }], 1);
-  service.addFavorite({ type: 'dir', path: repoPath, name: 'repo' });
   const group = service.createGroup('Desktop', '#007AFF');
   const groupId = group.groups[0].id;
   service.addRepoToGroup(groupId, repoPath);
@@ -142,7 +156,6 @@ test('目录移动、归档和恢复会同步仓库、分类与收藏路径', (t
 
   assert.equal(service.getIdByPath(newRepoPath), repoId);
   assert.equal(service.getRepos().repos[0].path, newRepoPath);
-  assert.equal(service.getFavorites()[0].path, newRepoPath);
   assert.deepEqual(service.getGroups().groups[0].repoPaths, [newRepoPath]);
   assert.equal(service.get('workspaceTabSession').tabs[0].path, newRepoPath);
   assert.deepEqual(service.get('workspaceTabSession').tabs[0].history, [managedRoot, newParent, newRepoPath]);
@@ -153,60 +166,18 @@ test('目录移动、归档和恢复会同步仓库、分类与收藏路径', (t
   const snapshot = service.archivePaths([newParent]);
   assert.equal(service.listActive().some(repo => repo.id === repoId), false);
   assert.equal(service.getRepos().repos.length, 0);
-  assert.equal(service.getFavorites().length, 0);
-  assert.equal(snapshot.removedFavorites.length, 1);
   assert.equal(service.get('workspaceTabSession').tabs[0].path, managedRoot);
   assert.equal(service.get('workspaceTabSession').closedTabs.length, 0);
 
   service.restoreArchivedPaths([newParent], snapshot);
   assert.equal(service.listActive().some(repo => repo.id === repoId), true);
   assert.equal(service.getRepos().repos[0].path, newRepoPath);
-  assert.equal(service.getFavorites()[0].path, newRepoPath);
   assert.deepEqual(service.getGroups().groups[0].repoPaths, [newRepoPath]);
   assert.equal(service.get('workspaceTabSession').tabs[0].path, newRepoPath);
   assert.equal(service.get('workspaceTabSession').closedTabs[0].path, newRepoPath);
 });
 
-test('文件夹收藏只接受真实受管目录，重复添加幂等且可原子切换', { skip: false }, (t) => {
-  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'gitfinder-favorite-root-'));
-  const outsideRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'gitfinder-favorite-outside-'));
-  t.after(() => fs.rmSync(tempRoot, { recursive: true, force: true }));
-  t.after(() => fs.rmSync(outsideRoot, { recursive: true, force: true }));
-  const managedRoot = path.join(tempRoot, 'managed');
-  const directoryPath = path.join(managedRoot, 'folder');
-  const filePath = path.join(managedRoot, 'README.md');
-  fs.mkdirSync(directoryPath, { recursive: true });
-  fs.writeFileSync(filePath, 'readme');
-  const service = createService(path.join(tempRoot, 'config'));
-  service.addTreeRoot(managedRoot, 'managed');
-
-  service.addFavorite({ type: 'dir', path: directoryPath, name: '固定目录' });
-  service.addFavorite({ type: 'directory', path: directoryPath, name: '重复目录' });
-  assert.equal(service.getFavorites().length, 1);
-  assert.deepEqual(service.getFavorites()[0], {
-    id: directoryPath,
-    type: 'directory',
-    path: directoryPath,
-    name: '固定目录',
-    createdAt: service.getFavorites()[0].createdAt
-  });
-
-  assert.equal(service.toggleFavoriteDirectory(directoryPath).favorited, false);
-  assert.equal(service.getFavorites().length, 0);
-  assert.equal(service.toggleFavoriteDirectory(directoryPath).favorited, true);
-  assert.equal(service.getFavorites().length, 1);
-
-  assert.throws(() => service.addFavorite({ path: 'relative/path' }), /绝对目录/);
-  assert.throws(() => service.addFavorite({ path: outsideRoot }), /已添加位置/);
-  assert.throws(() => service.addFavorite({ path: filePath }), /真实文件夹/);
-  if (process.platform !== 'win32') {
-    const escapedPath = path.join(managedRoot, 'escaped');
-    fs.symlinkSync(outsideRoot, escapedPath, 'dir');
-    assert.throws(() => service.addFavorite({ path: escapedPath }), /符号链接/);
-  }
-});
-
-test('渲染层配置写入只允许偏好键，不能替换受管根或收藏', (t) => {
+test('渲染层配置写入只允许偏好键，不能替换受管根或复活旧收藏配置', (t) => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'gitfinder-renderer-config-'));
   t.after(() => fs.rmSync(tempRoot, { recursive: true, force: true }));
   const managedRoot = path.join(tempRoot, 'managed');
@@ -305,7 +276,7 @@ test('路径配置事务中途写入失败会恢复全部文件和内存快照',
   const service = createService(path.join(tempRoot, 'config'));
   service.addTreeRoot(managedRoot, 'managed');
   service.setRepos([{ path: oldPath, name: 'before' }], 1);
-  service.addFavorite({ type: 'dir', path: oldPath, name: 'before' });
+  service.set('lastPath', oldPath);
   fs.renameSync(oldPath, newPath);
 
   const originalWrite = service._writeJsonFileAtomic.bind(service);
@@ -324,10 +295,10 @@ test('路径配置事务中途写入失败会恢复全部文件和内存快照',
   );
   assert.equal(service.getRegistry().repos[0].path, oldPath);
   assert.equal(service.getRepos().repos[0].path, oldPath);
-  assert.equal(service.getFavorites()[0].path, oldPath);
+  assert.equal(service.get('lastPath'), oldPath);
   assert.equal(JSON.parse(fs.readFileSync(service.registryFile, 'utf8')).repos[0].path, oldPath);
   assert.equal(JSON.parse(fs.readFileSync(service.reposFile, 'utf8')).repos[0].path, oldPath);
-  assert.equal(JSON.parse(fs.readFileSync(service.configFile, 'utf8')).favorites[0].path, oldPath);
+  assert.equal(JSON.parse(fs.readFileSync(service.configFile, 'utf8')).lastPath, oldPath);
   assert.equal(fs.existsSync(service.transactionFile), false);
 });
 
@@ -341,7 +312,7 @@ test('启动时会把中断的路径配置事务一致地向前恢复', (t) => {
   const service = createService(configDir);
   service.addTreeRoot(managedRoot, 'managed');
   service.setRepos([{ path: oldPath, name: 'before' }], 1);
-  service.addFavorite({ type: 'dir', path: oldPath, name: 'before' });
+  service.set('lastPath', oldPath);
   const groupId = service.createGroup('Desktop', '#7357bd').groups[0].id;
   service.addRepoToGroup(groupId, oldPath);
   const keys = ['registry', 'repos', 'config'];
@@ -373,7 +344,7 @@ test('启动时会把中断的路径配置事务一致地向前恢复', (t) => {
   assert.equal(recovery.operation, 'rebind-paths');
   assert.equal(restarted.getRegistry().repos[0].path, newPath);
   assert.equal(restarted.getRepos().repos[0].path, newPath);
-  assert.equal(restarted.getFavorites()[0].path, newPath);
+  assert.equal(restarted.get('lastPath'), newPath);
   assert.deepEqual(restarted.getGroups().groups[0].repoPaths, [newPath]);
   assert.equal(fs.existsSync(path.join(configDir, 'config-transaction.json')), false);
 });

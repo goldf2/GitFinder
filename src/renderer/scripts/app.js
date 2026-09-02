@@ -48,7 +48,6 @@ const AppState = {
   directoryWatchId: null,
   directoryWatchPath: '',
   items: [],
-  favorites: [],
   allRepos: [],
   enrichedRepos: [],
   repoEnrichmentComplete: false,
@@ -2831,9 +2830,8 @@ const App = {
       const id = section.dataset.sectionId;
       if (resolvedOrder.includes(id)) continue;
       if (id === 'projects') {
-        const favoritesIndex = resolvedOrder.indexOf('favorites');
         const locationsIndex = resolvedOrder.indexOf('locations');
-        const insertAt = favoritesIndex >= 0 ? favoritesIndex + 1 : (locationsIndex >= 0 ? locationsIndex : resolvedOrder.length);
+        const insertAt = locationsIndex >= 0 ? locationsIndex : resolvedOrder.length;
         resolvedOrder.splice(insertAt, 0, id);
       } else if (id === 'smart-collections') {
         const locationsIndex = resolvedOrder.indexOf('locations');
@@ -3061,211 +3059,6 @@ const App = {
 
   async _renderTreeNode(path, name, _icon, isRoot, depth, item = {}) {
     return this.sidebarTreeController.renderNode(path, name, isRoot, depth, item);
-  },
-
-  favoritePathKey(candidatePath) {
-    const normalized = String(candidatePath || '').replace(/[\\/]+$/, '');
-    return window.gitFinder.platform === 'win32' ? normalized.toLowerCase() : normalized;
-  },
-
-  isFavoritePath(candidatePath) {
-    const key = this.favoritePathKey(candidatePath);
-    return Boolean(key) && AppState.favorites.some(favorite => this.favoritePathKey(favorite.path) === key);
-  },
-
-  selectedFavoriteDirectory({ fallbackCurrent = false } = {}) {
-    const items = this.getSelectedFileItems();
-    if (items.length === 1 && items[0].type === 'directory') return items[0].path;
-    if (AppState.selectedRepo?.path) return AppState.selectedRepo.path;
-    if (fallbackCurrent && this.isDirectoryBrowsingContext() && AppState.currentPath) return AppState.currentPath;
-    return '';
-  },
-
-  async addCurrentFavorite() {
-    const directoryPath = this.selectedFavoriteDirectory({ fallbackCurrent: true });
-    if (!directoryPath) {
-      this._showStatusMessage('请先选择一个文件夹，或进入要收藏的目录', 'warning');
-      return;
-    }
-    if (this.isFavoritePath(directoryPath)) {
-      this._showStatusMessage('该文件夹已经在收藏夹中', 'info');
-      return;
-    }
-    try {
-      const name = directoryPath.split(/[\\/]/).filter(Boolean).at(-1) || directoryPath;
-      await window.gitFinder.config.addFavorite({ type: 'directory', path: directoryPath, name });
-      await this.loadFavorites();
-      this.updateFileActionBar();
-      if (AppState.selectedRepo) {
-        this.updateDetailPanel();
-      } else if (this.isFileBrowsingContext()) {
-        this.showFileSelectionDetail(this.getSelectedFileItems());
-      }
-      this._showStatusMessage(`已将 ${name} 添加到收藏夹`, 'success');
-    } catch (error) {
-      this._showStatusMessage(error?.message || String(error), 'error');
-    }
-  },
-
-  async toggleFavoritePath(directoryPath) {
-    if (!directoryPath) return;
-    try {
-      const result = await window.gitFinder.config.toggleFavoriteDirectory(directoryPath);
-      await this.loadFavorites();
-      this.updateFileActionBar();
-      if (AppState.selectedRepo) {
-        this.updateDetailPanel();
-      } else if (this.isFileBrowsingContext()) {
-        this.showFileSelectionDetail(this.getSelectedFileItems());
-      }
-      const name = result?.favorite?.name || directoryPath.split(/[\\/]/).filter(Boolean).at(-1) || directoryPath;
-      this._showStatusMessage(result?.favorited ? `已将 ${name} 添加到收藏夹` : `已从收藏夹移除 ${name}`, 'success');
-    } catch (error) {
-      this._showStatusMessage(error?.message || String(error), 'error');
-    }
-  },
-
-  toggleSelectedFavorite() {
-    const directoryPath = this.selectedFavoriteDirectory();
-    if (directoryPath) this.toggleFavoritePath(directoryPath);
-  },
-
-  async openFavoriteLocation(item) {
-    if (!item?.path) return;
-    if (item.available === false) {
-      this._showStatusMessage('该快捷位置尚未授权，请先在“位置”中添加目录', 'warning');
-      return;
-    }
-    if (!item.isQuick) {
-      const validation = await window.gitFinder.fs.resolveFavoriteDirectory(item.path);
-      if (!validation?.ok) {
-        this._showStatusMessage(validation?.message || '收藏位置当前不可用', 'error');
-        return;
-      }
-      item = { ...item, path: validation.path };
-    }
-    if (AppState.currentMode !== 'tree') {
-      AppState.currentMode = 'tree';
-      this.updateModeUI();
-    }
-    this.navigateTo(item.path);
-  },
-
-  async loadFavorites() {
-    const container = document.getElementById('favorites-list');
-    if (!container) return;
-    try {
-      const [favorites, quickLocs, hiddenQuickLocs] = await Promise.all([
-        window.gitFinder.config.getFavorites(),
-        window.gitFinder.fs.getQuickLocations(),
-        window.gitFinder.config.get('hiddenQuickLocations')
-      ]);
-      const hiddenSet = new Set(hiddenQuickLocs || []);
-      const pathKey = value => this.favoritePathKey(value);
-      const quickKeys = new Set((quickLocs || []).map(location => pathKey(location.path)));
-      const favList = (Array.isArray(favorites) ? favorites : [])
-        .filter(favorite => favorite?.path && ['dir', 'directory', 'repo', undefined].includes(favorite.type));
-      AppState.favorites = favList;
-
-      const quickInspection = (quickLocs || []).length
-        ? await window.gitFinder.fs.inspectWorkspaceDirectories((quickLocs || []).map(location => location.path))
-        : { directories: [] };
-      const quickInfo = new Map((quickInspection.directories || []).map(entry => [pathKey(entry.path), entry]));
-
-      const favoriteInspection = favList.length
-        ? await window.gitFinder.fs.getFavoriteDirectoryInfos(favList.map(favorite => favorite.path))
-        : { directories: [] };
-      const favoriteInfo = new Map((favoriteInspection.directories || []).map(entry => [pathKey(entry.path), entry]));
-      const allItems = [];
-
-      for (const location of quickLocs || []) {
-        if (hiddenSet.has(location.path)) continue;
-        allItems.push({
-          id: location.path,
-          type: 'directory',
-          path: location.path,
-          name: location.name,
-          isQuick: true,
-          available: quickInfo.get(pathKey(location.path))?.available === true,
-          canRemove: true
-        });
-      }
-
-      for (const favorite of favList) {
-        if (quickKeys.has(pathKey(favorite.path))) continue;
-        const inspection = favoriteInfo.get(pathKey(favorite.path));
-        allItems.push({
-          ...inspection?.info,
-          id: favorite.id || favorite.path,
-          type: 'directory',
-          path: favorite.path,
-          name: favorite.name || favorite.path.split(/[\\/]/).filter(Boolean).at(-1) || '收藏',
-          isQuick: false,
-          available: inspection?.available === true,
-          canRemove: true
-        });
-      }
-
-      if (!allItems.length) {
-        container.innerHTML = '<div style="padding:4px 16px;font-size:11px;color:#86868b;">暂无收藏</div>';
-        this.updateFileActionBar();
-        return;
-      }
-
-      container.innerHTML = allItems.map(item => {
-        const active = pathKey(item.path) === pathKey(AppState.currentPath);
-        const icon = item.isQuick
-          ? '<span class="sidebar-icon" aria-hidden="true">📍</span>'
-          : this.getItemKindIconHtml(item, 'sidebar-kind-icon');
-        const unavailable = !item.available;
-        return `
-          <div class="sidebar-item ${active ? 'active' : ''} ${unavailable ? 'is-unavailable' : ''}" data-id="${this.escapeHtml(item.id)}" data-type="${this.escapeHtml(item.type)}" data-path="${this.escapeHtml(item.path)}" title="${this.escapeHtml(unavailable ? `${item.isQuick ? '尚未授权' : '位置不可用'} · ${item.path}` : item.path)}" aria-disabled="${unavailable}">
-            ${icon}
-            <span class="sidebar-item-name">${this.escapeHtml(item.name)}</span>
-            ${item.canRemove ? `<button class="sidebar-item-remove" data-id="${this.escapeHtml(item.id)}" title="移除收藏" aria-label="从收藏夹移除 ${this.escapeHtml(item.name)}">×</button>` : ''}
-          </div>`;
-      }).join('');
-
-      container.querySelectorAll('.sidebar-item[data-id]').forEach(element => {
-        element.addEventListener('click', event => {
-          if (event.target.closest('.sidebar-item-remove')) return;
-          const item = allItems.find(candidate => candidate.id === element.dataset.id);
-          if (item) this.openFavoriteLocation(item).catch(error => this._showStatusMessage(error?.message || String(error), 'error'));
-        });
-      });
-
-      container.querySelectorAll('.sidebar-item-remove').forEach(button => {
-        button.addEventListener('click', async event => {
-          event.stopPropagation();
-          const item = allItems.find(candidate => candidate.id === button.dataset.id);
-          if (item?.isQuick) {
-            if (confirm(`从收藏夹移除 "${item.name}" ?`)) {
-              const hidden = await window.gitFinder.config.get('hiddenQuickLocations') || [];
-              if (!hidden.includes(item.path)) {
-                hidden.push(item.path);
-                await window.gitFinder.config.set('hiddenQuickLocations', hidden);
-              }
-            } else {
-              return;
-            }
-          } else {
-            await window.gitFinder.config.removeFavorite(button.dataset.id);
-          }
-          await this.loadFavorites();
-          this.updateFileActionBar();
-          if (AppState.selectedRepo) {
-            this.updateDetailPanel();
-          } else if (this.isFileBrowsingContext()) {
-            this.showFileSelectionDetail(this.getSelectedFileItems());
-          }
-        });
-      });
-      this.updateFileActionBar();
-    } catch (error) {
-      console.error('loadFavorites error:', error);
-      const container = document.getElementById('favorites-list');
-      if (container) container.innerHTML = '<div style="padding:4px 16px;font-size:11px;color:#FF3B30;">加载失败</div>';
-    }
   },
 
   async loadGroups() {
@@ -6462,7 +6255,6 @@ const App = {
 
     const fileItem = eventTarget.closest('.repo-card[data-type="directory"], .repo-list-item[data-type="directory"]');
     const treeNode = eventTarget.closest('.tree-node[data-path]');
-    const favorite = eventTarget.closest('#favorites-list .sidebar-item[data-path]');
     const tabElement = eventTarget.closest('.workspace-tab[data-tab-id]');
     if (fileItem) {
       element = fileItem;
@@ -6470,9 +6262,6 @@ const App = {
     } else if (treeNode) {
       element = treeNode;
       targetPath = treeNode.dataset.path;
-    } else if (favorite) {
-      element = favorite;
-      targetPath = favorite.dataset.path;
     } else if (tabElement) {
       const tab = AppState.workspaceSession?.tabs.find(item => item.id === tabElement.dataset.tabId);
       element = tabElement;
@@ -6584,7 +6373,6 @@ const App = {
       if (action === 'move') this.moveSelectedItems();
       if (action === 'open-terminal') this.openSelectedInTerminal();
       if (action === 'open-editor') this.openSelectedInEditor();
-      if (action === 'favorite') this.toggleSelectedFavorite();
       if (action === 'project') this.openSelectedProjectSettings();
       if (action === 'trash') this.trashSelectedItems();
     });

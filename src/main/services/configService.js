@@ -8,8 +8,7 @@ const SemanticColors = require('../../shared/semanticColors');
 const ProjectShortcuts = require('../../shared/projectShortcuts');
 
 const MAX_CONFIG_TRANSACTION_BYTES = 16 * 1024 * 1024;
-const MAX_FAVORITES = 200;
-const MAX_FAVORITE_PATH_LENGTH = 32768;
+const MAX_DIRECTORY_PATH_LENGTH = 32768;
 const MAX_TREE_ROOTS = 64;
 const MAX_RENDERER_PREFERENCE_BYTES = 2 * 1024 * 1024;
 const RENDERER_PREFERENCE_KEYS = new Set([
@@ -33,7 +32,6 @@ const RENDERER_PREFERENCE_KEYS = new Set([
   'projectShortcutPreferences',
   'sidebarWidth',
   'detailPanelWidth',
-  'hiddenQuickLocations',
   'groupOrder',
   'themeMode',
   'themeScheme',
@@ -311,8 +309,28 @@ class ConfigService {
         this.config = this._defaultConfig();
         this.saveConfig();
       }
-      if (Object.hasOwn(this.config, 'fileLabels')) {
-        delete this.config.fileLabels;
+      const obsoleteKeys = ['fileLabels', 'favorites', 'hiddenQuickLocations'];
+      let migrated = false;
+      for (const key of obsoleteKeys) {
+        if (!Object.hasOwn(this.config, key)) continue;
+        delete this.config[key];
+        migrated = true;
+      }
+      if (Array.isArray(this.config.sidebarSectionOrder)) {
+        const nextOrder = this.config.sidebarSectionOrder.filter(id => id !== 'favorites');
+        if (nextOrder.length !== this.config.sidebarSectionOrder.length) {
+          this.config.sidebarSectionOrder = nextOrder;
+          migrated = true;
+        }
+      }
+      if (Array.isArray(this.config.sidebarCollapsedSections)) {
+        const nextCollapsed = this.config.sidebarCollapsedSections.filter(id => id !== 'favorites');
+        if (nextCollapsed.length !== this.config.sidebarCollapsedSections.length) {
+          this.config.sidebarCollapsedSections = nextCollapsed;
+          migrated = true;
+        }
+      }
+      if (migrated) {
         this.saveConfig();
       }
     }
@@ -342,7 +360,6 @@ class ConfigService {
       theme: 'light',
       semanticColorProfile: SemanticColors.profileForPreset('finder'),
       autoFetch: false,
-      favorites: [],
       treeRoots: [],
       smartCollections: { version: 1, collections: [] },
       projectShortcuts: ProjectShortcuts.defaultStore(),
@@ -390,105 +407,9 @@ class ConfigService {
     return config[key];
   }
 
-  // ============ 收藏夹 ============
-
-  _favoritePathKey(candidatePath) {
+  _pathKey(candidatePath) {
     const normalized = path.normalize(String(candidatePath || ''));
     return process.platform === 'win32' ? normalized.toLowerCase() : normalized;
-  }
-
-  _normalizeFavoriteDirectory(item, config = this.getConfig()) {
-    if (!item || typeof item !== 'object' || Array.isArray(item)) throw new Error('收藏项格式无效');
-    const rawPath = typeof item.path === 'string' ? item.path : '';
-    if (!rawPath || rawPath.length > MAX_FAVORITE_PATH_LENGTH || rawPath.includes('\0') || !path.isAbsolute(rawPath)) {
-      throw new Error('收藏夹只接受有效的绝对目录路径');
-    }
-    const directoryPath = path.normalize(rawPath);
-    const roots = (config.treeRoots || []).map(root => path.normalize(String(root?.path || ''))).filter(Boolean);
-    const containingRoot = roots
-      .filter(rootPath => this._pathIsWithin(directoryPath, rootPath))
-      .sort((left, right) => right.length - left.length)[0];
-    if (!containingRoot) throw new Error('只能收藏已添加位置中的文件夹');
-
-    let linkStat;
-    try {
-      linkStat = fs.lstatSync(directoryPath);
-    } catch (_) {
-      throw new Error('要收藏的文件夹不存在或没有读取权限');
-    }
-    if (linkStat.isSymbolicLink() || !linkStat.isDirectory()) throw new Error('收藏项必须是真实文件夹，不能是文件或符号链接');
-
-    let realDirectory;
-    let realRoot;
-    try {
-      realDirectory = fs.realpathSync.native(directoryPath);
-      realRoot = fs.realpathSync.native(containingRoot);
-    } catch (_) {
-      throw new Error('无法验证收藏文件夹的真实路径');
-    }
-    if (!this._pathIsWithin(realDirectory, realRoot)) throw new Error('收藏文件夹通过符号链接离开受管位置');
-
-    const cleanedName = String(item.name || path.basename(directoryPath) || directoryPath)
-      .replace(/[\u0000-\u001f\u007f]/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim()
-      .slice(0, 160);
-    return {
-      id: directoryPath,
-      type: 'directory',
-      path: directoryPath,
-      name: cleanedName || path.basename(directoryPath) || directoryPath
-    };
-  }
-
-  getFavorites() {
-    const config = this.getConfig();
-    return config.favorites || [];
-  }
-
-  addFavorite(item) {
-    const config = this.getConfig();
-    if (!config.favorites) config.favorites = [];
-    const normalized = this._normalizeFavoriteDirectory(item, config);
-    const favoriteKey = this._favoritePathKey(normalized.path);
-    const exists = config.favorites.find(favorite => favorite.path && this._favoritePathKey(favorite.path) === favoriteKey);
-    if (!exists) {
-      if (config.favorites.length >= MAX_FAVORITES) throw new Error(`收藏夹最多保存 ${MAX_FAVORITES} 个文件夹`);
-      config.favorites.push({
-        ...normalized,
-        createdAt: Date.now()
-      });
-      this.saveConfig();
-    }
-    return config.favorites;
-  }
-
-  toggleFavoriteDirectory(directoryPath) {
-    const config = this.getConfig();
-    if (!config.favorites) config.favorites = [];
-    const normalized = this._normalizeFavoriteDirectory({ path: directoryPath }, config);
-    const favoriteKey = this._favoritePathKey(normalized.path);
-    const existingIndex = config.favorites.findIndex(favorite => favorite.path && this._favoritePathKey(favorite.path) === favoriteKey);
-    if (existingIndex >= 0) {
-      config.favorites.splice(existingIndex, 1);
-      this.saveConfig();
-      return { favorited: false, favorite: normalized, favorites: config.favorites };
-    }
-    if (config.favorites.length >= MAX_FAVORITES) throw new Error(`收藏夹最多保存 ${MAX_FAVORITES} 个文件夹`);
-    const favorite = { ...normalized, createdAt: Date.now() };
-    config.favorites.push(favorite);
-    this.saveConfig();
-    return { favorited: true, favorite, favorites: config.favorites };
-  }
-
-  removeFavorite(id) {
-    const config = this.getConfig();
-    config.favorites = (config.favorites || []).filter(f => {
-      const fid = f.id || f.path || (f.type === 'group' ? `group_${f.name}` : f.name);
-      return fid !== id;
-    });
-    this.saveConfig();
-    return config.favorites;
   }
 
   // ============ 目录树根目录 ============
@@ -499,7 +420,7 @@ class ConfigService {
   }
 
   _normalizeTreeRootDirectory(dirPath) {
-    if (typeof dirPath !== 'string' || !dirPath || dirPath.length > MAX_FAVORITE_PATH_LENGTH) {
+    if (typeof dirPath !== 'string' || !dirPath || dirPath.length > MAX_DIRECTORY_PATH_LENGTH) {
       throw new Error('目录路径无效');
     }
     if (dirPath.includes('\0') || !path.isAbsolute(dirPath)) throw new Error('目录必须使用绝对路径');
@@ -523,8 +444,8 @@ class ConfigService {
     const config = this.getConfig();
     if (!config.treeRoots) config.treeRoots = [];
     const directoryPath = this._normalizeTreeRootDirectory(dirPath);
-    const directoryKey = this._favoritePathKey(directoryPath);
-    const exists = config.treeRoots.find(root => this._favoritePathKey(root.path) === directoryKey);
+    const directoryKey = this._pathKey(directoryPath);
+    const exists = config.treeRoots.find(root => this._pathKey(root.path) === directoryKey);
     if (!exists) {
       if (config.treeRoots.length >= MAX_TREE_ROOTS) throw new Error(`最多添加 ${MAX_TREE_ROOTS} 个受管位置`);
       const baseName = String(name || path.basename(directoryPath) || directoryPath)
@@ -543,9 +464,9 @@ class ConfigService {
     if (typeof dirPath !== 'string' || !dirPath || dirPath.includes('\0') || !path.isAbsolute(dirPath)) {
       throw new Error('要移除的位置路径无效');
     }
-    const directoryKey = this._favoritePathKey(path.normalize(dirPath));
+    const directoryKey = this._pathKey(path.normalize(dirPath));
     config.treeRoots = (config.treeRoots || [])
-      .filter(root => this._favoritePathKey(root.path) !== directoryKey);
+      .filter(root => this._pathKey(root.path) !== directoryKey);
     this.saveConfig();
     return config.treeRoots;
   }
@@ -719,17 +640,6 @@ class ConfigService {
         }
       }
 
-      for (const favorite of config.favorites || []) {
-        if (!favorite.path) continue;
-        const oldPath = favorite.path;
-        const nextPath = this._mapManagedPath(oldPath, normalized);
-        if (nextPath !== oldPath) {
-          favorite.path = nextPath;
-          favorite.name = path.basename(nextPath);
-          if (favorite.id === oldPath) favorite.id = nextPath;
-        }
-      }
-
       for (const root of config.treeRoots || []) {
         const nextPath = this._mapManagedPath(root.path, normalized);
         if (nextPath !== root.path) {
@@ -772,7 +682,6 @@ class ConfigService {
     const transactionKeys = ['registry', 'repos', 'config'];
     const beforeSnapshot = this._snapshotConfigTransactionFiles(transactionKeys);
     const isArchivedPath = candidate => paths.some(sourcePath => this._pathIsWithin(candidate, sourcePath));
-    const removedFavorites = (config.favorites || []).filter(favorite => favorite.path && isArchivedPath(favorite.path));
     const removedRepos = (repos.repos || []).filter(repo => isArchivedPath(repo.path));
     const archivedRepoIds = [];
     const workspaceTabSnapshot = this._archiveWorkspaceTabs(config, paths);
@@ -784,7 +693,6 @@ class ConfigService {
         }
       }
       repos.repos = (repos.repos || []).filter(repo => !isArchivedPath(repo.path));
-      config.favorites = (config.favorites || []).filter(favorite => !favorite.path || !isArchivedPath(favorite.path));
 
       const afterSnapshot = this._snapshotConfigTransactionFiles(transactionKeys);
       this._commitConfigTransaction('archive-paths', beforeSnapshot, afterSnapshot);
@@ -793,7 +701,6 @@ class ConfigService {
       throw error;
     }
     return {
-      removedFavorites,
       removedRepos,
       archivedRepoIds: [...new Set(archivedRepoIds)],
       workspaceTabSnapshot
@@ -823,15 +730,6 @@ class ConfigService {
         if (fs.existsSync(repo.path) && !repoPaths.has(repo.path)) {
           repos.repos.push(repo);
           repoPaths.add(repo.path);
-        }
-      }
-
-      const favoriteKeys = new Set((config.favorites || []).map(favorite => favorite.id || favorite.path));
-      for (const favorite of snapshot.removedFavorites || []) {
-        const key = favorite.id || favorite.path;
-        if (favorite.path && fs.existsSync(favorite.path) && !favoriteKeys.has(key)) {
-          config.favorites.push(favorite);
-          favoriteKeys.add(key);
         }
       }
 

@@ -170,8 +170,8 @@ test('前往已登记但暂时断开的受管根返回可重连提示，而不�
   assert.match(result.message, /受管位置|重新连接/);
 });
 
-test('收藏夹目录信息使用一次受管批量检查并只丰富仍可用目录', (t) => {
-  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'gitfinder-favorite-info-'));
+test('受管目录信息使用一次批量检查并只丰富仍可用目录', (t) => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'gitfinder-directory-info-'));
   t.after(() => fs.rmSync(tempRoot, { recursive: true, force: true }));
   const repoPath = path.join(tempRoot, 'repo');
   const missingPath = path.join(tempRoot, 'missing');
@@ -185,25 +185,6 @@ test('收藏夹目录信息使用一次受管批量检查并只丰富仍可用�
   assert.equal(byPath.get(repoPath).info.isGitRepo, true);
   assert.equal(byPath.get(missingPath).available, false);
   assert.equal(byPath.get(missingPath).info, null);
-});
-
-test('既有收藏可安全解析受管根外目录，但不能借接口读取任意路径', (t) => {
-  const managedRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'gitfinder-favorite-managed-'));
-  const legacyRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'gitfinder-favorite-legacy-'));
-  const unrelatedRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'gitfinder-favorite-unrelated-'));
-  t.after(() => fs.rmSync(managedRoot, { recursive: true, force: true }));
-  t.after(() => fs.rmSync(legacyRoot, { recursive: true, force: true }));
-  t.after(() => fs.rmSync(unrelatedRoot, { recursive: true, force: true }));
-  const service = new FileService({
-    getTreeRoots: () => [{ path: managedRoot }],
-    getFavorites: () => [{ type: 'dir', path: legacyRoot }]
-  });
-
-  const result = service.inspectFavoriteDirectories([legacyRoot, unrelatedRoot]);
-  assert.deepEqual(result.directories.map(item => item.path), [legacyRoot]);
-  assert.equal(result.directories[0].available, true);
-  assert.equal(service.resolveFavoriteDirectory(legacyRoot).ok, true);
-  assert.equal(service.resolveFavoriteDirectory(unrelatedRoot).code, 'not-favorite');
 });
 
 test('项目文档读写只允许真实受管目录并拒绝符号链接目标', { skip: process.platform === 'win32' }, (t) => {

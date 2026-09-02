@@ -38,7 +38,6 @@
       const move = this._element('file-move');
       const openTerminal = this._element('file-open-terminal');
       const openEditor = this._element('file-open-editor');
-      const favorite = this._element('file-favorite');
       const projectSettings = this._element('file-project-settings');
       const trash = this._element('file-trash');
       const createDirectory = this._element('file-new-folder');
@@ -75,11 +74,6 @@
 
       const selectedItems = this.app.getSelectedFileItems();
       const singleDirectory = selectedItems.length === 1 && selectedItems[0].type === 'directory';
-      if (favorite) {
-        favorite.disabled = busy || !singleDirectory;
-        const isFavorite = singleDirectory && this.app.isFavoritePath(selectedItems[0].path);
-        this._setLabel(favorite, isFavorite ? '从收藏夹移除' : '添加到收藏夹');
-      }
       if (projectSettings) {
         projectSettings.disabled = busy || !singleDirectory;
         const isProject = singleDirectory && selectedItems[0].isProject;
@@ -110,7 +104,7 @@
       const actionTrigger = this._element('file-actions-menu-trigger');
       const actionItems = [
         copy, copyPath, cut, paste, getInfo, duplicate, rename, move, openTerminal, openEditor,
-        favorite, projectSettings, trash, undo, redo, history
+        projectSettings, trash, undo, redo, history
       ].filter(Boolean);
       if (actionTrigger) actionTrigger.disabled = !actionItems.some(button => !button.disabled);
       if (this.document.querySelector?.('[data-menu-trigger][aria-expanded="true"]:disabled')) {

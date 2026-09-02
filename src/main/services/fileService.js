@@ -14,7 +14,6 @@ class FileService {
     this.dirCache = new Map();
     this.gitRepoCache = new Set();
     this.getTreeRoots = options.getTreeRoots || (() => configService.getTreeRoots());
-    this.getFavorites = options.getFavorites || (() => configService.getFavorites());
   }
 
   _absoluteWorkspacePath(candidatePath) {
@@ -228,54 +227,6 @@ class FileService {
         info: directory.available ? this.getFileInfo(directory.path) : null
       }))
     };
-  }
-
-  inspectFavoriteDirectories(candidatePaths) {
-    const allowedPaths = new Map();
-    for (const favorite of (Array.isArray(this.getFavorites()) ? this.getFavorites() : [])) {
-      const favoritePath = this._absoluteWorkspacePath(favorite?.path);
-      const favoriteKey = this._workspacePathKey(favoritePath);
-      if (favoritePath && favoriteKey) allowedPaths.set(favoriteKey, favoritePath);
-    }
-
-    const usedKeys = new Set();
-    const directories = [];
-    for (const rawPath of (Array.isArray(candidatePaths) ? candidatePaths : []).slice(0, MAX_WORKSPACE_PATHS)) {
-      const candidatePath = this._absoluteWorkspacePath(rawPath);
-      const candidateKey = this._workspacePathKey(candidatePath);
-      const configuredPath = allowedPaths.get(candidateKey);
-      if (!candidatePath || !candidateKey || !configuredPath || usedKeys.has(candidateKey)) continue;
-      usedKeys.add(candidateKey);
-
-      let available = false;
-      try {
-        available = fs.statSync(configuredPath).isDirectory();
-      } catch (_) {}
-      directories.push({
-        path: configuredPath,
-        available,
-        info: available ? this.getFileInfo(configuredPath) : null
-      });
-    }
-    return { directories };
-  }
-
-  resolveFavoriteDirectory(rawPath) {
-    const candidatePath = this._absoluteWorkspacePath(rawPath);
-    const candidateKey = this._workspacePathKey(candidatePath);
-    const favorite = (Array.isArray(this.getFavorites()) ? this.getFavorites() : [])
-      .find(item => this._workspacePathKey(item?.path) === candidateKey);
-    if (!candidatePath || !candidateKey || !favorite) {
-      return { ok: false, code: 'not-favorite', message: '该位置不在收藏夹中' };
-    }
-    try {
-      if (!fs.statSync(candidatePath).isDirectory()) {
-        return { ok: false, code: 'not-directory', message: '该收藏位置不是文件夹' };
-      }
-      return { ok: true, path: candidatePath };
-    } catch (_) {
-      return { ok: false, code: 'not-found', message: '收藏位置不存在或没有读取权限' };
-    }
   }
 
   listDirectory(dirPath, options = {}) {
@@ -758,104 +709,6 @@ class FileService {
       }
     }
     return home;
-  }
-
-  getQuickLocations() {
-    const home = os.homedir();
-    const locations = [];
-
-    const locs = [
-      { name: '桌面', path: path.join(home, 'Desktop') },
-      { name: '文稿', path: path.join(home, 'Documents') },
-      { name: '下载', path: path.join(home, 'Downloads') },
-      { name: '主目录', path: home }
-    ];
-
-    for (const loc of locs) {
-      if (fs.existsSync(loc.path)) {
-        locations.push(loc);
-      }
-    }
-
-    return locations;
-  }
-
-  /**
-   * 获取所有挂载的磁盘/卷一级位置(类似访达的"位置")
-   * macOS: /Volumes 下的所有挂载点 + 根目录 /
-   * Windows: 所有盘符 C:\ D:\ 等
-   * Linux: / + /media/* + /mnt/*
-   */
-  getMountedVolumes() {
-    const volumes = [];
-    const platform = process.platform;
-
-    if (platform === 'win32') {
-      // Windows: 检测所有盘符
-      for (let i = 65; i <= 90; i++) {
-        const letter = String.fromCharCode(i);
-        const drivePath = `${letter}:\\`;
-        try {
-          fs.accessSync(drivePath);
-          volumes.push({
-            name: `${letter}: 盘`,
-            path: drivePath,
-            type: 'drive',
-            icon: '💽'
-          });
-        } catch (e) {}
-      }
-    } else {
-      // Unix-like (macOS/Linux)
-      // 根目录
-      volumes.push({
-        name: platform === 'darwin' ? 'Macintosh HD' : '根目录',
-        path: '/',
-        type: 'system',
-        icon: '💻'
-      });
-
-      // /Volumes 下的所有挂载点(macOS 外接磁盘、网络磁盘等)
-      const volumesDir = '/Volumes';
-      try {
-        const entries = fs.readdirSync(volumesDir, { withFileTypes: true });
-        for (const entry of entries) {
-          if (entry.isDirectory() || entry.isSymbolicLink()) {
-            const fullPath = path.join(volumesDir, entry.name);
-            // 跳过系统盘(Macintosh HD 已在根目录显示)
-            if (entry.name === 'Macintosh HD' || entry.name === '/') continue;
-            volumes.push({
-              name: entry.name,
-              path: fullPath,
-              type: 'external',
-              icon: '💽'
-            });
-          }
-        }
-      } catch (e) {}
-
-      // Linux: /media 和 /mnt
-      if (platform === 'linux') {
-        for (const mountDir of ['/media', '/mnt']) {
-          try {
-            const entries = fs.readdirSync(mountDir, { withFileTypes: true });
-            for (const entry of entries) {
-              if (entry.isDirectory()) {
-                const fullPath = path.join(mountDir, entry.name);
-                volumes.push({
-                  name: entry.name,
-                  path: fullPath,
-                  type: 'mount',
-                  icon: '💽'
-                });
-              }
-            }
-          } catch (e) {}
-        }
-      }
-    }
-
-    return volumes;
   }
 
   autoDetectTags(repoPath) {
