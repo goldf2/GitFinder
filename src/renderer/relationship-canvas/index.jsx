@@ -161,7 +161,9 @@ const RelationshipCard = memo(function RelationshipCard({ id, data, selected }) 
         entity={entity}
         className={data.placement.moveWithDescendants ? 'is-active' : ''}
         aria-pressed={data.placement.moveWithDescendants === true}
-      >固定下级</ToolbarButton>
+        aria-label={data.placement.moveWithDescendants ? '解除固定下级' : '固定下级'}
+        title={data.placement.moveWithDescendants ? '解除固定下级' : '固定下级'}
+      >{data.placement.moveWithDescendants ? '解除固定' : '固定下级'}</ToolbarButton>
       {entity.type === 'endpoint' && endpointUrl
         ? <ToolbarButton data={data} action="toggle-endpoint-view" entity={entity}>{showsEndpointPreview ? '卡片' : '网页'}</ToolbarButton>
         : null}
@@ -227,7 +229,9 @@ const RelationshipGroup = memo(function RelationshipGroup({ id, data, selected }
           entity={entity}
           className={data.placement.moveWithDescendants ? 'is-active' : ''}
           aria-pressed={data.placement.moveWithDescendants === true}
-        >固定下级</ToolbarButton>
+          aria-label={data.placement.moveWithDescendants ? '解除固定下级' : '固定下级'}
+          title={data.placement.moveWithDescendants ? '解除固定下级' : '固定下级'}
+        >{data.placement.moveWithDescendants ? '解除固定' : '固定下级'}</ToolbarButton>
         <ToolbarButton data={data} action="edit-group" entity={entity}>编辑</ToolbarButton>
         <ToolbarButton data={data} action="delete-group" entity={entity} className="is-danger">删除</ToolbarButton>
       </span> : null}

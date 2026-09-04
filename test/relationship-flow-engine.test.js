@@ -73,6 +73,8 @@ test('正式桥接保留选择、右键菜单、视口和位置持久化入口',
 test('新引擎补回固定下级工具，并在拖动时应用联动位移和 Project 边界', () => {
   assert.match(source, /toggle-descendants/);
   assert.match(source, /固定下级/);
+  assert.match(source, /解除固定/);
+  assert.match(source, /aria-label=\{data\.placement\.moveWithDescendants \? '解除固定下级' : '固定下级'\}/);
   assert.match(source, /Adapter\.applyLinkedDrag/);
   assert.match(source, /Adapter\.constrainProjectNodes/);
   assert.match(controllerSource, /linkedNodeIds/);

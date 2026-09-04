@@ -74,6 +74,26 @@ test('锁定下级可撤销、导出和重开，关闭也能覆盖动态投影�
   assert.equal(c._placementForEntity(id('host')).moveWithDescendants, false);
 });
 
+test('开启固定下级会物化完整 Project 当前几何且不移动容器', () => {
+  const c = fixture(), id = c.id;
+  c.store.entities.find(entity => entity.id === id('project')).runtime = { dynamicKind: 'coolify-project-group' };
+  Object.assign(c._placementForEntity(id('project')), {
+    x: 420, y: 260, groupLayout: 'auto', groupWidth: 920, groupHeight: 720
+  });
+  const before = c._displayGeometryMap(c._combinedPlacements());
+
+  assert.equal(c._toggleLinkedMovement(id('host')), true);
+
+  const after = c._displayGeometryMap(c._combinedPlacements());
+  for (const entityId of [id('project'), ...c._groupDescendants(id('project')).map(item => item.entityId)]) {
+    if (!before.has(entityId)) continue;
+    for (const field of ['x', 'y', 'width', 'height']) {
+      assert.equal(after.get(entityId)[field], before.get(entityId)[field], `${entityId}.${field} 不应在开锁瞬间跳动`);
+    }
+  }
+  assert.equal(c._placementForEntity(id('project')).groupLayout, 'auto');
+});
+
 test('React Flow 拖动使所有联动根节点保持相同位移，嵌套成员不重复位移', () => {
   const c = fixture(), id = c.id;
   c._toggleLinkedMovement(id('host'));
@@ -167,6 +187,76 @@ test('多边形 Project 内的联动分支按拖动方向等比缩短位移', ()
     assert.ok(Math.abs(delta.y - deltas[0].y) < 1e-9);
   }
   assert.deepEqual([after.get('project').x, after.get('project').y], [400, 300]);
+});
+
+test('联动拖动写回后 Project 保持原位，自动排列不覆盖整支实际位移', () => {
+  const c = fixture(), id = c.id;
+  c.store.entities.find(entity => entity.id === id('project')).runtime = { dynamicKind: 'coolify-project-group' };
+  const positions = {
+    host: [0, 350], project: [400, 300], nested: [430, 320],
+    deploy: [700, 390], sibling: [500, 450], otherdeploy: [510, 610], exclusiveEndpoint: [1100, 400]
+  };
+  for (const [name, [x, y]] of Object.entries(positions)) Object.assign(c._placementForEntity(id(name)), { x, y });
+  Object.assign(c._placementForEntity(id('project')), {
+    groupLayout: 'auto', groupWidth: 1000, groupHeight: 760, groupShape: 'rounded'
+  });
+  c._placementForEntity(id('host')).moveWithDescendants = true;
+
+  const allPlacements = c._combinedPlacements();
+  const linkedIds = c._movingEntityIds(id('host'));
+  const beforeGeometry = c._displayGeometryMap(allPlacements);
+  const placements = allPlacements.filter(placement => beforeGeometry.has(placement.entityId));
+  const displayedPlacements = placements.map(placement => {
+    const rect = beforeGeometry.get(placement.entityId);
+    return {
+      ...placement,
+      x: rect.x,
+      y: rect.y,
+      ...(c._allEntitiesById().get(placement.entityId)?.type === 'group'
+        ? { groupWidth: rect.width, groupHeight: rect.height }
+        : { cardWidth: rect.width, cardHeight: rect.height })
+    };
+  });
+  const flow = Adapter.toFlowModel({
+    entities: c._combinedEntities(), relationships: c._combinedRelationships(placements), placements: displayedPlacements
+  }, { linkedNodeIds: { [id('host')]: linkedIds } });
+  const startPositions = Object.fromEntries(flow.nodes.map(node => [node.id, { ...node.position }]));
+  const moved = Adapter.constrainProjectNodes(Adapter.applyLinkedDrag(flow.nodes.map(node => node.id === id('host')
+    ? { ...node, position: { x: node.position.x + 50, y: node.position.y + 40 } } : node), {
+    primaryId: id('host'), primaryPosition: startPositions[id('host')], linkedIds,
+    changedIds: [id('host')], startPositions, delta: { x: 50, y: 40 }
+  }));
+  for (const candidate of Adapter.toPlacements(moved, placements)) {
+    const placement = c._placementForEntity(candidate.entityId);
+    Object.assign(placement, {
+      x: candidate.x,
+      y: candidate.y,
+      ...(Number.isFinite(candidate.groupWidth) ? { groupWidth: candidate.groupWidth } : {}),
+      ...(Number.isFinite(candidate.groupHeight) ? { groupHeight: candidate.groupHeight } : {})
+    });
+  }
+
+  const afterGeometry = c._displayGeometryMap(c._combinedPlacements());
+  const hostDelta = {
+    x: afterGeometry.get(id('host')).x - beforeGeometry.get(id('host')).x,
+    y: afterGeometry.get(id('host')).y - beforeGeometry.get(id('host')).y
+  };
+  assert.ok(hostDelta.x || hostDelta.y, '主机应产生实际位移');
+  for (const entityId of linkedIds) {
+    assert.deepEqual({
+      x: afterGeometry.get(entityId).x - beforeGeometry.get(entityId).x,
+      y: afterGeometry.get(entityId).y - beforeGeometry.get(entityId).y
+    }, hostDelta, `${entityId} 的显示位移应与主机一致`);
+  }
+  for (const entityId of [id('nested'), id('otherdeploy')]) {
+    assert.deepEqual({
+      x: afterGeometry.get(entityId).x - beforeGeometry.get(entityId).x,
+      y: afterGeometry.get(entityId).y - beforeGeometry.get(entityId).y
+    }, { x: 0, y: 0 }, `${entityId} 不属于联动分支，不应被带走`);
+  }
+  assert.deepEqual(afterGeometry.get(id('project')), beforeGeometry.get(id('project')),
+    'Project 容器的位置和尺寸都应保持不变');
+  assert.equal(c._placementForEntity(id('project')).groupLayout, 'auto');
 });
 
 test('拖动 Project 成员不会把固定布局容器切换为手动排列', () => {

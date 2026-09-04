@@ -1762,9 +1762,16 @@
       for (const group of groups) {
         const members = placementIndex.children(group.entityId);
         const descendants = placementIndex.descendants(group.entityId);
-        const autoLayout = group.groupLayout === 'auto' && !group.locked && !descendants.some(item => item.locked);
         const projectGroup = entitiesById.get(group.entityId)?.runtime?.dynamicKind === 'coolify-project-group'
           || group.entityId.startsWith('entity_panel_projectgroup_');
+        // A host-linked deployment remains physically contained by its Project,
+        // but the Project itself is not part of that logical branch. Keep the
+        // current Project frame and member coordinates while the branch lock is
+        // active so auto layout cannot undo the shared drag delta on re-render.
+        const linkedProject = projectGroup && !linkedBranch.has(group.entityId)
+          && descendants.some(item => linkedBranch.has(item.entityId));
+        const autoLayout = group.groupLayout === 'auto' && !group.locked
+          && !descendants.some(item => item.locked) && !linkedProject;
         const projectGalaxy = this._boardView().layout === 'galaxy' && projectGroup;
         let autoProjectBounds = null;
         if (autoLayout && projectGroup && !projectGalaxy) {
@@ -1827,21 +1834,24 @@
           height: Math.max(GROUP_MIN_HEIGHT, ...memberBounds.map(rect => rect.y + rect.height - group.y + GROUP_PADDING_BOTTOM))
         } : this._placementGeometry(group, placements, new Set(), geometryById));
         if (this._isServerTree()) {
-          const union = containedMembers.map(item => geometryById.get(item.entityId)).filter(Boolean);
-          if (union.length) {
-            const right = Math.max(bounds.x + bounds.width, ...union.map(r => r.x + r.width + GROUP_PADDING_X));
-            const bottom = Math.max(bounds.y + bounds.height, ...union.map(r => r.y + r.height + GROUP_PADDING_BOTTOM));
-            bounds.x = Math.min(bounds.x, ...union.map(r => r.x - GROUP_PADDING_X));
-            bounds.y = Math.min(bounds.y, ...union.map(r => r.y - GROUP_HEADER_HEIGHT));
-            bounds.width = right - bounds.x; bounds.height = bottom - bounds.y;
-          }
-          const originalY = bounds.y;
-          for (const previous of resolvedGroups) if (autoLayout && !linkedBranch.has(group.entityId) && previous.groupId === group.groupId && bounds.x < previous.x + previous.width && bounds.x + bounds.width > previous.x && originalY > previous.originalY) {
-            bounds.y = Math.max(bounds.y, previous.y + previous.height + Math.max(60, spacing.verticalSpacing));
-          }
-          const dy = bounds.y - originalY;
-          if (dy) for (const item of descendants) {
-            const child = geometryById.get(item.entityId); if (child) geometryById.set(item.entityId, { ...child, y: child.y + dy });
+          let originalY = bounds.y;
+          if (!linkedProject) {
+            const union = containedMembers.map(item => geometryById.get(item.entityId)).filter(Boolean);
+            if (union.length) {
+              const right = Math.max(bounds.x + bounds.width, ...union.map(r => r.x + r.width + GROUP_PADDING_X));
+              const bottom = Math.max(bounds.y + bounds.height, ...union.map(r => r.y + r.height + GROUP_PADDING_BOTTOM));
+              bounds.x = Math.min(bounds.x, ...union.map(r => r.x - GROUP_PADDING_X));
+              bounds.y = Math.min(bounds.y, ...union.map(r => r.y - GROUP_HEADER_HEIGHT));
+              bounds.width = right - bounds.x; bounds.height = bottom - bounds.y;
+            }
+            originalY = bounds.y;
+            for (const previous of resolvedGroups) if (autoLayout && !linkedBranch.has(group.entityId) && previous.groupId === group.groupId && bounds.x < previous.x + previous.width && bounds.x + bounds.width > previous.x && originalY > previous.originalY) {
+              bounds.y = Math.max(bounds.y, previous.y + previous.height + Math.max(60, spacing.verticalSpacing));
+            }
+            const dy = bounds.y - originalY;
+            if (dy) for (const item of descendants) {
+              const child = geometryById.get(item.entityId); if (child) geometryById.set(item.entityId, { ...child, y: child.y + dy });
+            }
           }
           resolvedGroups.push({ ...bounds, originalY, groupId: group.groupId });
         }
@@ -2160,8 +2170,32 @@
       if (!placement) return false;
       this._recordMutation();
       const geometry = this._displayGeometryMap(this._combinedPlacements());
-      placement.moveWithDescendants = !placement.moveWithDescendants;
-      const ids = placement.moveWithDescendants ? this._expandMovingIds([entityId]) : [entityId];
+      const enabled = placement.moveWithDescendants !== true;
+      let ids;
+      if (enabled) {
+        placement.moveWithDescendants = true;
+        ids = this._expandMovingIds([entityId]);
+      } else {
+        ids = this._expandMovingIds([entityId]);
+        placement.moveWithDescendants = false;
+      }
+      const moving = new Set(ids), changed = new Set(ids);
+      const projectGroups = new Set();
+      for (const id of ids) {
+        let groupId = this._placementForEntity(id)?.groupId;
+        const seen = new Set();
+        while (groupId && !seen.has(groupId)) {
+          seen.add(groupId);
+          if (!moving.has(groupId) && this._isProjectGroup(groupId)) projectGroups.add(groupId);
+          groupId = this._placementForEntity(groupId)?.groupId;
+        }
+      }
+      // Auto Project positions are normally display-only. Persist the complete
+      // current frame before freezing it so enabling the branch lock is visually
+      // stable and unrelated members do not jump to stale stored coordinates.
+      for (const groupId of projectGroups) {
+        for (const item of this._materializeGroupGeometry(groupId, geometry)) changed.add(item.entityId);
+      }
       for (const id of ids) {
         const item = this._placementForEntity(id), bounds = geometry.get(id);
         if (!bounds) continue;
@@ -2170,10 +2204,10 @@
           item.groupWidth = Math.round(bounds.width); item.groupHeight = Math.round(bounds.height);
         }
       }
-      this._saveDynamicPlacementOverrides(ids);
+      this._saveDynamicPlacementOverrides([...changed]);
       this._finishBoardMutation({ updateSummary: false });
-      this._setCanvasAnnouncement(placement.moveWithDescendants ? '已锁定下级链接，拖动时保持整条分支的相对位置' : '已解除下级链接锁定');
-      return placement.moveWithDescendants;
+      this._setCanvasAnnouncement(enabled ? '已锁定下级链接，拖动时保持整条分支的相对位置' : '已解除下级链接锁定');
+      return enabled;
     }
 
     _linkedMoveBlocked(ids) {
