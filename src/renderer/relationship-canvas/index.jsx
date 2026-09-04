@@ -37,7 +37,7 @@ const RelationshipEdge = memo(function RelationshipEdge({
   const labelX = Number(data?.labelX);
   const labelY = Number(data?.labelY);
   return <>
-    <BaseEdge id={id} path={path} markerEnd={markerEnd} style={style} interactionWidth={18} />
+    <BaseEdge id={id} path={path} markerEnd={markerEnd} style={style} interactionWidth={data?.visualOnly ? 0 : 18} />
     {label && Number.isFinite(labelX) && Number.isFinite(labelY) ? <EdgeLabelRenderer>
       <span className="gf-flow-edge-label" style={{ transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)` }}>{label}</span>
     </EdgeLabelRenderer> : null}
@@ -55,7 +55,8 @@ function ConnectionHandles({ nodeId, handles = [] }) {
     id={handle.id}
     type={handle.type}
     position={HANDLE_POSITIONS[handle.side]}
-    className="gf-flow-handle"
+    className={`gf-flow-handle${handle.visualOnly ? ' is-visual-only' : ''}`}
+    aria-hidden={handle.visualOnly || undefined}
     style={handle.side === 'left' || handle.side === 'right'
       ? { top: `${handle.offset}%` }
       : { left: `${handle.offset}%` }}
@@ -351,12 +352,12 @@ function Canvas({
 
   return <ReactFlow
     nodes={displayedNodes}
-    edges={edges.map(edge => ({ ...edge, markerEnd: {
+    edges={edges.map(edge => ({ ...edge, ...(!edge.data?.visualOnly ? { markerEnd: {
       type: MarkerType.ArrowClosed,
       width: 16,
       height: 16,
       color: edge.data?.diagnostic?.severity === 'error' ? '#d9485f' : '#747fbd'
-    } }))}
+    } } : {}) }))}
     nodeTypes={NODE_TYPES}
     edgeTypes={EDGE_TYPES}
     onNodesChange={handleNodesChange}
@@ -382,6 +383,7 @@ function Canvas({
     }}
     onEdgeContextMenu={(event, edge) => {
       event.preventDefault();
+      if (edge.data?.visualOnly) return;
       onAction?.('context-edge', edge.data?.relationship, { clientX: event.clientX, clientY: event.clientY });
     }}
     onPaneContextMenu={event => {
@@ -438,7 +440,10 @@ function mount(container, options = {}) {
     setSelection: (selectedIds = [], selectedRelationshipId = '') => render({
       model: {
         nodes: current.model.nodes.map(node => ({ ...node, selected: selectedIds.includes(node.id) })),
-        edges: current.model.edges.map(edge => ({ ...edge, selected: edge.id === selectedRelationshipId }))
+        edges: current.model.edges.map(edge => ({
+          ...edge,
+          selected: edge.data?.visualOnly ? false : edge.id === selectedRelationshipId
+        }))
       }
     }),
     fitView: next => instance?.fitView(next),

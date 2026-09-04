@@ -54,6 +54,15 @@ test('项目快捷偏好通过受限配置键保存且侧栏顺序位于目录�
   assert.match(controllerSource, /项目位置不可用/);
 });
 
+test('左侧主导航面板占满可用高度且目录操作栏不遮挡树', () => {
+  assert.match(css, /\.sidebar\s*\{[\s\S]*?display:\s*flex;[\s\S]*?flex-direction:\s*column;[\s\S]*?min-height:\s*0;[\s\S]*?overflow:\s*hidden;/);
+  assert.match(css, /\.sidebar-section\[role="tabpanel"\]:not\(\[hidden\]\):not\(\.collapsed\)\s*\{[\s\S]*?flex:\s*1 1 0;[\s\S]*?min-height:\s*0;[\s\S]*?overflow:\s*hidden;/);
+  assert.match(css, /\.sidebar-tree-container\s*\{[\s\S]*?overflow-y:\s*auto;[\s\S]*?min-height:\s*0;/);
+  assert.match(css, /\.sidebar-tree-buttons\s*\{[\s\S]*?flex-shrink:\s*0;/);
+  assert.doesNotMatch(css, /\.sidebar-tree-section\s*\{[\s\S]*?max-height:\s*40%;/);
+  assert.ok(html.indexOf('id="sidebar-tree"') < html.indexOf('class="sidebar-tree-buttons"'));
+});
+
 test('侧边栏项目区可在应用设置中隐藏、限制最近数量并清除记录', () => {
   assert.match(appSource, /id="settings-show-project-shortcuts"/);
   assert.match(appSource, /id="settings-show-recent-projects"/);

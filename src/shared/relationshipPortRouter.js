@@ -52,7 +52,7 @@
     return `${role}-${side}`;
   }
 
-  function assignConnectionPorts(edges = [], geometry = new Map()) {
+  function assignConnectionPorts(edges = [], geometry = new Map(), options = {}) {
     const rectFor = id => geometry instanceof Map ? geometry.get(id) : geometry?.[id];
     const assignments = [];
     const portsBySide = new Map();
@@ -62,15 +62,15 @@
       const sourceRect = rectFor(source);
       const targetRect = rectFor(target);
       const nearest = sourceRect && targetRect ? sidePair(sourceRect, targetRect) : ['right', 'left'];
-      const sourceSide = nearest[0];
-      const targetSide = nearest[1];
+      const sourceSide = options.preserveSides && SIDES.includes(edge.sourceSide) ? edge.sourceSide : nearest[0];
+      const targetSide = options.preserveSides && SIDES.includes(edge.targetSide) ? edge.targetSide : nearest[1];
       const sourceCenter = center(sourceRect || {});
       const targetCenter = center(targetRect || {});
       const assignment = { edge, source, target, sourceSide, targetSide, sourceCenter, targetCenter, index };
       assignments.push(assignment);
       for (const port of [
-        { nodeId: source, side: sourceSide, role: 'source', neighbor: targetCenter },
-        { nodeId: target, side: targetSide, role: 'target', neighbor: sourceCenter }
+        { nodeId: source, side: sourceSide, role: 'source', neighbor: targetCenter, visualOnly: edge.data?.visualOnly === true },
+        { nodeId: target, side: targetSide, role: 'target', neighbor: sourceCenter, visualOnly: edge.data?.visualOnly === true }
       ]) {
         const key = `${port.nodeId}:${port.side}:${port.role}`;
         if (!portsBySide.has(key)) portsBySide.set(key, []);
@@ -82,7 +82,9 @@
     for (const ports of portsBySide.values()) {
       const first = ports[0];
       const id = handleId(first.role, first.side);
-      const handle = { id, side: first.side, type: first.role, offset: 50 };
+      const visualOnly = ports.every(port => port.visualOnly);
+      const handle = { id, side: first.side, type: first.role, offset: 50,
+        ...(visualOnly ? { visualOnly: true } : {}) };
       if (!handlesByNode.has(first.nodeId)) handlesByNode.set(first.nodeId, []);
       handlesByNode.get(first.nodeId).push(handle);
       ports.forEach(port => {

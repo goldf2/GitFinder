@@ -77,7 +77,6 @@
     const absolute = absolutePositions(nodes);
     const byId = new Map(nodes.map(node => [node.id, node]));
     const geometry = new Map(nodes.map(node => [node.id, { ...absolute.get(node.id), ...dimensions(node) }]));
-    const ports = PortRouter.assignConnectionPorts(edges, geometry);
     const obstacles = visualObstacles(nodes, geometry, { zoom: options.zoom, groupTitleFontSize: options.groupTitleFontSize });
     // Routing runs in board coordinates. Scaling a screen-pixel clearance by a
     // tiny fit-view zoom can make every real card gap mathematically impassable.
@@ -85,10 +84,10 @@
     // fixed-size titles are already converted separately in visualObstacles.
     const padding = 14;
     const shape = node => node?.data?.placement?.groupShape || node?.data?.placement?.projectGroupShape || 'rect';
-    const routedEdges = ports.edges.map(edge => {
+    const selectedRoutes = edges.map(edge => {
       const source = geometry.get(edge.source);
       const target = geometry.get(edge.target);
-      if (!source || !target) return edge;
+      if (!source || !target) return { edge, routed: null };
       const corridor = {
         x: Math.min(source.x, target.x) - padding * 4,
         y: Math.min(source.y, target.y) - padding * 4,
@@ -98,16 +97,25 @@
       const relevant = obstacles.filter(item => item.id !== edge.source && item.id !== edge.target
         && item.x < corridor.x + corridor.width && item.x + item.width > corridor.x
         && item.y < corridor.y + corridor.height && item.y + item.height > corridor.y);
-      const routed = Projection.routeRelationship(source, target, relevant, {
-        sourceSide: edge.sourceSide,
-        targetSide: edge.targetSide,
-        sourcePortOffset: edge.sourceOffset,
-        targetPortOffset: edge.targetOffset,
+      const routeOptions = {
         sourceShape: shape(byId.get(edge.source)),
         targetShape: shape(byId.get(edge.target)),
         padding,
         smoothChannels: true
-      });
+      };
+      // The shortest pair of card boundaries is not necessarily the shortest
+      // clear route. Compare endpoint pairs and obstacle paths together, then
+      // let the port router reuse the winning sides as stable handles.
+      const routed = Projection.routeRelationship(source, target, relevant, routeOptions);
+      return {
+        edge: { ...edge, sourceSide: routed.sourceSide, targetSide: routed.targetSide },
+        routed
+      };
+    });
+    const ports = PortRouter.assignConnectionPorts(selectedRoutes.map(item => item.edge), geometry, { preserveSides: true });
+    const routedEdges = ports.edges.map((edge, index) => {
+      const routed = selectedRoutes[index].routed;
+      if (!routed) return edge;
       return {
         ...edge,
         type: 'relationshipEdge',

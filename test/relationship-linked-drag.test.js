@@ -22,7 +22,7 @@ function fixture(structure = 'server-tree') {
     boards: [{ id: 'board_linked_drag', name: '联动测试', view: { structure, layout: 'free', snapMode: 'off' },
       viewport: { x: 0, y: 0, zoom: 1 }, placements: Object.keys(types).map((name, i) => ({
         entityId: id(name), x: i * 450, y: i * 260,
-        ...(['deploy', 'sibling', 'nested'].includes(name) ? { groupId: id('project') } : {}),
+        ...(['deploy', 'sibling', 'otherdeploy', 'nested'].includes(name) ? { groupId: id('project') } : {}),
         ...(name === 'project' || name === 'nested' ? { groupLayout: 'auto', groupWidth: 1000, groupHeight: 2000 } : {})
       })) }] });
   c.messages = [];
@@ -38,9 +38,16 @@ test('主机固定下级只带走独占访问点，不带走被其它主机部�
   assert.deepEqual(c._movingEntityIds(id('host')), [id('host')]);
   c._toggleLinkedMovement(id('host'));
   assert.deepEqual(new Set(c._movingEntityIds(id('host'))),
-    new Set(['host', 'project', 'nested', 'deploy', 'sibling', 'exclusiveEndpoint'].map(id)));
+    new Set(['host', 'deploy', 'sibling', 'exclusiveEndpoint'].map(id)));
   c._toggleLinkedMovement(id('otherhost'));
   assert.deepEqual(new Set(c._movingEntityIds(id('otherhost'))), new Set(['otherhost', 'otherdeploy'].map(id)));
+});
+
+test('Project 容器自身拖动仍带走它的所有物理成员', () => {
+  const c = fixture(), id = c.id;
+
+  assert.deepEqual(new Set(c._movingEntityIds(id('project'), false)),
+    new Set(['project', 'nested', 'deploy', 'sibling', 'otherdeploy'].map(id)));
 });
 
 test('资源结构同时覆盖共享访问点的全部部署时可以将其移动一次', () => {
@@ -86,6 +93,80 @@ test('React Flow 拖动使所有联动根节点保持相同位移，嵌套成员
     assert.equal(after.x - before.x, linkedIds.includes(before.entityId) ? 43 : 0, `${before.entityId}.x`);
     assert.equal(after.y - before.y, linkedIds.includes(before.entityId) ? 29 : 0, `${before.entityId}.y`);
   }
+});
+
+test('主机联动部署触及静止 Project 边界时整支使用同一可行位移', () => {
+  const c = fixture(), id = c.id;
+  c.store.entities.find(entity => entity.id === id('project')).runtime = { dynamicKind: 'coolify-project-group' };
+  c._toggleLinkedMovement(id('host'));
+  const positions = {
+    host: [0, 350], project: [400, 300], nested: [430, 320],
+    deploy: [700, 390], sibling: [500, 450], exclusiveEndpoint: [1100, 400]
+  };
+  for (const [name, [x, y]] of Object.entries(positions)) Object.assign(c._placementForEntity(id(name)), { x, y });
+  Object.assign(c._placementForEntity(id('project')), { groupWidth: 600, groupHeight: 400, groupShape: 'rounded' });
+  const placements = c._combinedPlacements();
+  const linkedIds = c._movingEntityIds(id('host'));
+  const flow = Adapter.toFlowModel({
+    entities: c._combinedEntities(), relationships: c._combinedRelationships(placements), placements
+  }, { linkedNodeIds: { [id('host')]: linkedIds } });
+  const startPositions = Object.fromEntries(flow.nodes.map(node => [node.id, { ...node.position }]));
+  const requested = flow.nodes.map(node => node.id === id('host')
+    ? { ...node, position: { x: node.position.x + 43, y: node.position.y + 29 } } : node);
+
+  const moved = Adapter.constrainProjectNodes(Adapter.applyLinkedDrag(requested, {
+    primaryId: id('host'), primaryPosition: startPositions[id('host')], linkedIds,
+    changedIds: [id('host')], startPositions, delta: { x: 43, y: 29 }
+  }));
+  const before = new Map(Adapter.toPlacements(flow.nodes, placements).map(item => [item.entityId, item]));
+  const after = new Map(Adapter.toPlacements(moved, placements).map(item => [item.entityId, item]));
+
+  for (const entityId of linkedIds) {
+    assert.deepEqual([
+      after.get(entityId).x - before.get(entityId).x,
+      after.get(entityId).y - before.get(entityId).y
+    ], [8, 29], `${entityId} 应与边界内部署使用同一实际位移`);
+  }
+  assert.deepEqual([after.get(id('project')).x, after.get(id('project')).y], [400, 300]);
+});
+
+test('多边形 Project 内的联动分支按拖动方向等比缩短位移', () => {
+  const graph = {
+    entities: [
+      { id: 'host', type: 'server', name: '主机', details: {} },
+      { id: 'project', type: 'group', name: 'Project', details: {}, runtime: { dynamicKind: 'coolify-project-group' } },
+      { id: 'deployment', type: 'deployment', name: '部署', details: {} },
+      { id: 'endpoint', type: 'endpoint', name: '访问点', details: {} }
+    ],
+    placements: [
+      { entityId: 'host', x: 0, y: 500 },
+      { entityId: 'project', x: 400, y: 300, groupWidth: 600, groupHeight: 600, groupShape: 'polygon' },
+      { entityId: 'deployment', x: 560, y: 528.5, groupId: 'project' },
+      { entityId: 'endpoint', x: 1100, y: 500 }
+    ],
+    relationships: []
+  };
+  const flow = Adapter.toFlowModel(graph);
+  const startPositions = Object.fromEntries(flow.nodes.map(node => [node.id, { ...node.position }]));
+  const moved = Adapter.constrainProjectNodes(Adapter.applyLinkedDrag(flow.nodes.map(node => node.id === 'host'
+    ? { ...node, position: { x: node.position.x + 200, y: node.position.y + 100 } } : node), {
+    primaryId: 'host', linkedIds: ['host', 'deployment', 'endpoint'], changedIds: ['host'],
+    startPositions, delta: { x: 200, y: 100 }
+  }));
+  const before = new Map(Adapter.toPlacements(flow.nodes, graph.placements).map(item => [item.entityId, item]));
+  const after = new Map(Adapter.toPlacements(moved, graph.placements).map(item => [item.entityId, item]));
+  const deltas = ['host', 'deployment', 'endpoint'].map(entityId => ({
+    x: after.get(entityId).x - before.get(entityId).x,
+    y: after.get(entityId).y - before.get(entityId).y
+  }));
+
+  assert.ok(deltas[0].x > 0 && deltas[0].x < 200);
+  assert.ok(Math.abs(deltas[0].x / deltas[0].y - 2) < 1e-9, '边界限制不应改变拖动方向');
+  for (const delta of deltas.slice(1)) {
+    assert.ok(Math.abs(delta.x - deltas[0].x) < 1e-9);
+    assert.ok(Math.abs(delta.y - deltas[0].y) < 1e-9);
+  }
+  assert.deepEqual([after.get('project').x, after.get('project').y], [400, 300]);
 });
 
 test('拖动 Project 成员不会把固定布局容器切换为手动排列', () => {

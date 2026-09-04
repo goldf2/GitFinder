@@ -46,6 +46,35 @@ test('白板变更统一完成保存、重绘、历史和摘要刷新', () => {
   assert.deepEqual(calls, ['_persistSoon', '_renderGraph', '_refreshHistoryButtons']);
 });
 
+test('服务器树汇总关系进入新引擎时明确标记为只读显示线', () => {
+  const controller = new Controller({ bridge: {} });
+  const entities = [
+    { id: 'server', type: 'server', name: '主机', details: {} },
+    { id: 'project', type: 'group', name: '项目', details: {} }
+  ];
+  const placements = [
+    { entityId: 'server', x: 0, y: 0 },
+    { entityId: 'project', x: 400, y: 0, groupWidth: 640, groupHeight: 400 }
+  ];
+  controller._allEntitiesById = () => new Map(entities.map(entity => [entity.id, entity]));
+  controller._displayGeometryMap = () => new Map([
+    ['server', { x: 0, y: 0, width: 280, height: 143 }],
+    ['project', { x: 400, y: 0, width: 640, height: 400 }]
+  ]);
+  controller._entityDisplayName = entity => entity.name;
+  controller._entityCardIcon = () => 'server';
+  controller._groupShape = () => 'rounded';
+
+  const flow = controller._flowGraphInput({
+    placements,
+    relationships: [{ id: 'fact', sourceId: 'server', targetId: 'project', type: 'manual' }],
+    summaryRelationships: [{ id: 'summary', sourceId: 'server', targetId: 'project', type: 'server_project_summary' }]
+  }, []);
+
+  assert.equal(flow.relationships.find(edge => edge.id === 'fact').visualOnly, undefined);
+  assert.equal(flow.relationships.find(edge => edge.id === 'summary').visualOnly, true);
+});
+
 test('连续拖动和选择只更新交互状态，不重算摘要或重绘资源库', (t) => {
   const previousEngine = globalThis.RelationshipCanvasEngine;
   t.after(() => { globalThis.RelationshipCanvasEngine = previousEngine; });

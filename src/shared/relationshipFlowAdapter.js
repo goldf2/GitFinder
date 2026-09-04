@@ -10,6 +10,7 @@
   if (root) root.RelationshipFlowAdapter = api;
 })(typeof window !== 'undefined' ? window : globalThis, function createRelationshipFlowAdapter(PortRouter, ProjectSnap, FlowRouting) {
   const DEFAULT_CARD = { width: 280, height: 143 };
+  const PROJECT_INSET = 12;
 
   function statusTone(entity) {
     if (entity?.runtime?.recentFailure?.hasFailure === true) return 'warning';
@@ -155,7 +156,7 @@
       const parentPosition = node.parentId ? absolute.get(node.parentId) : { x: 0, y: 0 };
       const projectSize = nodeDimensions(project);
       const size = nodeDimensions(node);
-      const inset = 12;
+      const inset = PROJECT_INSET;
       let x = nodePosition.x;
       let y = nodePosition.y;
       const shape = project.data?.placement?.groupShape || project.data?.placement?.projectGroupShape || 'rounded';
@@ -201,16 +202,84 @@
     });
   }
 
+  function polygonTranslationScale(nodePosition, nodeSize, projectPosition, projectSize, delta) {
+    const lengthSquared = delta.x ** 2 + delta.y ** 2;
+    if (!lengthSquared) return 1;
+    const center = {
+      x: projectPosition.x + projectSize.width / 2,
+      y: projectPosition.y + projectSize.height / 2
+    };
+    const radius = Math.max(0, Math.min(projectSize.width, projectSize.height) * 0.84 / 2 - PROJECT_INSET);
+    let scale = 1;
+    for (const cornerX of [nodePosition.x, nodePosition.x + nodeSize.width]) {
+      for (const cornerY of [nodePosition.y, nodePosition.y + nodeSize.height]) {
+        const x = cornerX - center.x;
+        const y = cornerY - center.y;
+        const constant = x ** 2 + y ** 2 - radius ** 2;
+        if (constant > 1e-6) return 0;
+        const linear = 2 * (x * delta.x + y * delta.y);
+        const discriminant = linear ** 2 - 4 * lengthSquared * constant;
+        if (discriminant < 0) return 0;
+        scale = Math.min(scale, (-linear + Math.sqrt(discriminant)) / (2 * lengthSquared));
+      }
+    }
+    return Math.min(1, Math.max(0, scale));
+  }
+
+  function feasibleLinkedDelta(nodes, roots, movingIds, startPositions, requested) {
+    if ((!requested.x && !requested.y) || !roots.size) return requested;
+    const startNodes = nodes.map(node => ({
+      ...node,
+      position: startPositions[node.id] ? { ...startPositions[node.id] } : { ...(node.position || {}) }
+    }));
+    const byId = new Map(startNodes.map(node => [node.id, node]));
+    const absolute = absolutePositions(startNodes);
+    let minX = -Infinity, maxX = Infinity, minY = -Infinity, maxY = Infinity;
+    const polygons = [];
+    for (const id of roots) {
+      const node = byId.get(id);
+      const projectId = node?.data?.projectAncestorId || projectAncestor(node, byId);
+      const project = projectId && byId.get(projectId);
+      if (!node || !project || movingIds.has(projectId)) continue;
+      const nodePosition = absolute.get(id);
+      const projectPosition = absolute.get(projectId);
+      const nodeSize = nodeDimensions(node);
+      const projectSize = nodeDimensions(project);
+      const shape = project.data?.placement?.groupShape || project.data?.placement?.projectGroupShape || 'rounded';
+      if (shape === 'polygon') {
+        polygons.push({ nodePosition, nodeSize, projectPosition, projectSize });
+        continue;
+      }
+      const lowerX = projectPosition.x + PROJECT_INSET - nodePosition.x;
+      const upperX = projectPosition.x + projectSize.width - nodeSize.width - PROJECT_INSET - nodePosition.x;
+      const lowerY = projectPosition.y + PROJECT_INSET - nodePosition.y;
+      const upperY = projectPosition.y + projectSize.height - nodeSize.height - PROJECT_INSET - nodePosition.y;
+      minX = Math.max(minX, Math.min(lowerX, upperX));
+      maxX = Math.min(maxX, Math.max(lowerX, upperX));
+      minY = Math.max(minY, Math.min(lowerY, upperY));
+      maxY = Math.min(maxY, Math.max(lowerY, upperY));
+    }
+    const delta = {
+      x: Math.min(Math.max(requested.x, minX), maxX),
+      y: Math.min(Math.max(requested.y, minY), maxY)
+    };
+    let scale = 1;
+    for (const polygon of polygons) scale = Math.min(scale, polygonTranslationScale(
+      polygon.nodePosition, polygon.nodeSize, polygon.projectPosition, polygon.projectSize, delta
+    ));
+    return { x: delta.x * scale, y: delta.y * scale };
+  }
+
   function applyLinkedDrag(nodes = [], options = {}) {
-    const roots = new Set(movementRoots(nodes, options.linkedIds || [options.primaryId]));
-    const changed = new Set(options.changedIds || []);
+    const movingIds = new Set(options.linkedIds || [options.primaryId]);
+    const roots = new Set(movementRoots(nodes, movingIds));
     const start = options.startPositions || {};
-    const dx = Number(options.delta?.x) || 0;
-    const dy = Number(options.delta?.y) || 0;
+    const requested = { x: Number(options.delta?.x) || 0, y: Number(options.delta?.y) || 0 };
+    const delta = feasibleLinkedDelta(nodes, roots, movingIds, start, requested);
     return nodes.map(node => {
       const origin = start[node.id];
-      if (!roots.has(node.id) || changed.has(node.id) || !origin) return node;
-      return { ...node, position: { x: origin.x + dx, y: origin.y + dy } };
+      if (!roots.has(node.id) || !origin) return node;
+      return { ...node, position: { x: origin.x + delta.x, y: origin.y + delta.y } };
     });
   }
 
@@ -269,14 +338,25 @@
     const edges = (graph.relationships || []).filter(edge => visible.has(edge.sourceId) && visible.has(edge.targetId))
       .map(edge => {
         const topologyAlert = edge.diagnostic?.severity === 'error';
+        const visualOnly = edge.visualOnly === true;
         return {
           id: edge.id,
           source: edge.sourceId,
           target: edge.targetId,
           type: 'bezier',
-          selected: edge.id === options.selectedRelationshipId,
-          ...(topologyAlert ? { className: 'is-topology-alert', style: { stroke: '#d9485f', strokeWidth: 2.5 } } : {}),
-          data: { relationship: { ...edge }, ...(edge.diagnostic ? { diagnostic: { ...edge.diagnostic } } : {}) },
+          selected: visualOnly ? false : edge.id === options.selectedRelationshipId,
+          ...(visualOnly ? { selectable: false, focusable: false, deletable: false } : {}),
+          ...(topologyAlert
+            ? { className: 'is-topology-alert', style: { stroke: '#d9485f', strokeWidth: 2.5 } }
+            : (visualOnly ? {
+              className: 'is-visual-summary',
+              style: { stroke: '#8f98b3', strokeWidth: 1.25, strokeDasharray: '6 6', opacity: 0.7 }
+            } : {})),
+          data: {
+            relationship: { ...edge },
+            ...(visualOnly ? { visualOnly: true } : {}),
+            ...(edge.diagnostic ? { diagnostic: { ...edge.diagnostic } } : {})
+          },
           label: edge.label || ''
         };
       });

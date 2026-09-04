@@ -2,7 +2,10 @@
   width: 240px;
   background: var(--bg-primary);
   border-right: 1px solid var(--border-color);
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
   padding: 8px 0;
   flex-shrink: 0;
 }
@@ -13,6 +16,14 @@
 
 .sidebar-section[hidden] {
   display: none;
+}
+
+.sidebar-section[role="tabpanel"]:not([hidden]):not(.collapsed) {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .sidebar-navigation {
@@ -542,8 +553,7 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  min-height: 150px;
-  max-height: 40%;
+  min-height: 0;
 }
 
 .sidebar-tree-section.collapsed {
@@ -595,6 +605,7 @@
 .sidebar-tree-container {
   flex: 1;
   overflow-y: auto;
+  min-height: 0;
   padding: 0 4px 4px;
 }
 

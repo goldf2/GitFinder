@@ -28,6 +28,15 @@ test('动态端点变化后主动刷新 React Flow 节点内部信息，避免�
   assert.match(source, /updateNodeInternals\(nodeId\)/);
 });
 
+test('服务器树摘要线没有交互命中区、箭头、右键菜单或程序化选择', () => {
+  assert.match(source, /interactionWidth=\{data\?\.visualOnly \? 0 : 18\}/);
+  assert.match(source, /!edge\.data\?\.visualOnly \? \{ markerEnd:/);
+  assert.match(source, /if \(edge\.data\?\.visualOnly\) return;/);
+  assert.match(source, /selected: edge\.data\?\.visualOnly \? false : edge\.id === selectedRelationshipId/);
+  assert.match(source, /handle\.visualOnly \? ' is-visual-only' : ''/);
+  assert.match(canvasCss, /\.gf-flow-handle\.is-visual-only\s*\{[^}]*opacity:\s*0;[^}]*pointer-events:\s*none;/s);
+});
+
 test('新画布使用更宽缩放范围，多边形容器强制等比缩放', () => {
   assert.match(source, /minZoom=\{0\.03\}/);
   assert.match(source, /maxZoom=\{8\}/);

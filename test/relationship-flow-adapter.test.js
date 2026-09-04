@@ -157,6 +157,65 @@ test('React Flow 连线复用避障路由并绕开中间卡片', () => {
   assert.equal(edge.data.routePoints.some(inside), false, '连线路径采样点不能穿过中间卡片');
 });
 
+test('连接点与避障联合选择，最短边被堵时改用可通行边', () => {
+  const card = (id, x, y, width = 200, height = 120) => ({
+    id,
+    type: 'relationshipCard',
+    position: { x, y },
+    width,
+    height,
+    data: { entity: { name: id } }
+  });
+  const nodes = [
+    card('source', 0, 0),
+    card('obstacle', 210, -80, 210, 280),
+    card('target', 650, 0)
+  ];
+
+  const result = Adapter.rerouteFlowConnections(nodes, [{ id: 'edge', source: 'source', target: 'target' }]);
+  const edge = result.edges[0];
+  const [start, end] = [edge.data.routePoints[0], edge.data.routePoints.at(-1)];
+  const boundaryCoordinate = (side, box) => ({
+    top: ['y', box.y + 0.5],
+    right: ['x', box.x + box.width - 0.5],
+    bottom: ['y', box.y + box.height - 0.5],
+    left: ['x', box.x + 0.5]
+  })[side];
+
+  assert.equal(edge.data.obstructed, false);
+  assert.notDeepEqual([edge.sourceSide, edge.targetSide], ['right', 'left']);
+  assert.equal(edge.sourceHandle, `source-${edge.sourceSide}`);
+  assert.equal(edge.targetHandle, `target-${edge.targetSide}`);
+  const [sourceAxis, sourceBoundary] = boundaryCoordinate(edge.sourceSide, { ...nodes[0].position, ...nodes[0] });
+  const [targetAxis, targetBoundary] = boundaryCoordinate(edge.targetSide, { ...nodes[2].position, ...nodes[2] });
+  assert.equal(start[sourceAxis], sourceBoundary, '改选后的起点应保持贴合源卡片边界');
+  assert.equal(end[targetAxis], targetBoundary, '改选后的终点应保持贴合目标卡片边界');
+});
+
+test('最近端点虽可通行但明显绕远时仍选择整体更短的端点路径', () => {
+  const card = (id, x, y, width = 200, height = 120) => ({
+    id, type: 'relationshipCard', position: { x, y }, width, height,
+    data: { entity: { name: id } }
+  });
+  const nodes = [
+    card('source', 0, 0),
+    card('obstacle', 360, -280, 240, 320),
+    card('target', 650, -500)
+  ];
+
+  const edge = Adapter.rerouteFlowConnections(nodes, [
+    { id: 'edge', source: 'source', target: 'target' }
+  ]).edges[0];
+  const routeLength = edge.data.routePoints.slice(1).reduce((sum, point, index) => sum
+    + Math.hypot(point.x - edge.data.routePoints[index].x, point.y - edge.data.routePoints[index].y), 0);
+
+  assert.equal(edge.data.obstructed, false);
+  assert.deepEqual([edge.sourceSide, edge.targetSide], ['top', 'left']);
+  assert.ok(routeLength < 800, `应选择整体较短的路径，实际 ${routeLength}`);
+  assert.equal(edge.sourceHandle, `source-${edge.sourceSide}`);
+  assert.equal(edge.targetHandle, `target-${edge.targetSide}`);
+});
+
 test('拓扑配置警报关系使用红色连线并保留警报身份', () => {
   const graph = fixture();
   graph.relationships[0].diagnostic = {
@@ -170,6 +229,29 @@ test('拓扑配置警报关系使用红色连线并保留警报身份', () => {
   assert.equal(edge.className, 'is-topology-alert');
   assert.equal(edge.style.stroke, '#d9485f');
   assert.equal(edge.data.diagnostic.alertId, 'topology_alert_endpoint_reuse_endpoint');
+});
+
+test('服务器树摘要线只用于显示，不能被选中或触发关系操作', () => {
+  const graph = fixture();
+  graph.relationships[0].visualOnly = true;
+
+  const edge = Adapter.toFlowModel(graph, {
+    cardWidth: 280,
+    cardHeight: 143,
+    selectedRelationshipId: 'exposes'
+  }).edges[0];
+
+  assert.equal(edge.selected, false);
+  assert.equal(edge.selectable, false);
+  assert.equal(edge.focusable, false);
+  assert.equal(edge.deletable, false);
+  assert.equal(edge.className, 'is-visual-summary');
+  assert.equal(edge.style.strokeDasharray, '6 6');
+  assert.equal(edge.data.visualOnly, true);
+  assert.equal(edge.data.relationship.visualOnly, true);
+  for (const node of Adapter.toFlowModel(graph).nodes.filter(item => ['deployment', 'endpoint'].includes(item.id))) {
+    assert.equal(node.data.connectionHandles.every(handle => handle.visualOnly), true);
+  }
 });
 
 test('缩小视图不会把避障安全距放大到堵死 Project 内部通道', () => {
@@ -274,8 +356,8 @@ test('斜向关系比较全部边缘锚点并选择实际最短组合', () => {
   endpoint.x = 760;
   endpoint.y = 620;
   const result = Adapter.toFlowModel(graph, { cardWidth: 280, cardHeight: 143 });
-  assert.equal(result.edges[0].sourceSide, 'right');
-  assert.equal(result.edges[0].targetSide, 'top');
+  assert.equal(result.edges[0].sourceSide, 'bottom');
+  assert.equal(result.edges[0].targetSide, 'left');
 });
 
 test('同一节点同侧的多条关系复用一个中心连接点', () => {

@@ -319,6 +319,12 @@
 
 .gf-flow-handle[data-nodeid] + .gf-flow-handle[data-nodeid] { pointer-events: none; }
 
+.gf-flow-handle.is-visual-only {
+  opacity: 0;
+  pointer-events: none;
+  box-shadow: none;
+}
+
 .gf-flow-resize-line { border-color: #3978ff !important; }
 
 .gf-flow-resize-handle {

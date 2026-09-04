@@ -2120,9 +2120,11 @@
           if (['contains', 'source_of', 'hosts', 'exposes', 'connects_to', 'has_submodule', 'fork_source_for'].includes(edge.type)) add(edge.sourceId, edge.targetId);
           if (['belongs_to', 'deployed_from', 'runs_on', 'exposed_by', 'submodule_of', 'forked_from'].includes(edge.type)) add(edge.targetId, edge.sourceId);
         }
-        // A Project is a containing frame, not a source fact. Include the frame
-        // on host -> deployment branches without following repository correlations.
-        for (const edge of PanelTopologyProjection.serverTreeGraph({ entities: [...entities.values()], relationships, placements }).hierarchy) add(edge.sourceId, edge.targetId);
+        // Movement follows source relationships only. Server-tree hierarchy also
+        // contains visual summary edges such as host -> Project; importing those
+        // here would make a host drag pull the whole containing frame and unrelated
+        // deployments with it. Physical group membership is handled separately
+        // below when the group itself is dragged.
       }
       const expand = allowedSharedEndpoints => {
         const queue = [...seeds].map(id => [id, false]);
@@ -2933,7 +2935,8 @@
         id: summary.id,
         sourceId: summary.sourceId,
         targetId: summary.targetId,
-        label: summary.label || ''
+        label: summary.label || '',
+        visualOnly: true
       }));
       const alertByRelationshipId = new Map(alerts.flatMap(alert => alert.relationshipIds.map(id => [id, alert])));
       const relationships = graph.relationships.map(relationship => {
