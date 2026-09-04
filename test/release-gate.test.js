@@ -13,6 +13,7 @@ const {
   validateSourceConfiguration,
   validateUpdateConfiguration,
 } = require('../scripts/verify-release');
+const { ignoredSource } = require('../scripts/package-mac');
 
 const validAppUpdateText = `provider: generic
 url: https://oaktechz.com/releases/gitfinder-2/alpha/
@@ -143,7 +144,7 @@ test('产物门禁要求危险 Electron 入口关闭且 ASAR 校验开启', () =
   assert.deepEqual(validateElectronFuses(broken).issues.map((entry) => entry.code), ['fuses.artifact']);
 });
 
-test('macOS 应用包不应夹带测试、内部上下文或本地缓存', () => {
+test('macOS 应用包不应夹带测试、原型、内部上下文或本地缓存', () => {
   assert.deepEqual(validatePackagedContents([
     '/main.js',
     '/package.json',
@@ -157,6 +158,22 @@ test('macOS 应用包不应夹带测试、内部上下文或本地缓存', () =>
     '/.git-monitor-cache.json',
   ]);
   assert.deepEqual(broken.issues.map((entry) => entry.code), ['app.asar-contents']);
+
+  const prototypeLeak = validatePackagedContents([
+    '/main.js',
+    '/prototypes/relationship-card-overview/index.html',
+  ]);
+  assert.deepEqual(prototypeLeak.issues.map((entry) => entry.code), ['app.asar-contents']);
+
+  for (const rootDocument of [
+    'AGENTS.md',
+    'ARCHITECTURE.md',
+    'CODEX_MEMORY.md',
+    'CODEX_RELEASE_VALIDATION.md',
+  ]) {
+    const documentLeak = validatePackagedContents(['/main.js', `/${rootDocument}`]);
+    assert.deepEqual(documentLeak.issues.map((entry) => entry.code), ['app.asar-contents'], rootDocument);
+  }
 });
 
 test('升级清单必须绑定精确文件名、大小和 Base64 SHA-512', () => {
@@ -308,6 +325,14 @@ test('Alpha 工作流构建双平台产物并只推送 OakTech 草稿', () => {
   assert.match(packageScript, /afterAsar:\s*\[hardenElectron\]/);
   assert.match(packageScript, /FuseV1Options\.EnableEmbeddedAsarIntegrityValidation/);
   assert.match(packageScript, /\.github\|\\\.trae\|test\|docs/);
+  assert.equal(ignoredSource.test('/prototypes'), true);
+  assert.equal(ignoredSource.test('/prototypes/relationship-card-overview/index.html'), true);
+  for (const rootDocument of [
+    'AGENTS.md',
+    'ARCHITECTURE.md',
+    'CODEX_MEMORY.md',
+    'CODEX_RELEASE_VALIDATION.md',
+  ]) assert.equal(ignoredSource.test(`/${rootDocument}`), true, rootDocument);
   assert.doesNotMatch(packageScript, /appleIdPassword/);
   assert.equal(normalizeForTest(fs.readFileSync(path.join(projectRoot, 'resources/app-update.yml'), 'utf8')), normalizeForTest(validAppUpdateText));
   assert.equal(packageJson.productName, 'GitFinder 2 Alpha');

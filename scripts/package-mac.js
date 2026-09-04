@@ -11,7 +11,7 @@ const projectRoot = path.resolve(__dirname, '..');
 const pkg = require('../package.json');
 const configuredFuses = pkg.build.electronFuses;
 
-const ignoredSource = /^\/(?:dist|\.git|\.github|\.trae|test|docs|scripts|resources)(?:$|\/)|^\/(?:CONTEXT\.md|README\.md|\.gitignore|\.git-monitor-cache\.json)$|^\/public\/icon-master\.png$|(?:^|\/)\.DS_Store$/;
+const ignoredSource = /^\/(?:dist|\.git|\.github|\.trae|test|docs|scripts|resources|prototypes)(?:$|\/)|^\/(?:AGENTS\.md|ARCHITECTURE\.md|CODEX_MEMORY\.md|CODEX_RELEASE_VALIDATION\.md|CONTEXT\.md|README\.md|\.gitignore|\.git-monitor-cache\.json)$|^\/public\/icon-master\.png$|(?:^|\/)\.DS_Store$/;
 
 async function hardenElectron({ buildPath }) {
   const stagedAppPath = path.resolve(buildPath, '..', '..', '..');
