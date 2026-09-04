@@ -22,7 +22,7 @@ GitFinder GitHub 仓库需要配置名为 `oaktech-release` 的 Environment，�
 
 OakTech 服务端使用相同的 `OAKTECH_RELEASE_WRITE_TOKEN`。它只允许导入草稿和上传制品，不允许执行最终发布。凭据不能写入仓库、构建制品或客户端。
 
-当前机器上的 `/Volumes/project/开发中/gitfinder-2` 尚未配置 Git remote；需要先确认并连接 `goldf2/GitFinder`，提交当前受保护工作区后，GitHub 才能看到和运行工作流。
+工作流必须先提交并推送到 GitHub 默认分支。首轮建议关闭 `push_to_store` 做双平台干跑；两端测试与打包均通过后，再配置机器凭据并开启草稿推送。
 
 ## 运行方式
 

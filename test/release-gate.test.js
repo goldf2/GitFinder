@@ -291,6 +291,8 @@ test('Alpha 工作流构建双平台产物并只推送 OakTech 草稿', () => {
   assert.match(workflow, /workflow_dispatch:/);
   assert.doesNotMatch(workflow, /push:\s*[\s\S]*tags:/);
   assert.match(workflow, /run: npm run check/);
+  assert.match(workflow, /node-version:\s*24/);
+  assert.doesNotMatch(workflow, /node-version:\s*20/);
   assert.match(workflow, /run: npm run pack/);
   assert.match(workflow, /dist\/release-verification\.json/);
   assert.match(workflow, /push-store-draft:/);
@@ -307,7 +309,7 @@ test('Alpha 工作流构建双平台产物并只推送 OakTech 草稿', () => {
   assert.match(packageScript, /FuseV1Options\.EnableEmbeddedAsarIntegrityValidation/);
   assert.match(packageScript, /\.github\|\\\.trae\|test\|docs/);
   assert.doesNotMatch(packageScript, /appleIdPassword/);
-  assert.equal(fs.readFileSync(path.join(projectRoot, 'resources/app-update.yml'), 'utf8'), validAppUpdateText);
+  assert.equal(normalizeForTest(fs.readFileSync(path.join(projectRoot, 'resources/app-update.yml'), 'utf8')), normalizeForTest(validAppUpdateText));
   assert.equal(packageJson.productName, 'GitFinder 2 Alpha');
   assert.equal(packageJson.build.appId, 'com.gitfinder.app.v2');
   assert.equal(packageJson.build.publish, undefined);
@@ -316,6 +318,8 @@ test('Alpha 工作流构建双平台产物并只推送 OakTech 草稿', () => {
   ]);
   assert.equal(packageJson.scripts.publish, undefined);
   assert.equal(packageJson.scripts['dist:builder'], undefined);
+  assert.match(packageJson.scripts.check, /node scripts\/check-syntax\.js/);
+  assert.equal(fs.existsSync(path.join(projectRoot, 'test/check-syntax.js')), false);
 });
 
 test('Packager 将正式签名开关解析为布尔值而不是字符串', async () => {

@@ -208,6 +208,7 @@
       const entity = entities.get(placement.entityId);
       const parent = placement.groupId && placementById.get(placement.groupId);
       const size = geometry.get(placement.entityId);
+      const projectContainer = isProjectGroup(entity);
       const linked = options.linkedNodeIds instanceof Map
         ? options.linkedNodeIds.get(placement.entityId)
         : options.linkedNodeIds?.[placement.entityId];
@@ -222,12 +223,13 @@
         data: {
           entity,
           placement: { ...placement },
-          isProjectContainer: isProjectGroup(entity),
+          isProjectContainer: projectContainer,
           linkedNodeIds: Array.isArray(linked) ? [...linked] : [placement.entityId],
           tone: statusTone(entity),
           showRuntimeStatus: showsRuntimeStatus(placement, options.showRuntimeStatus),
-          filterState: mutedIds.has(placement.entityId) ? 'muted'
-            : (contextualIds.has(placement.entityId) ? 'context' : (directIds.has(placement.entityId) ? 'match' : ''))
+          filterState: directIds.has(placement.entityId) ? 'match'
+            : (projectContainer ? '' : (mutedIds.has(placement.entityId) ? 'muted'
+              : (contextualIds.has(placement.entityId) ? 'context' : '')))
         }
       };
     });

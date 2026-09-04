@@ -11,9 +11,11 @@ const rendererHtml = fs.readFileSync(path.join(__dirname, '../src/renderer/index
 const controllerSource = fs.readFileSync(path.join(__dirname, '../src/renderer/scripts/relationshipBoardController.js'), 'utf8');
 const toolbarViewSource = fs.readFileSync(path.join(__dirname, '../src/renderer/scripts/relationshipBoardToolbarView.js'), 'utf8');
 
-test('新画布直接使用成熟库提供框选、平移、缩放、边缘滚动和小地图', () => {
+test('新画布直接使用成熟库提供框选、拖动平移、滚轮缩放、边缘滚动和小地图', () => {
   assert.match(source, /selectionOnDrag/);
-  assert.match(source, /panOnScroll/);
+  assert.match(source, /panOnScroll=\{false\}/);
+  assert.match(source, /zoomOnScroll/);
+  assert.doesNotMatch(source, /zoomOnScroll=\{false\}/);
   assert.match(source, /zoomActivationKeyCode=\{\['Meta', 'Control'\]\}/);
   assert.match(source, /autoPanOnNodeDrag/);
   assert.match(source, /<MiniMap/);

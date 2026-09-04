@@ -2397,7 +2397,7 @@
               <div class="relationship-boundary-note">本机目录只用于定位；云端资源使用稳定身份。不会部署、连接服务器或修改 Git。</div>
               </div>
             </aside>
-            <div class="relationship-canvas" tabindex="0" aria-label="关系画布。滚轮或双指移动视图，Ctrl/Cmd 加滚轮或双指捏合缩放。拖动元素或群组空白移动，点击群组标题显示工具条，拖动画布空白框选；空格加拖动或中键拖动平移。WASD 或方向键平移，Shift 加速；Alt/Option 加方向键移动选中节点。" aria-keyshortcuts="W A S D ArrowUp ArrowLeft ArrowDown ArrowRight Space">
+            <div class="relationship-canvas" tabindex="0" aria-label="关系画布。滚轮或触控板双指滚动围绕指针缩放，双指捏合也可缩放。拖动元素或群组空白移动，点击群组标题显示工具条，拖动画布空白框选；空格加拖动或中键拖动平移。WASD 或方向键平移，Shift 加速；Alt/Option 加方向键移动选中节点。" aria-keyshortcuts="W A S D ArrowUp ArrowLeft ArrowDown ArrowRight Space">
               <div class="relationship-topology-alerts">
                 <button class="relationship-topology-alert-trigger" data-relationship-action="toggle-topology-alerts" type="button" aria-haspopup="dialog" aria-expanded="false" hidden><span aria-hidden="true">!</span><span>配置警报</span><b>0</b></button>
                 <section class="relationship-topology-alert-popover" role="dialog" aria-label="拓扑配置警报" hidden>

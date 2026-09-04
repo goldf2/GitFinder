@@ -56,6 +56,18 @@ test('运行状态显示继承白板设置并允许单卡覆盖', () => {
   assert.equal(node.data.showRuntimeStatus, false);
 });
 
+test('筛选不会虚化 Project 容器，但仍弱化容器内未命中的卡片', () => {
+  const graph = fixture();
+  const model = Adapter.toFlowModel(graph, {
+    directIds: ['deployment'],
+    mutedIds: ['project', 'endpoint']
+  });
+
+  assert.equal(model.nodes.find(item => item.id === 'project').data.filterState, '');
+  assert.equal(model.nodes.find(item => item.id === 'deployment').data.filterState, 'match');
+  assert.equal(model.nodes.find(item => item.id === 'endpoint').data.filterState, 'muted');
+});
+
 test('Project 内部署拖动时吸附到同级对齐线并保持显示设置间距', () => {
   const graph = fixture();
   graph.entities.push({ id: 'deployment-b', type: 'deployment', name: '预览部署', details: {} });

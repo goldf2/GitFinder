@@ -394,13 +394,12 @@ function Canvas({
     fitView={fitView}
     defaultViewport={initialViewport}
     fitViewOptions={{ padding: 0.16, maxZoom: 1 }}
-    panOnScroll
-    panOnScrollSpeed={0.65}
+    panOnScroll={false}
     panOnDrag={[1, 2]}
     selectionOnDrag
     selectionMode={SelectionMode.Partial}
     selectionKeyCode={null}
-    zoomOnScroll={false}
+    zoomOnScroll
     zoomOnPinch
     zoomActivationKeyCode={['Meta', 'Control']}
     autoPanOnNodeDrag
