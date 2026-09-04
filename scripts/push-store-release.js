@@ -5,7 +5,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { hashFile } = require('./release-artifacts');
 
-const CHUNK_BYTES = 16 * 1024 * 1024;
+const CHUNK_BYTES = 8 * 1024 * 1024;
 
 function argument(name, fallback = '') {
   const index = process.argv.indexOf(name);
