@@ -15,7 +15,8 @@ test('设置分类保持稳定顺序并规范化外部深链接', () => {
       'settings-appearance',
       'settings-panel-provider',
       'settings-developer-tools',
-      'settings-projects'
+      'settings-projects',
+      'settings-updates'
     ]
   );
   assert.equal(SettingsNavigation.normalizeSection('settings-panel-provider'), 'settings-panel-provider');
@@ -25,10 +26,10 @@ test('设置分类保持稳定顺序并规范化外部深链接', () => {
 
 test('纵向设置导航支持方向键、Home 和 End', () => {
   assert.equal(SettingsNavigation.sectionFromKey('settings-browsing', 'ArrowDown'), 'settings-sidebar');
-  assert.equal(SettingsNavigation.sectionFromKey('settings-browsing', 'ArrowUp'), 'settings-projects');
-  assert.equal(SettingsNavigation.sectionFromKey('settings-projects', 'ArrowDown'), 'settings-browsing');
+  assert.equal(SettingsNavigation.sectionFromKey('settings-browsing', 'ArrowUp'), 'settings-updates');
+  assert.equal(SettingsNavigation.sectionFromKey('settings-updates', 'ArrowDown'), 'settings-browsing');
   assert.equal(SettingsNavigation.sectionFromKey('settings-panel-provider', 'Home'), 'settings-browsing');
-  assert.equal(SettingsNavigation.sectionFromKey('settings-panel-provider', 'End'), 'settings-projects');
+  assert.equal(SettingsNavigation.sectionFromKey('settings-panel-provider', 'End'), 'settings-updates');
   assert.equal(SettingsNavigation.sectionFromKey('settings-panel-provider', 'Enter'), null);
 });
 
@@ -49,7 +50,22 @@ test('设置页采用左侧分类导航与右侧单分类内容', () => {
   assert.match(css, /\.app-settings-navigation-item\[aria-selected="true"\]/);
   assert.match(css, /\.app-settings-section\s*\{[^}]*max-width:\s*860px/s);
   assert.match(css, /data-settings-section="settings-panel-provider"[^}]*--settings-navigation-accent:/s);
+  assert.match(css, /data-settings-section="settings-updates"[^}]*--settings-navigation-accent:/s);
   assert.doesNotMatch(appSource, /app-settings-header[\s\S]{0,500}>完成<\/button>/);
+});
+
+test('软件更新有设置页入口，状态栏更新按钮不会被上下文文字覆盖', () => {
+  const html = fs.readFileSync(path.join(projectRoot, 'src/renderer/index.html'), 'utf8');
+  const appSource = fs.readFileSync(path.join(projectRoot, 'src/renderer/scripts/app.js'), 'utf8');
+  const updateSource = fs.readFileSync(path.join(projectRoot, 'src/renderer/scripts/updateController.js'), 'utf8');
+
+  assert.ok(html.indexOf('scripts/updateController.js') < html.indexOf('scripts/app.js'));
+  assert.match(html, /id="status-context"/);
+  assert.match(html, /id="btn-check-update"[^>]+data-update-action="primary"/);
+  assert.match(updateSource, /id="settings-updates"/);
+  assert.match(updateSource, /data-update-action="primary"/);
+  assert.match(appSource, /getElementById\('status-context'\)/);
+  assert.doesNotMatch(appSource, /getElementById\('status-right'\)[\s\S]{0,200}\.textContent\s*=/);
 });
 
 test('设置页标题区保持紧凑且不重复展示品牌', () => {

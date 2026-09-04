@@ -30,6 +30,16 @@ function createService(configDir) {
   return service;
 }
 
+test('自动更新检查默认开启并允许界面独立关闭', (t) => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'gitfinder-update-preference-'));
+  t.after(() => fs.rmSync(tempRoot, { recursive: true, force: true }));
+  const service = createService(path.join(tempRoot, 'config'));
+
+  assert.equal(service.get('automaticUpdateChecks'), true);
+  service.setRendererPreference('automaticUpdateChecks', false);
+  assert.equal(service.get('automaticUpdateChecks'), false);
+});
+
 test('仓库 ID 在新提交后保持稳定', (t) => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'gitfinder-identity-'));
   t.after(() => fs.rmSync(tempRoot, { recursive: true, force: true }));
@@ -189,8 +199,8 @@ test('渲染层配置写入只允许偏好键，不能替换受管根或复活�
   assert.equal(service.get('cardStyle'), 'list');
   service.setRendererPreference('columnViewWidth', 320);
   assert.equal(service.get('columnViewWidth'), 320);
-  service.setRendererPreference('sidebarNavigationMode', 'projects');
-  assert.equal(service.get('sidebarNavigationMode'), 'projects');
+  service.setRendererPreference('sidebarNavigationMode', 'repositories');
+  assert.equal(service.get('sidebarNavigationMode'), 'repositories');
   service.setRendererPreference('relationshipDynamicLayouts', {
     version: 1,
     boards: { board_test0001: { entity_panel_server_12345678: { x: 120, y: 80 } } }

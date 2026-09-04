@@ -40,6 +40,7 @@ function createPackagerOptions(environment = process.env) {
     overwrite: true,
     prune: true,
     icon: path.join(projectRoot, 'public', 'icon.icns'),
+    extraResource: path.join(projectRoot, 'resources', 'app-update.yml'),
     appBundleId: pkg.build.appId,
     appVersion: pkg.version,
     ignore: ignoredSource,

@@ -1,0 +1,4 @@
+provider: generic
+url: https://oaktechz.com/releases/gitfinder-2/alpha/
+channel: latest
+updaterCacheDirName: gitfinder-2-updater

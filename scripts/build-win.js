@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { spawnSync } = require('node:child_process');
+const { writeUpdateManifest } = require('./generate-update-manifest');
 
 const projectRoot = path.resolve(__dirname, '..');
 const pkg = JSON.parse(fs.readFileSync(path.join(projectRoot, 'package.json'), 'utf8'));
@@ -11,6 +12,8 @@ const installerName = `GitFinder-2-${pkg.version}-x64-win-setup.exe`;
 const zipName = `GitFinder-2-${pkg.version}-x64-win.zip`;
 const installerPath = path.join(distDir, installerName);
 const zipPath = path.join(distDir, zipName);
+const blockmapPath = `${installerPath}.blockmap`;
+const updateManifestPath = path.join(distDir, 'latest.yml');
 
 function sha256(filePath) {
   const hash = crypto.createHash('sha256');
@@ -80,13 +83,19 @@ if (build.error) {
 }
 if (build.status !== 0) process.exit(build.status || 1);
 
-for (const artifactPath of [installerPath, zipPath]) {
+for (const artifactPath of [installerPath, blockmapPath, zipPath]) {
   if (!fs.existsSync(artifactPath)) throw new Error(`缺少 Windows 构建产物：${artifactPath}`);
 }
 
+writeUpdateManifest({
+  version: pkg.version,
+  artifactPath: installerPath,
+  outputPath: updateManifestPath
+});
+
 const signature = signatureStatus(installerPath);
 const unsignedTestBuild = signature !== 'Valid';
-const artifacts = [installerPath, zipPath].map(filePath => ({
+const artifacts = [installerPath, blockmapPath, zipPath, updateManifestPath].map(filePath => ({
   file: path.basename(filePath),
   bytes: fs.statSync(filePath).size,
   sha256: sha256(filePath)

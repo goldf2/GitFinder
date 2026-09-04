@@ -499,6 +499,8 @@ test('可能已发布的 HEAD 必须在 amend 应用时显式确认', async (t) 
 
 test('强制刷新会跳过状态缓存并读取当前分支', async (t) => {
   const { repoPath } = createRepo(t, 'gitfinder-status-cache-');
+  git(repoPath, ['remote', 'add', 'origin', 'https://example.invalid/origin.git']);
+  git(repoPath, ['remote', 'add', 'backup', 'https://example.invalid/backup.git']);
   gitService.clearAllCache();
   t.after(() => gitService.clearAllCache());
 
@@ -509,4 +511,7 @@ test('强制刷新会跳过状态缓存并读取当前分支', async (t) => {
 
   assert.equal(cached.branch, first.branch);
   assert.equal(refreshed.branch, 'feature/evidence');
+  assert.equal(refreshed.remoteUrlBackup, 'https://example.invalid/backup.git');
+  assert.equal(refreshed.remotes.length, 4);
+  assert.match(refreshed.lastCommit.authoredAt, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/);
 });

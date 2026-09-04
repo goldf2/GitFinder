@@ -8,6 +8,9 @@ const { execFileSync } = require('node:child_process');
 const PRODUCT_NAME = 'GitFinder 2 Alpha';
 const BUNDLE_ID = 'com.gitfinder.app.v2';
 const ARTIFACT_PREFIX = 'GitFinder-2';
+const UPDATE_CONFIG_PATH = 'resources/app-update.yml';
+const UPDATE_FEED_URL = 'https://oaktechz.com/releases/gitfinder-2/alpha/';
+const UPDATER_CACHE_DIR = 'gitfinder-2-updater';
 const VALID_MODES = new Set(['development', 'official']);
 const VALID_PHASES = new Set(['source', 'artifact']);
 const REQUIRED_FUSE_CONFIG = Object.freeze({
@@ -50,6 +53,25 @@ function normalizeText(value) {
 
 function isSemver(value) {
   return /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(String(value || ''));
+}
+
+function validateUpdateConfiguration(text) {
+  const values = {
+    provider: scalar(text, /^provider:\s*(.+)$/m),
+    url: scalar(text, /^url:\s*(.+)$/m),
+    channel: scalar(text, /^channel:\s*(.+)$/m),
+    updaterCacheDirName: scalar(text, /^updaterCacheDirName:\s*(.+)$/m),
+  };
+  const valid = values.provider === 'generic'
+    && values.url === UPDATE_FEED_URL
+    && values.channel === 'latest'
+    && values.updaterCacheDirName === UPDATER_CACHE_DIR;
+  return {
+    issues: valid
+      ? []
+      : [issue('update.config', '打包更新配置必须指向 OakTech Alpha 稳定目录并声明独立缓存目录。')],
+    values,
+  };
 }
 
 function validateSourceConfiguration({
@@ -106,8 +128,14 @@ function validateSourceConfiguration({
     issues.push(issue('icons.ico', 'public/icon.ico 不是有效 ICO 文件。'));
   }
   if (build.publish != null) {
-    issues.push(issue('update.publish', '2.0 Alpha 尚未配置独立更新源，禁止继承 1.x 发布目标。'));
+    issues.push(issue('update.publish', '二进制由 OakTech 后台发布，electron-builder 不得自行上传到其他发布目标。'));
   }
+  const hasUpdateResource = Array.isArray(build.extraResources)
+    && build.extraResources.some((entry) => entry?.from === UPDATE_CONFIG_PATH && entry?.to === 'app-update.yml');
+  if (!hasUpdateResource) {
+    issues.push(issue('update.resource', `打包必须将 ${UPDATE_CONFIG_PATH} 复制为 app-update.yml。`));
+  }
+  issues.push(...validateUpdateConfiguration(appUpdateText).issues);
 
   if (mode === 'official') {
     if (!expectedTag) {
@@ -394,7 +422,7 @@ function sourceSnapshot(projectRoot, options) {
   const sourceResult = validateSourceConfiguration({
     packageJson,
     lockJson,
-    appUpdateText: '',
+    appUpdateText: fs.readFileSync(path.join(projectRoot, UPDATE_CONFIG_PATH), 'utf8'),
     mode: options.mode,
     expectedTag: options.expectedTag,
     iconHeaders: {
@@ -464,6 +492,13 @@ function verifyArtifact(projectRoot, options, source) {
       zipPath: path.relative(projectRoot, zipPath),
       manifestPath: path.relative(projectRoot, manifestPath),
     };
+  }
+
+  const packagedUpdateConfigPath = path.join(appPath, 'Contents', 'Resources', 'app-update.yml');
+  if (!requireRegularPath(packagedUpdateConfigPath, '打包后 app-update.yml', issues)) {
+    issues.push(issue('update.config.packaged', '打包后应用缺少 electron-updater 下载阶段所需的配置。'));
+  } else {
+    issues.push(...validateUpdateConfiguration(fs.readFileSync(packagedUpdateConfigPath, 'utf8')).issues);
   }
 
   const plistPath = path.join(appPath, 'Contents', 'Info.plist');
@@ -678,4 +713,5 @@ module.exports = {
   validateMacManifest,
   validatePackagedContents,
   validateSourceConfiguration,
+  validateUpdateConfiguration,
 };

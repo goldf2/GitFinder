@@ -117,6 +117,9 @@ class GitService {
       hasRemote: false,
       lastCommit: null,
       remoteUrl: '',
+      remoteUrlBackup: '',
+      remotes: [],
+      error: null,
       upstream: '',
       upstreamRemote: ''
     };
@@ -130,6 +133,8 @@ class GitService {
       this._throwIfGitResultCancelled(branchResult, signal);
       if (branchResult.success) {
         status.branch = branchResult.output;
+      } else {
+        status.error = branchResult.error || '读取 Git 分支失败';
       }
 
       const statusResult = await this._execGitAsync(repoPath, ['status', '--porcelain'], { timeout: 5000, trim: false, signal });
@@ -146,12 +151,19 @@ class GitService {
             status.modified++;
           }
         });
+      } else if (!status.error) {
+        status.error = statusResult.error || '读取 Git 工作区状态失败';
       }
 
-      const remoteResult = await this._execGitAsync(repoPath, ['remote'], { timeout: 5000, signal });
+      const remoteResult = await this._execGitAsync(repoPath, ['remote', '-v'], { timeout: 5000, signal });
       this._throwIfGitResultCancelled(remoteResult, signal);
       if (remoteResult.success && remoteResult.output) {
-        status.hasRemote = true;
+        status.remotes = remoteResult.output.split('\n').map(line => {
+          const [name = '', url = '', rawType = ''] = line.trim().split(/\s+/);
+          return { name, url, type: rawType.replace(/[()]/g, '') };
+        }).filter(remote => remote.name && remote.url);
+        const remoteNames = [...new Set(status.remotes.map(remote => remote.name))];
+        status.hasRemote = remoteNames.length > 0;
         const upstreamResult = await this._execGitAsync(
           repoPath,
           ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{upstream}'],
@@ -163,14 +175,13 @@ class GitService {
           status.upstreamRemote = upstreamResult.output.split('/')[0];
         }
 
-        const remoteName = status.upstreamRemote || remoteResult.output.split('\n')[0];
-        if (remoteName) {
-          const urlResult = await this._execGitAsync(repoPath, ['remote', 'get-url', remoteName], { timeout: 5000, signal });
-          this._throwIfGitResultCancelled(urlResult, signal);
-          if (urlResult.success) {
-            status.remoteUrl = urlResult.output;
-          }
-        }
+        const remoteName = status.upstreamRemote || remoteNames[0];
+        status.remoteUrl = status.remotes.find(remote => remote.name === remoteName && remote.type === 'fetch')?.url
+          || status.remotes.find(remote => remote.name === remoteName)?.url
+          || '';
+        status.remoteUrlBackup = status.remotes.find(remote => (
+          ['backup', 'github', 'gitlab'].includes(remote.name) && remote.type === 'fetch'
+        ))?.url || '';
       }
 
       if (status.hasRemote && status.branch && autoFetch) {
@@ -194,16 +205,17 @@ class GitService {
         }
       }
 
-      const logResult = await this._execGitAsync(repoPath, ['log', '-1', '--format=%h|%s|%at|%an'], { timeout: 5000, signal });
+      const logResult = await this._execGitAsync(repoPath, ['log', '-1', '--format=%h%x1f%s%x1f%at%x1f%an%x1f%aI'], { timeout: 5000, signal });
       this._throwIfGitResultCancelled(logResult, signal);
       if (logResult.success && logResult.output) {
-        const parts = logResult.output.split('|');
+        const parts = logResult.output.split('\x1f');
         if (parts.length >= 4) {
           status.lastCommit = {
             hash: parts[0],
             message: parts[1],
             timestamp: parseInt(parts[2]),
-            author: parts[3]
+            author: parts[3],
+            authoredAt: parts[4] || ''
           };
         }
       }

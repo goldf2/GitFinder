@@ -18,8 +18,15 @@ test('左侧项目区是快捷导航而不是项目分类或一级视图', () =>
   assert.match(controllerSource, /data-project-shortcut-all[\s\S]*?applyContentPreset\('all-projects'\)/);
   assert.match(html, /id="sidebar-navigation"[^>]*role="tablist"/);
   assert.match(html, /data-sidebar-navigation="projects"/);
+  assert.match(html, /data-sidebar-navigation="repositories"/);
   assert.match(html, /data-sidebar-navigation="directories"/);
+  assert.ok(html.indexOf('data-sidebar-navigation="projects"') < html.indexOf('data-sidebar-navigation="repositories"'));
+  assert.ok(html.indexOf('data-sidebar-navigation="repositories"') < html.indexOf('data-sidebar-navigation="directories"'));
+  assert.match(html, /id="repository-shortcuts-sidebar-section"[^>]+data-section-id="repositories"[^>]+hidden/);
   assert.match(controllerSource, /config\.get\('sidebarNavigationMode'\)/);
+  assert.match(controllerSource, /data-repository-shortcut-all[\s\S]*?applyContentPreset\('all-repositories'\)/);
+  assert.match(controllerSource, /data-repository-shortcut-path/);
+  assert.match(appSource, /id === 'projects' \|\| id === 'repositories'/);
   assert.match(appSource, /id !== 'board-components' && AppState\.sidebarCollapsedSections\.has\(id\)/);
   assert.match(css, /\.sidebar-section\[hidden\]\s*\{\s*display: none/);
 });
@@ -33,6 +40,10 @@ test('项目快捷入口显示固定与最近项目，进入目录仍使用统�
   assert.match(navigationSource, /recordProjectVisit\?\.\(path\)/);
   assert.match(css, /\.project-shortcut-row/);
   assert.match(css, /\.project-shortcut-pin/);
+  assert.match(controllerSource, /data-project-tree-toggle/);
+  assert.match(controllerSource, /project\.repositories/);
+  assert.match(controllerSource, /data-project-repository-path/);
+  assert.match(css, /\.project-tree-children/);
 });
 
 test('项目快捷偏好通过受限配置键保存且侧栏顺序位于目录之前', () => {

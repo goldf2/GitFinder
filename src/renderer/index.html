@@ -119,6 +119,7 @@
       <aside class="sidebar" id="sidebar">
         <div class="sidebar-navigation" id="sidebar-navigation" role="tablist" aria-label="侧栏导航">
           <button type="button" role="tab" id="sidebar-navigation-projects" data-sidebar-navigation="projects" aria-controls="project-shortcuts-sidebar-section" aria-selected="false" tabindex="-1">项目</button>
+          <button type="button" role="tab" id="sidebar-navigation-repositories" data-sidebar-navigation="repositories" aria-controls="repository-shortcuts-sidebar-section" aria-selected="false" tabindex="-1">Git 仓库</button>
           <button type="button" role="tab" id="sidebar-navigation-directories" data-sidebar-navigation="directories" aria-controls="locations-sidebar-section" aria-selected="true" tabindex="0">目录</button>
         </div>
         <div class="sidebar-section" id="project-shortcuts-sidebar-section" data-section-id="projects" role="tabpanel" aria-labelledby="sidebar-navigation-projects" hidden>
@@ -128,6 +129,15 @@
             <span class="sidebar-toggle" title="折叠/展开">▼</span>
           </div>
           <div id="project-shortcuts-list"></div>
+        </div>
+
+        <div class="sidebar-section" id="repository-shortcuts-sidebar-section" data-section-id="repositories" role="tabpanel" aria-labelledby="sidebar-navigation-repositories" hidden>
+          <div class="sidebar-title">
+            <span class="sidebar-drag-handle" title="拖拽排序">⋮⋮</span>
+            <span class="sidebar-title-text">Git 仓库</span>
+            <span class="sidebar-toggle" title="折叠/展开">▼</span>
+          </div>
+          <div id="repository-shortcuts-list"></div>
         </div>
 
         <div class="sidebar-section sidebar-tree-section" id="locations-sidebar-section" data-section-id="locations" role="tabpanel" aria-labelledby="sidebar-navigation-directories">
@@ -454,7 +464,8 @@
         <button class="status-work-cancel" id="repo-status-cancel" type="button">取消</button>
       </div>
       <div class="status-right" id="status-right">
-        <button class="status-update-btn" id="btn-check-update" title="检查更新">检查更新</button>
+        <span id="status-context"></span>
+        <button class="status-update-btn" id="btn-check-update" data-update-action="primary" title="检查更新">检查更新</button>
       </div>
     </footer>
   </div>
@@ -1303,6 +1314,7 @@
   <script src="scripts/projectShortcutsController.js"></script>
   <script src="scripts/directoryViewPreferences.js"></script>
   <script src="scripts/settingsNavigation.js"></script>
+  <script src="scripts/updateController.js"></script>
   <script src="scripts/directoryNavigationController.js"></script>
   <script src="scripts/sidebarTreeController.js"></script>
   <script src="scripts/repositoryRootScanner.js"></script>

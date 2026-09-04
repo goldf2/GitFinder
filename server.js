@@ -2,6 +2,9 @@ const express = require('express');
 const { execFileSync, execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const fileService = require('./src/main/services/fileService');
+const gitService = require('./src/main/services/gitService');
+const { toLegacyWebGitStatus } = require('./src/shared/webGitStatusAdapter');
 
 const app = express();
 const DEFAULT_PORT = 3001;
@@ -103,125 +106,28 @@ function scanGitRepos(basePath, depth = 1, excluded = []) {
   return repos;
 }
 
-function getGitStatus(repoPath, autoFetch = false) {
-  const status = {
-    name: path.basename(repoPath),
-    path: repoPath,
-    branch: '',
-    hasUncommitted: false,
-    hasUnpushed: false,
-    hasUnpulled: false,
-    aheadCount: 0,
-    behindCount: 0,
-    modifiedCount: 0,
-    stagedCount: 0,
-    untrackedCount: 0,
-    lastCommit: '',
-    lastCommitTime: '',
-    remoteUrl: '',
-    remoteUrlBackup: '',
-    remotes: [],
-    readme: '',
-    error: null
-  };
-
-  try {
-    const branchOutput = execSync('git rev-parse --abbrev-ref HEAD', { cwd: repoPath, encoding: 'utf-8', timeout: 5000 }).trim();
-    status.branch = branchOutput;
-
-    const remoteOutput = execSync('git remote get-url origin 2>/dev/null || echo "no remote"', { cwd: repoPath, encoding: 'utf-8', timeout: 5000 }).trim();
-    status.remoteUrl = remoteOutput !== 'no remote' ? remoteOutput : '';
-
-    const remoteBackupOutput = execSync('git remote get-url backup 2>/dev/null || git remote get-url github 2>/dev/null || git remote get-url gitlab 2>/dev/null || echo "no remote"', { cwd: repoPath, encoding: 'utf-8', timeout: 5000 }).trim();
-    status.remoteUrlBackup = remoteBackupOutput !== 'no remote' ? remoteBackupOutput : '';
-
-    const allRemotes = execSync('git remote -v', { cwd: repoPath, encoding: 'utf-8', timeout: 5000 }).trim();
-    const remoteLines = allRemotes.split('\n').filter(l => l.trim());
-    status.remotes = remoteLines.map(line => {
-      const parts = line.split(/\s+/);
-      return {
-        name: parts[0] || '',
-        url: parts[1] || '',
-        type: parts[2] ? parts[2].replace(/[()]/g, '') : ''
-      };
-    });
-
-    if (autoFetch) {
-      try {
-        execSync('git fetch origin', { cwd: repoPath, encoding: 'utf-8', timeout: 10000, stdio: ['ignore', 'ignore', 'ignore'] });
-      } catch {}
-    }
-
-    const aheadBehind = execSync('git rev-list --left-right --count HEAD...origin/HEAD 2>/dev/null || echo "0\t0"', { cwd: repoPath, encoding: 'utf-8', timeout: 5000 }).trim();
-    const [ahead, behind] = aheadBehind.split('\t').map(Number);
-    status.aheadCount = ahead;
-    status.behindCount = behind;
-
-    if (ahead > 0) status.hasUnpushed = true;
-    if (behind > 0) status.hasUnpulled = true;
-
-    const statusOutput = execSync('git status --porcelain', { cwd: repoPath, encoding: 'utf-8', timeout: 5000 });
-    const lines = statusOutput.trim().split('\n').filter(l => l.trim());
-
-    let modified = 0;
-    let staged = 0;
-    let untracked = 0;
-
-    for (const line of lines) {
-      const firstChar = line[0];
-      const secondChar = line[1];
-
-      if (firstChar === '?' && secondChar === '?') {
-        untracked++;
-      } else {
-        if (firstChar !== ' ') staged++;
-        if (secondChar !== ' ') modified++;
-      }
-    }
-
-    status.modifiedCount = modified;
-    status.stagedCount = staged;
-    status.untrackedCount = untracked;
-    status.hasUncommitted = modified > 0 || staged > 0 || untracked > 0;
-
+async function getWebGitStatuses(repoPaths, autoFetch = false) {
+  const requested = repoPaths.map(value => {
+    const repoPath = String(value || '');
+    return { repoPath, key: path.resolve(repoPath) };
+  });
+  const uniquePaths = [...new Set(requested.map(item => item.key))];
+  const results = [];
+  for (let offset = 0; offset < uniquePaths.length; offset += 1000) {
+    const chunk = uniquePaths.slice(offset, offset + 1000);
     try {
-      const logOutput = execSync('git log -1 --format="%h - %s%n%ad" --date=iso', { cwd: repoPath, encoding: 'utf-8', timeout: 5000 }).trim();
-      const parts = logOutput.split('\n');
-      if (parts.length >= 2) {
-        status.lastCommit = parts[0];
-        status.lastCommitTime = parts[1];
-      }
-    } catch {}
-
-    try {
-      const readmeFiles = ['README.md', 'readme.md', 'README', 'Readme.md'];
-      for (const file of readmeFiles) {
-        const readmePath = path.join(repoPath, file);
-        if (fs.existsSync(readmePath)) {
-          const content = fs.readFileSync(readmePath, 'utf-8');
-          const lines = content.split('\n');
-          const title = lines[0]?.replace(/^#+\s*/, '').trim() || '';
-          let description = '';
-          for (let i = 1; i < lines.length && description.length < 200; i++) {
-            const line = lines[i].trim();
-            if (line && !line.startsWith('#')) {
-              description += line + ' ';
-            }
-          }
-          status.readme = {
-            title: title,
-            description: description.trim().substring(0, 200)
-          };
-          break;
-        }
-      }
-    } catch {}
-
-  } catch (err) {
-    status.error = err.message || '获取状态失败';
+      results.push(...await gitService.batchStatus(chunk, { autoFetch: Boolean(autoFetch), forceRefresh: true }));
+    } catch (error) {
+      results.push(...chunk.map(repoPath => ({ path: repoPath, status: { isGitRepo: false }, error: error.message })));
+    }
   }
-
-  return status;
+  const resultByPath = new Map(results.map(result => [path.resolve(result.path), result]));
+  const statusByPath = new Map(uniquePaths.map(repoPath => [repoPath, toLegacyWebGitStatus(
+    repoPath,
+    resultByPath.get(repoPath),
+    fileService.getReadmePreview(repoPath)
+  )]));
+  return requested.map(({ repoPath, key }) => ({ ...statusByPath.get(key), name: path.basename(repoPath), path: repoPath }));
 }
 
 app.get('/api/default-path', (req, res) => {
@@ -249,7 +155,7 @@ app.get('/api/cache', (req, res) => {
   });
 });
 
-app.post('/api/status', (req, res) => {
+app.post('/api/status', async (req, res) => {
   const { path, depth, excluded, autoFetch } = req.body;
   if (!path) {
     return res.status(400).json({ error: '路径不能为空' });
@@ -258,7 +164,7 @@ app.post('/api/status', (req, res) => {
   const scanDepth = parseInt(depth) || 1;
   const excludedList = excluded || [];
   const repos = scanGitRepos(path, scanDepth, excludedList);
-  const statuses = repos.map(repo => getGitStatus(repo.path, autoFetch));
+  const statuses = await getWebGitStatuses(repos.map(repo => repo.path), autoFetch);
 
   const result = {
     total: statuses.length,
@@ -271,13 +177,13 @@ app.post('/api/status', (req, res) => {
   res.json(result);
 });
 
-app.post('/api/refresh', (req, res) => {
+app.post('/api/refresh', async (req, res) => {
   const { paths, autoFetch } = req.body;
   if (!paths || !Array.isArray(paths)) {
     return res.status(400).json({ error: '路径列表不能为空' });
   }
 
-  const statuses = paths.map(path => getGitStatus(path, autoFetch));
+  const statuses = await getWebGitStatuses(paths, autoFetch);
   res.json({ statuses });
 });
 

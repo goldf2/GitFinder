@@ -11,7 +11,14 @@ const {
   validateMacManifest,
   validatePackagedContents,
   validateSourceConfiguration,
+  validateUpdateConfiguration,
 } = require('../scripts/verify-release');
+
+const validAppUpdateText = `provider: generic
+url: https://oaktechz.com/releases/gitfinder-2/alpha/
+channel: latest
+updaterCacheDirName: gitfinder-2-updater
+`;
 
 function validSource(overrides = {}) {
   return {
@@ -31,6 +38,7 @@ function validSource(overrides = {}) {
           loadBrowserProcessSpecificV8Snapshot: false,
           grantFileProtocolExtraPrivileges: true,
         },
+        extraResources: [{ from: 'resources/app-update.yml', to: 'app-update.yml' }],
         mac: {
           icon: 'public/icon.icns',
           target: ['dmg', 'zip'],
@@ -43,7 +51,7 @@ function validSource(overrides = {}) {
       version: '2.0.0-alpha.1',
       packages: { '': { version: '2.0.0-alpha.1' } },
     },
-    appUpdateText: '',
+    appUpdateText: validAppUpdateText,
     mode: 'official',
     expectedTag: 'v2.0.0-alpha.1',
     iconHeaders: {
@@ -107,6 +115,15 @@ test('应用自有 Panel 会话构建不得启用会访问系统钥匙串的 Coo
   source.packageJson.build.electronFuses.enableCookieEncryption = true;
   const result = validateSourceConfiguration(source);
   assert.deepEqual(result.issues.map((entry) => entry.code), ['fuses.config']);
+});
+
+test('更新配置固定读取 OakTech Alpha 目录并提供下载缓存目录', () => {
+  assert.deepEqual(validateUpdateConfiguration(validAppUpdateText).issues, []);
+  assert.deepEqual(
+    validateUpdateConfiguration(validAppUpdateText.replace('https://oaktechz.com/', 'https://example.test/')).issues
+      .map((entry) => entry.code),
+    ['update.config'],
+  );
 });
 
 test('产物门禁要求危险 Electron 入口关闭且 ASAR 校验开启', () => {
@@ -264,7 +281,7 @@ test('正式发布拒绝调试 get-task-allow 权限', () => {
   assert.equal(result.eligibleForDistribution, false);
 });
 
-test('Alpha 验证工作流只手动构建并且不继承 1.x 发布目标', () => {
+test('Alpha 工作流构建双平台产物并只推送 OakTech 草稿', () => {
   const projectRoot = path.resolve(__dirname, '..');
   const workflow = fs.readFileSync(path.join(projectRoot, '.github/workflows/release.yml'), 'utf8');
   const buildScript = fs.readFileSync(path.join(projectRoot, 'scripts/build-mac.sh'), 'utf8');
@@ -276,10 +293,13 @@ test('Alpha 验证工作流只手动构建并且不继承 1.x 发布目标', () 
   assert.match(workflow, /run: npm run check/);
   assert.match(workflow, /run: npm run pack/);
   assert.match(workflow, /dist\/release-verification\.json/);
+  assert.match(workflow, /push-store-draft:/);
+  assert.match(workflow, /release:push-draft/);
+  assert.match(workflow, /environment: oaktech-release/);
   assert.doesNotMatch(workflow, /softprops\/action-gh-release/);
 
   assert.match(buildScript, /node scripts\/package-mac\.js/);
-  assert.doesNotMatch(packageScript, /app-update\.yml/);
+  assert.match(packageScript, /resources.*app-update\.yml/);
   assert.match(packageScript, /continueOnError:\s*false/);
   assert.match(packageScript, /keychainProfile:\s*environment\.GITFINDER_NOTARY_KEYCHAIN_PROFILE/);
   assert.match(buildScript, /--phase artifact/);
@@ -287,10 +307,13 @@ test('Alpha 验证工作流只手动构建并且不继承 1.x 发布目标', () 
   assert.match(packageScript, /FuseV1Options\.EnableEmbeddedAsarIntegrityValidation/);
   assert.match(packageScript, /\.github\|\\\.trae\|test\|docs/);
   assert.doesNotMatch(packageScript, /appleIdPassword/);
-  assert.equal(fs.existsSync(path.join(projectRoot, 'resources/app-update.yml')), false);
+  assert.equal(fs.readFileSync(path.join(projectRoot, 'resources/app-update.yml'), 'utf8'), validAppUpdateText);
   assert.equal(packageJson.productName, 'GitFinder 2 Alpha');
   assert.equal(packageJson.build.appId, 'com.gitfinder.app.v2');
   assert.equal(packageJson.build.publish, undefined);
+  assert.deepEqual(packageJson.build.extraResources, [
+    { from: 'resources/app-update.yml', to: 'app-update.yml' },
+  ]);
   assert.equal(packageJson.scripts.publish, undefined);
   assert.equal(packageJson.scripts['dist:builder'], undefined);
 });

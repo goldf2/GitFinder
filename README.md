@@ -37,6 +37,7 @@ GitFinder 2.0 的定位是“本地开发与部署管理中心”。它是与 Gi
 
 ## 文档入口
 
+- [系统架构与技术栈](./ARCHITECTURE.md)
 - [领域上下文](./CONTEXT.md)
 - [ADR-0001：2.0 独立架构与复用边界](./docs/adr/0001-independent-architecture.md)
 - [ADR-0002：Panel 动态拓扑与仓库稳定身份](./docs/adr/0002-panel-topology-and-repository-identity.md)
@@ -53,3 +54,11 @@ GitFinder 2.0 的定位是“本地开发与部署管理中心”。它是与 Gi
 - [2.0.0-alpha.7 可编辑关系与自动发现边界](./docs/verification/2.0.0-alpha.7-editable-relationships.md)
 - [2.0.0-alpha.8 关系属性栏视口修复](./docs/verification/2.0.0-alpha.8-relationship-inspector-viewport.md)
 - [2.0.0-alpha.9 白板文件与缺失资源保留](./docs/verification/2.0.0-alpha.9-board-files-and-missing-resources.md)
+
+## 架构与发布
+
+- [在线更新行为与发布说明](./docs/online-update-publishing.md)
+- [App 与商店版本同步协议](./docs/release-control-plane.md)
+- [构建、发布与商店推送工作流](./docs/build-publish-workflow.md)
+- [统一认证技术栈决策](./docs/adr/0011-shared-authentication-stack-with-optional-account-sharing.md)
+- [数据平台策略](./docs/data-platform-strategy.md)

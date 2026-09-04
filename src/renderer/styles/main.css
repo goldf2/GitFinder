@@ -847,6 +847,22 @@ body {
   color: var(--status-clean, #2da44e);
 }
 
+.status-update-btn[data-update-tone="error"] {
+  color: var(--status-dirty);
+}
+
+.status-update-btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.status-update-btn:disabled {
+  cursor: default;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .status-update-btn:active:not(:disabled) { transform: none; }
+}
+
 .btn {
   padding: 6px 14px;
   border: 1px solid var(--border-color);

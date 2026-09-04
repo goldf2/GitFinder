@@ -1,13 +1,39 @@
-name: GitFinder 2 Alpha verification
+name: GitFinder 2 - build and push store draft
 
 on:
   workflow_dispatch:
+    inputs:
+      expected_version:
+        description: Version that must match package.json
+        required: true
+        type: string
+      title_en:
+        description: English release title
+        required: true
+        type: string
+      title_zh:
+        description: Chinese release title
+        required: true
+        type: string
+      notes_en:
+        description: English release notes
+        required: true
+        type: string
+      notes_zh:
+        description: Chinese release notes
+        required: true
+        type: string
+      push_to_store:
+        description: Upload verified artifacts to an OakTech draft
+        required: true
+        default: true
+        type: boolean
 
 permissions:
   contents: read
 
 concurrency:
-  group: gitfinder-2-alpha-${{ github.ref }}
+  group: gitfinder-2-alpha-${{ inputs.expected_version }}
   cancel-in-progress: false
 
 jobs:
@@ -24,6 +50,10 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
+      - name: Confirm requested version
+        env:
+          EXPECTED_VERSION: ${{ inputs.expected_version }}
+        run: test "$(node -p "require('./package.json').version")" = "$EXPECTED_VERSION"
       - name: Test source
         run: npm run check
       - name: Build ad-hoc Alpha
@@ -35,7 +65,9 @@ jobs:
           if-no-files-found: error
           path: |
             dist/GitFinder-2-*-arm64-mac.zip
+            dist/latest-mac.yml
             dist/release-verification.json
+          retention-days: 14
 
   windows:
     name: Verify Windows x64 Alpha
@@ -50,6 +82,14 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
+      - name: Confirm requested version
+        shell: pwsh
+        env:
+          EXPECTED_VERSION: ${{ inputs.expected_version }}
+        run: |
+          if ((node -p "require('./package.json').version") -ne $env:EXPECTED_VERSION) {
+            throw 'package.json version does not match the requested release version.'
+          }
       - name: Test source
         run: npm run check
       - name: Build NSIS and ZIP on Windows
@@ -78,8 +118,54 @@ jobs:
           if-no-files-found: error
           path: |
             dist/GitFinder-2-*-x64-win-setup.exe
+            dist/GitFinder-2-*-x64-win-setup.exe.blockmap
             dist/GitFinder-2-*-x64-win.zip
+            dist/latest.yml
             dist/SHA256SUMS-windows.txt
             dist/windows-release-metadata.json
             dist/windows-runtime-verification.json
             dist/windows-install-verification.json
+          retention-days: 14
+
+  push-store-draft:
+    name: Push verified artifacts to OakTech draft
+    if: ${{ inputs.push_to_store }}
+    needs: [macos, windows]
+    runs-on: ubuntu-latest
+    environment: oaktech-release
+    steps:
+      - name: Checkout release scripts
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Download platform artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: GitFinder-2-*-alpha
+          path: release-bundle
+          merge-multiple: true
+      - name: Create immutable release descriptor
+        env:
+          RELEASE_TITLE_EN: ${{ inputs.title_en }}
+          RELEASE_TITLE_ZH: ${{ inputs.title_zh }}
+          RELEASE_NOTES_EN: ${{ inputs.notes_en }}
+          RELEASE_NOTES_ZH: ${{ inputs.notes_zh }}
+        run: >-
+          node scripts/create-store-release.js
+          --artifacts-dir release-bundle
+          --output release-bundle/store-release.json
+          --channel alpha
+          --source-commit "${{ github.sha }}"
+      - name: Upload or resume OakTech release draft
+        env:
+          OAKTECH_RELEASE_BASE_URL: ${{ vars.OAKTECH_RELEASE_BASE_URL || 'https://oaktechz.com' }}
+          OAKTECH_RELEASE_WRITE_TOKEN: ${{ secrets.OAKTECH_RELEASE_WRITE_TOKEN }}
+        run: npm run release:push-draft -- --descriptor release-bundle/store-release.json
+      - name: Retain release descriptor
+        uses: actions/upload-artifact@v4
+        with:
+          name: GitFinder-2-store-release-${{ inputs.expected_version }}
+          path: release-bundle/store-release.json
+          retention-days: 30

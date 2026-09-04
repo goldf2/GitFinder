@@ -138,6 +138,7 @@ const App = {
   directoryBatchRenderer: null,
   directoryVirtualizer: null,
   galleryThumbnailLoader: null,
+  updaterController: null,
 
   async init() {
     try {
@@ -168,6 +169,11 @@ const App = {
       document,
       terminal: typeof Terminal !== 'undefined' ? Terminal : null
     }));
+    this.updaterController = new window.UpdateController.Controller({
+      bridge: window.gitFinder,
+      document,
+      onStatusMessage: (message, tone) => this._showStatusMessage(message, tone),
+    });
     this.setupEventListeners();
     // 初始化内嵌终端
     if (typeof Terminal !== 'undefined') {
@@ -208,10 +214,10 @@ const App = {
     await this.loadWorkspaceTabs();
     this.updateSearchScopeUI();
     await this.loadSidebarData();
-    await this.loadProjectShortcuts();
     // 先加载持久化的仓库列表(避免启动时重新扫描)
     // 必须在 loadGroups 之前,否则侧边栏分类计数会显示为 0
     await this.loadPersistedRepos();
+    await this.loadProjectShortcuts();
     await this.loadGroups();
     await this.loadTags();
     await this.smartCollectionsController.load();
@@ -479,6 +485,8 @@ const App = {
       if (action === 'close-tab') this.closeWorkspaceTab();
       if (action === 'open-go-to-folder') this.openGoToFolderDialog();
       if (action === 'open-settings') this.openSettingsPage();
+      if (action === 'check-for-updates') this.updaterController.check();
+      if (action === 'open-update-settings') this.openSettingsPage('settings-updates');
       if (action === 'open-file-history') this.fileOperationHistoryController.open();
       if (action === 'show-file-info') this.openSelectedFileInfo();
       if (action === 'open-terminal') this.openSelectedInTerminal();
@@ -568,8 +576,8 @@ const App = {
 
     document.getElementById('btn-theme')?.addEventListener('click', () => this.openThemeSettings());
 
-    // 检查更新
-    this._setupUpdater();
+    // 软件更新控制器同时服务状态栏、设置页与应用菜单。
+    this.updaterController.setup();
 
     // 外观模式选择(浅色/深色/跟随系统)
     document.querySelectorAll('.theme-card[data-mode]').forEach(card => {
@@ -1111,6 +1119,8 @@ const App = {
           </div>
         </section>
 
+        ${this.updaterController.settingsMarkup()}
+
         ${this.panelDeploymentController.settingsMarkup(panelConnections)}
 
         <section class="app-settings-section" id="settings-developer-tools" role="tabpanel" aria-labelledby="settings-navigation-developer-tools">
@@ -1188,6 +1198,7 @@ const App = {
     updateProjectShortcutSettingsAvailability();
 
     this.bindSemanticColorSettings();
+    this.updaterController.render();
 
     await this.hydrateDeveloperToolSettings();
     this.updateStatusBar();
@@ -1680,97 +1691,6 @@ const App = {
         ? '列表'
         : (effectiveStyle === 'column' ? '分栏' : (effectiveStyle === 'gallery' ? '图库' : '图标'));
       sortLabel.textContent = `${sortLabels[AppState.sortBy] || '名称'} · ${direction} · ${style}`;
-    }
-  },
-
-  // ============ 自动升级 ============
-
-  async _setupUpdater() {
-    const versionEl = document.getElementById('app-version');
-    const btn = document.getElementById('btn-check-update');
-    if (!btn || !versionEl) return;
-
-    // 显示当前版本
-    try {
-      const version = await window.gitFinder.app.getVersion();
-      versionEl.textContent = `v${version}`;
-    } catch (e) {
-      versionEl.textContent = 'v-';
-    }
-
-    // 点击版本号也触发检查
-    versionEl.addEventListener('click', () => this._checkForUpdates());
-    btn.addEventListener('click', () => this._checkForUpdates());
-
-    // 监听主进程的更新事件
-    window.gitFinder.updater.onAvailable((info) => {
-      btn.classList.remove('checking');
-      btn.classList.add('has-update');
-      btn.textContent = `新版本 ${info?.version || ''}`.trim();
-      this._showStatusMessage('发现新版本，可按提示下载更新', 'info');
-    });
-
-    window.gitFinder.updater.onUpToDate(() => {
-      btn.classList.remove('checking');
-      btn.textContent = '已是最新';
-      setTimeout(() => { btn.textContent = '检查更新'; }, 3000);
-    });
-
-    window.gitFinder.updater.onDownloading(() => {
-      btn.classList.remove('checking');
-      btn.classList.add('has-update');
-      btn.textContent = '下载中...';
-    });
-
-    window.gitFinder.updater.onProgress((data) => {
-      btn.textContent = `下载中 ${Math.round(data.percent)}%`;
-    });
-
-    window.gitFinder.updater.onDownloaded(() => {
-      btn.classList.remove('checking');
-      btn.classList.add('has-update', 'ready-install');
-      btn.textContent = '重启安装';
-      btn.title = '更新已下载，点击重启并安装';
-    });
-
-    window.gitFinder.updater.onError((msg) => {
-      btn.classList.remove('checking', 'has-update', 'ready-install');
-      btn.textContent = '检查更新';
-      btn.title = '检查更新';
-      this._showStatusMessage(`更新失败: ${msg}`, 'error');
-    });
-  },
-
-  async _checkForUpdates() {
-    const btn = document.getElementById('btn-check-update');
-    if (!btn) return;
-    if (btn.classList.contains('ready-install')) {
-      await window.gitFinder.updater.install();
-      return;
-    }
-    btn.classList.add('checking');
-    btn.classList.remove('ready-install');
-    btn.title = '检查更新';
-    btn.textContent = '检查中...';
-    try {
-      const result = await window.gitFinder.updater.check();
-      btn.classList.remove('checking');
-      if (result.available) {
-        btn.classList.add('has-update');
-        btn.textContent = `新版本 ${result.version}`;
-      } else if (result.reason === 'development') {
-        btn.textContent = '开发模式';
-        setTimeout(() => { btn.textContent = '检查更新'; }, 2000);
-      } else if (result.error) {
-        btn.textContent = '检查更新';
-        this._showStatusMessage(`检查更新失败: ${result.error}`, 'error');
-      } else {
-        btn.textContent = '已是最新';
-        setTimeout(() => { btn.textContent = '检查更新'; }, 3000);
-      }
-    } catch (e) {
-      btn.classList.remove('checking');
-      btn.textContent = '检查更新';
     }
   },
 
@@ -2829,7 +2749,7 @@ const App = {
     for (const section of defaultSections) {
       const id = section.dataset.sectionId;
       if (resolvedOrder.includes(id)) continue;
-      if (id === 'projects') {
+      if (id === 'projects' || id === 'repositories') {
         const locationsIndex = resolvedOrder.indexOf('locations');
         const insertAt = locationsIndex >= 0 ? locationsIndex : resolvedOrder.length;
         resolvedOrder.splice(insertAt, 0, id);
@@ -3726,6 +3646,7 @@ const App = {
       AppState.allRepos = repos;
       AppState.enrichedRepos = [];
       AppState.repoEnrichmentComplete = false;
+      this.renderProjectShortcuts();
       AppState.groups = await window.gitFinder.groups.get();
       this.renderSidebarGroups();
       if (this.contentCollectionKind() === 'repositories') await this.renderGridView(false);
@@ -4549,6 +4470,7 @@ const App = {
       if (scan.complete) AppState.reposLastScan = now;
       AppState.enrichedRepos = [];
       AppState.repoEnrichmentComplete = false;
+      this.renderProjectShortcuts();
       if (scan.complete) {
         try {
           await window.gitFinder.repos.set(repos, now);
@@ -4735,6 +4657,7 @@ const App = {
     if (scan.complete) AppState.reposLastScan = Date.now();
     AppState.enrichedRepos = [];
     AppState.repoEnrichmentComplete = false;
+    this.renderProjectShortcuts();
     if (scan.complete) {
       try {
         await window.gitFinder.repos.set(scan.repos, AppState.reposLastScan);
@@ -7566,7 +7489,7 @@ const App = {
 
   updateStatusBar() {
     const left = document.getElementById('status-left');
-    const right = document.getElementById('status-right');
+    const right = document.getElementById('status-context');
 
     let leftText = '';
     let rightText = '';

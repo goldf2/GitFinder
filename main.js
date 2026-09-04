@@ -14,7 +14,7 @@ if (process.platform === 'darwin') {
   }
 }
 
-const { app, BrowserWindow, ipcMain, dialog, Menu, crashReporter } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Menu, Notification, crashReporter } = require('electron');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -30,10 +30,15 @@ const { registerConfigIPC } = require('./src/main/ipc/config');
 const { registerPanelIPC } = require('./src/main/ipc/panel');
 const { registerTerminalHandlers } = require('./src/main/ipc/terminal');
 const { registerTrustedHandler } = require('./src/main/ipc/security');
+const configService = require('./src/main/services/configService');
 const {
   createDetachedTabContext,
   primaryWindowContext
 } = require('./src/main/services/workspaceWindowService');
+const {
+  createUpdateService,
+  resolveUpdateConfiguration,
+} = require('./src/main/services/updateService');
 
 // GitFinder 的文件管理与关系白板不依赖 GPU。Windows 虚拟机的虚拟显卡驱动
 // 可能在 Electron 创建首个窗口前终止 GPU 进程，因此 Windows 默认使用软件渲染。
@@ -48,11 +53,11 @@ crashReporter.start({
   compress: false
 });
 
-// 自动升级:开发模式下 require 会被跳过(electron-updater 在 asar 打包后才生效)
+// 自动升级仅在打包应用内启用，开发模式不请求远程发布源。
 const isDev = !app.isPackaged;
+const updateConfiguration = resolveUpdateConfiguration({ isPackaged: app.isPackaged });
 let autoUpdater = null;
-const updateEnabled = !isDev && process.env.GITFINDER_2_UPDATE_ENABLED === '1';
-if (updateEnabled) {
+if (updateConfiguration.enabled) {
   try {
     autoUpdater = require('electron-updater').autoUpdater;
   } catch (e) {
@@ -61,6 +66,16 @@ if (updateEnabled) {
 }
 
 let mainWindow = null;
+const updateService = createUpdateService({
+  app,
+  autoUpdater,
+  configuration: updateConfiguration,
+  dialog,
+  Notification,
+  getMainWindow: () => mainWindow,
+  getAutomaticChecks: () => configService.get('automaticUpdateChecks') !== false,
+  setAutomaticChecks: enabled => configService.set('automaticUpdateChecks', enabled),
+});
 const windowContexts = new Map();
 const startupLogPath = path.join(os.tmpdir(), 'gitfinder-2-startup.log');
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
@@ -91,22 +106,6 @@ function writeStartupError(source, error) {
 process.on('uncaughtException', error => writeStartupError('uncaughtException', error));
 process.on('unhandledRejection', error => writeStartupError('unhandledRejection', error));
 app.on('child-process-gone', (_event, details) => writeStartupError('child-process-gone', details));
-
-function isNewerVersion(candidate, current) {
-  const normalize = (version) => String(version || '')
-    .replace(/^v/, '')
-    .split('-')[0]
-    .split('.')
-    .map(part => Number.parseInt(part, 10) || 0);
-  const next = normalize(candidate);
-  const installed = normalize(current);
-  const length = Math.max(next.length, installed.length);
-  for (let i = 0; i < length; i++) {
-    if ((next[i] || 0) > (installed[i] || 0)) return true;
-    if ((next[i] || 0) < (installed[i] || 0)) return false;
-  }
-  return false;
-}
 
 function createWindow(options = {}) {
   const windowContext = options.windowContext || primaryWindowContext();
@@ -184,11 +183,16 @@ function setupApplicationMenu() {
     registerAccelerator: false,
     click: () => sendShortcut('open-settings')
   });
+  const updateItem = () => ({
+    label: '检查更新…',
+    click: () => sendShortcut('check-for-updates')
+  });
   const template = [
     ...(process.platform === 'darwin' ? [{
       label: app.name,
       submenu: [
         { role: 'about' },
+        updateItem(),
         { type: 'separator' },
         settingsItem(),
         { type: 'separator' },
@@ -269,111 +273,19 @@ function setupApplicationMenu() {
         { role: 'togglefullscreen', label: '进入全屏幕' }
       ]
     },
+    ...(process.platform === 'darwin' ? [] : [{
+      label: '帮助',
+      submenu: [updateItem(), { type: 'separator' }, { role: 'about', label: '关于 GitFinder 2' }]
+    }]),
     { role: 'windowMenu', label: '窗口' }
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
-// ============ 自动升级 ============
-
-function setupAutoUpdater() {
-  if (!autoUpdater || isDev) return;
-
-  // 配置:不自动下载,用户确认后再下载
-  autoUpdater.autoDownload = false;
-  autoUpdater.autoInstallOnAppQuit = true;
-
-  autoUpdater.on('update-available', (info) => {
-    if (!mainWindow) return;
-    const version = info.version || '新版本';
-    mainWindow.webContents.send('updater:available', {
-      version,
-      releaseNotes: info.releaseNotes || null,
-      releaseDate: info.releaseDate || null
-    });
-    dialog.showMessageBox(mainWindow, {
-      type: 'info',
-      title: '发现新版本',
-      message: `发现新版本 ${version}`,
-      detail: '是否立即下载更新?',
-      buttons: ['下载更新', '稍后'],
-      defaultId: 0,
-      cancelId: 1
-    }).then(({ response }) => {
-      if (response === 0) {
-        autoUpdater.downloadUpdate();
-        // 通知前端显示下载中状态
-        mainWindow?.webContents.send('updater:downloading');
-      }
-    });
-  });
-
-  autoUpdater.on('update-not-available', () => {
-    if (!mainWindow) return;
-    mainWindow.webContents.send('updater:up-to-date');
-  });
-
-  autoUpdater.on('update-downloaded', () => {
-    if (!mainWindow) return;
-    mainWindow.webContents.send('updater:downloaded');
-    dialog.showMessageBox(mainWindow, {
-      type: 'info',
-      title: '更新已下载',
-      message: '更新已下载完成',
-      detail: '是否立即重启应用以应用更新?',
-      buttons: ['立即重启', '下次启动时安装'],
-      defaultId: 0,
-      cancelId: 1
-    }).then(({ response }) => {
-      if (response === 0) {
-        autoUpdater.quitAndInstall();
-      }
-    });
-  });
-
-  autoUpdater.on('download-progress', (progress) => {
-    if (!mainWindow) return;
-    mainWindow.webContents.send('updater:progress', {
-      percent: progress.percent,
-      transferred: progress.transferred,
-      total: progress.total
-    });
-  });
-
-  autoUpdater.on('error', (err) => {
-    console.error('自动升级错误:', err);
-    if (!mainWindow) return;
-    mainWindow.webContents.send('updater:error', err?.message || String(err));
-  });
-
-  // 启动后 10 秒检查更新(避免阻塞启动)
-  setTimeout(() => {
-    autoUpdater.checkForUpdates().catch(err => {
-      console.warn('检查更新失败:', err?.message || err);
-    });
-  }, 10000);
-}
-
 // IPC:手动检查更新
-registerTrustedHandler('updater:check', async () => {
-  if (!autoUpdater || isDev) {
-    return { available: false, reason: 'development' };
-  }
-  try {
-    const result = await autoUpdater.checkForUpdates();
-    const updateInfo = result?.updateInfo;
-    const available = isNewerVersion(updateInfo?.version, app.getVersion());
-    return {
-      available,
-      currentVersion: app.getVersion(),
-      version: updateInfo?.version || null,
-      releaseNotes: updateInfo?.releaseNotes || null,
-      releaseDate: updateInfo?.releaseDate || null
-    };
-  } catch (err) {
-    return { available: false, error: err?.message || String(err) };
-  }
-});
+registerTrustedHandler('updater:get-status', () => updateService.status());
+registerTrustedHandler('updater:check', () => updateService.checkForUpdates());
+registerTrustedHandler('updater:set-automatic-checks', (_event, enabled) => updateService.setAutomaticChecks(enabled));
 
 // IPC:获取当前版本
 registerTrustedHandler('app:get-version', () => {
@@ -412,18 +324,10 @@ registerTrustedHandler('app:perform-native-edit', (event, action) => {
 });
 
 // IPC:下载更新
-registerTrustedHandler('updater:download', () => {
-  if (!autoUpdater || isDev) return false;
-  autoUpdater.downloadUpdate();
-  return true;
-});
+registerTrustedHandler('updater:download', () => updateService.downloadUpdate());
 
 // IPC:退出并安装
-registerTrustedHandler('updater:install', () => {
-  if (!autoUpdater || isDev) return false;
-  autoUpdater.quitAndInstall();
-  return true;
-});
+registerTrustedHandler('updater:install', () => updateService.installUpdate());
 
 app.whenReady().then(() => {
   if (!hasSingleInstanceLock) return;
@@ -446,7 +350,7 @@ app.whenReady().then(() => {
 
   setupApplicationMenu();
   createWindow({ primary: true });
-  setupAutoUpdater();
+  updateService.setup();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

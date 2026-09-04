@@ -101,23 +101,12 @@ cd "${APP_DIR}"
 ditto -c -k --keepParent "${APP_NAME}.app" "../${ZIP_NAME}"
 cd - > /dev/null
 
-# 生成 sha512 和大小
+# 生成 electron-updater 所需的统一更新清单
 echo "[6/8] 生成升级元数据..."
-# electron-updater 的 latest-mac.yml 要求 Base64 编码的 SHA-512
-SHA512=$(openssl dgst -sha512 -binary "${ZIP_PATH}" | openssl base64 -A)
-SIZE=$(stat -f%z "${ZIP_PATH}")
-NOW=$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")
-
-cat > "${DIST_DIR}/latest-mac.yml" << EOF
-version: ${VERSION}
-files:
-  - url: ${ZIP_NAME}
-    sha512: ${SHA512}
-    size: ${SIZE}
-path: ${ZIP_NAME}
-sha512: ${SHA512}
-releaseDate: '${NOW}'
-EOF
+node scripts/generate-update-manifest.js \
+  --version "${VERSION}" \
+  --artifact "${ZIP_PATH}" \
+  --output "${DIST_DIR}/latest-mac.yml"
 
 echo "[7/8] 验证发布产物..."
 ARTIFACT_GATE_ARGS=(

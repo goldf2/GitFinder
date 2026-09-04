@@ -1250,6 +1250,7 @@ body.file-drag-active.file-drag-copy {
 .app-settings-navigation-item[data-settings-section="settings-browsing"] { --settings-navigation-accent: #3b82d0; }
 .app-settings-navigation-item[data-settings-section="settings-sidebar"] { --settings-navigation-accent: #738294; }
 .app-settings-navigation-item[data-settings-section="settings-appearance"] { --settings-navigation-accent: #7c68c7; }
+.app-settings-navigation-item[data-settings-section="settings-updates"] { --settings-navigation-accent: #2f9b73; }
 .app-settings-navigation-item[data-settings-section="settings-panel-provider"] { --settings-navigation-accent: #3d91ad; }
 .app-settings-navigation-item[data-settings-section="settings-developer-tools"] { --settings-navigation-accent: #bd7844; }
 .app-settings-navigation-item[data-settings-section="settings-projects"] { --settings-navigation-accent: #6679c8; }
@@ -1348,6 +1349,28 @@ body.file-drag-active.file-drag-copy {
 
 .app-settings-row + .app-settings-row {
   border-top: 1px solid var(--border-light);
+}
+
+.software-update-row .btn {
+  min-width: 126px;
+}
+
+.software-update-row .btn[data-update-tone="has-update"],
+.software-update-row .btn[data-update-tone="ready-install"] {
+  border-color: var(--status-clean);
+  background: var(--status-clean);
+  color: #fff;
+}
+
+.software-update-row .btn[data-update-tone="error"] {
+  border-color: color-mix(in srgb, var(--status-dirty) 45%, var(--border-color));
+  color: var(--status-dirty);
+}
+
+.software-update-policy {
+  justify-self: end;
+  color: var(--text-tertiary);
+  font-size: 11px;
 }
 
 .semantic-color-editor {

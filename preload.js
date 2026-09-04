@@ -238,7 +238,9 @@ contextBridge.exposeInMainWorld('gitFinder', {
   },
 
   updater: {
+    getStatus: () => ipcRenderer.invoke('updater:get-status'),
     check: () => ipcRenderer.invoke('updater:check'),
+    setAutomaticChecks: (enabled) => ipcRenderer.invoke('updater:set-automatic-checks', enabled),
     download: () => ipcRenderer.invoke('updater:download'),
     install: () => ipcRenderer.invoke('updater:install'),
     onAvailable: (cb) => ipcRenderer.on('updater:available', (_e, data) => cb(data)),
@@ -246,7 +248,8 @@ contextBridge.exposeInMainWorld('gitFinder', {
     onProgress: (cb) => ipcRenderer.on('updater:progress', (_e, data) => cb(data)),
     onDownloaded: (cb) => ipcRenderer.on('updater:downloaded', cb),
     onUpToDate: (cb) => ipcRenderer.on('updater:up-to-date', cb),
-    onError: (cb) => ipcRenderer.on('updater:error', (_e, msg) => cb(msg))
+    onError: (cb) => ipcRenderer.on('updater:error', (_e, msg) => cb(msg)),
+    onPolicyChanged: (cb) => ipcRenderer.on('updater:policy-changed', (_e, data) => cb(data))
   },
 
   app: {

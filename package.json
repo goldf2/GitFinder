@@ -1,6 +1,6 @@
 {
   "name": "gitfinder-2",
-  "version": "2.0.0-alpha.84",
+  "version": "2.0.0-alpha.87",
   "description": "GitFinder 2 - 本地开发与部署管理中心",
   "main": "main.js",
   "productName": "GitFinder 2 Alpha",
@@ -27,7 +27,9 @@
     "electron": "electron .",
     "pack": "bash scripts/build-mac.sh",
     "dist": "bash scripts/build-mac.sh",
-    "pack:win": "node scripts/build-win.js"
+    "pack:win": "node scripts/build-win.js",
+    "release:describe": "node scripts/create-store-release.js",
+    "release:push-draft": "node scripts/push-store-release.js"
   },
   "build": {
     "appId": "com.gitfinder.app.v2",
@@ -39,6 +41,12 @@
     "asar": true,
     "asarUnpack": [
       "public/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "resources/app-update.yml",
+        "to": "app-update.yml"
+      }
     ],
     "electronFuses": {
       "runAsNode": false,

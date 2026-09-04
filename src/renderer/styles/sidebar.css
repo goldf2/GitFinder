@@ -172,8 +172,8 @@
   white-space: nowrap;
 }
 
-.project-shortcut-all,
-.project-shortcut-open {
+.sidebar-shortcut-all,
+.sidebar-shortcut-open {
   width: calc(100% - 8px);
   border: 0;
   background: transparent;
@@ -181,35 +181,67 @@
   font: inherit;
 }
 
-.project-shortcut-all.active,
-.project-shortcut-row.active .project-shortcut-open {
+.sidebar-shortcut-all.active,
+.sidebar-shortcut-open.active,
+.sidebar-shortcut-row.active .sidebar-shortcut-open {
   background: var(--accent-bg);
   color: var(--accent-primary);
   border-left-color: var(--accent-primary);
 }
 
-.project-shortcut-all-icon {
+.sidebar-shortcut-all-icon {
   color: var(--accent-primary);
   font-size: 16px;
 }
 
-.project-shortcut-heading {
+.sidebar-shortcut-heading {
   padding: 7px 16px 2px 34px;
   color: var(--text-tertiary);
   font-size: 10px;
   letter-spacing: 0.35px;
 }
 
+.sidebar-shortcut-empty {
+  padding: 10px 16px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
 .project-shortcut-row {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 24px;
+  grid-template-columns: 24px minmax(0, 1fr) 24px;
   align-items: center;
 }
 
 .project-shortcut-row .project-shortcut-open {
-  width: calc(100% - 4px);
+  width: 100%;
+  margin: 0;
+  padding-left: 4px;
   padding-right: 4px;
+}
+
+.project-tree-toggle,
+.project-tree-toggle-placeholder {
+  margin-left: 8px;
+}
+
+.project-tree-children {
+  margin: 0 8px 3px 19px;
+  padding-left: 10px;
+  border-left: 1px solid var(--border-color);
+}
+
+.project-tree-repository {
+  width: 100%;
+  margin: 0;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+.project-tree-empty {
+  padding: 5px 8px;
 }
 
 .project-shortcut-row.is-unavailable .project-shortcut-open {

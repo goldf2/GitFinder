@@ -36,11 +36,13 @@ test('Windows CI 在 windows-latest 执行运行时、安装、启动和卸载�
   assert.match(acceptance, /Get-FileHash/);
 });
 
-test('Windows Alpha 只上传 CI 验证产物，不自动创建远程发布', () => {
+test('Windows Alpha 上传 CI 验证产物但不绕过 OakTech 草稿发布', () => {
   const workflow = fs.readFileSync(path.join(projectRoot, '.github/workflows/release.yml'), 'utf8');
   assert.match(workflow, /actions\/upload-artifact/);
   assert.match(workflow, /windows-release-metadata\.json/);
   assert.match(workflow, /SmartScreen/);
+  assert.match(workflow, /push-store-draft:/);
+  assert.doesNotMatch(workflow, /api\/admin\/releases\/[^\s]+\/publish/);
   assert.doesNotMatch(workflow, /softprops\/action-gh-release/);
 });
 
