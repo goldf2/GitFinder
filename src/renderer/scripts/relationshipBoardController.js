@@ -372,7 +372,9 @@
         }
         this.render();
         if (this.bridge?.panel?.getCachedTopology) {
-          void this._restoreCachedPanelTopology().finally(() => this._refreshPanelTopology());
+          void this._restoreCachedPanelTopology().finally(() => {
+            if (openRequestId === this.openRequestId) this._refreshPanelTopology();
+          });
         } else if (this.bridge?.panel?.refreshTopology || this.bridge?.panel?.getTopology) this._refreshPanelTopology();
         else this._schedulePanelRefresh();
         document.addEventListener('keydown', this._boundKeydown, true);
@@ -398,6 +400,7 @@
     close(options = {}) {
       this.displayLayoutEdit = null;
       this.openRequestId += 1;
+      this.panelRefreshInFlight = false;
       clearTimeout(this.endpointCheckTimer);
       this.endpointCheckTimer = null;
       this.endpointCheckRequest = null;
@@ -915,16 +918,18 @@
       if (this.panelRefreshTimer) clearTimeout(this.panelRefreshTimer);
       this.panelRefreshTimer = null;
       if (!this.root?.isConnected || !(this.bridge?.panel?.refreshTopology || this.bridge?.panel?.getTopology)) return;
-      if (!['ready', 'error'].includes(this.panelTopologyResult?.state)) return;
+      if (!['ready', 'error'].includes(this.panelTopologyResult?.state) && !this.flowMutationActive) return;
       this.panelRefreshTimer = setTimeout(() => this._refreshPanelTopology(), PANEL_REFRESH_INTERVAL_MS);
     }
 
     async _restoreCachedPanelTopology() {
       if (!this.root?.isConnected || !this.bridge?.panel?.getCachedTopology) return false;
+      const openRequestId = this.openRequestId;
       try {
         const cached = await this.bridge.panel.getCachedTopology();
-        if (cached?.state !== 'ready') return false;
+        if (cached?.state !== 'ready' || openRequestId !== this.openRequestId || !this.root?.isConnected || this.flowMutationActive) return false;
         const result = await this._topologyWithProjectBindings(cached);
+        if (openRequestId !== this.openRequestId || !this.root?.isConnected || this.flowMutationActive) return false;
         this._setPanelTopology(result);
         if (this.root?.isConnected) {
           this._renderGraph();
@@ -934,6 +939,7 @@
         }
         return true;
       } catch (error) {
+        if (openRequestId !== this.openRequestId || !this.root?.isConnected) return false;
         this.panelLastError = `缓存读取失败：${error?.message || error}`;
         this._updatePanelStatus();
         return false;
@@ -941,10 +947,12 @@
     }
 
     async _refreshPanelTopology(options = {}) {
+      if (!this.root?.isConnected) return false;
       if (this.flowMutationActive) { this._schedulePanelRefresh(); return false; }
       const readTopology = this.bridge?.panel?.refreshTopology || this.bridge?.panel?.getTopology;
       if (this.panelRefreshInFlight || !readTopology) return false;
       this.panelRefreshInFlight = true;
+      const openRequestId = this.openRequestId;
       const associationRevision = this.repositoryAssociationRevision;
       this._updatePanelStatus();
       try {
@@ -952,6 +960,7 @@
           readTopology.call(this.bridge.panel),
           this.bridge.panel.getLocalRepositories?.() || Promise.resolve(this.panelRepositories)
         ]);
+        if (openRequestId !== this.openRequestId || !this.root?.isConnected || this.flowMutationActive) return false;
         if (topology?.state === 'error' && this.panelProjection?.entities?.length) {
           const errors = Array.isArray(topology.errors) ? topology.errors : [];
           this.panelLastError = errors[0]?.message || topology.error || 'Coolify 同步失败';
@@ -961,6 +970,7 @@
         }
         const result = await this._topologyWithProjectBindings(topology);
         const associations = await this.bridge.panel.getRepositoryAssociations?.() || [];
+        if (openRequestId !== this.openRequestId || !this.root?.isConnected || this.flowMutationActive) return false;
         if (associationRevision === this.repositoryAssociationRevision) this.repositoryAssociations = associations;
         this.panelRepositories = repositories;
         this._setResources(this.panelProjects, repositories);
@@ -977,6 +987,7 @@
         if (options.announce) this.notify('Coolify 动态拓扑已刷新', 'success');
         return true;
       } catch (error) {
+        if (openRequestId !== this.openRequestId || !this.root?.isConnected || this.flowMutationActive) return false;
         this.panelLastError = error?.message || String(error);
         if (!this.panelProjection?.entities?.length) {
           this.panelTopologyResult = { state: 'error', error: this.panelLastError };
@@ -986,9 +997,11 @@
         if (options.announce) this.notify(`Coolify 刷新失败：${this.panelLastError}`, 'error');
         return false;
       } finally {
-        this.panelRefreshInFlight = false;
-        this._updatePanelStatus();
-        this._schedulePanelRefresh();
+        if (openRequestId === this.openRequestId) {
+          this.panelRefreshInFlight = false;
+          this._updatePanelStatus();
+          this._schedulePanelRefresh();
+        }
       }
     }
 

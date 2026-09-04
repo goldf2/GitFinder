@@ -685,6 +685,92 @@ test('关系白板先恢复 Coolify 缓存，再在后台刷新且刷新失败�
   assert.match(controller.panelLastError, /offline/);
 });
 
+test('拓扑刷新等待期间开始拖动时保留当前模型，下一次刷新恢复更新', async (t) => {
+  let finish;
+  const controller = new Controller({ bridge: { panel: {
+    refreshTopology: () => new Promise(resolve => { finish = resolve; })
+  } } });
+  controller.root = { isConnected: true };
+  controller.panelTopologyResult = { state: 'unconfigured', revision: 'current' };
+  t.after(() => clearTimeout(controller.panelRefreshTimer));
+  let rendered = 0;
+  let scheduled = 0;
+  for (const name of ['_setResources', '_renderResources', '_updateFilterSummary', '_updateSummary', '_updatePanelStatus']) controller[name] = () => {};
+  controller._renderGraph = () => { rendered++; };
+  controller._setPanelTopology = value => { controller.panelTopologyResult = value; };
+  controller._schedulePanelRefresh = () => { scheduled++; Controller.prototype._schedulePanelRefresh.call(controller); };
+
+  const pending = controller._refreshPanelTopology();
+  controller.flowMutationActive = true;
+  finish({ state: 'ready', revision: 'during-drag' });
+  assert.equal(await pending, false);
+  assert.equal(controller.panelTopologyResult.revision, 'current');
+  assert.equal(rendered, 0);
+  assert.equal(scheduled, 1);
+  assert.ok(controller.panelRefreshTimer, '首次拓扑尚未应用时也应在拖动后重试');
+
+  controller.flowMutationActive = false;
+  const next = controller._refreshPanelTopology();
+  finish({ state: 'ready', revision: 'after-drag' });
+  assert.equal(await next, true);
+  assert.equal(controller.panelTopologyResult.revision, 'after-drag');
+  assert.equal(rendered, 1);
+});
+
+test('关闭并重开白板后丢弃旧拓扑响应，旧请求结束不解除新请求的占用', async (t) => {
+  const previousDocument = globalThis.document;
+  globalThis.document = { removeEventListener() {} };
+  t.after(() => { globalThis.document = previousDocument; });
+  const finishes = [];
+  const controller = new Controller({ bridge: { panel: {
+    refreshTopology: () => new Promise(resolve => { finishes.push(resolve); })
+  } } });
+  let rendered = 0;
+  for (const name of ['_setResources', '_renderResources', '_updateFilterSummary', '_updateSummary', '_updatePanelStatus', '_closeContextMenu', '_schedulePanelRefresh']) controller[name] = () => {};
+  controller._renderGraph = () => { rendered++; };
+  controller._setPanelTopology = value => { controller.panelTopologyResult = value; };
+  controller.root = { isConnected: true };
+
+  const old = controller._refreshPanelTopology();
+  controller.close();
+  controller.root = { isConnected: true };
+  const current = controller._refreshPanelTopology();
+  assert.equal(finishes.length, 2);
+  finishes[0]({ state: 'ready', revision: 'old' });
+  assert.equal(await old, false);
+  assert.equal(rendered, 0);
+  assert.equal(controller.panelRefreshInFlight, true);
+
+  finishes[1]({ state: 'ready', revision: 'current' });
+  assert.equal(await current, true);
+  assert.equal(controller.panelTopologyResult.revision, 'current');
+  assert.equal(rendered, 1);
+  assert.equal(controller.panelRefreshInFlight, false);
+});
+
+test('缓存拓扑等待项目关联期间关闭白板后不再替换当前投影', async () => {
+  let finishBindings;
+  let bindingsStarted;
+  const started = new Promise(resolve => { bindingsStarted = resolve; });
+  const controller = new Controller({ bridge: { panel: {
+    getCachedTopology: async () => ({ state: 'ready', revision: 'old-cache' })
+  } } });
+  controller.root = { isConnected: true };
+  controller._topologyWithProjectBindings = result => new Promise(resolve => {
+    bindingsStarted();
+    finishBindings = () => resolve(result);
+  });
+  let applied = 0;
+  controller._setPanelTopology = () => { applied++; };
+  for (const name of ['_renderGraph', '_updateFilterSummary', '_updateSummary', '_updatePanelStatus']) controller[name] = () => {};
+  const pending = controller._restoreCachedPanelTopology();
+  await started;
+  controller.openRequestId++;
+  finishBindings();
+  assert.equal(await pending, false);
+  assert.equal(applied, 0);
+});
+
 test('切换到文件浏览后，迟到的白板载入不会重新占用内容区或键盘事件', async () => {
   const originalDocument = globalThis.document;
   let resolveLoad;

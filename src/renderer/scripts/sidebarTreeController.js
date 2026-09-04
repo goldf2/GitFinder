@@ -46,6 +46,7 @@
       this.state = options.state;
       this.bridge = options.bridge;
       this.document = options.document;
+      this.renderRevision = 0;
       this.platform = options.platform || this.bridge?.platform || '';
       this.confirm = options.confirm
         || (typeof root?.confirm === 'function' ? root.confirm.bind(root) : () => false);
@@ -135,6 +136,7 @@
     }
 
     async render() {
+      const revision = ++this.renderRevision;
       const container = this.document.getElementById('sidebar-tree');
       if (!container) return;
       const roots = Array.isArray(this.app._treeRoots) ? this.app._treeRoots : [];
@@ -147,6 +149,7 @@
       try {
         inspection = await this.bridge.fs.getWorkspaceDirectoryInfos(roots.map(root => root.path));
       } catch (_error) {}
+      if (revision !== this.renderRevision) return;
       const infoByPath = new Map((inspection?.directories || []).map(entry => [
         normalizePath(entry.path, this.platform),
         entry
@@ -167,14 +170,17 @@
           root.name || inspected?.info?.name || fallbackName(root.path),
           true,
           0,
-          directoryItem
+          directoryItem,
+          revision
         );
+        if (revision !== this.renderRevision) return;
       }
       container.innerHTML = html || '<div class="tree-empty"><div class="tree-empty-text">尚未添加可用目录</div></div>';
       this.bind(container);
     }
 
-    async renderNode(pathValue, name, isRoot, depth, item = {}) {
+    async renderNode(pathValue, name, isRoot, depth, item = {}, revision = this.renderRevision) {
+      if (revision !== this.renderRevision) return '';
       const directoryItem = { ...item, type: 'directory', path: pathValue };
       const available = directoryItem.available !== false;
       const isGitRepo = directoryItem.isGitRepo === true;
@@ -202,11 +208,13 @@
             showHidden: this.state.showHiddenFiles,
             recursive: false
           });
+          if (revision !== this.renderRevision) return '';
           for (const child of (items || []).filter(entry => entry.type === 'directory')) {
             html += await this.renderNode(child.path, child.name, false, depth + 1, {
               ...child,
               available: true
-            });
+            }, revision);
+            if (revision !== this.renderRevision) return '';
           }
         } catch (_error) {
           html += `<div class="tree-error-row" style="margin-left:${indent + 30}px">无法读取内容</div>`;

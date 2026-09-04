@@ -195,6 +195,47 @@ test('无受管根时显示明确空状态，不把系统磁盘伪装成可浏�
   assert.equal(calls.some(call => Array.isArray(call) && call[0] === 'list'), false);
 });
 
+test('展开读取尚未完成时折叠目录，旧结果不会重新展开或继续读取下级', async () => {
+  const { controller, app, bridge, container, roots } = createHarness();
+  app._treeRoots = roots;
+  app._treeExpandedPaths = new Set(['/managed/alpha', '/managed/alpha/src']);
+  const { promise, resolve } = Promise.withResolvers();
+  const reads = [];
+  bridge.fs.listDirectory = async directoryPath => {
+    reads.push(directoryPath);
+    return directoryPath === '/managed/alpha' ? promise : [];
+  };
+
+  const expanding = controller.render();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(reads, ['/managed/alpha']);
+  app._treeExpandedPaths.delete('/managed/alpha');
+  await controller.render();
+  const collapsed = container.innerHTML;
+
+  resolve([{ path: '/managed/alpha/src', name: 'src', type: 'directory' }]);
+  await expanding;
+  assert.equal(container.innerHTML, collapsed);
+  assert.deepEqual(reads, ['/managed/alpha']);
+});
+
+test('位置检查尚未完成时移除全部位置，旧结果不会恢复已移除目录', async () => {
+  const { controller, app, bridge, container, roots } = createHarness();
+  app._treeRoots = roots;
+  const { promise, resolve } = Promise.withResolvers();
+  bridge.fs.getWorkspaceDirectoryInfos = async () => promise;
+  const previous = controller.render();
+
+  app._treeRoots = [];
+  await controller.render();
+  const empty = container.innerHTML;
+  assert.match(empty, /尚未添加受管目录/);
+
+  resolve({ directories: [] });
+  await previous;
+  assert.equal(container.innerHTML, empty);
+});
+
 test('目录树事件只在成功导航后更新模式，断开根保持不可操作', async () => {
   const handlers = new Map();
   function node(pathValue, unavailable = false) {
