@@ -33,14 +33,35 @@ function fixture(structure = 'server-tree') {
   return c;
 }
 
-test('主机固定下级只带走独占访问点，不带走被其它主机部署共享的访问点', () => {
+test('主机固定下级带走关联 Project 及全部成员，共享 Project 可跟随任一上级', () => {
   const c = fixture(), id = c.id;
   assert.deepEqual(c._movingEntityIds(id('host')), [id('host')]);
   c._toggleLinkedMovement(id('host'));
   assert.deepEqual(new Set(c._movingEntityIds(id('host'))),
-    new Set(['host', 'deploy', 'sibling', 'exclusiveEndpoint'].map(id)));
+    new Set(['host', 'project', 'nested', 'deploy', 'sibling', 'otherdeploy', 'endpoint', 'exclusiveEndpoint'].map(id)));
   c._toggleLinkedMovement(id('otherhost'));
-  assert.deepEqual(new Set(c._movingEntityIds(id('otherhost'))), new Set(['otherhost', 'otherdeploy'].map(id)));
+  assert.deepEqual(new Set(c._movingEntityIds(id('otherhost'))), new Set(['otherhost', 'project', 'nested', 'deploy', 'sibling', 'otherdeploy', 'endpoint', 'exclusiveEndpoint'].map(id)));
+});
+
+test('外部共享访问点有静止部署时保持原位，不带走其它 Project 或主机', () => {
+  const c = fixture(), id = c.id;
+  const other = c._placementForEntity(id('otherdeploy'));
+  other.groupId = id('nested');
+  delete c._placementForEntity(id('nested')).groupId;
+  c._toggleLinkedMovement(id('host'));
+  assert.deepEqual(new Set(c._movingEntityIds(id('host'))),
+    new Set(['host', 'project', 'deploy', 'sibling', 'exclusiveEndpoint'].map(id)));
+  c._toggleLinkedMovement(id('host'));
+  assert.deepEqual(c._movingEntityIds(id('host')), [id('host')]);
+});
+
+test('Project 上级联动在资源视图一致，不反向带动主机或修改成员关系', () => {
+  const c = fixture('resources'), id = c.id;
+  const before = c.store.boards[0].placements.map(({ entityId, groupId }) => ({ entityId, groupId }));
+  c._toggleLinkedMovement(id('host'));
+  assert.ok(c._movingEntityIds(id('host')).includes(id('project')));
+  assert.ok(!c._movingEntityIds(id('project')).includes(id('host')));
+  assert.deepEqual(c.store.boards[0].placements.map(({ entityId, groupId }) => ({ entityId, groupId })), before);
 });
 
 test('Project 容器自身拖动仍带走它的所有物理成员', () => {
@@ -48,6 +69,16 @@ test('Project 容器自身拖动仍带走它的所有物理成员', () => {
 
   assert.deepEqual(new Set(c._movingEntityIds(id('project'), false)),
     new Set(['project', 'nested', 'deploy', 'sibling', 'otherdeploy'].map(id)));
+});
+
+test('已归档部署的旧主机关系不再带走可见 Project', () => {
+  const c = fixture(), id = c.id;
+  c._placementForEntity(id('deploy')).archived = true;
+  c._placementForEntity(id('sibling')).archived = true;
+  c._toggleLinkedMovement(id('host'));
+  assert.equal(c._movingEntityIds(id('host')).includes(id('project')), false);
+  c._toggleLinkedMovement(id('otherhost'));
+  assert.ok(c._movingEntityIds(id('otherhost')).includes(id('project')));
 });
 
 test('资源结构同时覆盖共享访问点的全部部署时可以将其移动一次', () => {
@@ -115,16 +146,16 @@ test('React Flow 拖动使所有联动根节点保持相同位移，嵌套成员
   }
 });
 
-test('主机联动部署触及静止 Project 边界时整支使用同一可行位移', () => {
+test('主机带动整个 Project 时不再受容器原位置限制，成员不会重复位移', () => {
   const c = fixture(), id = c.id;
   c.store.entities.find(entity => entity.id === id('project')).runtime = { dynamicKind: 'coolify-project-group' };
   c._toggleLinkedMovement(id('host'));
   const positions = {
     host: [0, 350], project: [400, 300], nested: [430, 320],
-    deploy: [700, 390], sibling: [500, 450], exclusiveEndpoint: [1100, 400]
+    deploy: [700, 390], sibling: [500, 450], otherdeploy: [510, 610], exclusiveEndpoint: [1100, 400]
   };
   for (const [name, [x, y]] of Object.entries(positions)) Object.assign(c._placementForEntity(id(name)), { x, y });
-  Object.assign(c._placementForEntity(id('project')), { groupWidth: 600, groupHeight: 400, groupShape: 'rounded' });
+  Object.assign(c._placementForEntity(id('project')), { groupWidth: 1000, groupHeight: 760, groupShape: 'rounded' });
   const placements = c._combinedPlacements();
   const linkedIds = c._movingEntityIds(id('host'));
   const flow = Adapter.toFlowModel({
@@ -145,9 +176,9 @@ test('主机联动部署触及静止 Project 边界时整支使用同一可行�
     assert.deepEqual([
       after.get(entityId).x - before.get(entityId).x,
       after.get(entityId).y - before.get(entityId).y
-    ], [8, 29], `${entityId} 应与边界内部署使用同一实际位移`);
+    ], [43, 29], `${entityId} 应与主机使用同一完整位移`);
   }
-  assert.deepEqual([after.get(id('project')).x, after.get(id('project')).y], [400, 300]);
+  assert.deepEqual([after.get(id('project')).x, after.get(id('project')).y], [443, 329]);
 });
 
 test('多边形 Project 内的联动分支按拖动方向等比缩短位移', () => {
@@ -189,7 +220,7 @@ test('多边形 Project 内的联动分支按拖动方向等比缩短位移', ()
   assert.deepEqual([after.get('project').x, after.get('project').y], [400, 300]);
 });
 
-test('联动拖动写回后 Project 保持原位，自动排列不覆盖整支实际位移', () => {
+test('联动拖动写回后 Project 与内部成员保持同一位移，自动排列不改写尺寸', () => {
   const c = fixture(), id = c.id;
   c.store.entities.find(entity => entity.id === id('project')).runtime = { dynamicKind: 'coolify-project-group' };
   const positions = {
@@ -248,14 +279,17 @@ test('联动拖动写回后 Project 保持原位，自动排列不覆盖整支�
       y: afterGeometry.get(entityId).y - beforeGeometry.get(entityId).y
     }, hostDelta, `${entityId} 的显示位移应与主机一致`);
   }
-  for (const entityId of [id('nested'), id('otherdeploy')]) {
+  assert.ok(linkedIds.includes(id('project')), 'Project 必须进入主机联动集合');
+  for (const entityId of [id('otherhost')]) {
     assert.deepEqual({
       x: afterGeometry.get(entityId).x - beforeGeometry.get(entityId).x,
       y: afterGeometry.get(entityId).y - beforeGeometry.get(entityId).y
     }, { x: 0, y: 0 }, `${entityId} 不属于联动分支，不应被带走`);
   }
-  assert.deepEqual(afterGeometry.get(id('project')), beforeGeometry.get(id('project')),
-    'Project 容器的位置和尺寸都应保持不变');
+  for (const field of ['width', 'height']) {
+    assert.equal(afterGeometry.get(id('project'))[field], beforeGeometry.get(id('project'))[field],
+      `Project 容器 ${field} 不应因拖动变化`);
+  }
   assert.equal(c._placementForEntity(id('project')).groupLayout, 'auto');
 });
 

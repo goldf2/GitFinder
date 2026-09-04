@@ -1777,12 +1777,10 @@
         const descendants = placementIndex.descendants(group.entityId);
         const projectGroup = entitiesById.get(group.entityId)?.runtime?.dynamicKind === 'coolify-project-group'
           || group.entityId.startsWith('entity_panel_projectgroup_');
-        // A host-linked deployment remains physically contained by its Project,
-        // but the Project itself is not part of that logical branch. Keep the
-        // current Project frame and member coordinates while the branch lock is
-        // active so auto layout cannot undo the shared drag delta on re-render.
-        const linkedProject = projectGroup && !linkedBranch.has(group.entityId)
-          && descendants.some(item => linkedBranch.has(item.entityId));
+        // Keep the entire linked Project at its displayed geometry so a parent
+        // drag cannot repack its members or resize the frame on re-render.
+        const linkedProject = projectGroup && (linkedBranch.has(group.entityId)
+          || descendants.some(item => linkedBranch.has(item.entityId)));
         const autoLayout = group.groupLayout === 'auto' && !group.locked
           && !descendants.some(item => item.locked) && !linkedProject;
         const projectGalaxy = this._boardView().layout === 'galaxy' && projectGroup;
@@ -2142,12 +2140,17 @@
           }
           if (['contains', 'source_of', 'hosts', 'exposes', 'connects_to', 'has_submodule', 'fork_source_for'].includes(edge.type)) add(edge.sourceId, edge.targetId);
           if (['belongs_to', 'deployed_from', 'runs_on', 'exposed_by', 'submodule_of', 'forked_from'].includes(edge.type)) add(edge.targetId, edge.sourceId);
+          const hostedId = edge.type === 'runs_on' ? edge.sourceId : edge.type === 'hosts' ? edge.targetId : '';
+          const hostId = edge.type === 'runs_on' ? edge.targetId : edge.sourceId;
+          const groupId = byId.get(hostedId)?.groupId;
+          if (entities.get(hostId)?.type === 'server' && entities.get(hostedId)?.type === 'deployment'
+            && !byId.get(hostedId)?.archived
+            && entities.get(groupId)?.type === 'group' && groupId !== 'entity_panel_shared_resources') {
+            add(hostId, groupId);
+          }
         }
-        // Movement follows source relationships only. Server-tree hierarchy also
-        // contains visual summary edges such as host -> Project; importing those
-        // here would make a host drag pull the whole containing frame and unrelated
-        // deployments with it. Physical group membership is handled separately
-        // below when the group itself is dragged.
+        // Derive only host -> Project from deployment facts and membership.
+        // Other display summaries never become movement dependencies.
       }
       const expand = allowedSharedEndpoints => {
         const queue = [...seeds].map(id => [id, false]);
