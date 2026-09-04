@@ -64,6 +64,35 @@
       || String(entity.id || '').startsWith('entity_panel_projectgroup_'));
   }
 
+  function projectAncestors(placement, placementById, entities) {
+    const ids = [];
+    const seen = new Set([placement?.entityId]);
+    let parentId = placement?.groupId;
+    while (parentId && !seen.has(parentId)) {
+      seen.add(parentId);
+      const parent = placementById.get(parentId);
+      if (!parent) break;
+      if (isProjectGroup(entities.get(parent.entityId))) ids.push(parent.entityId);
+      parentId = parent.groupId;
+    }
+    return ids;
+  }
+
+  function visibleProjectIds(graph, directIds, placementById, entities) {
+    const ids = new Set();
+    const addOwners = entityId => {
+      const placement = placementById.get(entityId);
+      for (const projectId of projectAncestors(placement, placementById, entities)) ids.add(projectId);
+    };
+    for (const entityId of directIds) addOwners(entityId);
+    for (const edge of graph.relationships || []) {
+      const deploymentId = edge.type === 'exposes' ? edge.sourceId : edge.type === 'exposed_by' ? edge.targetId : '';
+      const endpointId = edge.type === 'exposes' ? edge.targetId : edge.type === 'exposed_by' ? edge.sourceId : '';
+      if (directIds.has(endpointId) && entities.get(deploymentId)?.type === 'deployment') addOwners(deploymentId);
+    }
+    return ids;
+  }
+
   function absolutePositions(nodes = []) {
     const byId = new Map(nodes.map(node => [node.id, node]));
     const values = new Map();
@@ -203,6 +232,8 @@
     const contextualIds = options.contextualIds instanceof Set ? options.contextualIds : new Set(options.contextualIds || []);
     const mutedIds = options.mutedIds instanceof Set ? options.mutedIds : new Set(options.mutedIds || []);
     const undraggableIds = options.undraggableIds instanceof Set ? options.undraggableIds : new Set(options.undraggableIds || []);
+    const filterActive = options.filterActive === true;
+    const visibleProjects = visibleProjectIds(graph, directIds, placementById, entities);
     let nodes = placements.slice().sort((a, b) => depthOf(a, placementById) - depthOf(b, placementById)
       || placementOrder.get(a.entityId) - placementOrder.get(b.entityId)).map(placement => {
       const entity = entities.get(placement.entityId);
@@ -228,7 +259,7 @@
           tone: statusTone(entity),
           showRuntimeStatus: showsRuntimeStatus(placement, options.showRuntimeStatus),
           filterState: directIds.has(placement.entityId) ? 'match'
-            : (projectContainer ? '' : (mutedIds.has(placement.entityId) ? 'muted'
+            : (projectContainer ? (filterActive && !visibleProjects.has(placement.entityId) ? 'muted' : '') : (mutedIds.has(placement.entityId) ? 'muted'
               : (contextualIds.has(placement.entityId) ? 'context' : '')))
         }
       };

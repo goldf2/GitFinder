@@ -56,16 +56,47 @@ test('运行状态显示继承白板设置并允许单卡覆盖', () => {
   assert.equal(node.data.showRuntimeStatus, false);
 });
 
-test('筛选不会虚化 Project 容器，但仍弱化容器内未命中的卡片', () => {
+test('部署命中时 Project 容器保持正常，但仍弱化未命中的访问点', () => {
   const graph = fixture();
   const model = Adapter.toFlowModel(graph, {
     directIds: ['deployment'],
-    mutedIds: ['project', 'endpoint']
+    mutedIds: ['project', 'endpoint'],
+    filterActive: true
   });
 
   assert.equal(model.nodes.find(item => item.id === 'project').data.filterState, '');
   assert.equal(model.nodes.find(item => item.id === 'deployment').data.filterState, 'match');
   assert.equal(model.nodes.find(item => item.id === 'endpoint').data.filterState, 'muted');
+});
+
+test('关联访问点命中时其部署所属的 Project 容器也保持正常', () => {
+  const graph = fixture();
+  const model = Adapter.toFlowModel(graph, {
+    directIds: ['endpoint'],
+    contextualIds: ['deployment'],
+    mutedIds: ['project'],
+    filterActive: true
+  });
+
+  assert.equal(model.nodes.find(item => item.id === 'project').data.filterState, '');
+  assert.equal(model.nodes.find(item => item.id === 'deployment').data.filterState, 'context');
+  assert.equal(model.nodes.find(item => item.id === 'endpoint').data.filterState, 'match');
+});
+
+test('Project 及其部署和访问点都未命中时才虚化容器', () => {
+  const graph = fixture();
+  const model = Adapter.toFlowModel(graph, {
+    directIds: [],
+    mutedIds: ['deployment', 'endpoint'],
+    filterActive: true
+  });
+
+  assert.equal(model.nodes.find(item => item.id === 'project').data.filterState, 'muted');
+});
+
+test('没有筛选时 Project 容器默认不虚化', () => {
+  const model = Adapter.toFlowModel(fixture(), { filterActive: false });
+  assert.equal(model.nodes.find(item => item.id === 'project').data.filterState, '');
 });
 
 test('Project 内部署拖动时吸附到同级对齐线并保持显示设置间距', () => {

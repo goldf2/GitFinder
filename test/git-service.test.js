@@ -513,5 +513,5 @@ test('强制刷新会跳过状态缓存并读取当前分支', async (t) => {
   assert.equal(refreshed.branch, 'feature/evidence');
   assert.equal(refreshed.remoteUrlBackup, 'https://example.invalid/backup.git');
   assert.equal(refreshed.remotes.length, 4);
-  assert.match(refreshed.lastCommit.authoredAt, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/);
+  assert.match(refreshed.lastCommit.authoredAt, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:Z|[+-]\d{2}:\d{2})$/);
 });

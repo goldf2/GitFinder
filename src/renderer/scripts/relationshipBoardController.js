@@ -3119,6 +3119,7 @@
         directIds: graph.directIds,
         contextualIds: graph.contextualIds,
         mutedIds: graph.mutedIds,
+        filterActive: graph.filterActive,
         linkedNodeIds,
         undraggableIds,
         zoom: board.viewport.zoom,

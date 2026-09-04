@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const css = fs.readFileSync(path.join(__dirname, '../src/renderer/styles/relationships.css'), 'utf8');
+const css = fs.readFileSync(path.join(__dirname, '../src/renderer/styles/relationships.css'), 'utf8').replace(/\r\n?/g, '\n');
 
 function block(selector, options = {}) {
   const needle = `${selector} {`;
