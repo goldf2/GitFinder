@@ -9,7 +9,7 @@
   const MAX_RELATIONSHIPS = 400;
   const MIN_VIEWPORT_ZOOM = 0.05;
   const MAX_VIEWPORT_ZOOM = 8;
-  const ENTITY_TYPES = Object.freeze(['server', 'deployment', 'project', 'repository', 'endpoint', 'group', 'text', 'image', 'attachment']);
+  const ENTITY_TYPES = Object.freeze(['server', 'deployment', 'project', 'repository', 'endpoint', 'architecture', 'group', 'text', 'image', 'attachment']);
   const RELATIONSHIP_TYPES = Object.freeze([
     'contains',
     'belongs_to',
@@ -34,18 +34,20 @@
   const BOARD_VIEW_MODES = Object.freeze(['full', 'compact']);
   const BOARD_PROJECTIONS = Object.freeze(['facts', 'deployment-summary']);
   const BOARD_STRUCTURES = Object.freeze(['resources', 'coolify-projects', 'server-tree']);
+  const BOARD_LAYERS = Object.freeze(['runtime', 'architecture', 'merged']);
   const BOARD_LAYOUTS = Object.freeze(['free', 'compact', 'lanes', 'right', 'down', 'bilateral', 'radial', 'galaxy']);
   const BOARD_SNAP_MODES = Object.freeze(['off', 'grid', 'smart']);
   const BOARD_CARD_APPEARANCES = Object.freeze(['elevated', 'flat']);
   const BOARD_CARD_TITLE_SOURCES = Object.freeze(['name', 'note']);
-  const CARD_ICON_TYPES = Object.freeze(['server', 'deployment', 'endpoint', 'repository', 'project']);
+  const CARD_ICON_TYPES = Object.freeze(['server', 'deployment', 'endpoint', 'repository', 'project', 'architecture']);
   const CARD_ICON_KEYS = Object.freeze(['none', 'server', 'deployment', 'endpoint', 'repository', 'project', 'database', 'service']);
   const DEFAULT_CARD_ICONS = Object.freeze({
     server: 'server',
     deployment: 'deployment',
     endpoint: 'endpoint',
     repository: 'repository',
-    project: 'project'
+    project: 'project',
+    architecture: 'service'
   });
   const PROJECT_GROUP_SHAPES = Object.freeze(['rounded', 'polygon']);
   const GROUP_APPEARANCES = Object.freeze(['soft', 'outline', 'emphasis']);
@@ -75,7 +77,8 @@
     group: new Set(['notes']),
     text: new Set(['content', 'fontSize', 'color', 'align', 'width', 'height']),
     image: new Set(['imageData', 'assetPath', 'referencePath', 'width', 'height', 'fit', 'caption']),
-    attachment: new Set(['assetPath', 'referencePath', 'width', 'height', 'caption', 'fileSize'])
+    attachment: new Set(['assetPath', 'referencePath', 'width', 'height', 'caption', 'fileSize']),
+    architecture: new Set(['architectureComponentId', 'architectureKind', 'architectureSublabel', 'architectureTag', 'architectureBoundaryKind', 'architectureSnapshotId', 'repositoryHead', 'notes'])
   });
   const FACT_ENTITY_TYPES = ENTITY_TYPES.filter(type => type !== 'group');
   const GENERAL_CONNECTIONS = Object.freeze(FACT_ENTITY_TYPES.flatMap(source => (
@@ -200,6 +203,8 @@
     return {
       mode: 'full',
       projection: 'facts',
+      layer: 'runtime',
+      architectureSnapshotId: '',
       structure: 'resources',
       layout: 'lanes',
       projectGroupIncludesEndpoints: true,
@@ -259,6 +264,7 @@
     if (raw != null && !isPlainObject(raw)) issues.push(`${pathPrefix} 必须是对象`);
     const mode = String(view.mode || 'full');
     const projection = String(view.projection || 'facts');
+    const layer = String(view.layer || 'runtime');
     const { structure, layout } = boardOrganization(view);
     const snapMode = String(view.snapMode || 'smart');
     const cardAppearance = String(view.cardAppearance || 'elevated');
@@ -290,6 +296,7 @@
       : [];
     if (!BOARD_VIEW_MODES.includes(mode)) issues.push(`${pathPrefix}.mode 无效`);
     if (!BOARD_PROJECTIONS.includes(projection)) issues.push(`${pathPrefix}.projection 无效`);
+    if (!BOARD_LAYERS.includes(layer)) issues.push(`${pathPrefix}.layer 无效`);
     if (!BOARD_STRUCTURES.includes(structure)) issues.push(`${pathPrefix}.structure 无效`);
     if (!BOARD_LAYOUTS.includes(layout)) issues.push(`${pathPrefix}.layout 无效`);
     if (view.topologyLayout != null && !['lanes', 'coolify-projects', 'selection-centered', 'server-centered', 'server-tree'].includes(view.topologyLayout)) issues.push(`${pathPrefix}.topologyLayout 无效`);
@@ -322,7 +329,7 @@
     if (strict && view.runtimeStates != null && (!Array.isArray(view.runtimeStates) || view.runtimeStates.some(value => !RUNTIME_FILTERS.includes(String(value))))) issues.push(`${pathPrefix}.runtimeStates 无效`);
     if (strict) {
       for (const key of Object.keys(view)) {
-        if (!['mode', 'projection', 'structure', 'layout', 'topologyLayout', 'treeLayout', 'projectGroupIncludesEndpoints', 'showRepositoryRelations', 'snapMode', 'cardScale', 'cardWidth', 'cardHeight', 'textScale', 'groupTitleFontSize', 'edgeWidth', 'horizontalSpacing', 'verticalSpacing', 'cardAppearance', 'showGrid', 'showEdgeLabels', 'cardTitleSource', 'deploymentTitleSource', 'endpointTitleSource', 'cardIcons', 'projectGroupShape', 'showRuntimeStatus', 'unmatchedDisplay', 'filterContextOpacity', 'filterMutedOpacity', 'filterMutedSaturation', 'filterContextEdgeOpacity', 'filterMutedEdgeOpacity', 'filterMatchHaloOpacity', 'statusTintOpacity', 'query', 'entityType', 'entityTypes', 'environment', 'verification', 'annotation', 'task', 'taskFilters', 'runtimeStates', 'label'].includes(key)) {
+        if (!['mode', 'projection', 'layer', 'architectureSnapshotId', 'structure', 'layout', 'topologyLayout', 'treeLayout', 'projectGroupIncludesEndpoints', 'showRepositoryRelations', 'snapMode', 'cardScale', 'cardWidth', 'cardHeight', 'textScale', 'groupTitleFontSize', 'edgeWidth', 'horizontalSpacing', 'verticalSpacing', 'cardAppearance', 'showGrid', 'showEdgeLabels', 'cardTitleSource', 'deploymentTitleSource', 'endpointTitleSource', 'cardIcons', 'projectGroupShape', 'showRuntimeStatus', 'unmatchedDisplay', 'filterContextOpacity', 'filterMutedOpacity', 'filterMutedSaturation', 'filterContextEdgeOpacity', 'filterMutedEdgeOpacity', 'filterMatchHaloOpacity', 'statusTintOpacity', 'query', 'entityType', 'entityTypes', 'environment', 'verification', 'annotation', 'task', 'taskFilters', 'runtimeStates', 'label'].includes(key)) {
           issues.push(`${pathPrefix}.${key} 不是允许的字段`);
         }
       }
@@ -330,6 +337,8 @@
     return {
       mode: BOARD_VIEW_MODES.includes(mode) ? mode : 'full',
       projection: BOARD_PROJECTIONS.includes(projection) ? projection : 'facts',
+      layer: BOARD_LAYERS.includes(layer) ? layer : 'runtime',
+      architectureSnapshotId: /^[a-f0-9]{16}$/i.test(String(view.architectureSnapshotId || '')) ? String(view.architectureSnapshotId).toLowerCase() : '',
       structure: BOARD_STRUCTURES.includes(structure) ? structure : 'resources',
       layout: BOARD_LAYOUTS.includes(layout) ? layout : 'lanes',
       projectGroupIncludesEndpoints: view.projectGroupIncludesEndpoints !== false,
@@ -875,6 +884,7 @@
     BOARD_VIEW_MODES,
     BOARD_PROJECTIONS,
     BOARD_STRUCTURES,
+    BOARD_LAYERS,
     BOARD_LAYOUTS,
     boardOrganization,
     BOARD_SNAP_MODES,

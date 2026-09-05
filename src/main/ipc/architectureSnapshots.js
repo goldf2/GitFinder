@@ -37,6 +37,10 @@ function registerArchitectureSnapshotsIPC() {
     if (error) throw new Error(error);
     return true;
   });
+  registerTrustedHandler('architectureSnapshots:read', async (_event, request = {}) => {
+    const directory = managedDirectory(request.repoPath);
+    return service.read(directory, request.snapshotId);
+  });
 }
 
 module.exports = { registerArchitectureSnapshotsIPC };

@@ -53,6 +53,7 @@
     project: '项目',
     repository: 'Git 仓库',
     endpoint: '访问点',
+    architecture: '代码架构',
     group: '分组', text: '文字', image: '图片', attachment: '文件附件'
   });
   const TYPE_ICONS = Object.freeze({
@@ -61,11 +62,12 @@
     project: '▣',
     repository: '⑂',
     endpoint: '↗',
+    architecture: '⌘',
     group: '▢', text: 'T', image: '▧', attachment: '▱'
   });
   const CARD_ICON_OPTIONS = Object.freeze([
     ['none', '不显示'], ['server', '主机'], ['deployment', '部署'], ['endpoint', '访问 / 地球'],
-    ['repository', 'Git 分支'], ['project', '项目 / 文件夹'], ['database', '数据库'], ['service', '服务 / 方块']
+    ['repository', 'Git 分支'], ['project', '项目 / 文件夹'], ['architecture', '代码架构'], ['database', '数据库'], ['service', '服务 / 方块']
   ].map(option => Object.freeze(option)));
   const RESOURCE_CATEGORY_DEFINITIONS = ResourceView.RESOURCE_CATEGORY_DEFINITIONS;
   const RELATIONSHIP_LABELS = Object.freeze({
@@ -285,6 +287,7 @@
       this.selectedEntityId = '';
       this.selectedEntityIds = new Set();
       this.selectedRelationshipId = '';
+      this.resourcePreview = null;
       this.flowCanvas = null;
       this.flowRenderOptions = null;
       this.flowMutationActive = false;
@@ -305,7 +308,7 @@
       this.displayLayoutEdit = null;
       this.resourcePanelVisible = true;
       this.resourcePanelPosition = { x: 12, y: 12 };
-      this.collapsedResourceSections = new Set(['repository', 'server', 'deployment', 'endpoint', 'other']);
+      this.collapsedResourceSections = new Set(['repository', 'architecture', 'server', 'deployment', 'endpoint', 'other']);
       this.importInFlight = false;
       this.exportInFlight = false;
       this.documentRecord = null;
@@ -315,6 +318,9 @@
       this.documentBusy = false;
       this.panelTopologyResult = { state: 'unconfigured', topology: { servers: [], deployments: [] }, bindings: [] };
       this.panelProjection = { entities: [], relationships: [], placements: [], metadata: { state: 'unconfigured' } };
+      this.architectureSnapshotCatalog = [];
+      this.architectureProjection = { entities: [], relationships: [], placements: [], metadata: { state: 'empty' } };
+      this.architectureLoadingPromise = null;
       this.panelProjects = [];
       this.panelRepositories = [];
       this.repositoryAssociations = [];
@@ -452,7 +458,7 @@
           ? this.bridge.config.get('relationshipDynamicLayouts').catch(() => null)
           : Promise.resolve(null),
         this.bridge.config?.get ? this.bridge.config.get('relationshipPanelLayout').catch(() => null) : Promise.resolve(null)
-      ]).then(([result, registry, dynamicLayouts, panelLayout]) => {
+      ]).then(async ([result, registry, dynamicLayouts, panelLayout]) => {
         this.store = Model.normalizeStore(result?.store).value;
         this.dynamicLayoutStore = normalizeDynamicLayoutStore(dynamicLayouts);
         this.panelLayout = {};
@@ -467,6 +473,7 @@
         }
         this.resourcePanelVisible = !this.panelLayout.library?.collapsed;
         this.panelRepositories = Array.isArray(registry?.repos) ? registry.repos : [];
+        await this._refreshArchitectureSnapshots({ render: false });
         this._setResources([], this.panelRepositories);
         this._setPanelTopology(this.panelTopologyResult);
         this.loaded = true;
@@ -491,6 +498,78 @@
         this.loadingPromise = null;
       });
       return this.loadingPromise;
+    }
+
+    async _refreshArchitectureSnapshots(options = {}) {
+      const api = this.bridge?.architectureSnapshots;
+      if (!api?.list || !api?.read) return false;
+      if (this.architectureLoadingPromise) return this.architectureLoadingPromise;
+      const repositories = (this.panelRepositories || []).filter(repository => repository?.path && repository.archived !== true);
+      this.architectureLoadingPromise = (async () => {
+        const catalog = [];
+        for (const repository of repositories.slice(0, 120)) {
+          let snapshots = [];
+          try { snapshots = await api.list(repository.path); } catch (_) { snapshots = []; }
+          for (const snapshot of Array.isArray(snapshots) ? snapshots : []) {
+            if (!snapshot?.snapshotId) continue;
+            catalog.push({
+              ...snapshot,
+              repositoryId: repository.id || '',
+              repositoryName: repository.name || repository.path,
+              repositoryPath: repository.path,
+              key: snapshot.snapshotId
+            });
+          }
+        }
+        catalog.sort((left, right) => String(right.generatedAt || '').localeCompare(String(left.generatedAt || '')));
+        this.architectureSnapshotCatalog = catalog;
+        const board = activeBoard(this.store);
+        const requestedId = String(board?.view?.architectureSnapshotId || '');
+        const selected = catalog.find(item => item.snapshotId === requestedId) || catalog[0];
+        if (!selected) {
+          this.architectureProjection = { entities: [], relationships: [], placements: [], metadata: { state: 'empty' } };
+          if (board?.view?.architectureSnapshotId) board.view.architectureSnapshotId = '';
+        } else {
+          try {
+            const document = await api.read({ repoPath: selected.repositoryPath, snapshotId: selected.snapshotId });
+            this.architectureProjection = globalThis.ArchitectureSnapshotProjection?.project(document, selected)
+              || { entities: [], relationships: [], placements: [], metadata: { state: 'empty' } };
+            if (board && !board.view.architectureSnapshotId) board.view.architectureSnapshotId = selected.snapshotId;
+          } catch (error) {
+            this.architectureProjection = { entities: [], relationships: [], placements: [], metadata: { state: 'error', error: error?.message || String(error) } };
+          }
+        }
+        if (options.render !== false && this.root?.isConnected) {
+          this._renderResources();
+          this._renderGraph();
+          this._updateFilterSummary();
+          this._updateSummary();
+        }
+        return this.architectureProjection;
+      })().finally(() => { this.architectureLoadingPromise = null; });
+      return this.architectureLoadingPromise;
+    }
+
+    async refreshArchitectureSnapshots(options = {}) {
+      return this._refreshArchitectureSnapshots({ ...options, render: options.render !== false });
+    }
+
+    async _setLayer(layer) {
+      const next = String(layer || 'runtime');
+      if (!Model.BOARD_LAYERS.includes(next)) return false;
+      const board = activeBoard(this.store);
+      if (!board) return false;
+      if (next !== 'runtime') await this._refreshArchitectureSnapshots({ render: false });
+      board.view = { ...this._boardView(), layer: next };
+      this.resourcePreview = null;
+      this._clearEntitySelection();
+      this.selectedRelationshipId = '';
+      this._persistSoon(0);
+      this.render();
+      if (next !== 'runtime' && !this.architectureProjection.entities.length) {
+        this.notify('尚未导入 Archify 架构快照，请先在仓库详情中导入', 'info');
+      }
+      return true;
     }
 
     async _topologyWithProjectBindings(result = {}) {
@@ -779,6 +858,11 @@
         ['coolify-projects', 'Coolify 项目分组', '按 Project 归属组织，跨项目资源保持独立'],
         ['server-tree', '服务器项目树', '服务器 → 项目容器 → 部署 → 访问点']
       ];
+      const layers = [
+        ['runtime', '运行拓扑', 'Coolify、项目、仓库、主机与访问点的真实运行关系'],
+        ['architecture', '代码架构', '显示当前仓库导入的 Archify 代码结构快照'],
+        ['merged', '合并视图', '同时查看运行拓扑和代码架构，架构卡片保持只读']
+      ];
       const menu = (key, label, current, content) => `<div class="relationship-layout-host">
         <button class="relationship-tool-button relationship-layout-trigger" data-relationship-action="toggle-layout-menu" data-layout-menu="${key}" type="button" aria-label="${label}" aria-haspopup="menu" aria-expanded="false" title="${label}：${escapeHtml(current)}">${toolbarIcon(key === 'structure' ? 'group' : 'layout')}<span>${label}</span><span aria-hidden="true">⌄</span></button>
         <div class="relationship-layout-menu" data-layout-panel="${key}" role="menu" aria-label="${label}" hidden>
@@ -796,8 +880,11 @@
         <div class="relationship-menu-separator" role="separator"></div>
         <p>卡片间距在“显示”中调整；关闭组内自动排列的群组整体移动。</p>
         <button type="button" role="menuitem" data-relationship-action="reset-dynamic-layout">整理布局</button>`;
+      const layerMenu = `<p>切换数据来源。代码架构来自仓库内保存的 Archify 快照，不会覆盖运行拓扑。</p>
+        <div class="relationship-structure-options">${layers.map(([key, label, hint]) => `<button type="button" role="menuitemradio" aria-checked="${view.layer === key}" data-board-layer="${key}"><span><b>${label}</b><small>${hint}</small></span><span aria-hidden="true">${view.layer === key ? '✓' : ''}</span></button>`).join('')}</div>`;
       return menu('structure', '结构', structures.find(([key]) => key === view.structure)?.[1], structureMenu)
-        + menu('layout', '布局', layouts.find(([key]) => key === view.layout)?.[1], layoutMenu);
+        + menu('layout', '布局', layouts.find(([key]) => key === view.layout)?.[1], layoutMenu)
+        + menu('layer', '数据层', layers.find(([key]) => key === view.layer)?.[1], layerMenu);
     }
 
 
@@ -1146,13 +1233,24 @@
       return ResourceView.sections(catalog);
     }
 
+    _boardLayer() {
+      return activeBoard(this.store)?.view?.layer || 'runtime';
+    }
+
     _combinedEntities() {
+      const layer = this._boardLayer();
       const live = new Map((this.panelProjection?.entities || []).map(item => [item.id, item]));
       const aliases = this._endpointAliases();
-      const entities = (this.store?.entities || []).filter(item => !aliases.has(item.id))
+      const entities = layer === 'architecture' ? [] : (this.store?.entities || []).filter(item => !aliases.has(item.id))
         .map(item => live.has(item.id) ? { ...item, runtime: live.get(item.id).runtime } : item);
       const ids = new Set(entities.map(entity => entity.id));
-      for (const entity of this.panelProjection?.entities || []) {
+      if (layer !== 'architecture') for (const entity of this.panelProjection?.entities || []) {
+        if (!ids.has(entity.id)) {
+          ids.add(entity.id);
+          entities.push(entity);
+        }
+      }
+      if (layer !== 'runtime') for (const entity of this.architectureProjection?.entities || []) {
         if (!ids.has(entity.id)) {
           ids.add(entity.id);
           entities.push(entity);
@@ -1168,10 +1266,18 @@
     }
 
     _combinedPlacements(board = activeBoard(this.store)) {
+      const layer = this._boardLayer();
       const aliases = this._endpointAliases();
-      const placements = (board?.placements || []).filter(item => !aliases.has(item.entityId));
+      const placements = layer === 'architecture' ? [] : (board?.placements || []).filter(item => !aliases.has(item.entityId));
       const ids = new Set(placements.map(placement => placement.entityId));
-      for (const placement of this.documentRecord ? [] : (this.panelProjection?.placements || [])) {
+      const runtimePlacements = layer === 'architecture' ? [] : (this.documentRecord ? [] : (this.panelProjection?.placements || []));
+      for (const placement of runtimePlacements) {
+        if (!ids.has(placement.entityId)) {
+          ids.add(placement.entityId);
+          placements.push(placement);
+        }
+      }
+      if (layer !== 'runtime') for (const placement of this.architectureProjection?.placements || []) {
         if (!ids.has(placement.entityId)) {
           ids.add(placement.entityId);
           placements.push(placement);
@@ -1199,6 +1305,7 @@
     _placementForEntity(entityId) {
       return activeBoard(this.store)?.placements.find(placement => placement.entityId === entityId)
         || this.panelProjection?.placements?.find(placement => placement.entityId === entityId)
+        || this.architectureProjection?.placements?.find(placement => placement.entityId === entityId)
         || null;
     }
 
@@ -1285,14 +1392,17 @@
     }
 
     _combinedRelationships(placements = this._combinedPlacements()) {
+      const layer = this._boardLayer();
       const placedIds = new Set(placements.map(placement => placement.entityId));
       const aliases = this._endpointAliases();
       const relationships = [];
       const facts = new Set();
-      for (const original of [
-        ...(this.store?.relationships || []),
-        ...(this.panelProjection?.relationships || [])
-      ]) {
+      const relationshipSources = layer === 'architecture'
+        ? [this.architectureProjection?.relationships || []]
+        : [
+          ...(layer === 'runtime' ? [this.store?.relationships || [], this.panelProjection?.relationships || []] : [this.store?.relationships || [], this.panelProjection?.relationships || [], this.architectureProjection?.relationships || []])
+        ];
+      for (const original of relationshipSources.flat()) {
         const relationship = aliases.has(original.sourceId) || aliases.has(original.targetId)
           ? { ...original, sourceId: aliases.get(original.sourceId) || original.sourceId,
             targetId: aliases.get(original.targetId) || original.targetId } : original;
@@ -1571,6 +1681,23 @@
       return true;
     }
 
+    _selectResourcePreview(resource) {
+      if (!resource) return false;
+      if (resource.entityId && resource.placed) {
+        this.resourcePreview = null;
+        this._selectOnlyEntity(resource.entityId);
+        this._updateSelectionCss();
+        this._setCanvasAnnouncement(`已显示 ${resource.name} 的摘要`);
+        return true;
+      }
+      this._clearEntitySelection();
+      this.selectedRelationshipId = '';
+      this.resourcePreview = { ...resource };
+      this._updateSelectionCss({ syncFlow: false });
+      this._setCanvasAnnouncement(`已显示 ${resource.name} 的摘要`);
+      return true;
+    }
+
     _environmentOptions(selectedValue = '') {
       const values = new Set();
       for (const entity of this._combinedEntities()) {
@@ -1595,13 +1722,13 @@
 
     _filterFreeView(options = {}) {
       const view = this._boardView();
-      const { mode, projection, snapMode, structure, layout, projectGroupIncludesEndpoints, showRepositoryRelations } = view;
+      const { mode, projection, layer, architectureSnapshotId, snapMode, structure, layout, projectGroupIncludesEndpoints, showRepositoryRelations } = view;
       return {
         ...Model.defaultBoardView(),
         ...this._displayViewSettings(view),
         mode,
         projection: options.projection ?? projection ?? 'facts',
-        snapMode, structure, layout, projectGroupIncludesEndpoints, showRepositoryRelations
+        layer, architectureSnapshotId, snapMode, structure, layout, projectGroupIncludesEndpoints, showRepositoryRelations
       };
     }
 
@@ -2313,17 +2440,20 @@
     }
 
     _selectOnlyEntity(entityId) {
+      this.resourcePreview = null;
       this.selectedEntityIds = entityId ? new Set([entityId]) : new Set();
       this.selectedEntityId = entityId || '';
       this.selectedRelationshipId = '';
     }
 
     _clearEntitySelection() {
+      this.resourcePreview = null;
       this.selectedEntityIds = new Set();
       this.selectedEntityId = '';
     }
 
     _setEntitySelection(entityIds, primaryId = '') {
+      this.resourcePreview = null;
       this.selectedEntityIds = new Set(entityIds || []);
       this.selectedEntityId = this.selectedEntityIds.has(primaryId)
         ? primaryId
@@ -2345,7 +2475,7 @@
       const availability = this._entityAvailability(entity);
       if (availability.missing) return 'inactive';
       const status = this._entityRuntimeStatus(entity);
-      if (!status) return ['project', 'repository'].includes(entity?.type) ? 'normal' : 'inactive';
+      if (!status) return ['project', 'repository', 'architecture'].includes(entity?.type) ? 'normal' : 'inactive';
       if (['deploy-failed', 'deploy-error', 'fault'].includes(status.state)) return 'warning';
       if (['stopped', 'offline', 'unknown'].includes(status.state)) return 'inactive';
       return 'normal';
@@ -3291,6 +3421,10 @@
         ].filter(Boolean).join(' · ') || '手工部署节点';
       }
       if (entity.type === 'endpoint') return entity.details.urlLabel || '访问端点';
+      if (entity.type === 'architecture') {
+        return [entity.details.architectureKind, entity.details.architectureSublabel, entity.details.repositoryHead && `HEAD ${entity.details.repositoryHead.slice(0, 8)}`]
+          .filter(Boolean).join(' · ') || 'Archify 代码架构';
+      }
       return entity.details.notes || TYPE_LABELS[entity.type];
     }
 
@@ -4073,6 +4207,27 @@
       }
       const selected = this._selectedFact();
       if (!selected) {
+        if (this.resourcePreview) {
+          const preview = this.resourcePreview;
+          const entity = preview.entityId ? this._allEntitiesById().get(preview.entityId) : null;
+          const kindLabel = TYPE_LABELS[preview.kind] || '资源';
+          const secondary = entity ? this._entitySubtitle(entity, preview, false) : (preview.secondary || kindLabel);
+          const detailRows = [
+            preview.path ? `<div><dt>位置</dt><dd title="${escapeHtml(preview.path)}">${escapeHtml(preview.path)}</dd></div>` : '',
+            `<div><dt>类型</dt><dd>${escapeHtml(kindLabel)}</dd></div>`,
+            secondary ? `<div><dt>摘要</dt><dd>${escapeHtml(secondary)}</dd></div>` : ''
+          ].filter(Boolean).join('');
+          const action = preview.kind === 'whiteboard'
+            ? `<button class="relationship-primary-button" type="button" data-open-document="${escapeHtml(String(preview.id || '').replace(/"/g, ''))}">打开白板</button>`
+            : (preview.key ? `<button class="relationship-primary-button" type="button" data-add-resource="${escapeHtml(preview.key)}">添加到白板</button>` : '');
+          panel.hidden = false;
+          body.classList.add('has-inspector');
+          panel.innerHTML = `<header class="relationship-inspector-header"><div><small>${escapeHtml(kindLabel)} · 资源库</small><h3>${escapeHtml(preview.name || kindLabel)}</h3></div>${this._inspectorHeaderActions('关闭摘要')}</header>
+            <div class="relationship-resource-preview"><dl class="relationship-inspector-identity">${detailRows}</dl><div class="relationship-inspector-actions">${action}</div><p class="relationship-inspector-boundary">这是资源库摘要；只有添加到当前白板后，才会参与布局和关系选择。</p></div>`;
+          this._syncInspectorPinState();
+          this._applyResourcePanelPosition();
+          return;
+        }
         panel.hidden = true;
         panel.innerHTML = '';
         body.classList.remove('has-inspector');
@@ -4083,6 +4238,34 @@
       const fact = selected.value;
       if (fact.transient || ['text', 'image', 'attachment'].includes(fact.type)) {
         this._renderTransientInspector(selected);
+        return;
+      }
+      // Archify snapshots are imported, read-only projections. They are not
+      // part of the persisted relationship store, so do not render the
+      // editable fact form (which would otherwise fail on save).
+      if (selected.kind === 'entity' && fact.type === 'architecture') {
+        const details = fact.details || {};
+        const rows = [
+          ['架构类型', details.architectureKind],
+          ['组件标识', details.architectureComponentId],
+          ['说明', details.architectureSublabel],
+          ['仓库提交', details.repositoryHead],
+          ['快照', details.architectureSnapshotId]
+        ].filter(([, value]) => value).map(([label, value]) => (
+          `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`
+        )).join('');
+        panel.hidden = false;
+        body.classList.add('has-inspector');
+        panel.innerHTML = `<header class="relationship-inspector-header">
+            <div><small>代码架构 · Archify</small><h3>${escapeHtml(this._entityDisplayName(fact))}</h3></div>
+            ${this._inspectorHeaderActions('关闭摘要')}
+          </header>
+          <div class="relationship-resource-preview">
+            <dl class="relationship-inspector-identity">${rows || '<div><dt>信息</dt><dd>此组件没有额外元数据</dd></div>'}</dl>
+            <p class="relationship-inspector-boundary">架构快照来自 Archify 导入，仅用于查看和连线分析；请在源仓库重新生成快照后刷新，不会修改 GitFinder 本机事实。</p>
+          </div>`;
+        this._syncInspectorPinState();
+        this._applyResourcePanelPosition();
         return;
       }
       const isVisualGroup = selected.kind === 'entity' && fact.type === 'group';

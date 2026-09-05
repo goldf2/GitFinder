@@ -143,6 +143,7 @@
       }
       await this.recordVisit(this.state.currentPath);
       this.render();
+      this.app.refreshRepositoryProjectDecorations?.();
       return projects;
     }
 

@@ -39,6 +39,7 @@
     '[data-open-document]', '[data-document-home]', '[data-remove-document]', '[data-trash-document]',
     '[data-reveal-asset]', '[data-edit-canvas-element]', '[data-lock-canvas-element]', '[data-lock-descendants]',
     '[data-group-auto-layout]', '[data-resource-section-toggle]', '[data-relationship-locate-entity]',
+    '[data-resource-key]', '[data-board-layer]',
     '[data-panel-open-external]', '[data-panel-reveal-repository]', '[data-panel-open-repository]',
     '[data-panel-system-repository]', '[data-panel-association-action]', '[data-add-node-type]',
     '[data-add-resource]', '[data-locate-resource]'
@@ -196,6 +197,10 @@
     if (data.boardStructure) {
       controller._closeLayoutMenu(); controller._setStructure(data.boardStructure);
       controller.root?.querySelector('[data-layout-menu="structure"]')?.focus(); return;
+    }
+    if (data.boardLayer) {
+      controller._closeLayoutMenu(); void controller._setLayer(data.boardLayer);
+      controller.root?.querySelector('[data-layout-menu="layer"]')?.focus(); return;
     }
     if (action !== 'toggle-layout-menu') controller._closeLayoutMenu();
     const directAction = resolve(action);
@@ -370,6 +375,12 @@
     if (data.locateResource) {
       const resource = controller.resourceMap.get(data.locateResource);
       if (resource?.entityId) controller._focusEntityOnBoard(resource.entityId);
+      return;
+    }
+    if (data.resourceKey) {
+      const resource = controller._resourceCatalog?.().find(item => item.key === data.resourceKey)
+        || controller.resourceMap.get(data.resourceKey);
+      if (resource) controller._selectResourcePreview?.(resource);
       return;
     }
     closeOutsideMenus(controller, event);

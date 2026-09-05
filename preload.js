@@ -138,7 +138,8 @@ contextBridge.exposeInMainWorld('gitFinder', {
   architectureSnapshots: {
     list: repoPath => ipcRenderer.invoke('architectureSnapshots:list', repoPath),
     import: repoPath => ipcRenderer.invoke('architectureSnapshots:import', repoPath),
-    open: request => ipcRenderer.invoke('architectureSnapshots:open', request)
+    open: request => ipcRenderer.invoke('architectureSnapshots:open', request),
+    read: request => ipcRenderer.invoke('architectureSnapshots:read', request)
   },
 
   panel: {

@@ -34,14 +34,14 @@ test('资源目录统一投影受管资源、白板实体和白板文件', () =>
   });
 
   assert.deepEqual(ResourceView.RESOURCE_CATEGORY_DEFINITIONS.map(category => category.id),
-    ['whiteboard', 'project', 'repository', 'server', 'deployment', 'endpoint', 'other']);
+    ['whiteboard', 'project', 'repository', 'architecture', 'server', 'deployment', 'endpoint', 'other']);
   assert.equal(items.find(item => item.key === 'project:p1').name, '显示:项目别名');
   assert.equal(items.find(item => item.key === 'project:p1').placed, true);
   assert.equal(items.find(item => item.entityId === 'entity_endpoint').category, 'endpoint');
   assert.equal(items.find(item => item.entityId === 'entity_text').category, 'other');
   assert.equal(items.find(item => item.key === 'whiteboard:doc1').secondary, '4 个元素');
   assert.equal(items.find(item => item.key === 'whiteboard:doc2').secondary, '文件缺失 · 可移除记录');
-  assert.deepEqual(ResourceView.sections(items).map(section => section.items.length), [2, 1, 1, 0, 0, 1, 1]);
+  assert.deepEqual(ResourceView.sections(items).map(section => section.items.length), [2, 1, 1, 0, 0, 0, 1, 1]);
 });
 
 test('资源目录标记定位、添加、拖动、折叠并转义可变内容', () => {

@@ -64,7 +64,7 @@ function ConnectionHandles({ nodeId, handles = [] }) {
 }
 
 function entityKind(type) {
-  return { endpoint: '访问点', deployment: '部署', server: '主机', repository: 'Git 仓库', text: '文字', image: '图片', attachment: '附件' }[type] || '元素';
+  return { endpoint: '访问点', deployment: '部署', server: '主机', repository: 'Git 仓库', project: '项目', architecture: '代码架构', text: '文字', image: '图片', attachment: '附件' }[type] || '元素';
 }
 
 function entitySubtitle(entity) {

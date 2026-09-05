@@ -1076,6 +1076,10 @@
   background: #7a67c7;
 }
 
+.relationship-resource-icon[data-kind="project"] {
+  background: #0a84ff;
+}
+
 .relationship-resource-icon[data-kind="repository"] {
   background: #4a90a8;
 }

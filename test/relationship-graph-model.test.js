@@ -112,7 +112,7 @@ test('关系白板按白板保存卡片、文字和画布显示偏好', () => {
     cardTitleSource: 'note',
     deploymentTitleSource: 'note',
     endpointTitleSource: 'website',
-    cardIcons: { server: 'database', deployment: 'service', endpoint: 'none', repository: 'project', project: 'repository' },
+    cardIcons: { server: 'database', deployment: 'service', endpoint: 'none', repository: 'project', project: 'repository', architecture: 'service' },
     showRuntimeStatus: false,
     unmatchedDisplay: 'hide',
     filterContextOpacity: 0.42,

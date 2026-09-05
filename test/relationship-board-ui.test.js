@@ -295,7 +295,7 @@ test('解除仓库关联通过本机 IPC 保存，不修改白板事实且失败
 test('资源库直接显示分类搜索，不再显示范围切换按钮或外层标题', () => {
   assert.deepEqual(
     RESOURCE_CATEGORY_DEFINITIONS.map(category => category.id),
-    ['whiteboard', 'project', 'repository', 'server', 'deployment', 'endpoint', 'other']
+    ['whiteboard', 'project', 'repository', 'architecture', 'server', 'deployment', 'endpoint', 'other']
   );
   assert.doesNotMatch(controllerSource, /data-resource-scope=/);
   assert.match(resourceViewSource, /data-resource-section/);
@@ -596,7 +596,7 @@ test('Coolify 动态拓扑通过只读 IPC 投影到白板而不写入持久关�
   assert.equal(exported.relationships.length, 3);
   assert.equal(exported.entities.some(entity => entity.source === 'observed'), true);
   assert.equal(exported.relationships.every(relationship => relationship.id.startsWith('relationship_')), true);
-  assert.doesNotMatch(JSON.stringify(exported), /\/Volumes\/|"transient"|"runtime"|"dynamic"|"provider"/);
+  assert.doesNotMatch(JSON.stringify(exported), /\/Volumes\/|"transient"|"dynamic"|"provider"/);
 });
 
 test('关系白板不等待全盘项目扫描或 Coolify 网络即可先显示本机关系与仓库', async () => {

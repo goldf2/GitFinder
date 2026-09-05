@@ -97,6 +97,24 @@ test('变更、输入和提交事件复用同一动作路由边界', () => {
   assert.deepEqual(calls.pop(), ['annotation', form]);
 });
 
+test('点击资源库中的项目、仓库或白板文件会先显示右侧摘要', () => {
+  const controller = new Controller({ bridge: {} });
+  const calls = [];
+  controller._closeContextMenu = () => {};
+  controller._selectResourcePreview = resource => calls.push(resource.key);
+  controller._resourceCatalog = () => [{ key: 'whiteboard:d1', kind: 'whiteboard', id: 'd1', name: '运行白板' }];
+  controller.resourceMap.set('repository:r1', { key: 'repository:r1', kind: 'repository', name: '仓库' });
+
+  const click = key => ActionRouter.handleClick(controller, { target: {
+    closest: selector => selector.includes('[data-resource-key]')
+      ? { dataset: { resourceKey: key } } : null
+  } });
+
+  click('whiteboard:d1');
+  click('repository:r1');
+  assert.deepEqual(calls, ['whiteboard:d1', 'repository:r1']);
+});
+
 test('正式页面和全部白板夹具均先加载动作路由再加载控制器', () => {
   const root = path.resolve(__dirname, '..');
   const files = ['src/renderer/index.html', 'scripts/visual-fixtures/endpoint-health.html',

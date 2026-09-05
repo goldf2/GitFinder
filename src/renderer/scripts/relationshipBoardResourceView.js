@@ -7,6 +7,7 @@
     Object.freeze({ id: 'whiteboard', label: '白板文件', icon: '▧' }),
     Object.freeze({ id: 'project', label: '项目', icon: '▣' }),
     Object.freeze({ id: 'repository', label: '仓库', icon: '⑂' }),
+    Object.freeze({ id: 'architecture', label: '代码架构', icon: '⌘' }),
     Object.freeze({ id: 'server', label: '主机', icon: '▰' }),
     Object.freeze({ id: 'deployment', label: '站点与部署', icon: '◆' }),
     Object.freeze({ id: 'endpoint', label: '访问端点', icon: '↗' }),
@@ -52,7 +53,7 @@
       || `${resource.name} ${resource.path} ${resource.secondary}`.toLocaleLowerCase('zh-CN').includes(normalizedQuery));
     if (normalizedQuery && !filtered.length) return '<div class="relationship-resource-empty">没有匹配的资源</div>';
     const itemHtml = resource => {
-      if (resource.kind === 'whiteboard') return `<article class="relationship-resource-item whiteboard-library-item">
+      if (resource.kind === 'whiteboard') return `<article class="relationship-resource-item whiteboard-library-item" data-resource-key="${escape(resource.key)}" data-resource-kind="whiteboard">
         <button type="button" class="whiteboard-library-open" data-open-document="${escape(resource.id)}" title="${escape(resource.path)}"><strong>▧ ${escape(resource.name)}</strong><small>${escape(resource.secondary)}</small></button>
         <button type="button" data-remove-document="${escape(resource.id)}" title="仅从资源库移除" aria-label="移除 ${escape(resource.name)} 的资源库记录">×</button>
         <button type="button" data-trash-document="${escape(resource.id)}" title="移到废纸篓" aria-label="将 ${escape(resource.name)} 移到废纸篓">♲</button></article>`;

@@ -154,6 +154,15 @@ class ArchitectureSnapshotService {
     ensureRegularFile(target, format === 'html' ? MAX_HTML_BYTES : MAX_JSON_BYTES);
     return target;
   }
+
+  read(repoPath, snapshotId) {
+    const target = this.resolve(repoPath, snapshotId, 'json');
+    try {
+      return JSON.parse(fs.readFileSync(target, 'utf8'));
+    } catch (error) {
+      throw new Error(`架构快照 JSON 无法解析：${error.message || String(error)}`);
+    }
+  }
 }
 
 module.exports = {

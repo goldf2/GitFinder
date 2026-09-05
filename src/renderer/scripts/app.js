@@ -827,6 +827,7 @@ const App = {
         if (!result?.cancelled) {
           repo.architectureSnapshots = await window.gitFinder.architectureSnapshots.list(repo.path);
           this.updateDetailPanel();
+          await this.relationshipBoardController?.refreshArchitectureSnapshots?.({ render: true });
           this._showStatusMessage('Archify 架构快照已保存到仓库本地缓存', 'success');
         }
       } catch (error) {
@@ -4643,13 +4644,13 @@ const App = {
   },
 
   _prepareDisplayRepos() {
-    let repos = AppState.enrichedRepos.length ? AppState.enrichedRepos : AppState.allRepos.map(r => ({
+    let repos = this.decorateRepositoryProjectMetadata(AppState.enrichedRepos.length ? AppState.enrichedRepos : AppState.allRepos.map(r => ({
       ...r,
       gitStatus: { isGitRepo: true, branch: '', modified: 0, ahead: 0, behind: 0, overallStatus: 'clean' },
       tags: [],
       readme: r.readme || null,
       groups: []
-    }));
+    })));
 
     const filtered = this.filterRepos(repos);
     return this.sortRepos(filtered);
@@ -5487,6 +5488,22 @@ const App = {
   getProjectSemanticStyle(item) {
     const color = this.getProjectColor(item);
     return color ? ` style="--project-folder-color:${color}"` : '';
+  },
+
+  decorateRepositoryProjectMetadata(repositories = []) {
+    const projects = Array.isArray(AppState.localProjects) ? AppState.localProjects : [];
+    const pathsEqual = window.DirectoryNavigation?.pathsEqual
+      || ((left, right) => String(left || '') === String(right || ''));
+    return (Array.isArray(repositories) ? repositories : []).map(repository => {
+      const project = projects.find(candidate => candidate?.path && pathsEqual(candidate.path, repository?.path, window.gitFinder.platform));
+      return project ? { ...repository, isProject: true, project } : repository;
+    });
+  },
+
+  refreshRepositoryProjectDecorations() {
+    if (this.contentCollectionKind() !== 'repositories') return;
+    const contentArea = document.getElementById('content-area');
+    if (contentArea) this._renderGridContent(this._prepareDisplayRepos(), contentArea);
   },
 
   getProjectLifecycleBadgeHtml(item, label = window.FileBrowser.projectLifecycleLabel(item)) {
