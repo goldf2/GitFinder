@@ -34,13 +34,17 @@ function runtimeFixture() {
   return controller;
 }
 
-test('默认图层只包含运行拓扑和代码架构，旧合并图层迁移到运行拓扑', () => {
+test('白板保留一个画布，运行拓扑和代码架构作为独立可见元素来源', () => {
   assert.deepEqual(Model.BOARD_LAYERS, ['runtime', 'architecture']);
   const legacy = Model.assertValidStore({ schemaVersion: 1, activeBoardId: 'board_scope1234', entities: [], relationships: [], boards: [{
     id: 'board_scope1234', name: '旧白板', viewport: { x: 0, y: 0, zoom: 1 },
-    view: { ...Model.defaultBoardView(), layer: 'merged' }, placements: []
+    view: { layer: 'merged' }, placements: []
   }] });
   assert.equal(legacy.boards[0].view.layer, 'runtime');
+  assert.equal(legacy.boards[0].view.showTopology, true);
+  assert.equal(legacy.boards[0].view.showArchitecture, true);
+  assert.equal(Model.defaultBoardView().showTopology, true);
+  assert.equal(Model.defaultBoardView().showArchitecture, false);
   assert.equal(Model.defaultBoardView().topologyScopeMode, 'board');
   assert.equal(Model.defaultBoardView().architectureScopeMode, 'snapshot');
 });
@@ -66,7 +70,7 @@ test('架构范围可按边界或组件邻接关系缩小，并可隐藏边界�
   const controller = new Controller({ bridge: {} });
   controller.store = { schemaVersion: 1, activeBoardId: 'board_archscope', entities: [], relationships: [], boards: [{
     id: 'board_archscope', name: '架构范围', viewport: { x: 0, y: 0, zoom: 1 },
-    view: { ...Model.defaultBoardView(), layer: 'architecture', architectureScopeMode: 'boundary', architectureScopeId: 'entity_arch_group' }, placements: []
+    view: { ...Model.defaultBoardView(), showArchitecture: true, architectureScopeMode: 'boundary', architectureScopeId: 'entity_arch_group' }, placements: []
   }] };
   controller.architectureProjection = {
     entities: [
@@ -91,40 +95,43 @@ test('架构范围可按边界或组件邻接关系缩小，并可隐藏边界�
   assert.equal(controller._filteredGraph().placements.some(item => item.groupId), false);
 });
 
-test('范围菜单不再暴露合并视图，并提供运行拓扑与代码架构的独立控件', () => {
+test('菜单按运行拓扑和代码架构分别提供显示与范围控件', () => {
   const controller = runtimeFixture();
   controller.store.boards[0].view.topologyScopeMode = 'project';
   controller.store.boards[0].view.topologyScopeId = 'entity_scope_project';
   const runtimeMenu = controller._layoutMenuHtml();
-  assert.doesNotMatch(runtimeMenu, /合并视图|data-board-layer="merged"/);
+  assert.doesNotMatch(runtimeMenu, /数据层|合并视图|data-board-layer="merged"/);
+  assert.match(runtimeMenu, /data-board-topology-visible/);
+  assert.match(runtimeMenu, /data-board-architecture-visible/);
   assert.match(runtimeMenu, /data-topology-scope-mode/);
   assert.match(runtimeMenu, /data-topology-scope-id/);
-  controller.store.boards[0].view.layer = 'architecture';
+  controller.store.boards[0].view.showArchitecture = true;
   controller.architectureProjection = { entities: [{ id: 'entity_arch_scope', type: 'architecture', name: '入口', details: {} }], relationships: [], placements: [{ entityId: 'entity_arch_scope', x: 0, y: 0 }], metadata: { componentCount: 1, boundaryCount: 0, connectionCount: 0 } };
   const architectureMenu = controller._layoutMenuHtml();
   assert.match(architectureMenu, /data-architecture-scope-mode/);
   assert.match(architectureMenu, /data-architecture-show-boundaries/);
 });
 
-test('从代码架构层添加项目或仓库时自动切换到运行拓扑', () => {
+test('添加运行资源时不会隐藏同一白板上的代码架构', () => {
   const controller = runtimeFixture();
   const board = controller.store.boards[0];
-  board.view.layer = 'architecture';
+  board.view.showArchitecture = true;
   controller._persistSoon = () => {};
   const added = [];
   controller._addEntity = entity => added.push(entity);
 
   controller._addResource({ key: 'project:p1', kind: 'project', refId: 'p1', name: '项目 A' });
 
-  assert.equal(board.view.layer, 'runtime');
+  assert.equal(board.view.showTopology, true);
+  assert.equal(board.view.showArchitecture, true);
   assert.equal(added.length, 1);
   assert.equal(added[0].type, 'project');
 });
 
-test('从仓库详情进入关系白板时不会把运行资源留在代码架构层', () => {
+test('从仓库详情进入关系白板时不会关闭代码架构元素', () => {
   const controller = runtimeFixture();
   const board = controller.store.boards[0];
-  board.view.layer = 'architecture';
+  board.view.showArchitecture = true;
   controller.resourceMap.set('repository:r1', { key: 'repository:r1', kind: 'repository', refId: 'r1', name: '仓库' });
   controller._persistSoon = () => {};
   controller._recordMutation = () => {};
@@ -136,6 +143,23 @@ test('从仓库详情进入关系白板时不会把运行资源留在代码架�
   controller._setCanvasAnnouncement = () => {};
 
   assert.equal(controller.revealResource('repository', 'r1'), true);
-  assert.equal(board.view.layer, 'runtime');
+  assert.equal(board.view.showTopology, true);
+  assert.equal(board.view.showArchitecture, true);
   assert.equal(board.placements.length, 1);
+});
+
+test('运行拓扑和代码架构可以同时进入同一白板的过滤结果', () => {
+  const controller = runtimeFixture();
+  const board = controller.store.boards[0];
+  board.view.showArchitecture = true;
+  board.view.topologyScopeMode = 'all';
+  controller.architectureProjection = {
+    entities: [{ id: 'entity_arch_scope', type: 'architecture', name: '入口', details: {} }],
+    relationships: [],
+    placements: [{ entityId: 'entity_arch_scope', x: 480, y: 0, architectureReadOnly: true }],
+    metadata: { componentCount: 1, boundaryCount: 0, connectionCount: 0 }
+  };
+  const ids = controller._filteredGraph().placements.map(item => item.entityId);
+  assert.ok(ids.includes('entity_scope_server'));
+  assert.ok(ids.includes('entity_arch_scope'));
 });

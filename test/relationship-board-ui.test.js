@@ -1502,7 +1502,7 @@ function nestedGroupFixture() {
 test('自动分组在工具栏和空白右键菜单都有明确入口，并复用 Coolify Projects 操作', () => {
   const { controller } = nestedGroupFixture();
   assert.match(controller._layoutMenuHtml(), /data-board-structure="coolify-projects"/);
-  assert.match(controller._layoutMenuHtml(), /决定层级与群组成员，并应用所选布局；自由摆放保留原位置/);
+  assert.match(controller._layoutMenuHtml(), /结构只影响运行拓扑中的层级和群组成员，并应用所选布局；自由摆放保留原位置/);
   assert.doesNotMatch(controllerSource, /data-relationship-layout aria-label="整理操作"/);
   assert.ok(controller._contextMenuItems('canvas').some(item => item?.action === 'arrange-by-coolify-projects' && item.label === '初始化分组（Coolify Projects）'));
 });

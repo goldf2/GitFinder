@@ -145,7 +145,8 @@ test('自由摆放时项目包含访问点只改变归属，归档与独立文�
 test('菜单入口明确分离，布局选项不包含分组命令和自动副本', () => {
   const { c } = fixture();
   const html = c._layoutMenuHtml();
-  assert.match(html, /aria-label="结构"/); assert.match(html, /aria-label="布局"/);
+  assert.match(html, /aria-label="运行拓扑"/); assert.match(html, /aria-label="代码架构"/); assert.match(html, /aria-label="布局"/);
+  assert.match(html, /data-board-structure="coolify-projects"/);
   const layout = html.slice(html.indexOf('data-layout-panel="layout"'));
   assert.doesNotMatch(layout, /data-board-structure|初始化|服务器为中心|围绕选中/);
   assert.doesNotMatch(html, /首次选择会创建副本/);

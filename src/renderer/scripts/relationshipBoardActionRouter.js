@@ -39,7 +39,7 @@
     '[data-open-document]', '[data-document-home]', '[data-remove-document]', '[data-trash-document]',
     '[data-reveal-asset]', '[data-edit-canvas-element]', '[data-lock-canvas-element]', '[data-lock-descendants]',
     '[data-group-auto-layout]', '[data-resource-section-toggle]', '[data-relationship-locate-entity]',
-    '[data-resource-key]', '[data-board-layer]',
+    '[data-resource-key]', '[data-board-layer]', '[data-board-topology-visible]', '[data-board-architecture-visible]',
     '[data-panel-open-external]', '[data-panel-reveal-repository]', '[data-panel-open-repository]',
     '[data-panel-system-repository]', '[data-panel-association-action]', '[data-add-node-type]',
     '[data-add-resource]', '[data-locate-resource]'
@@ -219,6 +219,12 @@
     if (data.boardLayer) {
       controller._closeLayoutMenu(); void controller._setLayer(data.boardLayer);
       controller.root?.querySelector('[data-layout-menu="layer"]')?.focus(); return;
+    }
+    if (data.boardTopologyVisible) {
+      controller._closeLayoutMenu(); controller._setTopologyVisibility(data.boardTopologyVisible === 'true'); return;
+    }
+    if (data.boardArchitectureVisible) {
+      controller._closeLayoutMenu(); void controller._setArchitectureVisibility(data.boardArchitectureVisible === 'true'); return;
     }
     if (action !== 'toggle-layout-menu') controller._closeLayoutMenu();
     const directAction = resolve(action);
