@@ -1131,7 +1131,8 @@ body.file-drag-active.file-drag-copy {
   gap: 8px;
 }
 
-.developer-tool-picker select {
+.developer-tool-picker select,
+#settings-account input {
   min-width: 0;
   padding: 7px 10px;
   border: 1px solid var(--border-color);
@@ -1139,6 +1140,11 @@ body.file-drag-active.file-drag-copy {
   background: var(--bg-primary);
   color: var(--text-primary);
   font: inherit;
+}
+
+#settings-account .btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 /* ============ 应用设置 ============ */
