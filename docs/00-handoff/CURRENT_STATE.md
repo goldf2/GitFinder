@@ -1,6 +1,6 @@
 # GitFinder 2 当前状态
 
-更新时间：2026-09-06 04:20:00 +0800
+更新时间：2026-09-06 06:36:00 +0800
 
 > 本文件是标准交接入口，记录当前工作树中已复核的最新事实。较早的项目过程与领域背景继续保留在 `docs/ai-handoff/`，不在这里重复复制。
 
@@ -10,7 +10,7 @@
 - Coolify 同步：单个实例超时或失败时保留该实例上一次成功快照，同时继续展示其它实例的新数据；所有实例暂时失败但有本地快照时也返回可用的缓存拓扑，不清空白板。状态栏区分“后台同步中”和“首次同步中”。
 - 本地 / 线上边界：线上 Coolify 是新鲜数据源，本地 `coolify-topology-cache.json` 是无凭据的可恢复快照；成功刷新才替换快照，失败不覆盖最后成功数据。缓存不等于线上已确认，节点保留陈旧标记与同步错误。
 - 验证：`npm run check` 通过（1056/1056 测试、251 个 JavaScript 文件语法检查、renderer 构建）；新增运行资源添加回归和部分 Coolify 实例失败缓存回归。
-- 构建：版本 `2.0.0-alpha.104`；待提交后执行 macOS arm64 development 打包并替换本机安装版。
+- 构建：版本 `2.0.0-alpha.104`；macOS arm64 development 包已构建并替换本机安装版 `/Applications/GitFinder 2 Alpha87.app`。制品 ZIP SHA-256：`057a0f2a44946d51ae8d4b00fc1ff189962f19afdf50272c824c421d3ae1954e`。旧安装版已备份到 `/Volumes/project/制品与备份/gitfinder-2/installed-backups/alpha103-before-alpha104-20260906/`；构建为 ad-hoc 签名，仅用于本机验收。
 
 ## 当前交付：运行拓扑与代码架构独立范围（alpha.103）
 

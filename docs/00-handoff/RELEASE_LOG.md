@@ -1,10 +1,12 @@
 # GitFinder 2 发布记录
 
-## 2026-09-06 05:00:00 +0800 · 2.0.0-alpha.104（待构建）
+## 2026-09-06 06:36:00 +0800 · 2.0.0-alpha.104
 
 - 内容：修复架构层添加项目 / 仓库后资源被隐藏；Coolify 部分实例失败保留旧快照，全部失败时优先恢复本地缓存；后台刷新状态不再把已有快照显示为阻塞式首次同步。
 - 门禁：`npm run check` 通过 1056/1056 测试、251 个 JavaScript 文件语法检查和 renderer 构建。
-- 发布范围：待执行 macOS arm64 development 打包、安装替换和推送；线上源仍由 Coolify 提供，本地缓存只作可验证的降级快照。
+- 制品：`/Volumes/project/制品与备份/gitfinder-2/2.0.0-alpha.104/GitFinder-2-2.0.0-alpha.104-arm64-mac.zip`；SHA-256：`057a0f2a44946d51ae8d4b00fc1ff189962f19afdf50272c824c421d3ae1954e`。
+- 安装版：`/Applications/GitFinder 2 Alpha87.app`，`CFBundleShortVersionString=2.0.0-alpha.104`；旧 alpha.103 已备份；构建为 ad-hoc 签名，仅限本机验收。
+- 发布范围：线上源仍由 Coolify 提供，本地缓存只作可验证的降级快照；本轮尚未上传商店或切换公开 current。
 
 ## 2026-09-06 04:20:00 +0800 · 2.0.0-alpha.103
 
