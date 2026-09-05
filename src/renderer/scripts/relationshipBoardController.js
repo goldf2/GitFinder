@@ -526,8 +526,10 @@
       this.panelProjection.placements = this.panelProjection.placements.filter(item => !dissolved.has(item.entityId));
       const groupIds = new Set(this._combinedEntities().filter(item => item.type === 'group').map(item => item.id));
       const placedIds = new Set(this._combinedPlacements().map(item => item.entityId));
+      const liveEntities = new Map(this.panelProjection.entities.map(item => [item.id, item]));
       this.panelProjection.placements = this.panelProjection.placements.map(placement => {
-        const override = boardLayout[placement.entityId];
+        const override = boardLayout[placement.entityId] || liveEntities.get(placement.entityId)?.runtime?.endpointSources
+          ?.map(source => boardLayout[source.entityId]).find(Boolean);
         const groupId = override && preserveStructure ? override.groupId : placement.groupId;
         const validGroup = groupId && placedIds.has(groupId) && groupIds.has(groupId);
         delete placement.groupId;
@@ -1077,7 +1079,7 @@
       let changed = false;
       for (const entity of this.panelProjection.entities) {
         if (entity.runtime?.dynamicKind !== 'panel-endpoint') continue;
-        const check = byTarget.get(`${entity.runtime.providerId}\u0000${entity.runtime.url}`);
+        const check = PanelTopologyProjection.selectEndpointCheck(entity.runtime, byTarget);
         const fields = PanelTopologyProjection.endpointHealthFields(check);
         if (Object.entries(fields).some(([key, value]) => entity.runtime[key] !== value)) changed = true;
         Object.assign(entity.runtime, fields);
@@ -1146,7 +1148,9 @@
 
     _combinedEntities() {
       const live = new Map((this.panelProjection?.entities || []).map(item => [item.id, item]));
-      const entities = (this.store?.entities || []).map(item => live.has(item.id) ? { ...item, runtime: live.get(item.id).runtime } : item);
+      const aliases = this._endpointAliases();
+      const entities = (this.store?.entities || []).filter(item => !aliases.has(item.id))
+        .map(item => live.has(item.id) ? { ...item, runtime: live.get(item.id).runtime } : item);
       const ids = new Set(entities.map(entity => entity.id));
       for (const entity of this.panelProjection?.entities || []) {
         if (!ids.has(entity.id)) {
@@ -1157,15 +1161,37 @@
       return entities;
     }
 
+    _endpointAliases() {
+      return new Map((this.panelProjection?.entities || []).flatMap(entity =>
+        (entity.runtime?.endpointSources || []).filter(source => source.entityId !== entity.id)
+          .map(source => [source.entityId, entity.id])));
+    }
+
     _combinedPlacements(board = activeBoard(this.store)) {
-      const placements = [...(board?.placements || [])];
-      if (this.documentRecord) return placements;
+      const aliases = this._endpointAliases();
+      const placements = (board?.placements || []).filter(item => !aliases.has(item.entityId));
       const ids = new Set(placements.map(placement => placement.entityId));
-      for (const placement of this.panelProjection?.placements || []) {
+      for (const placement of this.documentRecord ? [] : (this.panelProjection?.placements || [])) {
         if (!ids.has(placement.entityId)) {
           ids.add(placement.entityId);
           placements.push(placement);
         }
+      }
+      // Old saved layouts may still parent a reused endpoint to one Project.
+      // Repair that ownership before React Flow or linked dragging can use it.
+      const alerts = PanelTopologyProjection.endpointReuseAlerts({ entities: this._combinedEntities(),
+        relationships: this._combinedRelationships(placements) });
+      const byId = new Map(placements.map(item => [item.entityId, item]));
+      for (const { endpointId } of alerts) {
+        const item = byId.get(endpointId), parent = byId.get(item?.groupId);
+        if (!item?.groupId) continue;
+        delete item.groupId;
+        if (!parent) continue;
+        const dimensions = this._nodeDimensions(), spacing = this._displayViewSettings();
+        const right = Math.max(...placements.filter(p => p !== item).map(p => p.x + (p.groupWidth || dimensions.width)));
+        item.x = right + spacing.horizontalSpacing;
+        const override = this.dynamicLayoutStore?.boards?.[board?.id]?.[endpointId];
+        if (override) { delete override.groupId; override.x = item.x; override.y = item.y; }
       }
       return placements;
     }
@@ -1260,12 +1286,16 @@
 
     _combinedRelationships(placements = this._combinedPlacements()) {
       const placedIds = new Set(placements.map(placement => placement.entityId));
+      const aliases = this._endpointAliases();
       const relationships = [];
       const facts = new Set();
-      for (const relationship of [
+      for (const original of [
         ...(this.store?.relationships || []),
         ...(this.panelProjection?.relationships || [])
       ]) {
+        const relationship = aliases.has(original.sourceId) || aliases.has(original.targetId)
+          ? { ...original, sourceId: aliases.get(original.sourceId) || original.sourceId,
+            targetId: aliases.get(original.targetId) || original.targetId } : original;
         if (!placedIds.has(relationship.sourceId) || !placedIds.has(relationship.targetId)) continue;
         const factKey = `${relationship.type}\u0000${relationship.sourceId}\u0000${relationship.targetId}`;
         if (facts.has(factKey)) continue;

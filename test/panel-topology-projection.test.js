@@ -135,7 +135,7 @@ test('Coolify Projects 分组使用实例和项目身份，跨环境同组、同
   const group = id => result.placements.find(item => item.entityId === dynamicEntityId('deployment', id.startsWith('two') ? 'two' : 'one', id)).groupId;
   assert.equal(group('one_a'), group('one_b'));
   assert.notEqual(group('one_a'), group('two_a'));
-  assert.equal(result.entities.filter(item => item.type === 'group').length, 2);
+  assert.equal(result.entities.filter(item => item.runtime?.dynamicKind === 'coolify-project-group').length, 2);
   assert.equal(JSON.stringify(input), before);
   deployments[0].projectName = '新名称';
   const renamed = buildProjection(input);
@@ -157,7 +157,8 @@ test('项目分组中共享仓库、主机和多项目访问点只出现一次�
   for (const type of ['server', 'repository', 'endpoint']) {
     const resources = result.entities.filter(item => item.type === type);
     assert.equal(resources.length, 1);
-    assert.equal(result.placements.find(item => item.entityId === resources[0].id).groupId, 'entity_panel_shared_resources');
+    assert.equal(result.placements.find(item => item.entityId === resources[0].id).groupId,
+      type === 'endpoint' ? undefined : 'entity_panel_shared_resources');
   }
   assert.equal(result.relationships.length, 6);
   assert.equal(new Set(result.placements.map(item => item.entityId)).size, result.placements.length);

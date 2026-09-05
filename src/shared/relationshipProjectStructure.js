@@ -15,14 +15,14 @@
     for (const edge of graph.relationships) {
       const deployment = edge.type === 'exposes' ? edge.sourceId : edge.type === 'exposed_by' ? edge.targetId : '';
       const endpoint = edge.type === 'exposes' ? edge.targetId : edge.sourceId;
-      if (!deployment || !byId.has(deployment)) continue;
+      if (types.get(deployment) !== 'deployment' || types.get(endpoint) !== 'endpoint') continue;
       if (!endpointOwners.has(endpoint)) endpointOwners.set(endpoint, new Set());
-      endpointOwners.get(endpoint).add(byId.get(deployment).groupId || '');
+      endpointOwners.get(endpoint).add(deployment);
     }
-    for (const [id, groups] of endpointOwners) {
+    for (const [id, deployments] of endpointOwners) {
       const item = byId.get(id);
       if (!item) continue;
-      const groupId = include && groups.size === 1 ? [...groups][0] : '';
+      const groupId = include && deployments.size === 1 ? byId.get([...deployments][0])?.groupId : '';
       if (groupId && types.get(groupId) === 'group' && groupId !== 'entity_panel_shared_resources') item.groupId = groupId;
       else delete item.groupId;
     }

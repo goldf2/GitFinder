@@ -842,6 +842,24 @@
     };
   }
 
+  function endpointAddressKey(value) {
+    try {
+      const url = new URL(value.includes('://') ? value : `https://${value}`);
+      url.hash = '';
+      // Root HTTP/HTTPS aliases describe one public domain; distinct routes and ports retain their identity.
+      if (['http:', 'https:'].includes(url.protocol) && !url.port && url.pathname === '/' && !url.search) return `domain:${url.hostname}`;
+      return url.href;
+    } catch (_) { return value; }
+  }
+
+  function selectEndpointCheck(runtime = {}, checks = new Map()) {
+    const candidates = (runtime.endpointSources || [runtime])
+      .map(source => checks.get(`${source.providerId}\u0000${source.url}`)).filter(Boolean);
+    if (!candidates.length) return undefined;
+    const latest = candidates.reduce((best, check) => (Date.parse(check.checkedAt) || 0) > (Date.parse(best.checkedAt) || 0) ? check : best);
+    return { ...latest, checking: candidates.some(check => check.checking === true) };
+  }
+
   function buildProjection(options = {}) {
     const state = String(options.state || 'unconfigured');
     const empty = {
@@ -874,6 +892,24 @@
     const projects = Array.isArray(options.projects) ? options.projects : [];
     const repositories = Array.isArray(options.repositories) ? options.repositories : [];
     const existingEntities = Array.isArray(options.existingEntities) ? options.existingEntities : [];
+    const existingEndpointIds = new Set(existingEntities.filter(entity => entity.type === 'endpoint').map(entity => entity.id));
+    const endpointSourcesByAddress = new Map();
+    for (const deployment of deployments) {
+      const providerId = String(deployment.providerId || defaultProviderId);
+      for (const url of unique(deployment.domains)) {
+        const key = endpointAddressKey(url);
+        if (!endpointSourcesByAddress.has(key)) endpointSourcesByAddress.set(key, new Map());
+        endpointSourcesByAddress.get(key).set(`${providerId}\u0000${url}`, {
+          entityId: dynamicEntityId('endpoint', providerId, url), providerId,
+          providerLabel: deployment.providerLabel || '', url
+        });
+      }
+    }
+    for (const [key, sources] of endpointSourcesByAddress) {
+      endpointSourcesByAddress.set(key, [...sources.values()].sort((left, right) =>
+        Number(existingEndpointIds.has(right.entityId)) - Number(existingEndpointIds.has(left.entityId))
+        || left.providerId.localeCompare(right.providerId) || left.url.localeCompare(right.url)));
+    }
     const existingByRef = new Map(existingEntities
       .filter(entity => entity?.refId && ['project', 'repository'].includes(entity.type))
       .map(entity => [`${entity.type}:${entity.refId}`, entity]));
@@ -894,7 +930,7 @@
     const entityIds = new Set();
     const relationshipIds = new Set();
     const addEntity = (entity, placement) => {
-      if (!entityIds.has(entity.id) && !existingEntities.some(item => item.id === entity.id)) {
+      if (!entityIds.has(entity.id) && (entity.type === 'endpoint' || !existingEntities.some(item => item.id === entity.id))) {
         entityIds.add(entity.id);
         entities.push(entity);
       }
@@ -1020,27 +1056,31 @@
       if (serverId) addRelationship('runs_on', deploymentId, serverId, deployment.observedAt);
 
       for (const [domainIndex, domain] of unique(deployment.domains).entries()) {
-        const endpointKey = `${providerId}\u0000${domain}`;
+        const endpointKey = endpointAddressKey(domain);
         let endpointId = endpointIdByDomain.get(endpointKey);
         if (!endpointId) {
-          endpointId = dynamicEntityId('endpoint', providerId, domain);
+          const endpointSources = endpointSourcesByAddress.get(endpointKey);
+          const primary = endpointSources[0];
+          endpointId = primary.entityId;
           endpointIdByDomain.set(endpointKey, endpointId);
-          let hostname = domain;
-          try { hostname = new URL(domain).hostname || domain; } catch (_) {}
+          let hostname = primary.url;
+          try { hostname = new URL(primary.url).hostname || primary.url; } catch (_) {}
+          const check = selectEndpointCheck({ endpointSources }, endpointChecks);
           addEntity({
             id: endpointId,
             type: 'endpoint',
             name: hostname,
-            details: { urlLabel: domain },
+            details: { urlLabel: primary.url },
             source: 'observed',
-            verifiedAt: endpointChecks.get(endpointKey)?.checkedAt || '',
+            verifiedAt: check?.checkedAt || '',
             transient: true,
             runtime: {
-              providerId,
-              providerLabel: deployment.providerLabel || '',
+              providerId: primary.providerId,
+              providerLabel: primary.providerLabel,
               dynamicKind: 'panel-endpoint',
-              url: domain,
-              ...endpointHealthFields(endpointChecks.get(endpointKey))
+              url: primary.url,
+              endpointSources,
+              ...endpointHealthFields(check)
             }
           }, topologyLayout[deploymentIndex]?.endpoint(domainIndex) || {
             x: deploymentPlacement.x + layout.width + layout.horizontalSpacing,
@@ -1075,7 +1115,7 @@
 
     arrangeTopologyLanes({ entities, existingEntities, relationships, placements }, layout);
     if (options.groupByProject || options.serverTree) groupTopologyByProjects({ entities, existingEntities, relationships, placements }, layout, options.serverTree);
-    if (options.serverTree) applyProjectEndpointMembership({ entities: [...existingEntities, ...entities], relationships, placements }, options.layout?.projectGroupIncludesEndpoints !== false);
+    if (options.serverTree || options.groupByProject) applyProjectEndpointMembership({ entities: [...existingEntities, ...entities], relationships, placements }, options.layout?.projectGroupIncludesEndpoints !== false);
     if (options.layout?.style) {
       const graph = { entities: [...existingEntities, ...entities], relationships, placements };
       if (options.serverTree) arrangeServerTree(graph, options.layout);
@@ -1098,5 +1138,5 @@
     };
   }
 
-  return { stableHash, dynamicEntityId, dynamicRelationshipId, orderByTopologyAndPosition, routeRelationship, arrangeTopologyLanes, arrangeAroundCenters, groupTopologyByProjects, packRegions, serverTreeGraph, arrangeServerTree, arrangeBoardLayout, arrangeProjectGalaxies, arrangeProjectContainer, applyProjectEndpointMembership, endpointReuseAlerts, endpointHealthFields, buildProjection };
+  return { stableHash, dynamicEntityId, dynamicRelationshipId, orderByTopologyAndPosition, routeRelationship, arrangeTopologyLanes, arrangeAroundCenters, groupTopologyByProjects, packRegions, serverTreeGraph, arrangeServerTree, arrangeBoardLayout, arrangeProjectGalaxies, arrangeProjectContainer, applyProjectEndpointMembership, endpointReuseAlerts, endpointHealthFields, selectEndpointCheck, buildProjection };
 });

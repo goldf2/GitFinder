@@ -85,7 +85,7 @@
       const groupShape = ['rounded', 'polygon'].includes(group.groupShape) ? group.groupShape : projectGroupShape;
       const deployments = graph.placements.filter(item => item.groupId === group.entityId
         && entities.get(item.entityId)?.type === 'deployment').sort((a, b) => a.entityId.localeCompare(b.entityId));
-      const endpoints = [...endpointProjects].filter(([, owners]) => owners.size === 1 && owners.has(group.entityId))
+      const endpoints = [...endpointProjects].filter(([id, owners]) => endpointDeployments.get(id)?.size === 1 && owners.has(group.entityId))
         .map(([id]) => placements.get(id)).filter(Boolean).sort((a, b) => {
           const ownerA = [...(endpointDeployments.get(a.entityId) || [])].sort()[0] || '';
           const ownerB = [...(endpointDeployments.get(b.entityId) || [])].sort()[0] || '';
@@ -219,7 +219,7 @@
       && candidate.y < rect.y + rect.height + layout.verticalSpacing / 2
       && candidate.y + candidate.height + layout.verticalSpacing / 2 > rect.y
     ));
-    const sharedEndpoints = [...endpointProjects].filter(([, owners]) => owners.size > 1)
+    const sharedEndpoints = [...endpointProjects].filter(([id]) => endpointDeployments.get(id)?.size > 1)
       .map(([id, owners]) => ({ item: placements.get(id), owners: [...owners].sort() }))
       .filter(entry => entry.item && !used.has(entry.item.entityId))
       .sort((a, b) => a.item.entityId.localeCompare(b.item.entityId));
