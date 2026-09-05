@@ -1,0 +1,54 @@
+.detail-architecture {
+  display: grid;
+  gap: 8px;
+}
+
+.detail-architecture-empty {
+  color: var(--text-secondary, #86868b);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.detail-architecture-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-light, rgba(0, 0, 0, 0.08));
+  border-radius: 12px;
+  background: var(--bg-secondary, rgba(0, 0, 0, 0.025));
+}
+
+.detail-architecture-item-copy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.detail-architecture-item-copy strong,
+.detail-architecture-item-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.detail-architecture-item-copy strong {
+  color: var(--text-primary, #1d1d1f);
+  font-size: 13px;
+}
+
+.detail-architecture-item-copy small {
+  color: var(--text-secondary, #86868b);
+  font-size: 11px;
+}
+
+.detail-architecture-item-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 6px;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .detail-architecture-item { background: var(--bg-primary, #fff); }
+}

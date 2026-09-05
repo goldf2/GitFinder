@@ -135,6 +135,12 @@ contextBridge.exposeInMainWorld('gitFinder', {
     applyImport: (request) => ipcRenderer.invoke('relationshipBoards:applyImport', request)
   },
 
+  architectureSnapshots: {
+    list: repoPath => ipcRenderer.invoke('architectureSnapshots:list', repoPath),
+    import: repoPath => ipcRenderer.invoke('architectureSnapshots:import', repoPath),
+    open: request => ipcRenderer.invoke('architectureSnapshots:open', request)
+  },
+
   panel: {
     getConnection: () => ipcRenderer.invoke('panel:getConnection'),
     getConnections: () => ipcRenderer.invoke('panel:getConnections'),

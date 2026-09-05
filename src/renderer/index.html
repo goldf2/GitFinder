@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="styles/sidebar.css">
   <link rel="stylesheet" href="styles/content.css">
   <link rel="stylesheet" href="styles/detail.css">
+  <link rel="stylesheet" href="styles/architecture.css">
   <link rel="stylesheet" href="styles/relationships.css">
   <link rel="stylesheet" href="generated/relationship-canvas.css">
   <link rel="stylesheet" href="styles/theme.css">
@@ -341,11 +342,16 @@
               <button class="btn btn-tiny" id="toggle-assignments-btn" title="隐藏/显示未选中的分类和标签气泡">隐藏未选</button>
               <button class="btn btn-tiny" id="detail-project-settings" type="button" style="display:none;">项目设置</button>
               <button class="btn btn-tiny" id="detail-relationship-board" type="button" style="display:none;">关系白板</button>
+              <button class="btn btn-tiny" id="detail-architecture" type="button" style="display:none;">代码架构</button>
             </div>
           </div>
           <div class="detail-section collapsible" data-section-id="git-info">
             <h4 class="section-toggle" data-target="detail-git-info">Git 信息 <span class="toggle-arrow">▼</span></h4>
             <div class="detail-git-info" id="detail-git-info"></div>
+          </div>
+          <div class="detail-section collapsible" data-section-id="architecture" id="detail-architecture-section" hidden>
+            <h4 class="section-toggle" data-target="detail-architecture-content">代码架构 <span class="toggle-arrow">▼</span></h4>
+            <div class="detail-architecture" id="detail-architecture-content"></div>
           </div>
           <div class="detail-section collapsible" data-section-id="deployments" id="detail-deployments-section" hidden>
             <h4 class="section-toggle" data-target="detail-deployments">部署 <span class="toggle-arrow">▼</span></h4>

@@ -26,6 +26,7 @@ const { registerGitIPC } = require('./src/main/ipc/git');
 const { registerProjectTasksIPC } = require('./src/main/ipc/projectTasks');
 const { registerLocalProjectsIPC } = require('./src/main/ipc/localProjects');
 const { registerRelationshipBoardsIPC } = require('./src/main/ipc/relationshipBoards');
+const { registerArchitectureSnapshotsIPC } = require('./src/main/ipc/architectureSnapshots');
 const { registerConfigIPC } = require('./src/main/ipc/config');
 const { registerPanelIPC } = require('./src/main/ipc/panel');
 const { registerTerminalHandlers } = require('./src/main/ipc/terminal');
@@ -347,6 +348,7 @@ app.whenReady().then(() => {
   registerProjectTasksIPC();
   registerLocalProjectsIPC();
   registerRelationshipBoardsIPC();
+  registerArchitectureSnapshotsIPC();
   registerConfigIPC();
   registerPanelIPC();
   registerTerminalHandlers();

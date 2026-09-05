@@ -817,6 +817,24 @@ const App = {
         path: button.dataset.relationshipPath
       });
     });
+    document.getElementById('detail-architecture')?.addEventListener('click', async () => {
+      const repo = AppState.selectedRepo;
+      if (!repo?.path || !window.gitFinder.architectureSnapshots?.import) return;
+      const button = document.getElementById('detail-architecture');
+      button.disabled = true;
+      try {
+        const result = await window.gitFinder.architectureSnapshots.import(repo.path);
+        if (!result?.cancelled) {
+          repo.architectureSnapshots = await window.gitFinder.architectureSnapshots.list(repo.path);
+          this.updateDetailPanel();
+          this._showStatusMessage('Archify 架构快照已保存到仓库本地缓存', 'success');
+        }
+      } catch (error) {
+        this._showStatusMessage(`导入架构快照失败：${error.message || error}`, 'error');
+      } finally {
+        button.disabled = false;
+      }
+    });
 
     document.getElementById('confirm-new-tag-btn')?.addEventListener('click', async () => {
       const name = document.getElementById('new-tag-name').value.trim();

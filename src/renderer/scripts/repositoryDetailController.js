@@ -20,7 +20,7 @@
     async select(repoPath) {
       const requestId = ++this.selectionRequestId;
       try {
-        const [info, status, readme, tags, controlFiles, markdownDocs, savedSelections, savedDocSelections, localProject] = await Promise.all([
+        const [info, status, readme, tags, controlFiles, markdownDocs, savedSelections, savedDocSelections, localProject, architectureSnapshots] = await Promise.all([
           this.bridge.fs.getFileInfo(repoPath),
           this.bridge.git.getStatus(repoPath, { autoFetch: false }),
           this.bridge.fs.getReadmePreview(repoPath),
@@ -29,7 +29,8 @@
           this.bridge.fs.listMarkdownDocuments(repoPath),
           this.bridge.config.get('projectControlSelections'),
           this.bridge.config.get('markdownDocumentSelections'),
-          this.bridge.localProjects.describe(repoPath).catch(() => ({ isProject: false, project: null }))
+          this.bridge.localProjects.describe(repoPath).catch(() => ({ isProject: false, project: null })),
+          this.bridge.architectureSnapshots?.list?.(repoPath).catch(() => []) || Promise.resolve([])
         ]);
         const groups = this.app._findRepoGroups(repoPath);
         const [projectControl, projectDocs] = await Promise.all([
@@ -48,7 +49,8 @@
           groups,
           projectControl,
           projectDocs,
-          localProject
+          localProject,
+          architectureSnapshots
         };
         this.terminal?.setCwd?.(repoPath);
         await this.render();
@@ -177,6 +179,14 @@
         relationshipButton.dataset.relationshipRef = projectId || '';
         relationshipButton.dataset.relationshipPath = repo.path || '';
       }
+      const architectureButton = this._element('detail-architecture');
+      if (architectureButton) {
+        architectureButton.style.display = '';
+        architectureButton.dataset.architecturePath = repo.path || '';
+        architectureButton.textContent = repo.architectureSnapshots?.length ? '更新架构' : '导入架构';
+      }
+      const architectureSection = this._element('detail-architecture-section');
+      if (architectureSection) architectureSection.hidden = false;
 
       this.updateSections();
       this.applySectionOrder();
@@ -253,6 +263,8 @@
         ` : ''}
       `;
 
+      this._renderArchitectureSnapshots(repo);
+
       this._renderGroups(repo);
       this._renderTags(repo, tags);
       this.app.panelDeploymentController?.showRepository(repo);
@@ -325,6 +337,42 @@
           await this.render();
           this.app.renderSidebarTags();
           this.app.renderContent();
+        });
+      });
+    }
+
+    _renderArchitectureSnapshots(repo) {
+      const container = this._element('detail-architecture-content');
+      if (!container) return;
+      const snapshots = Array.isArray(repo.architectureSnapshots) ? repo.architectureSnapshots : [];
+      if (!snapshots.length) {
+        container.innerHTML = '<div class="detail-architecture-empty">暂无 Archify 架构快照。可从右上角导入 JSON；快照保存在仓库的 .gitfinder/architecture/ 中。</div>';
+        return;
+      }
+      container.innerHTML = snapshots.map(snapshot => `
+        <article class="detail-architecture-item">
+          <div class="detail-architecture-item-copy">
+            <strong>${this.app.escapeHtml(snapshot.title || snapshot.diagramType)}</strong>
+            <small>${this.app.escapeHtml(snapshot.diagramType)} · ${this.app.escapeHtml(snapshot.repositoryHead || '未关联提交')}</small>
+            <small>${this.app.escapeHtml(this.app.formatTime(snapshot.generatedAt))}${snapshot.htmlPath ? ' · 有 HTML 预览' : ''}</small>
+          </div>
+          <div class="detail-architecture-item-actions">
+            <button class="btn btn-tiny" type="button" data-architecture-open="json" data-snapshot-id="${this.app.escapeHtml(snapshot.snapshotId)}">JSON</button>
+            ${snapshot.htmlPath ? `<button class="btn btn-tiny" type="button" data-architecture-open="html" data-snapshot-id="${this.app.escapeHtml(snapshot.snapshotId)}">预览</button>` : ''}
+          </div>
+        </article>
+      `).join('');
+      container.querySelectorAll('[data-architecture-open]').forEach(button => {
+        button.addEventListener('click', async () => {
+          try {
+            await this.bridge.architectureSnapshots.open({
+              repoPath: repo.path,
+              snapshotId: button.dataset.snapshotId,
+              format: button.dataset.architectureOpen
+            });
+          } catch (error) {
+            this.app._showStatusMessage(`打开架构快照失败：${error.message || error}`, 'error');
+          }
         });
       });
     }
