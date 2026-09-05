@@ -559,7 +559,7 @@ test('Coolify 动态拓扑通过只读 IPC 投影到白板而不写入持久关�
       id: 'board_panel001',
       name: '部署关系',
       viewport: { x: 0, y: 0, zoom: 1 },
-      view: RelationshipGraphModel.defaultBoardView(),
+      view: { ...RelationshipGraphModel.defaultBoardView(), topologyScopeMode: 'all' },
       placements: []
     }]
   };

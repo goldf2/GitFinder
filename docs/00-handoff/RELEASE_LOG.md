@@ -1,5 +1,11 @@
 # GitFinder 2 发布记录
 
+## 2026-09-06 04:20:00 +0800 · 2.0.0-alpha.103（待构建）
+
+- 内容：运行拓扑与代码架构独立显示，移除合并视图；新增运行资源和 Archify 架构的细粒度范围选择并持久化到当前白板。
+- 门禁：`npm run check` 通过 1053/1053 测试、251 个 JavaScript 文件语法检查和 renderer 构建；macOS 制品与安装替换待本条记录完成后补写。
+- 发布范围：本轮尚未构建 Windows、上传商店或切换公开 current。
+
 ## 2026-09-05 12:18:08 +0800 · alpha.97 本机替换与推送
 
 - 已备份 alpha.96：`/Volumes/project/制品与备份/gitfinder-2/installed-backups/alpha96-before-alpha97-20260905/GitFinder 2 Alpha87.app`；安装路径保持 `/Applications/GitFinder 2 Alpha87.app`，包内版本 alpha.97。

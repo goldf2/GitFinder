@@ -34,7 +34,12 @@
   const BOARD_VIEW_MODES = Object.freeze(['full', 'compact']);
   const BOARD_PROJECTIONS = Object.freeze(['facts', 'deployment-summary']);
   const BOARD_STRUCTURES = Object.freeze(['resources', 'coolify-projects', 'server-tree']);
-  const BOARD_LAYERS = Object.freeze(['runtime', 'architecture', 'merged']);
+  // Runtime topology and code architecture are deliberately separate data
+  // layers.  `merged` existed in an early prototype; it is accepted only as a
+  // read-time migration to runtime so old board files do not become invalid.
+  const BOARD_LAYERS = Object.freeze(['runtime', 'architecture']);
+  const TOPOLOGY_SCOPE_MODES = Object.freeze(['board', 'all', 'server', 'project', 'deployment', 'repository']);
+  const ARCHITECTURE_SCOPE_MODES = Object.freeze(['snapshot', 'boundary', 'component']);
   const BOARD_LAYOUTS = Object.freeze(['free', 'compact', 'lanes', 'right', 'down', 'bilateral', 'radial', 'galaxy']);
   const BOARD_SNAP_MODES = Object.freeze(['off', 'grid', 'smart']);
   const BOARD_CARD_APPEARANCES = Object.freeze(['elevated', 'flat']);
@@ -205,6 +210,11 @@
       projection: 'facts',
       layer: 'runtime',
       architectureSnapshotId: '',
+      topologyScopeMode: 'board',
+      topologyScopeId: '',
+      architectureScopeMode: 'snapshot',
+      architectureScopeId: '',
+      architectureShowBoundaries: true,
       structure: 'resources',
       layout: 'lanes',
       projectGroupIncludesEndpoints: true,
@@ -264,7 +274,12 @@
     if (raw != null && !isPlainObject(raw)) issues.push(`${pathPrefix} 必须是对象`);
     const mode = String(view.mode || 'full');
     const projection = String(view.projection || 'facts');
-    const layer = String(view.layer || 'runtime');
+    const rawLayer = String(view.layer || 'runtime');
+    const layer = rawLayer === 'merged' ? 'runtime' : rawLayer;
+    const topologyScopeMode = String(view.topologyScopeMode || 'board');
+    const topologyScopeId = cleanText(view.topologyScopeId, 160);
+    const architectureScopeMode = String(view.architectureScopeMode || 'snapshot');
+    const architectureScopeId = cleanText(view.architectureScopeId, 160);
     const { structure, layout } = boardOrganization(view);
     const snapMode = String(view.snapMode || 'smart');
     const cardAppearance = String(view.cardAppearance || 'elevated');
@@ -296,7 +311,9 @@
       : [];
     if (!BOARD_VIEW_MODES.includes(mode)) issues.push(`${pathPrefix}.mode 无效`);
     if (!BOARD_PROJECTIONS.includes(projection)) issues.push(`${pathPrefix}.projection 无效`);
-    if (!BOARD_LAYERS.includes(layer)) issues.push(`${pathPrefix}.layer 无效`);
+    if (!BOARD_LAYERS.includes(layer) && rawLayer !== 'merged') issues.push(`${pathPrefix}.layer 无效`);
+    if (!TOPOLOGY_SCOPE_MODES.includes(topologyScopeMode)) issues.push(`${pathPrefix}.topologyScopeMode 无效`);
+    if (!ARCHITECTURE_SCOPE_MODES.includes(architectureScopeMode)) issues.push(`${pathPrefix}.architectureScopeMode 无效`);
     if (!BOARD_STRUCTURES.includes(structure)) issues.push(`${pathPrefix}.structure 无效`);
     if (!BOARD_LAYOUTS.includes(layout)) issues.push(`${pathPrefix}.layout 无效`);
     if (view.topologyLayout != null && !['lanes', 'coolify-projects', 'selection-centered', 'server-centered', 'server-tree'].includes(view.topologyLayout)) issues.push(`${pathPrefix}.topologyLayout 无效`);
@@ -319,6 +336,7 @@
     if (strict && view.showEdgeLabels != null && typeof view.showEdgeLabels !== 'boolean') issues.push(`${pathPrefix}.showEdgeLabels 必须是布尔值`);
     if (strict && view.showRepositoryRelations != null && typeof view.showRepositoryRelations !== 'boolean') issues.push(`${pathPrefix}.showRepositoryRelations 必须是布尔值`);
     if (strict && view.showRuntimeStatus != null && typeof view.showRuntimeStatus !== 'boolean') issues.push(`${pathPrefix}.showRuntimeStatus 必须是布尔值`);
+    if (strict && view.architectureShowBoundaries != null && typeof view.architectureShowBoundaries !== 'boolean') issues.push(`${pathPrefix}.architectureShowBoundaries 必须是布尔值`);
     if (entityType !== 'all' && !ENTITY_TYPES.includes(entityType)) issues.push(`${pathPrefix}.entityType 无效`);
     if (!VERIFICATION_FILTERS.includes(verification)) issues.push(`${pathPrefix}.verification 无效`);
     if (!ANNOTATION_FILTERS.includes(annotation)) issues.push(`${pathPrefix}.annotation 无效`);
@@ -329,7 +347,7 @@
     if (strict && view.runtimeStates != null && (!Array.isArray(view.runtimeStates) || view.runtimeStates.some(value => !RUNTIME_FILTERS.includes(String(value))))) issues.push(`${pathPrefix}.runtimeStates 无效`);
     if (strict) {
       for (const key of Object.keys(view)) {
-        if (!['mode', 'projection', 'layer', 'architectureSnapshotId', 'structure', 'layout', 'topologyLayout', 'treeLayout', 'projectGroupIncludesEndpoints', 'showRepositoryRelations', 'snapMode', 'cardScale', 'cardWidth', 'cardHeight', 'textScale', 'groupTitleFontSize', 'edgeWidth', 'horizontalSpacing', 'verticalSpacing', 'cardAppearance', 'showGrid', 'showEdgeLabels', 'cardTitleSource', 'deploymentTitleSource', 'endpointTitleSource', 'cardIcons', 'projectGroupShape', 'showRuntimeStatus', 'unmatchedDisplay', 'filterContextOpacity', 'filterMutedOpacity', 'filterMutedSaturation', 'filterContextEdgeOpacity', 'filterMutedEdgeOpacity', 'filterMatchHaloOpacity', 'statusTintOpacity', 'query', 'entityType', 'entityTypes', 'environment', 'verification', 'annotation', 'task', 'taskFilters', 'runtimeStates', 'label'].includes(key)) {
+        if (!['mode', 'projection', 'layer', 'architectureSnapshotId', 'topologyScopeMode', 'topologyScopeId', 'architectureScopeMode', 'architectureScopeId', 'architectureShowBoundaries', 'structure', 'layout', 'topologyLayout', 'treeLayout', 'projectGroupIncludesEndpoints', 'showRepositoryRelations', 'snapMode', 'cardScale', 'cardWidth', 'cardHeight', 'textScale', 'groupTitleFontSize', 'edgeWidth', 'horizontalSpacing', 'verticalSpacing', 'cardAppearance', 'showGrid', 'showEdgeLabels', 'cardTitleSource', 'deploymentTitleSource', 'endpointTitleSource', 'cardIcons', 'projectGroupShape', 'showRuntimeStatus', 'unmatchedDisplay', 'filterContextOpacity', 'filterMutedOpacity', 'filterMutedSaturation', 'filterContextEdgeOpacity', 'filterMutedEdgeOpacity', 'filterMatchHaloOpacity', 'statusTintOpacity', 'query', 'entityType', 'entityTypes', 'environment', 'verification', 'annotation', 'task', 'taskFilters', 'runtimeStates', 'label'].includes(key)) {
           issues.push(`${pathPrefix}.${key} 不是允许的字段`);
         }
       }
@@ -339,6 +357,11 @@
       projection: BOARD_PROJECTIONS.includes(projection) ? projection : 'facts',
       layer: BOARD_LAYERS.includes(layer) ? layer : 'runtime',
       architectureSnapshotId: /^[a-f0-9]{16}$/i.test(String(view.architectureSnapshotId || '')) ? String(view.architectureSnapshotId).toLowerCase() : '',
+      topologyScopeMode: TOPOLOGY_SCOPE_MODES.includes(topologyScopeMode) ? topologyScopeMode : 'board',
+      topologyScopeId,
+      architectureScopeMode: ARCHITECTURE_SCOPE_MODES.includes(architectureScopeMode) ? architectureScopeMode : 'snapshot',
+      architectureScopeId,
+      architectureShowBoundaries: view.architectureShowBoundaries !== false,
       structure: BOARD_STRUCTURES.includes(structure) ? structure : 'resources',
       layout: BOARD_LAYOUTS.includes(layout) ? layout : 'lanes',
       projectGroupIncludesEndpoints: view.projectGroupIncludesEndpoints !== false,
@@ -885,6 +908,8 @@
     BOARD_PROJECTIONS,
     BOARD_STRUCTURES,
     BOARD_LAYERS,
+    TOPOLOGY_SCOPE_MODES,
+    ARCHITECTURE_SCOPE_MODES,
     BOARD_LAYOUTS,
     boardOrganization,
     BOARD_SNAP_MODES,

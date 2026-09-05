@@ -87,6 +87,24 @@
     if (target.matches('[data-project-endpoints]')) {
       controller._setProjectEndpoints(target.checked); return;
     }
+    if (target.matches('[data-topology-scope-mode]')) {
+      controller._setTopologyScopeMode(target.value); return;
+    }
+    if (target.matches('[data-topology-scope-id]')) {
+      controller._setTopologyScopeId(target.value); return;
+    }
+    if (target.matches('[data-architecture-scope-mode]')) {
+      controller._setArchitectureScopeMode(target.value); return;
+    }
+    if (target.matches('[data-architecture-scope-id]')) {
+      controller._setArchitectureScopeId(target.value); return;
+    }
+    if (target.matches('[data-architecture-snapshot]')) {
+      void controller._setArchitectureSnapshot(target.value); return;
+    }
+    if (target.matches('[data-architecture-show-boundaries]')) {
+      controller._setArchitectureShowBoundaries(target.checked); return;
+    }
     if (target.matches('[data-relationship-snap-mode]')) {
       const board = activeBoard(controller);
       if (!board) return;

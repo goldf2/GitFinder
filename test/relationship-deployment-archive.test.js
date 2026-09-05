@@ -12,7 +12,7 @@ function fixture(dynamic = false) {
     ...(index === 0 ? { note: '保留备注', titleMode: 'replace', titleText: '已停用服务', todos: [{ id: 'todo_check0000', title: '检查数据迁移', completed: false }] } : {}) }));
   const relationships = [['one', 'own'], ['one', 'shared'], ['two', 'shared']].map(([from, to], index) => ({ id: `relationship_link0000${index}`, type: 'exposes', sourceId: `entity_00000${from}`, targetId: `entity_00000${to}` }));
   controller.store = Model.assertValidStore({ schemaVersion: 1, activeBoardId: 'board_archive0000', entities: dynamic ? [] : entities, relationships: dynamic ? [] : relationships,
-    boards: [{ id: 'board_archive0000', name: '归档测试', viewport: { x: 0, y: 0, zoom: 1 }, placements: dynamic ? [] : placements }] });
+    boards: [{ id: 'board_archive0000', name: '归档测试', viewport: { x: 0, y: 0, zoom: 1 }, view: { ...Model.defaultBoardView(), topologyScopeMode: 'all' }, placements: dynamic ? [] : placements }] });
   if (dynamic) controller.panelProjection = { entities: entities.map(entity => ({ ...entity, transient: true, runtime: { token: 'must-not-be-saved' } })), placements: placements.map(item => ({ ...item, dynamic: true })), relationships };
   controller._persistSoon = controller._persistDynamicLayoutsSoon = controller.render = () => {};
   return controller;
@@ -50,7 +50,7 @@ test('动态部署归档保留离线快照、标题与待办，但不持久化�
 
 test('在线还原动态部署保留坐标与备注，撤销恢复归档，其他白板不受影响', () => {
   const controller = fixture(true);
-  controller.store.boards.push({ id: 'board_other0000', name: '另一个白板', viewport: { x: 0, y: 0, zoom: 1 }, placements: [] });
+  controller.store.boards.push({ id: 'board_other0000', name: '另一个白板', viewport: { x: 0, y: 0, zoom: 1 }, view: { ...Model.defaultBoardView(), topologyScopeMode: 'all' }, placements: [] });
   controller._setDeploymentArchived('entity_00000one', true);
   const archived = controller._historySnapshot();
   controller.store.activeBoardId = 'board_other0000';

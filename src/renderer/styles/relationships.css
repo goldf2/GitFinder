@@ -91,6 +91,17 @@
 .relationship-layout-options svg { width: 32px; height: 32px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .relationship-layout-check { font-weight: 700; }
 .relationship-structure-options button { display: grid; grid-template-columns: 1fr 18px; gap: 8px; min-height: 58px; align-items: center; }
+.relationship-scope-options { border: 0; margin: 4px 0 8px; padding: 0; }
+.relationship-scope-options legend { padding: 0 8px 4px; color: var(--text-secondary); font-size: 11px; font-weight: 700; }
+.relationship-scope-options label { display: grid; grid-template-columns: 18px 1fr; gap: 8px; align-items: start; padding: 8px; border-radius: 8px; cursor: pointer; }
+.relationship-scope-options label:hover, .relationship-scope-options label:has(input:checked) { background: var(--accent-bg); color: var(--accent-primary); }
+.relationship-scope-options input { margin-top: 2px; accent-color: var(--accent-primary); }
+.relationship-scope-options b { display: block; font-size: 12px; }
+.relationship-scope-select { display: grid; grid-template-columns: 48px 1fr; gap: 8px; align-items: center; margin: 8px; color: var(--text-secondary); font-size: 11px; }
+.relationship-scope-select select { min-width: 0; width: 100%; height: 30px; padding: 0 22px 0 8px; border: 1px solid var(--border-color); border-radius: 7px; background: var(--bg-primary); color: var(--text-primary); font: inherit; }
+.relationship-scope-check { display: flex; gap: 8px; align-items: center; margin: 8px; color: var(--text-secondary); font-size: 11px; }
+.relationship-scope-check input { accent-color: var(--accent-primary); }
+.relationship-scope-count { margin: 8px !important; }
 
 .relationship-context-menu {
   position: fixed;

@@ -572,6 +572,112 @@
       return true;
     }
 
+    _topologyScopeOptions(mode = this._boardView().topologyScopeMode) {
+      const type = String(mode || '');
+      if (!Model.TOPOLOGY_SCOPE_MODES.includes(type) || ['board', 'all'].includes(type)) return [];
+      const entities = this._combinedEntities();
+      const matches = entity => type === 'project'
+        ? entity.type === 'project' || entity.runtime?.dynamicKind === 'coolify-project-group'
+        : entity.type === type;
+      return entities.filter(entity => matches(entity))
+        .filter(entity => entity.id !== 'entity_panel_shared_resources')
+        .map(entity => ({
+          id: entity.id,
+          label: this._entityDisplayName(entity),
+          detail: entity.type === 'group' ? 'Coolify Project 容器' : (TYPE_LABELS[entity.type] || '资源')
+        }))
+        .sort((left, right) => left.label.localeCompare(right.label, 'zh-CN') || left.id.localeCompare(right.id));
+    }
+
+    _architectureScopeOptions(mode = this._boardView().architectureScopeMode) {
+      const type = String(mode || 'snapshot');
+      if (type === 'snapshot') return [];
+      const targetType = type === 'boundary' ? 'group' : 'architecture';
+      return (this.architectureProjection?.entities || [])
+        .filter(entity => entity.type === targetType)
+        .map(entity => ({
+          id: entity.id,
+          label: this._entityDisplayName(entity),
+          detail: entity.type === 'group' ? (entity.details?.architectureBoundaryKind || '架构边界') : (entity.details?.architectureKind || '代码组件')
+        }))
+        .sort((left, right) => left.label.localeCompare(right.label, 'zh-CN') || left.id.localeCompare(right.id));
+    }
+
+    _scopeModeLabel(mode, architecture = false) {
+      const labels = architecture
+        ? { snapshot: '当前快照', boundary: '单个边界', component: '组件及邻接关系' }
+        : { board: '当前白板', all: '全部运行资源', server: '单台主机', project: '单个 Project', deployment: '单个部署', repository: '单个 Git 仓库' };
+      return labels[String(mode || '')] || (architecture ? '当前快照' : '当前白板');
+    }
+
+    _setTopologyScopeMode(mode) {
+      const next = String(mode || 'board');
+      if (!Model.TOPOLOGY_SCOPE_MODES.includes(next)) return false;
+      const board = activeBoard(this.store);
+      if (!board) return false;
+      const options = this._topologyScopeOptions(next);
+      const currentId = String(this._boardView().topologyScopeId || '');
+      board.view = { ...this._boardView(), topologyScopeMode: next,
+        topologyScopeId: ['board', 'all'].includes(next) ? '' : (options.some(item => item.id === currentId) ? currentId : (options[0]?.id || '')) };
+      this._clearEntitySelection(); this.selectedRelationshipId = '';
+      this._persistSoon(0); this.render();
+      if (!['board', 'all'].includes(next) && !options.length) this.notify(`当前没有可选择的${this._scopeModeLabel(next)}`, 'info');
+      return true;
+    }
+
+    _setTopologyScopeId(id) {
+      const board = activeBoard(this.store);
+      if (!board) return false;
+      const next = String(id || '');
+      if (next && !this._topologyScopeOptions(this._boardView().topologyScopeMode).some(item => item.id === next)) return false;
+      board.view = { ...this._boardView(), topologyScopeId: next };
+      this._clearEntitySelection(); this.selectedRelationshipId = '';
+      this._persistSoon(0); this.render(); return true;
+    }
+
+    _setArchitectureScopeMode(mode) {
+      const next = String(mode || 'snapshot');
+      if (!Model.ARCHITECTURE_SCOPE_MODES.includes(next)) return false;
+      const board = activeBoard(this.store);
+      if (!board) return false;
+      const options = this._architectureScopeOptions(next);
+      const currentId = String(this._boardView().architectureScopeId || '');
+      board.view = { ...this._boardView(), architectureScopeMode: next,
+        architectureScopeId: next === 'snapshot' ? '' : (options.some(item => item.id === currentId) ? currentId : (options[0]?.id || '')) };
+      this._clearEntitySelection(); this.selectedRelationshipId = '';
+      this._persistSoon(0); this.render();
+      if (next !== 'snapshot' && !options.length) this.notify(`当前架构快照没有可选择的${this._scopeModeLabel(next, true)}`, 'info');
+      return true;
+    }
+
+    _setArchitectureScopeId(id) {
+      const board = activeBoard(this.store);
+      if (!board) return false;
+      const next = String(id || '');
+      if (next && !this._architectureScopeOptions(this._boardView().architectureScopeMode).some(item => item.id === next)) return false;
+      board.view = { ...this._boardView(), architectureScopeId: next };
+      this._clearEntitySelection(); this.selectedRelationshipId = '';
+      this._persistSoon(0); this.render(); return true;
+    }
+
+    _setArchitectureShowBoundaries(show) {
+      const board = activeBoard(this.store);
+      if (!board) return false;
+      board.view = { ...this._boardView(), architectureShowBoundaries: Boolean(show) };
+      this._clearEntitySelection(); this.selectedRelationshipId = '';
+      this._persistSoon(0); this.render(); return true;
+    }
+
+    async _setArchitectureSnapshot(snapshotId) {
+      const board = activeBoard(this.store);
+      const next = String(snapshotId || '');
+      if (!board || (next && !this.architectureSnapshotCatalog.some(item => item.snapshotId === next))) return false;
+      board.view = { ...this._boardView(), architectureSnapshotId: next, architectureScopeMode: 'snapshot', architectureScopeId: '' };
+      this._clearEntitySelection(); this.selectedRelationshipId = '';
+      await this._refreshArchitectureSnapshots({ render: false });
+      this._persistSoon(0); this.render(); return true;
+    }
+
     async _topologyWithProjectBindings(result = {}) {
       if (result?.state !== 'ready' || !this.bridge.panel?.getProjectBindings || !this.panelProjects.length) {
         return result;
@@ -860,8 +966,7 @@
       ];
       const layers = [
         ['runtime', '运行拓扑', 'Coolify、项目、仓库、主机与访问点的真实运行关系'],
-        ['architecture', '代码架构', '显示当前仓库导入的 Archify 代码结构快照'],
-        ['merged', '合并视图', '同时查看运行拓扑和代码架构，架构卡片保持只读']
+        ['architecture', '代码架构', '显示当前仓库导入的 Archify 代码结构快照']
       ];
       const menu = (key, label, current, content) => `<div class="relationship-layout-host">
         <button class="relationship-tool-button relationship-layout-trigger" data-relationship-action="toggle-layout-menu" data-layout-menu="${key}" type="button" aria-label="${label}" aria-haspopup="menu" aria-expanded="false" title="${label}：${escapeHtml(current)}">${toolbarIcon(key === 'structure' ? 'group' : 'layout')}<span>${label}</span><span aria-hidden="true">⌄</span></button>
@@ -882,9 +987,22 @@
         <button type="button" role="menuitem" data-relationship-action="reset-dynamic-layout">整理布局</button>`;
       const layerMenu = `<p>切换数据来源。代码架构来自仓库内保存的 Archify 快照，不会覆盖运行拓扑。</p>
         <div class="relationship-structure-options">${layers.map(([key, label, hint]) => `<button type="button" role="menuitemradio" aria-checked="${view.layer === key}" data-board-layer="${key}"><span><b>${label}</b><small>${hint}</small></span><span aria-hidden="true">${view.layer === key ? '✓' : ''}</span></button>`).join('')}</div>`;
+      const scopeMode = view.layer === 'architecture' ? view.architectureScopeMode : view.topologyScopeMode;
+      const scopeOptions = view.layer === 'architecture'
+        ? this._architectureScopeOptions(scopeMode)
+        : this._topologyScopeOptions(scopeMode);
+      const scopeId = view.layer === 'architecture' ? view.architectureScopeId : view.topologyScopeId;
+      const scopeModeOptions = view.layer === 'architecture'
+        ? [['snapshot', '当前快照', '只显示已选仓库快照的全部组件'], ['boundary', '单个边界', '只显示一个目录 / 模块边界及其成员'], ['component', '组件及邻接关系', '只显示一个组件和直接连接的组件']]
+        : [['board', '当前白板', '只显示已经放入此白板的节点（默认）'], ['all', '全部运行资源', '显式加载所有已同步资源，可能很多'], ['server', '单台主机', '主机及一跳关联的部署、仓库和访问点'], ['project', '单个 Project', '单个 Coolify Project 容器及其成员'], ['deployment', '单个部署', '部署及一跳关联的仓库、主机和访问点'], ['repository', '单个 Git 仓库', '仓库及一跳关联的部署和项目']];
+      const scopeIdSelect = scopeOptions.length ? `<label class="relationship-scope-select"><span>${view.layer === 'architecture' ? (scopeMode === 'boundary' ? '边界' : '组件') : '对象'}</span><select ${view.layer === 'architecture' ? 'data-architecture-scope-id' : 'data-topology-scope-id'}>${scopeOptions.map(option => `<option value="${escapeHtml(option.id)}"${option.id === scopeId ? ' selected' : ''}>${escapeHtml(option.label)} · ${escapeHtml(option.detail)}</option>`).join('')}</select></label>` : '';
+      const scopeMenu = `<p>${view.layer === 'architecture' ? '代码架构与运行拓扑分开显示。先选择快照，再按边界或组件缩小范围。' : '运行拓扑与代码架构分开显示。默认只看当前白板，不会把所有 Project 一次注入。'}</p>
+        <fieldset class="relationship-scope-options"><legend>${view.layer === 'architecture' ? '架构范围' : '拓扑范围'}</legend>${scopeModeOptions.map(([key, label, hint]) => `<label><input type="radio" name="relationship-scope-mode" value="${key}" ${view.layer === 'architecture' ? 'data-architecture-scope-mode' : 'data-topology-scope-mode'}${scopeMode === key ? ' checked' : ''}><span><b>${label}</b><small>${hint}</small></span></label>`).join('')}</fieldset>
+        ${view.layer === 'architecture' ? `<label class="relationship-scope-select"><span>代码快照</span><select data-architecture-snapshot>${this.architectureSnapshotCatalog.length ? this.architectureSnapshotCatalog.map(snapshot => `<option value="${escapeHtml(snapshot.snapshotId)}"${snapshot.snapshotId === view.architectureSnapshotId ? ' selected' : ''}>${escapeHtml(snapshot.repositoryName || '仓库')} · ${escapeHtml(snapshot.title || snapshot.diagramType || '架构快照')}</option>`).join('') : '<option value="">暂无 Archify 快照</option>'}</select></label>${scopeIdSelect}<label class="relationship-scope-check"><input type="checkbox" data-architecture-show-boundaries${view.architectureShowBoundaries !== false ? ' checked' : ''}><span>显示目录 / 模块边界</span></label><small class="relationship-scope-count">当前快照：${this.architectureProjection?.metadata?.componentCount || 0} 个组件 · ${this.architectureProjection?.metadata?.boundaryCount || 0} 个边界 · ${this.architectureProjection?.metadata?.connectionCount || 0} 条连接</small>` : `${scopeIdSelect}<small class="relationship-scope-count">当前范围：${this._scopePlacements(this._unarchivedPlacements()).length} 个节点</small>`}`;
       return menu('structure', '结构', structures.find(([key]) => key === view.structure)?.[1], structureMenu)
         + menu('layout', '布局', layouts.find(([key]) => key === view.layout)?.[1], layoutMenu)
-        + menu('layer', '数据层', layers.find(([key]) => key === view.layer)?.[1], layerMenu);
+        + menu('layer', '数据层', layers.find(([key]) => key === view.layer)?.[1], layerMenu)
+        + menu('scope', '范围', this._scopeModeLabel(scopeMode, view.layer === 'architecture'), scopeMenu);
     }
 
 
@@ -1327,6 +1445,78 @@
       return placements.filter(item => !hidden.has(item.entityId));
     }
 
+    _scopePlacements(placements = this._unarchivedPlacements()) {
+      const view = this._boardView();
+      if (view.layer === 'architecture') {
+        const mode = Model.ARCHITECTURE_SCOPE_MODES.includes(view.architectureScopeMode) ? view.architectureScopeMode : 'snapshot';
+        let visibleIds = new Set(placements.map(item => item.entityId));
+        if (mode === 'boundary') {
+          visibleIds = new Set([String(view.architectureScopeId || '')].filter(Boolean));
+          let changed = true;
+          while (changed) {
+            changed = false;
+            for (const placement of placements) {
+              if (placement.groupId && visibleIds.has(placement.groupId) && !visibleIds.has(placement.entityId)) {
+                visibleIds.add(placement.entityId); changed = true;
+              }
+            }
+          }
+        } else if (mode === 'component') {
+          const rootId = String(view.architectureScopeId || '');
+          visibleIds = new Set(rootId ? [rootId] : []);
+          const selected = new Set([rootId]);
+          for (const edge of this._combinedRelationships(placements)) {
+            if (selected.has(edge.sourceId)) visibleIds.add(edge.targetId);
+            if (selected.has(edge.targetId)) visibleIds.add(edge.sourceId);
+          }
+          // Keep the boundary frame when one of its members is visible.
+          for (const placement of placements) {
+            if (placement.groupId && visibleIds.has(placement.entityId)) visibleIds.add(placement.groupId);
+          }
+        }
+        const showBoundaries = view.architectureShowBoundaries !== false;
+        return placements
+          .filter(item => visibleIds.has(item.entityId) && (showBoundaries || this._allEntitiesById().get(item.entityId)?.type !== 'group'))
+          .map(item => {
+            if (showBoundaries || !item.groupId) return item;
+            const copy = { ...item }; delete copy.groupId; return copy;
+          });
+      }
+
+      const mode = Model.TOPOLOGY_SCOPE_MODES.includes(view.topologyScopeMode) ? view.topologyScopeMode : 'board';
+      if (mode === 'all') return placements;
+      if (mode === 'board') {
+        const boardIds = new Set((activeBoard(this.store)?.placements || []).map(item => item.entityId));
+        return placements.filter(item => boardIds.has(item.entityId));
+      }
+      const rootId = String(view.topologyScopeId || '');
+      if (!rootId) return [];
+      const visibleIds = new Set([rootId]);
+      const entities = this._allEntitiesById();
+      // A scope is intentionally one hop deep. This keeps a shared endpoint or
+      // host from expanding into every project on the server.
+      for (const edge of this._combinedRelationships(placements)) {
+        if (edge.sourceId === rootId) visibleIds.add(edge.targetId);
+        if (edge.targetId === rootId) visibleIds.add(edge.sourceId);
+      }
+      let changed = true;
+      while (changed) {
+        changed = false;
+        for (const placement of placements) {
+          if (placement.groupId && visibleIds.has(placement.groupId) && !visibleIds.has(placement.entityId)) {
+            visibleIds.add(placement.entityId); changed = true;
+          }
+          if (visibleIds.has(placement.entityId) && placement.groupId && !visibleIds.has(placement.groupId)) {
+            const group = entities.get(placement.groupId);
+            if (group?.runtime?.dynamicKind === 'coolify-project-group') {
+              visibleIds.add(placement.groupId); changed = true;
+            }
+          }
+        }
+      }
+      return placements.filter(item => visibleIds.has(item.entityId));
+    }
+
     _setDeploymentArchived(entityId, archived) {
       const entity = this._allEntitiesById().get(entityId), placement = this._placementForEntity(entityId);
       if (entity?.type !== 'deployment' || !placement || Boolean(placement.archived) === archived) return false;
@@ -1399,9 +1589,7 @@
       const facts = new Set();
       const relationshipSources = layer === 'architecture'
         ? [this.architectureProjection?.relationships || []]
-        : [
-          ...(layer === 'runtime' ? [this.store?.relationships || [], this.panelProjection?.relationships || []] : [this.store?.relationships || [], this.panelProjection?.relationships || [], this.architectureProjection?.relationships || []])
-        ];
+        : [this.store?.relationships || [], this.panelProjection?.relationships || []];
       for (const original of relationshipSources.flat()) {
         const relationship = aliases.has(original.sourceId) || aliases.has(original.targetId)
           ? { ...original, sourceId: aliases.get(original.sourceId) || original.sourceId,
@@ -1570,7 +1758,7 @@
     }
 
     _topologyAlerts() {
-      const placements = this._unarchivedPlacements();
+      const placements = this._scopePlacements(this._unarchivedPlacements());
       return PanelTopologyProjection.endpointReuseAlerts({
         entities: this._combinedEntities(),
         relationships: this._combinedRelationships(placements),
@@ -1715,6 +1903,9 @@
       const board = activeBoard(this.store);
       if (!board) return Model.defaultBoardView();
       board.view = { ...Model.defaultBoardView(), ...(board.view || {}), ...Model.boardOrganization(board.view) };
+      // `merged` was an early prototype layer. Keep old boards readable, but
+      // never expose it as a selectable view again.
+      if (board.view.layer === 'merged') board.view.layer = 'runtime';
       delete board.view.topologyLayout;
       delete board.view.treeLayout;
       return board.view;
@@ -1722,13 +1913,14 @@
 
     _filterFreeView(options = {}) {
       const view = this._boardView();
-      const { mode, projection, layer, architectureSnapshotId, snapMode, structure, layout, projectGroupIncludesEndpoints, showRepositoryRelations } = view;
+      const { mode, projection, layer, architectureSnapshotId, topologyScopeMode, topologyScopeId, architectureScopeMode, architectureScopeId, architectureShowBoundaries, snapMode, structure, layout, projectGroupIncludesEndpoints, showRepositoryRelations } = view;
       return {
         ...Model.defaultBoardView(),
         ...this._displayViewSettings(view),
         mode,
         projection: options.projection ?? projection ?? 'facts',
-        layer, architectureSnapshotId, snapMode, structure, layout, projectGroupIncludesEndpoints, showRepositoryRelations
+        layer, architectureSnapshotId, topologyScopeMode, topologyScopeId, architectureScopeMode, architectureScopeId, architectureShowBoundaries,
+        snapMode, structure, layout, projectGroupIncludesEndpoints, showRepositoryRelations
       };
     }
 
@@ -2486,7 +2678,7 @@
       if (!board) return { placements: [], relationships: [], summaryRelationships: [], directIds: new Set(), contextualIds: new Set(), mutedIds: new Set(), filterActive: false };
       const view = this._boardView();
       const entitiesById = this._allEntitiesById();
-      const placements = this._unarchivedPlacements();
+      const placements = this._scopePlacements(this._unarchivedPlacements());
       const boardRelationships = this._combinedRelationships(placements);
       const now = this.now();
       const graph = GraphProjection.filterGraph({
