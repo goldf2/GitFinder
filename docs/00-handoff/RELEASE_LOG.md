@@ -75,6 +75,6 @@
 - 内容：资源库点击摘要预览（白板文件 / 项目 / Git 仓库）、项目颜色装饰；Archify 快照只读架构层与资源刷新集成。
 - 门禁：`npm run check` 通过（1049/1049 测试、250 个 JavaScript 文件语法检查、renderer 构建）；`git diff --check` 通过。
 - macOS：`npm run pack` 成功，development/ad-hoc 制品门禁通过；构建提示缺少既有 `public/icon.icns`，不影响本次产物生成。
-- 制品：`/Volumes/project/制品与备份/gitfinder-2/2.0.0-alpha.102/`，ZIP SHA-256 `ea2dca94e4a7a6fc2a841ed3d70eedd44aa81c8d4a73029e48188d5abad5023c`。
+- 制品：`/Volumes/project/制品与备份/gitfinder-2/2.0.0-alpha.102/`，ZIP SHA-256 `17d6e497a631f6551a91d006ae35e4917adfb18bc282ffda5f9cfffc7404264c`；验证报告绑定提交 `3c17cb7fefccdac1ed5bf2d0c4cdc04c729057b9`。
 - 安装：已替换 `/Applications/GitFinder 2 Alpha87.app` 并启动；Info.plist 与运行界面均为 `2.0.0-alpha.102`，安装 ASAR 与构建产物一致。
 - 范围：本轮未构建 Windows、未上传商店或切换公开 current；用户原配置保持在原安装路径，待用户确认资源库实际点击体验后归档修复报告。

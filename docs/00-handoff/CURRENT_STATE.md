@@ -75,10 +75,10 @@
 - 证据目录：`/Volumes/project/临时文件/gitfinder-project-drag-alpha94/`，包含 `installed-drag-verification.json`、`installed-drag.png`、`after-drag.json`、`check.log`。全部验收使用隔离 user data 和模拟关系，用户原有配置未修改。
 - 工程交付完成，用户真实白板使用反馈尚未获得；用户确认有效后再归档支持文档修复报告。
 
-## 当前工作树与交付
+## 历史工作树与交付（截至 alpha.99）
 
-- 当前 HEAD 与 origin/main：`79ce5778980d3c9a56d8e9414d6971ad84c148f8`（alpha.99），已推送。
-- 源码、最新 macOS 产物与本机 `/Applications/GitFinder 2 Alpha87.app` 均为 alpha.99。
+- alpha.99 时的提交为 `79ce5778980d3c9a56d8e9414d6971ad84c148f8`；当前 HEAD 与 origin/main 已由顶部 alpha.102 交付记录覆盖。
+- alpha.99 时的源码、macOS 产物与本机安装版均为 alpha.99；当前安装版事实以顶部 alpha.102 记录为准。
 - 本次仅提交隐藏仓库联动边界、回归、版本和规则文档；既有 Apple 界面、更新、CI、发布文档及测试等未提交工作原样保留。
 - 制品：`/Volumes/project/制品与备份/gitfinder-2/2.0.0-alpha.97/`；旧版备份：`/Volumes/project/制品与备份/gitfinder-2/installed-backups/alpha96-before-alpha97-20260905/GitFinder 2 Alpha87.app`。
 - ad-hoc 开发包；安装 ASAR 与构建产物一致，签名验证通过。alpha.97 本轮未构建 Windows、上传商店或切换公开 current。
