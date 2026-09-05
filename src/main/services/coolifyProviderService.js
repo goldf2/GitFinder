@@ -764,13 +764,48 @@ class CoolifyProviderService {
     }
     const empty = { apiVersion: 'v1', generatedAt: '', cursor: '', servers: [], deployments: [] };
     if (result.state === 'unconfigured') return { state: 'unconfigured', providers: [], topology: empty, bindings: [], cached: false };
-    if (!result.successes.length) return { state: 'error', providers: result.providers, topology: empty, bindings: [], errors: result.errors, cached: false };
+    let cachedSnapshot = null;
+    try { cachedSnapshot = this._readTopologyCacheEnvelope()?.snapshot || null; } catch (_) { cachedSnapshot = null; }
+    const failedProviderIds = new Set(result.errors.map(error => error.providerId).filter(Boolean));
+    if (!result.successes.length) {
+      const cachedProviders = new Set((cachedSnapshot?.providers || []).map(provider => provider.providerId));
+      if (cachedSnapshot?.state === 'ready' && result.providers.some(provider => cachedProviders.has(provider.providerId))) {
+        const stale = {
+          ...cachedSnapshot,
+          state: 'ready',
+          providers: result.providers,
+          cached: true,
+          staleProviders: [...failedProviderIds],
+          errors: result.errors
+        };
+        this._activateTopology(stale);
+        return stale;
+      }
+      return { state: 'error', providers: result.providers, topology: empty, bindings: [], errors: result.errors, cached: false };
+    }
     const servers = result.successes.flatMap(({ provider, overview }) => overview.servers.map(server => ({
       ...server, providerId: provider.providerId, providerLabel: provider.label
     })));
     const deployments = result.successes.flatMap(({ provider, overview }) => overview.deployments.map(resource => ({
       ...resource, providerId: provider.providerId, providerLabel: provider.label
     })));
+    // Keep the last successful snapshot for a provider that timed out or
+    // temporarily rejected the request. A single unhealthy Coolify instance
+    // must not erase the other instance's live data or make the whole board
+    // appear empty.
+    const mergeStale = (fresh, stale, key) => {
+      const merged = [...fresh];
+      const freshKeys = new Set(fresh.map(item => `${item.providerId}\u0000${key(item)}`));
+      for (const item of stale || []) {
+        if (!failedProviderIds.has(item.providerId)) continue;
+        const itemKey = `${item.providerId}\u0000${key(item)}`;
+        if (!freshKeys.has(itemKey)) merged.push({ ...item, stale: true });
+      }
+      return merged;
+    };
+    const mergedServers = mergeStale(servers, cachedSnapshot?.topology?.servers, item => item.nodeId || item.serverUuid || item.id || item.name);
+    const mergedDeployments = mergeStale(deployments, cachedSnapshot?.topology?.deployments, item => item.resourceUuid || item.uuid || item.id || item.name);
+    const staleSnapshot = failedProviderIds.size > 0;
     const snapshot = {
       state: 'ready',
       providers: result.providers,
@@ -779,13 +814,14 @@ class CoolifyProviderService {
         apiVersion: 'v1',
         generatedAt: result.successes.map(item => item.overview.generatedAt).sort().at(-1) || '',
         cursor: '',
-        servers,
-        deployments,
+        servers: mergedServers,
+        deployments: mergedDeployments,
         endpointChecks: this.endpointHealth.snapshot().checks
       },
       bindings: [],
       errors: result.errors,
-      cached: false
+      cached: staleSnapshot,
+      ...(staleSnapshot ? { staleProviders: [...failedProviderIds] } : {})
     };
     snapshot.cachedAt = this._writeTopologyCache(snapshot);
     return snapshot;

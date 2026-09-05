@@ -1733,7 +1733,12 @@
     _panelStatusView() {
       const state = this.panelTopologyResult?.state || this.panelProjection?.metadata?.state || 'unconfigured';
       const metadata = this.panelProjection?.metadata || {};
-      if (this.panelRefreshInFlight) return { state: 'loading', label: 'Coolify 同步中…', title: '正在读取只读动态拓扑' };
+      if (this.panelRefreshInFlight) {
+        const hasSnapshot = this.panelTopologyResult?.cached === true || Boolean(metadata.deploymentCount);
+        return hasSnapshot
+          ? { state: 'refreshing', label: 'Coolify 后台同步中…', title: '当前显示上次成功快照；在线刷新完成后会自动替换' }
+          : { state: 'loading', label: 'Coolify 同步中…', title: '正在读取只读动态拓扑' };
+      }
       if (this.panelLastError && metadata.deploymentCount) {
         return {
           state: 'error',
@@ -1828,6 +1833,12 @@
         this.notify('此项目或仓库已不在当前 GitFinder 注册表中', 'warning');
         return false;
       }
+
+      // Projects and repositories are runtime resources. If the user entered
+      // the board from the code-architecture layer, switch to the runtime
+      // layer before placing the resource; otherwise it would be persisted but
+      // immediately hidden by the architecture projection.
+      this._ensureRuntimeLayerForResource(kind);
 
       let entity = this.store.entities.find(candidate => candidate.type === kind && candidate.refId === refId);
       let placement = entity && board.placements.find(candidate => candidate.entityId === entity.id);
@@ -4953,6 +4964,9 @@
 
     _addResource(resource, point = null) {
       if (!resource) return;
+      if (resource.kind !== 'architecture' && resource.type !== 'architecture') {
+        this._ensureRuntimeLayerForResource(resource.kind);
+      }
       if (resource.entityId) {
         const placement = this._combinedPlacements().find(candidate => candidate.entityId === resource.entityId);
         if (placement) {
@@ -4984,6 +4998,15 @@
         };
       }
       this._addEntity(entity, point);
+    }
+
+    _ensureRuntimeLayerForResource(kind) {
+      if (kind === 'architecture') return false;
+      const board = activeBoard(this.store);
+      if (!board || this._boardLayer() === 'runtime') return false;
+      board.view = { ...this._boardView(), layer: 'runtime' };
+      this._persistSoon(0);
+      return true;
     }
 
     _addEntity(entity, point = null) {

@@ -306,6 +306,26 @@ test('成功读取后缓存无凭据拓扑，重启和离线时可直接恢复�
   assert.equal(restarted.checkEndpoints().pending, 1, '缓存应恢复允许检测的访问点目标');
 });
 
+test('部分 Coolify 实例同步失败时保留该实例的旧快照，不清空在线实例', async t => {
+  const { root, service } = createHarness(t);
+  const first = await service.connect({ baseUrl: 'https://cool.example.com', token: 'coolify-read-token-123' });
+  const second = await service.connect({ baseUrl: 'https://cool-standby.example.com', token: 'coolify-read-token-456' });
+  await service.getTopology();
+  const originalFetch = service.fetchImpl;
+  service.fetchImpl = async (url, options) => {
+    if (new URL(url).hostname === 'cool-standby.example.com') throw new Error('备用实例暂时不可达');
+    return originalFetch(url, options);
+  };
+  const refreshed = await service.getTopology();
+  assert.equal(refreshed.state, 'ready');
+  assert.equal(refreshed.cached, true);
+  assert.deepEqual(new Set(refreshed.staleProviders), new Set([second.providerId]));
+  assert.ok(refreshed.errors.some(error => error.providerId === second.providerId));
+  assert.ok(refreshed.topology.deployments.some(item => item.providerId === first.providerId && item.stale !== true));
+  assert.ok(refreshed.topology.deployments.some(item => item.providerId === second.providerId && item.stale === true));
+  assert.doesNotMatch(fs.readFileSync(path.join(root, 'coolify-topology-cache.json'), 'utf8'), /coolify-read-token-123|coolify-read-token-456/);
+});
+
 test('断开连接会同步裁剪拓扑缓存，不能在下次启动显示已移除实例', async t => {
   const { root, service } = createHarness(t);
   const provider = await service.connect({ baseUrl: 'https://cool.example.com', token: 'coolify-read-token-123' });

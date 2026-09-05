@@ -105,3 +105,37 @@ test('范围菜单不再暴露合并视图，并提供运行拓扑与代码架�
   assert.match(architectureMenu, /data-architecture-scope-mode/);
   assert.match(architectureMenu, /data-architecture-show-boundaries/);
 });
+
+test('从代码架构层添加项目或仓库时自动切换到运行拓扑', () => {
+  const controller = runtimeFixture();
+  const board = controller.store.boards[0];
+  board.view.layer = 'architecture';
+  controller._persistSoon = () => {};
+  const added = [];
+  controller._addEntity = entity => added.push(entity);
+
+  controller._addResource({ key: 'project:p1', kind: 'project', refId: 'p1', name: '项目 A' });
+
+  assert.equal(board.view.layer, 'runtime');
+  assert.equal(added.length, 1);
+  assert.equal(added[0].type, 'project');
+});
+
+test('从仓库详情进入关系白板时不会把运行资源留在代码架构层', () => {
+  const controller = runtimeFixture();
+  const board = controller.store.boards[0];
+  board.view.layer = 'architecture';
+  controller.resourceMap.set('repository:r1', { key: 'repository:r1', kind: 'repository', refId: 'r1', name: '仓库' });
+  controller._persistSoon = () => {};
+  controller._recordMutation = () => {};
+  controller._refreshHistoryButtons = () => {};
+  controller._selectOnlyEntity = () => {};
+  controller._renderAndCenterEntity = () => {};
+  controller._updateFilterSummary = () => {};
+  controller._updateSummary = () => {};
+  controller._setCanvasAnnouncement = () => {};
+
+  assert.equal(controller.revealResource('repository', 'r1'), true);
+  assert.equal(board.view.layer, 'runtime');
+  assert.equal(board.placements.length, 1);
+});
