@@ -55,6 +55,54 @@ test('外部共享访问点有静止部署时保持原位，不带走其它 Proj
   assert.deepEqual(c._movingEntityIds(id('host')), [id('host')]);
 });
 
+for (const rootName of ['host', 'project']) test(`${rootName} 固定下级不经隐藏仓库带动另一主机 Project 中的同源部署`, () => {
+  const c = fixture(), id = c.id;
+  for (const name of ['project', 'nested']) {
+    c.store.entities.find(entity => entity.id === id(name)).runtime = { dynamicKind: 'coolify-project-group' };
+  }
+  delete c._placementForEntity(id('nested')).groupId;
+  c._placementForEntity(id('otherdeploy')).groupId = id('nested');
+  c._placementForEntity(id('repository')).groupId = id('project');
+  c._toggleLinkedMovement(id(rootName));
+
+  const linkedIds = c._movingEntityIds(id(rootName));
+  assert.deepEqual(new Set(linkedIds),
+    new Set(['project', 'deploy', 'sibling', 'repository', 'exclusiveEndpoint',
+      ...(rootName === 'host' ? ['host'] : [])].map(id)));
+
+  const graph = c._filteredGraph();
+  assert.equal(graph.placements.some(item => item.entityId === id('repository')), false,
+    '服务器树隐藏仓库，但它仍是当前 Project 的物理成员');
+  const flow = Adapter.toFlowModel(c._flowGraphInput(graph, []), {
+    linkedNodeIds: { [id(rootName)]: linkedIds }
+  });
+  const startPositions = Object.fromEntries(flow.nodes.map(node => [node.id, { ...node.position }]));
+  const moved = Adapter.constrainProjectNodes(Adapter.applyLinkedDrag(flow.nodes, {
+    primaryId: id(rootName), linkedIds, startPositions, delta: { x: 43, y: 29 }
+  }));
+  const before = new Map(Adapter.toPlacements(flow.nodes, graph.placements).map(item => [item.entityId, item]));
+  const after = new Map(Adapter.toPlacements(moved, graph.placements).map(item => [item.entityId, item]));
+
+  for (const entityId of before.keys()) {
+    assert.deepEqual({
+      x: after.get(entityId).x - before.get(entityId).x,
+      y: after.get(entityId).y - before.get(entityId).y
+    }, linkedIds.includes(entityId) ? { x: 43, y: 29 } : { x: 0, y: 0 },
+    `${entityId} 应只按所属主机分支移动，外部共享访问点保持原位`);
+  }
+});
+
+test('直接固定并拖动 Project 内的仓库仍能联动跨主机同源部署', () => {
+  const c = fixture('resources'), id = c.id;
+  delete c._placementForEntity(id('nested')).groupId;
+  c._placementForEntity(id('otherdeploy')).groupId = id('nested');
+  c._placementForEntity(id('repository')).groupId = id('project');
+  c._toggleLinkedMovement(id('repository'));
+
+  assert.deepEqual(new Set(c._movingEntityIds(id('repository'))),
+    new Set(['repository', 'deploy', 'otherdeploy', 'endpoint', 'exclusiveEndpoint'].map(id)));
+});
+
 test('Project 上级联动在资源视图一致，不反向带动主机或修改成员关系', () => {
   const c = fixture('resources'), id = c.id;
   const before = c.store.boards[0].placements.map(({ entityId, groupId }) => ({ entityId, groupId }));

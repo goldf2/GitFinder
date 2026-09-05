@@ -2184,23 +2184,25 @@
         // Other display summaries never become movement dependencies.
       }
       const expand = allowedSharedEndpoints => {
-        const queue = [...seeds].map(id => [id, false]);
+        const queue = [...seeds].map(id => [id, false, entities.get(id)?.type === 'repository']);
         const movingIds = new Set(), visited = new Set();
-        for (const [id, inherited] of queue) {
+        for (const [id, inherited, repositoryBranch] of queue) {
           const placement = byId.get(id);
           if (!placement) continue;
           const linked = includeLinked && (inherited || placement.moveWithDescendants === true);
-          const key = `${id}:${linked}`;
+          const key = `${id}:${linked}:${repositoryBranch}`;
           if (visited.has(key)) continue;
           visited.add(key); movingIds.add(id);
           if (entities.get(id)?.type === 'group') {
             // Physical group membership always moves with its container.
-            for (const item of placements) if (item.groupId === id) queue.push([item.entityId, linked]);
+            for (const item of placements) if (item.groupId === id) queue.push([item.entityId, linked, repositoryBranch]);
           }
-          if (linked) for (const child of children.get(id) || []) {
+          // A contained repository is a member, not ownership of every deployment
+          // built from it. Only an explicitly dragged repository follows its links.
+          if (linked && (entities.get(id)?.type !== 'repository' || repositoryBranch)) for (const child of children.get(id) || []) {
             const parents = endpointParents.get(child);
             if (allowedSharedEndpoints && parents?.size > 1 && !allowedSharedEndpoints.has(child)) continue;
-            queue.push([child, true]);
+            queue.push([child, true, repositoryBranch]);
           }
         }
         return movingIds;
