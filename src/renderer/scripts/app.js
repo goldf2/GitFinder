@@ -4556,6 +4556,15 @@ const App = {
         const repositoryText = (project.repositories || []).map(repo => repo.relativePath).join(' ');
         return `${project.name} ${project.description} ${project.path} ${project.lifecycle} ${repositoryText}`.toLowerCase().includes(query);
       });
+      AppState.visibleItems = projects.map(project => ({
+        type: 'directory',
+        name: project.name,
+        path: project.path,
+        isProject: true,
+        isGitRepo: project.rootIsGitRepo === true,
+        project,
+        modifiedTime: project.modifiedTime
+      }));
       if (!projects.length) {
         const emptyActions = query
           ? '<button class="btn" data-app-action="refresh-local-projects" type="button">重新扫描</button>'
@@ -4583,7 +4592,7 @@ const App = {
           : '<li class="local-project-no-repo">尚未发现 Git 仓库</li>';
         const hiddenCount = Math.max(0, Number(project.repositoryCount || 0) - repositories.length);
         return `
-          <article class="local-project-card"${this.getProjectSemanticStyle(projectItem)} data-project-path="${this.escapeHtml(project.path)}">
+          <article class="local-project-card"${this.getProjectSemanticStyle(projectItem)} data-project-path="${this.escapeHtml(project.path)}" data-project-id="${this.escapeHtml(project.projectId)}" data-path="${this.escapeHtml(project.path)}" data-type="directory" data-is-project="true" data-is-git="${project.rootIsGitRepo === true}">
             <header>
               ${this.getItemKindIconHtml({ type: 'directory', isProject: true, isGitRepo: project.rootIsGitRepo, project }, 'local-project-icon')}
               <div><h3>${this.escapeHtml(project.name)}</h3><div class="local-project-path">${this.escapeHtml(project.path)}</div></div>
@@ -4631,6 +4640,7 @@ const App = {
   _renderGridContent(displayRepos, contentArea) {
     // 按选中分类过滤
     const filtered = this._filterByCategory(displayRepos);
+    AppState.visibleItems = filtered;
 
     // 平铺展示：所有仓库一个网格，分类只作为筛选条件，不再形成侧栏导航分区。
     if (AppState.cardStyle === 'list') {
@@ -6253,53 +6263,114 @@ const App = {
     const menu = document.getElementById('file-context-menu');
     const contentArea = document.getElementById('content-area');
     const sidebarTree = document.getElementById('sidebar-tree');
+    const projectShortcuts = document.getElementById('project-shortcuts-list');
+    const repositoryShortcuts = document.getElementById('repository-shortcuts-list');
     if (!menu || (!contentArea && !sidebarTree)) return;
     this._fileContextMenuBound = true;
+    const targetSelector = [
+      '#content-area [data-path][data-type]',
+      '#sidebar-tree .tree-node[data-path][data-type]',
+      '#project-shortcuts-list [data-project-shortcut-id][data-project-shortcut-path]',
+      '#project-shortcuts-list [data-project-repository-path]',
+      '#repository-shortcuts-list [data-repository-shortcut-path]'
+    ].join(', ');
     const close = () => {
       menu.hidden = true;
       menu.removeAttribute('style');
       this._fileContextPath = '';
+      this._fileContextItem = null;
+      this._fileContextProjectId = '';
+      this._fileContextKind = '';
+      this._fileContextUsesDirectItem = false;
     };
     const open = event => {
-      const element = event.target?.closest?.('#content-area [data-path][data-type], #sidebar-tree .tree-node[data-path][data-type]');
-      if (!element || !this.isFileBrowsingContext()) {
+      const element = event.target?.closest?.(targetSelector);
+      if (!element) {
+        close();
+        return;
+      }
+      const isSidebarTreeItem = element.matches('#sidebar-tree .tree-node[data-path][data-type]');
+      const isProjectShortcut = element.matches('#project-shortcuts-list [data-project-shortcut-id][data-project-shortcut-path]');
+      const isProjectRepositoryShortcut = element.matches('#project-shortcuts-list [data-project-repository-path]');
+      const isRepositoryShortcut = element.matches('#repository-shortcuts-list [data-repository-shortcut-path]');
+      const isShortcut = isProjectShortcut || isProjectRepositoryShortcut || isRepositoryShortcut;
+      const collectionKind = this.contentCollectionKind();
+      const isCollectionResource = ['projects', 'project-repositories', 'repositories'].includes(collectionKind);
+      if (!this.isFileBrowsingContext() && !isCollectionResource && !isShortcut) {
         close();
         return;
       }
       event.preventDefault();
       event.stopPropagation();
-      const itemPath = element.dataset.path;
-      const isSidebarTreeItem = element.matches('#sidebar-tree .tree-node[data-path][data-type]');
+      const itemPath = element.dataset.path
+        || element.dataset.projectShortcutPath
+        || element.dataset.projectRepositoryPath
+        || element.dataset.repositoryShortcutPath
+        || '';
+      if (!itemPath) {
+        close();
+        return;
+      }
+      const project = (AppState.localProjects || []).find(candidate => candidate?.path === itemPath) || null;
+      const isProject = isProjectShortcut || (!isRepositoryShortcut && !isProjectRepositoryShortcut && (element.dataset.isProject === 'true' || Boolean(project)));
+      const isGitRepo = isProjectRepositoryShortcut || isRepositoryShortcut || element.dataset.isGit === 'true';
+      const contextKind = isProjectShortcut
+        ? 'project'
+        : (isProjectRepositoryShortcut || isRepositoryShortcut
+          ? 'repository'
+          : (collectionKind === 'projects' || collectionKind === 'project-repositories' ? 'project'
+            : (collectionKind === 'repositories' ? 'repository' : 'directory')));
+      const contextItem = {
+        path: itemPath,
+        name: element.querySelector('.sidebar-item-name, .tree-node-name, h3, .repo-name, .list-repo-name')?.textContent?.trim()
+          || itemPath.split(/[\\/]/).filter(Boolean).at(-1)
+          || itemPath,
+        type: element.dataset.type || 'directory',
+        isProject,
+        isGitRepo,
+        project
+      };
       this._fileContextPath = itemPath;
-      if (!isSidebarTreeItem && !AppState.selectedPaths.has(itemPath)) {
+      this._fileContextItem = contextItem;
+      this._fileContextProjectId = element.dataset.projectId || element.dataset.projectShortcutId || project?.projectId || '';
+      this._fileContextKind = contextKind;
+      this._fileContextUsesDirectItem = isSidebarTreeItem || isShortcut || isCollectionResource;
+      if (!this._fileContextUsesDirectItem && !AppState.selectedPaths.has(itemPath)) {
         AppState.selectedPaths = new Set([itemPath]);
         AppState.selectionAnchorPath = itemPath;
         this.syncFileSelectionUI();
         this.showFileSelectionDetail(this.getSelectedFileItems());
         this.updateFileActionBar();
+      } else if (this._fileContextUsesDirectItem) {
+        this.showFileSelectionDetail([contextItem]);
       }
-      const items = isSidebarTreeItem
-        ? [{
-          path: itemPath,
-          name: element.querySelector('.tree-node-name')?.textContent || itemPath.split(/[\\/]/).filter(Boolean).at(-1) || itemPath,
-          type: 'directory',
-          isProject: element.dataset.isProject === 'true',
-          isGitRepo: element.dataset.isGit === 'true'
-        }]
-        : this.getSelectedFileItems();
+      const items = this._fileContextUsesDirectItem ? [contextItem] : this.getSelectedFileItems();
       const singleDirectory = items.length === 1 && items[0].type === 'directory';
       const projectLabel = document.getElementById('file-context-project-label');
       if (projectLabel) projectLabel.textContent = singleDirectory && items[0].isProject ? '项目设置…' : '设为项目…';
+      const relationshipButton = menu.querySelector('[data-context-action="relationship"]');
+      if (relationshipButton) relationshipButton.hidden = items.length !== 1 || (!items[0].isProject && !items[0].isGitRepo);
+      const pinButton = menu.querySelector('[data-context-action="toggle-pin"]');
+      const pinLabel = document.getElementById('file-context-pin-label');
+      const projectId = this._fileContextProjectId;
+      const pinned = Boolean(projectId && (AppState.projectShortcuts?.pinned || []).some(entry => entry?.projectId === projectId));
+      if (pinButton) pinButton.hidden = !projectId || !items[0].isProject;
+      if (pinLabel) pinLabel.textContent = pinned ? '取消固定' : '固定到项目区';
       const renameLabel = menu.querySelector('[data-context-action="rename"] span');
       if (renameLabel) renameLabel.textContent = items.length > 1 ? `重命名 ${items.length} 个项目…` : '重命名';
       menu.querySelector('[data-context-action="open"]').disabled = items.length !== 1;
       menu.querySelector('[data-context-action="preview"]').disabled = items.length !== 1;
       menu.querySelector('[data-context-action="get-info"]').disabled = items.length !== 1;
-      menu.querySelector('[data-context-action="duplicate"]').disabled = items.length === 0 || !this.isDirectoryBrowsingContext();
-      menu.querySelector('[data-context-action="rename"]').disabled = items.length === 0;
+      menu.querySelector('[data-context-action="copy"]').disabled = this._fileContextUsesDirectItem;
+      menu.querySelector('[data-context-action="copy-path"]').disabled = items.length === 0;
+      menu.querySelector('[data-context-action="cut"]').disabled = this._fileContextUsesDirectItem;
+      menu.querySelector('[data-context-action="duplicate"]').disabled = this._fileContextUsesDirectItem || items.length === 0 || !this.isDirectoryBrowsingContext();
+      menu.querySelector('[data-context-action="rename"]').disabled = this._fileContextUsesDirectItem || items.length === 0;
+      menu.querySelector('[data-context-action="move"]').disabled = this._fileContextUsesDirectItem || items.length === 0;
       menu.querySelector('[data-context-action="open-terminal"]').disabled = items.length !== 1;
       menu.querySelector('[data-context-action="open-editor"]').disabled = items.length !== 1;
       menu.querySelector('[data-context-action="project"]').disabled = !singleDirectory;
+      menu.querySelector('[data-context-action="trash"]').disabled = this._fileContextUsesDirectItem || items.length === 0;
       menu.hidden = false;
       const width = menu.offsetWidth || 220;
       const height = menu.offsetHeight || 320;
@@ -6309,29 +6380,49 @@ const App = {
     };
     if (contentArea) contentArea.addEventListener('contextmenu', open);
     sidebarTree?.addEventListener('contextmenu', open);
+    projectShortcuts?.addEventListener('contextmenu', open);
+    repositoryShortcuts?.addEventListener('contextmenu', open);
     document.addEventListener('contextmenu', event => {
-      if (!event.target?.closest?.('#content-area [data-path][data-type], #sidebar-tree .tree-node[data-path][data-type]')) close();
+      if (!event.target?.closest?.(targetSelector)) close();
     });
     menu.addEventListener('click', event => {
       const action = event.target.closest('[data-context-action]')?.dataset.contextAction;
       if (!action) return;
       const contextPath = this._fileContextPath;
+      const contextItem = this._fileContextItem;
+      const projectId = this._fileContextProjectId;
+      const contextKind = this._fileContextKind;
+      const usesDirectItem = this._fileContextUsesDirectItem;
       close();
-      if (action === 'open') this.openSelectedFileItem();
-      if (action === 'preview') this.toggleQuickLook();
-      if (action === 'get-info') this.openSelectedFileInfo();
+      if (action === 'open') usesDirectItem ? this.activateFileItem(contextItem) : this.openSelectedFileItem();
+      if (action === 'preview') usesDirectItem ? this.quickLookController?.toggle([contextItem]) : this.toggleQuickLook();
+      if (action === 'get-info') usesDirectItem ? this.fileInfoController?.open(contextItem) : this.openSelectedFileInfo();
       if (action === 'copy') this.copySelectedItems();
-      if (action === 'copy-path') this.copySelectedPathnames();
+      if (action === 'copy-path') {
+        if (usesDirectItem && contextPath) {
+          window.gitFinder.clipboard.copyPathnames([contextPath])
+            .then(() => this._showStatusMessage('已将路径名复制到系统剪贴板', 'success'))
+            .catch(error => this._showStatusMessage(error?.message || String(error), 'error'));
+        } else this.copySelectedPathnames();
+      }
       if (action === 'cut') this.cutSelectedItems();
       if (action === 'duplicate') this.duplicateSelectedItems();
       if (action === 'rename') this.renameSelectedItem();
       if (action === 'move') this.moveSelectedItems();
-      if (action === 'open-terminal') this.openSelectedInTerminal();
-      if (action === 'open-editor') this.openSelectedInEditor();
+      if (action === 'open-terminal') usesDirectItem
+        ? this.directoryTerminalController?.openPath?.(contextPath)
+        : this.openSelectedInTerminal();
+      if (action === 'open-editor') usesDirectItem ? this.openPathInEditor(contextPath) : this.openSelectedInEditor();
       if (action === 'project') {
         if (contextPath) this.openLocalProjectDialog(contextPath);
         else this.openSelectedProjectSettings();
       }
+      if (action === 'relationship') this.showResourceInRelationshipBoard({
+        kind: contextKind === 'project' ? 'project' : 'repository',
+        refId: contextKind === 'project' ? projectId : '',
+        path: contextPath
+      });
+      if (action === 'toggle-pin' && projectId) this.projectShortcutsController?.togglePinned(projectId);
       if (action === 'trash') this.trashSelectedItems();
     });
     document.addEventListener('click', event => {
@@ -6404,12 +6495,17 @@ const App = {
         ? await window.gitFinder.localProjects.update(dialogState.path, values)
         : (await window.gitFinder.localProjects.initialize(dialogState.path, values)).project;
       await window.gitFinder.content.invalidateIndex();
-      AppState.localProjects = [];
-      await this.refreshProjectShortcuts(true);
+      Promise.resolve(this.projectShortcutsController?.upsertLocalProject?.(result)).catch(error => {
+        console.warn('项目快捷入口局部更新失败:', error);
+      });
+      const backgroundProjectRefresh = this.refreshProjectShortcuts(true).catch(error => {
+        console.warn('项目快捷入口后台刷新失败:', error);
+      });
       this.closeLocalProjectDialog();
       if (['projects', 'project-repositories'].includes(this.contentCollectionKind())) await this.renderProjectsView(false);
       else await this.renderContent();
       this._showStatusMessage(`已保存项目“${result.name}”；未执行任何 Git 写操作`, 'success');
+      void backgroundProjectRefresh;
     } catch (error) {
       feedback.textContent = error?.message || String(error);
     } finally {

@@ -129,6 +129,21 @@ test('修改项目区偏好立即更新侧边栏，清除最近记录保留其�
   assert.ok(writes.some(([key]) => key === 'projectShortcuts'));
 });
 
+test('保存项目后可先局部更新侧边栏，不必等待全量项目扫描', async () => {
+  const { controller, state, container } = createHarness();
+  await controller.load();
+
+  const updated = await controller.upsertLocalProject({
+    ...project,
+    name: 'Alpha 更新',
+    description: '已保存的新摘要'
+  });
+
+  assert.equal(updated.name, 'Alpha 更新');
+  assert.equal(state.localProjects[0].description, '已保存的新摘要');
+  assert.match(container.innerHTML, /Alpha 更新/);
+});
+
 test('项目、Git 仓库与目录只切换侧栏，并记住选择', async () => {
   const { controller, state, section, repositories, locations, tabs, container, repositoryContainer, writes } = createHarness();
   await controller.load();

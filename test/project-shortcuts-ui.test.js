@@ -54,10 +54,22 @@ test('项目快捷偏好通过受限配置键保存且侧栏顺序位于目录�
   assert.match(controllerSource, /项目位置不可用/);
 });
 
+test('项目、仓库和目录资源共用右键菜单上下文', () => {
+  assert.match(html, /data-context-action="relationship"/);
+  assert.match(html, /data-context-action="toggle-pin"/);
+  assert.match(controllerSource, /data-project-shortcut-path/);
+  assert.match(appSource, /#project-shortcuts-list \[data-project-shortcut-id\]\[data-project-shortcut-path\]/);
+  assert.match(appSource, /#repository-shortcuts-list \[data-repository-shortcut-path\]/);
+  assert.match(appSource, /_fileContextUsesDirectItem/);
+  assert.match(appSource, /action === 'relationship'/);
+  assert.match(appSource, /action === 'toggle-pin'/);
+});
+
 test('左侧主导航面板占满可用高度且目录操作栏不遮挡树', () => {
   assert.match(css, /\.sidebar\s*\{[\s\S]*?display:\s*flex;[\s\S]*?flex-direction:\s*column;[\s\S]*?min-height:\s*0;[\s\S]*?overflow:\s*hidden;/);
   assert.match(css, /\.sidebar-section\[role="tabpanel"\]:not\(\[hidden\]\):not\(\.collapsed\)\s*\{[\s\S]*?flex:\s*1 1 0;[\s\S]*?min-height:\s*0;[\s\S]*?overflow:\s*hidden;/);
   assert.match(css, /\.sidebar-tree-container\s*\{[\s\S]*?overflow-y:\s*auto;[\s\S]*?min-height:\s*0;/);
+  assert.match(css, /#project-shortcuts-list,[\s\S]*?#repository-shortcuts-list,[\s\S]*?overflow-y:\s*auto;/);
   assert.match(css, /\.sidebar-tree-buttons\s*\{[\s\S]*?flex-shrink:\s*0;/);
   assert.doesNotMatch(css, /\.sidebar-tree-section\s*\{[\s\S]*?max-height:\s*40%;/);
   assert.ok(html.indexOf('id="sidebar-tree"') < html.indexOf('class="sidebar-tree-buttons"'));

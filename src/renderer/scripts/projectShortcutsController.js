@@ -146,6 +146,34 @@
       return projects;
     }
 
+    async upsertLocalProject(project) {
+      if (!project?.projectId || !project?.path) return false;
+      const existingIndex = this.state.localProjects.findIndex(item => item?.projectId === project.projectId);
+      const existing = existingIndex >= 0 ? this.state.localProjects[existingIndex] : null;
+      const next = {
+        ...(existing || {}),
+        ...project,
+        repositories: Array.isArray(project.repositories)
+          ? project.repositories
+          : (existing?.repositories || []),
+        repositoryCount: Number.isFinite(Number(project.repositoryCount))
+          ? Number(project.repositoryCount)
+          : Number(existing?.repositoryCount || 0),
+        rootIsGitRepo: typeof project.rootIsGitRepo === 'boolean'
+          ? project.rootIsGitRepo
+          : existing?.rootIsGitRepo === true
+      };
+      this.state.localProjects = existingIndex >= 0
+        ? this.state.localProjects.map((item, index) => index === existingIndex ? next : item)
+        : [...this.state.localProjects, next];
+      const merged = ProjectShortcuts.mergeKnownProjects(this.state.projectShortcuts, this.state.localProjects);
+      const shortcutsChanged = !ProjectShortcuts.storesEqual(merged, this.state.projectShortcuts);
+      this.state.projectShortcuts = merged;
+      this.render();
+      if (shortcutsChanged) await this.bridge.config.set('projectShortcuts', merged);
+      return next;
+    }
+
     async recordVisit(directoryPath) {
       if (!directoryPath || !this.state.localProjects.length) return false;
       const project = ProjectShortcuts.findProjectForPath(
@@ -294,7 +322,7 @@
             ${available
               ? `<button class="tree-node-toggle project-tree-toggle ${expanded ? 'expanded' : ''}" data-project-tree-toggle="${this.app.escapeHtml(entry.projectId)}" type="button" aria-expanded="${expanded}" aria-controls="${childrenId}" aria-label="${expanded ? '折叠' : '展开'} ${this.app.escapeHtml(name)}">${expanded ? '▼' : '▶'}</button>`
               : '<span class="tree-node-toggle tree-node-toggle-placeholder project-tree-toggle-placeholder" aria-hidden="true">•</span>'}
-            <button class="sidebar-item sidebar-shortcut-open project-shortcut-open" data-project-shortcut-id="${this.app.escapeHtml(entry.projectId)}" type="button" title="${this.app.escapeHtml(title)}" aria-disabled="${available ? 'false' : 'true'}">
+            <button class="sidebar-item sidebar-shortcut-open project-shortcut-open" data-project-shortcut-id="${this.app.escapeHtml(entry.projectId)}" data-project-shortcut-path="${this.app.escapeHtml(project?.path || '')}" type="button" title="${this.app.escapeHtml(title)}" aria-disabled="${available ? 'false' : 'true'}">
               ${this.app.getItemKindIconHtml(item, 'sidebar-kind-icon')}
               <span class="sidebar-item-name">${this.app.escapeHtml(name)}</span>
               ${available ? `<span class="badge" title="${repositories.length} 个关联 Git 仓库">${repositories.length}</span>` : ''}

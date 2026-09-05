@@ -18,8 +18,7 @@
       return String(this.state.currentPath || '');
     }
 
-    async open() {
-      const targetPath = this.targetPath();
+    async openPath(targetPath = this.targetPath()) {
       if (!targetPath) {
         this.app._showStatusMessage('请选择一个文件或文件夹，或进入要打开终端的目录', 'warning');
         return false;
@@ -44,6 +43,10 @@
         this.app._showStatusMessage(`打开终端失败：${error?.message || error}`, 'error');
         return false;
       }
+    }
+
+    async open() {
+      return this.openPath();
     }
   }
 

@@ -26,6 +26,9 @@ test('文件夹可从工具栏、右键菜单和详情入口设为项目', () =>
   assert.match(html, /id="file-project-settings"/);
   assert.match(html, /data-context-action="project"/);
   assert.match(html, /id="detail-project-settings"/);
+  assert.match(appSource, /data-project-id="\$\{this\.escapeHtml\(project\.projectId\)\}"/);
+  assert.match(appSource, /data-path="\$\{this\.escapeHtml\(project\.path\)\}" data-type="directory"/);
+  assert.match(appSource, /AppState\.visibleItems = projects\.map\(project =>/);
   assert.match(appSource, /openSelectedProjectSettings\(\)/);
   assert.match(selectionDetailSource, /data-app-action="file-project-settings"/);
   assert.match(appSource, /data-app-action="choose-local-project"/);
@@ -41,13 +44,20 @@ test('项目设置明确不修改 Git，并只通过受限 IPC 写项目清单',
   assert.match(main, /registerLocalProjectsIPC\(\)/);
 });
 
+test('保存项目先完成局部界面更新，再后台刷新项目扫描', () => {
+  assert.match(appSource, /upsertLocalProject\?\.\(result\)/);
+  assert.match(appSource, /const backgroundProjectRefresh = this\.refreshProjectShortcuts\(true\)\.catch/);
+  assert.match(appSource, /void backgroundProjectRefresh/);
+});
+
 test('目录页包含 Finder 风格右键菜单、剪切和重复副本快捷动作', () => {
   assert.match(html, /id="file-context-menu"/);
   assert.match(html, /id="file-cut"[\s\S]*?⌘X/);
   assert.match(html, /id="file-duplicate"[\s\S]*?⌘D/);
   assert.match(appSource, /contentArea\.addEventListener\('contextmenu', open\)/);
   assert.match(appSource, /sidebarTree\?\.addEventListener\('contextmenu', open\)/);
-  assert.match(appSource, /#content-area \[data-path\]\[data-type\], #sidebar-tree \.tree-node\[data-path\]\[data-type\]/);
+  assert.match(appSource, /'#content-area \[data-path\]\[data-type\]'/);
+  assert.match(appSource, /'#sidebar-tree \.tree-node\[data-path\]\[data-type\]'/);
   assert.match(appSource, /cutSelectedItems\(\)/);
   assert.match(appSource, /duplicateSelectedItems\(\)/);
   assert.match(appSource, /event\.key\s*===\s*'F2'/);

@@ -51,7 +51,7 @@ test('批量重命名通过受信 IPC 先预览再应用', () => {
 test('工具栏、右键菜单和平台快捷键都允许多选重命名', () => {
   assert.ok(require('../src/renderer/scripts/appControllerRegistry').CONTROLLER_NAMESPACES.includes('BatchRenameController'));
   assert.match(appSource, /items\.length\s*>\s*1[\s\S]*batchRenameController\.open\(items\)/);
-  assert.match(appSource, /querySelector\('\[data-context-action="rename"\]'\)\.disabled\s*=\s*items\.length\s*===\s*0/);
+  assert.match(appSource, /querySelector\('\[data-context-action="rename"\]'\)\.disabled\s*=\s*this\._fileContextUsesDirectItem\s*\|\|\s*items\.length\s*===\s*0/);
   assert.match(actionBarSource, /rename\.disabled\s*=\s*busy\s*\|\|\s*count\s*===\s*0/);
   assert.match(appSource, /AppState\.selectedPaths\.size\s*>=\s*1/);
   assert.match(actionBarSource, /重命名 \$\{count\} 个项目/);
