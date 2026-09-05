@@ -11,7 +11,8 @@
 - 代码架构范围：默认当前 Archify 快照；可选单个目录/模块边界、单个组件及直接邻接组件，并提供“显示目录 / 模块边界”开关。架构卡片仍为只读。
 - 交互：新增“范围”菜单，选择与快照/对象均持久化到当前白板；切换范围会清除不可见选择，但不修改运行事实、架构快照或资源库总览。
 - 验证：`npm run check` 通过（1053/1053 测试、251 个 JavaScript 文件语法检查、renderer 构建）；新增 `test/relationship-board-scope.test.js` 覆盖迁移、拓扑范围和架构范围。
-- 构建：版本 `2.0.0-alpha.103`；待提交后执行 macOS arm64 development 打包并替换本机安装版。
+- 构建：版本 `2.0.0-alpha.103`；macOS arm64 development 包已构建并替换本机安装版 `/Applications/GitFinder 2 Alpha87.app`。制品 ZIP SHA-256：`90d7deb7f14a087c0862fa286ab2a1f7ebbedf11babd7c5a344a4aff6a7ba11d`。构建为 ad-hoc 签名，仅用于本机验收，不具备正式分发资格。
+- 代码架构数据源：当前本机仓库尚未导入任何 `.gitfinder/architecture/` Archify 快照，因此切换到“代码架构”后会显示空画布；需在仓库详情点击“导入架构”，选择 Archify 生成的 JSON 后，才会出现快照、边界和组件范围。入口与范围控制已随 alpha.103 安装版生效。
 
 ## 当前交付：资源库摘要预览与项目颜色（alpha.102）
 

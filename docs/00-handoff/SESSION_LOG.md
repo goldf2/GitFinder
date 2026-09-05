@@ -164,3 +164,11 @@
 - UI：新增“范围”菜单；运行拓扑默认当前白板，架构默认当前 Archify 快照，架构边界可单独隐藏；共享主机和访问点不会因范围选择递归展开全部项目。
 - 验证：`npm run check` 通过 1053/1053，251 个 JavaScript 文件语法检查和 renderer 构建通过；新增范围模型、投影与菜单回归测试。
 - 接续：版本 alpha.103 打包、本机安装替换、版本核对后提交并推送；用户确认实际白板范围选择有效后，再归档修复报告。
+
+## 2026-09-06 04:32:00 +0800 · alpha.103 构建与代码架构数据源核对
+
+- 目标：把独立范围功能安装到本机，并核对“代码架构没有”的原因。
+- 完成：`npm run pack` 成功；版本 `2.0.0-alpha.103`；制品已复制到 `/Volumes/project/制品与备份/gitfinder-2/2.0.0-alpha.103/`；原 alpha.102 已可恢复备份；安装版已替换并启动。
+- 证据：安装版 `CFBundleShortVersionString=2.0.0-alpha.103`；ZIP SHA-256 为 `90d7deb7f14a087c0862fa286ab2a1f7ebbedf11babd7c5a344a4aff6a7ba11d`；`relationship-boards.json` 当前白板为 architecture 层但 `architectureSnapshotId` 为空；本机仓库未发现 `.gitfinder/architecture/` 快照目录。
+- 结论：代码架构入口已经在 alpha.103；当前为空是因为没有导入 Archify 快照，不是代码架构层被移除。仓库详情的“导入架构”会把 JSON 保存到仓库的 `.gitfinder/architecture/`，导入后再从白板“结构 → 代码架构”选择范围。
+- 遗留：用户需要实际导入一个 Archify JSON 并确认快照、边界、组件邻接三种范围；确认有效后按规则归档修复报告。
