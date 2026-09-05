@@ -6,7 +6,7 @@
 - 修改：`relationshipGraphModel` 新增 `showTopology` / `showArchitecture` 独立可见性和各自范围字段；控制器合并两类投影但按来源分别过滤；布局菜单改为“运行拓扑 / 代码架构 / 布局”；旧 `layer` / `merged` 仅兼容读取。架构边界容器可隐藏，拓扑结构仍在运行拓扑菜单内。
 - 同步边界：Coolify 线上数据仍是新鲜源；单实例失败保留对应本地快照，全部失败回退无凭据缓存，不做缓存反向写入线上，不清空已有数据。
 - 验证：目标白板专项通过；全量 `npm run check` 通过 1057/1057，251 个 JavaScript 文件语法检查和 renderer 构建通过。
-- 发布：版本已升至 `2.0.0-alpha.105`，待 `npm run pack` 通过后替换本机 `/Applications/GitFinder 2 Alpha87.app`、提交并推送。
+- 发布：版本 `2.0.0-alpha.105` 的 `npm run pack` 已通过；制品 ZIP 位于 `/Volumes/project/制品与备份/gitfinder-2/2.0.0-alpha.105/`，SHA-256 为 `63100d51ddf0443885c5e59adcf5a2e78dffec729b72507fabd797d0aaa5a4af`。本机 `/Applications/GitFinder 2 Alpha87.app` 已替换，提交 `228b261` 已完成；待文档收口后推送。
 - 遗留：Mac 当前锁屏，未宣称 alpha.105 已完成安装版可视验收；用户解锁后需确认双来源同时显示、独立范围切换和 Coolify 缓存提示。确认有效后再写入 `/Volumes/project/支持文档/修复报告/`。
 
 ## 2026-09-06 06:36:00 +0800 · alpha.104 资源添加与 Coolify 同步修复
