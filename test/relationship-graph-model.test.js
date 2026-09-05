@@ -105,6 +105,7 @@ test('关系白板按白板保存卡片、文字和画布显示偏好', () => {
     cardScale: 1.25,
     textScale: 1.15,
     groupTitleFontSize: 28,
+    edgeWidth: 3.2,
     cardAppearance: 'flat',
     showGrid: false,
     showEdgeLabels: false,
@@ -129,6 +130,7 @@ test('关系白板按白板保存卡片、文字和画布显示偏好', () => {
   assert.equal(RelationshipGraphModel.defaultBoardView().cardScale, 1);
   assert.equal(RelationshipGraphModel.defaultBoardView().textScale, 1);
   assert.equal(RelationshipGraphModel.defaultBoardView().groupTitleFontSize, 20);
+  assert.equal(RelationshipGraphModel.defaultBoardView().edgeWidth, 1.7);
   assert.equal(RelationshipGraphModel.defaultBoardView().cardAppearance, 'elevated');
   assert.equal(RelationshipGraphModel.defaultBoardView().showGrid, true);
   assert.equal(RelationshipGraphModel.defaultBoardView().showEdgeLabels, true);

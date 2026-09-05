@@ -1,6 +1,20 @@
 const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 contextBridge.exposeInMainWorld('gitFinder', {
+  auth: {
+    getStatus: () => ipcRenderer.invoke('account:status'),
+    configure: configuration => ipcRenderer.invoke('account:configure', configuration),
+    signIn: () => ipcRenderer.invoke('account:signIn'),
+    cancel: () => ipcRenderer.invoke('account:cancel'),
+    signOut: () => ipcRenderer.invoke('account:signOut'),
+    refresh: () => ipcRenderer.invoke('account:refresh'),
+    onChanged: callback => {
+      if (typeof callback !== 'function') return () => {};
+      const listener = (_event, state) => callback(state);
+      ipcRenderer.on('account:changed', listener);
+      return () => ipcRenderer.removeListener('account:changed', listener);
+    },
+  },
   fs: {
     listDirectory: (path, options) => ipcRenderer.invoke('fs:listDirectory', path, options),
     inspectWorkspaceDirectories: (paths) => ipcRenderer.invoke('fs:inspectWorkspaceDirectories', paths),

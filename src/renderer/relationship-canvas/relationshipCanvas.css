@@ -337,18 +337,18 @@
 
 .gf-relationship-flow .react-flow__edge-path {
   stroke: #747fbd;
-  stroke-width: 1.7;
+  stroke-width: var(--relationship-edge-width, 1.7px);
 }
 
 .gf-relationship-flow .react-flow__edge.selected .react-flow__edge-path {
   stroke: #3978ff;
-  stroke-width: 2.5;
+  stroke-width: calc(var(--relationship-edge-width, 1.7px) + 0.8px);
 }
 
 .gf-relationship-flow .react-flow__edge.is-topology-alert .react-flow__edge-path,
 .gf-relationship-flow .react-flow__edge.is-topology-alert.selected .react-flow__edge-path {
   stroke: #d9485f;
-  stroke-width: 2.5;
+  stroke-width: calc(var(--relationship-edge-width, 1.7px) + 0.8px);
 }
 
 .gf-flow-edge-label {

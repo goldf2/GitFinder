@@ -87,7 +87,9 @@ test('显示尺寸滑块连续输入仅记一次撤销，外观修改不改变�
   const moved = structuredClone(c.store.boards[0].placements);
   c.displayLayoutEdit = null;
   form.values.statusTintOpacity = 0.15;
+  form.values.edgeWidth = 3.2;
   c._updateBoardDisplayFromForm(form);
+  assert.equal(c.store.boards[0].view.edgeWidth, 3.2);
   assert.deepEqual(c.store.boards[0].placements, moved);
   c.undo();
   assert.deepEqual(c.store, original.store);

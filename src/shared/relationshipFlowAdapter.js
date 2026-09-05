@@ -347,10 +347,10 @@
           selected: visualOnly ? false : edge.id === options.selectedRelationshipId,
           ...(visualOnly ? { selectable: false, focusable: false, deletable: false } : {}),
           ...(topologyAlert
-            ? { className: 'is-topology-alert', style: { stroke: '#d9485f', strokeWidth: 2.5 } }
+            ? { className: 'is-topology-alert', style: { stroke: '#d9485f', strokeWidth: 'calc(var(--relationship-edge-width, 1.7px) + 0.8px)' } }
             : (visualOnly ? {
               className: 'is-visual-summary',
-              style: { stroke: '#8f98b3', strokeWidth: 1.25, strokeDasharray: '6 6', opacity: 0.7 }
+              style: { stroke: '#8f98b3', strokeWidth: 'max(0.5px, calc(var(--relationship-edge-width, 1.7px) - 0.45px))', strokeDasharray: '6 6', opacity: 0.7 }
             } : {})),
           data: {
             relationship: { ...edge },

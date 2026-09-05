@@ -79,7 +79,7 @@ const AppState = {
   globalIndexPollTimer: null,
   galleryPreviewRequestId: 0,
   settingsReturnMode: null,
-  settingsSection: 'settings-browsing',
+  settingsSection: 'settings-account',
   localProjects: [],
   localProjectsLoading: false,
   projectDialog: null,
@@ -138,6 +138,7 @@ const App = {
   directoryBatchRenderer: null,
   directoryVirtualizer: null,
   galleryThumbnailLoader: null,
+  accountController: null,
   updaterController: null,
 
   async init() {
@@ -170,6 +171,11 @@ const App = {
       terminal: typeof Terminal !== 'undefined' ? Terminal : null
     }));
     this.updaterController = new window.UpdateController.Controller({
+      bridge: window.gitFinder,
+      document,
+      onStatusMessage: (message, tone) => this._showStatusMessage(message, tone),
+    });
+    this.accountController = new window.AccountController.Controller({
       bridge: window.gitFinder,
       document,
       onStatusMessage: (message, tone) => this._showStatusMessage(message, tone),
@@ -578,6 +584,8 @@ const App = {
 
     // 软件更新控制器同时服务状态栏、设置页与应用菜单。
     this.updaterController.setup();
+    // 账户为可选能力；缺少 auth bridge 时控制器会安静降级。
+    this.accountController.setup();
 
     // 外观模式选择(浅色/深色/跟随系统)
     document.querySelectorAll('.theme-card[data-mode]').forEach(card => {
@@ -937,7 +945,8 @@ const App = {
     const settingsNavigationMarkup = window.SettingsNavigation.ITEMS.map(item => {
       const isActive = item.id === activeSettingsSection;
       const navigationId = `settings-navigation-${item.id.slice('settings-'.length)}`;
-      return `<button class="app-settings-navigation-item" id="${navigationId}" data-settings-section="${item.id}" role="tab" aria-controls="${item.id}" aria-selected="${isActive}" tabindex="${isActive ? '0' : '-1'}" type="button">
+      const accentStyle = item.accent ? ` style="--settings-navigation-accent:${this.escapeHtml(item.accent)}"` : '';
+      return `<button class="app-settings-navigation-item" id="${navigationId}" data-settings-section="${item.id}" role="tab" aria-controls="${item.id}" aria-selected="${isActive}" tabindex="${isActive ? '0' : '-1'}" type="button"${accentStyle}>
         <span class="app-settings-navigation-icon" aria-hidden="true">${this.escapeHtml(item.glyph)}</span>
         <span><strong>${this.escapeHtml(item.label)}</strong><small>${this.escapeHtml(item.summary)}</small></span>
       </button>`;
@@ -992,6 +1001,8 @@ const App = {
             </div>
           </nav>
           <main class="app-settings-content" aria-label="设置内容">
+        ${this.accountController.settingsMarkup()}
+
         <section class="app-settings-section" id="settings-browsing" role="tabpanel" aria-labelledby="settings-navigation-browsing">
           <div class="app-settings-section-heading">
             <h2 id="settings-browsing-title">目录显示</h2>
@@ -1198,6 +1209,7 @@ const App = {
     updateProjectShortcutSettingsAvailability();
 
     this.bindSemanticColorSettings();
+    this.accountController.render();
     this.updaterController.render();
 
     await this.hydrateDeveloperToolSettings();

@@ -18,6 +18,7 @@ const displayView = Object.freeze({
   cardScale: 1.1,
   textScale: 1,
   groupTitleFontSize: 24,
+  edgeWidth: 3.2,
   cardWidth: 320,
   cardHeight: 160,
   horizontalSpacing: 48,
@@ -57,6 +58,8 @@ test('显示弹层由纯视图模块按当前白板状态生成', () => {
   assert.match(html, /name="cardScale"[^>]+value="1\.1"/);
   assert.match(html, /data-display-card-scale>110%/);
   assert.match(html, /name="groupTitleFontSize"[^>]+value="24"/);
+  assert.match(html, /name="edgeWidth"[^>]+value="3\.2"/);
+  assert.match(html, /data-display-edge-width>3\.2 px/);
   assert.match(html, /name="projectGroupShape"[\s\S]*?<option value="polygon" selected>/);
   assert.match(html, /role="dialog"[^>]+aria-modal="true"/);
   assert.match(html, /id="relationship-display-title"/);

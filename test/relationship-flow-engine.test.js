@@ -10,6 +10,7 @@ const fixture = fs.readFileSync(path.join(__dirname, '../scripts/visual-fixtures
 const rendererHtml = fs.readFileSync(path.join(__dirname, '../src/renderer/index.html'), 'utf8');
 const controllerSource = fs.readFileSync(path.join(__dirname, '../src/renderer/scripts/relationshipBoardController.js'), 'utf8');
 const toolbarViewSource = fs.readFileSync(path.join(__dirname, '../src/renderer/scripts/relationshipBoardToolbarView.js'), 'utf8');
+const adapterSource = fs.readFileSync(path.join(__dirname, '../src/shared/relationshipFlowAdapter.js'), 'utf8');
 
 test('新画布直接使用成熟库提供框选、拖动平移、滚轮缩放、边缘滚动和小地图', () => {
   assert.match(source, /selectionOnDrag/);
@@ -139,6 +140,17 @@ test('Project 标题完整显示，成员数量不参与标题宽度竞争且字
   assert.doesNotMatch(canvasCss, /\.gf-flow-group-title-toolbar button\s*\{[^}]*max-width:\s*calc/s);
   assert.match(toolbarViewSource, /key: 'groupTitleFontSize'/);
   assert.match(controllerSource, /--relationship-group-title-font-size/);
+});
+
+test('当前白板可调连线粗细，选中、告警和只读摘要继续保持视觉层级', () => {
+  assert.match(toolbarViewSource, /key: 'edgeWidth'/);
+  assert.match(controllerSource, /--relationship-edge-width/);
+  assert.doesNotMatch(canvasCss, /\.gf-relationship-flow\s*\{[^}]*--relationship-edge-width/s);
+  assert.match(canvasCss, /\.react-flow__edge-path\s*\{[^}]*stroke-width:\s*var\(--relationship-edge-width,\s*1\.7px\)/s);
+  assert.match(canvasCss, /\.react-flow__edge\.selected[^{]*\{[^}]*calc\(var\(--relationship-edge-width,\s*1\.7px\) \+ 0\.8px\)/s);
+  assert.match(canvasCss, /\.is-topology-alert[^{]*\{[^}]*calc\(var\(--relationship-edge-width,\s*1\.7px\) \+ 0\.8px\)/s);
+  assert.match(adapterSource, /is-visual-summary[\s\S]*?max\(0\.5px, calc\(var\(--relationship-edge-width, 1\.7px\) - 0\.45px\)\)/);
+  assert.match(source, /MarkerType\.ArrowClosed/);
 });
 
 test('Project 快捷操作复用标题栏，不创建第二条工具栏争抢顶部空间', () => {

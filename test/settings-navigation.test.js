@@ -10,6 +10,7 @@ test('设置分类保持稳定顺序并规范化外部深链接', () => {
   assert.deepEqual(
     SettingsNavigation.ITEMS.map(item => item.id),
     [
+      'settings-account',
       'settings-browsing',
       'settings-sidebar',
       'settings-appearance',
@@ -20,15 +21,17 @@ test('设置分类保持稳定顺序并规范化外部深链接', () => {
     ]
   );
   assert.equal(SettingsNavigation.normalizeSection('settings-panel-provider'), 'settings-panel-provider');
-  assert.equal(SettingsNavigation.normalizeSection('missing-section'), 'settings-browsing');
-  assert.equal(SettingsNavigation.normalizeSection(''), 'settings-browsing');
+  assert.equal(SettingsNavigation.normalizeSection('missing-section'), 'settings-account');
+  assert.equal(SettingsNavigation.normalizeSection(''), 'settings-account');
 });
 
 test('纵向设置导航支持方向键、Home 和 End', () => {
+  assert.equal(SettingsNavigation.sectionFromKey('settings-account', 'ArrowDown'), 'settings-browsing');
+  assert.equal(SettingsNavigation.sectionFromKey('settings-account', 'ArrowUp'), 'settings-updates');
   assert.equal(SettingsNavigation.sectionFromKey('settings-browsing', 'ArrowDown'), 'settings-sidebar');
-  assert.equal(SettingsNavigation.sectionFromKey('settings-browsing', 'ArrowUp'), 'settings-updates');
-  assert.equal(SettingsNavigation.sectionFromKey('settings-updates', 'ArrowDown'), 'settings-browsing');
-  assert.equal(SettingsNavigation.sectionFromKey('settings-panel-provider', 'Home'), 'settings-browsing');
+  assert.equal(SettingsNavigation.sectionFromKey('settings-browsing', 'ArrowUp'), 'settings-account');
+  assert.equal(SettingsNavigation.sectionFromKey('settings-updates', 'ArrowDown'), 'settings-account');
+  assert.equal(SettingsNavigation.sectionFromKey('settings-panel-provider', 'Home'), 'settings-account');
   assert.equal(SettingsNavigation.sectionFromKey('settings-panel-provider', 'End'), 'settings-updates');
   assert.equal(SettingsNavigation.sectionFromKey('settings-panel-provider', 'Enter'), null);
 });

@@ -210,6 +210,7 @@
       cardHeight: 143,
       textScale: 1,
       groupTitleFontSize: 20,
+      edgeWidth: 1.7,
       horizontalSpacing: 64,
       verticalSpacing: 36,
       cardAppearance: 'elevated',
@@ -321,7 +322,7 @@
     if (strict && view.runtimeStates != null && (!Array.isArray(view.runtimeStates) || view.runtimeStates.some(value => !RUNTIME_FILTERS.includes(String(value))))) issues.push(`${pathPrefix}.runtimeStates 无效`);
     if (strict) {
       for (const key of Object.keys(view)) {
-        if (!['mode', 'projection', 'structure', 'layout', 'topologyLayout', 'treeLayout', 'projectGroupIncludesEndpoints', 'showRepositoryRelations', 'snapMode', 'cardScale', 'cardWidth', 'cardHeight', 'textScale', 'groupTitleFontSize', 'horizontalSpacing', 'verticalSpacing', 'cardAppearance', 'showGrid', 'showEdgeLabels', 'cardTitleSource', 'deploymentTitleSource', 'endpointTitleSource', 'cardIcons', 'projectGroupShape', 'showRuntimeStatus', 'unmatchedDisplay', 'filterContextOpacity', 'filterMutedOpacity', 'filterMutedSaturation', 'filterContextEdgeOpacity', 'filterMutedEdgeOpacity', 'filterMatchHaloOpacity', 'statusTintOpacity', 'query', 'entityType', 'entityTypes', 'environment', 'verification', 'annotation', 'task', 'taskFilters', 'runtimeStates', 'label'].includes(key)) {
+        if (!['mode', 'projection', 'structure', 'layout', 'topologyLayout', 'treeLayout', 'projectGroupIncludesEndpoints', 'showRepositoryRelations', 'snapMode', 'cardScale', 'cardWidth', 'cardHeight', 'textScale', 'groupTitleFontSize', 'edgeWidth', 'horizontalSpacing', 'verticalSpacing', 'cardAppearance', 'showGrid', 'showEdgeLabels', 'cardTitleSource', 'deploymentTitleSource', 'endpointTitleSource', 'cardIcons', 'projectGroupShape', 'showRuntimeStatus', 'unmatchedDisplay', 'filterContextOpacity', 'filterMutedOpacity', 'filterMutedSaturation', 'filterContextEdgeOpacity', 'filterMutedEdgeOpacity', 'filterMatchHaloOpacity', 'statusTintOpacity', 'query', 'entityType', 'entityTypes', 'environment', 'verification', 'annotation', 'task', 'taskFilters', 'runtimeStates', 'label'].includes(key)) {
           issues.push(`${pathPrefix}.${key} 不是允许的字段`);
         }
       }
@@ -339,6 +340,7 @@
       cardHeight: finiteNumber(view.cardHeight, 143, 143, 420),
       textScale: finiteNumber(view.textScale, 1, 0.85, 1.3),
       groupTitleFontSize: finiteNumber(view.groupTitleFontSize, 20, 14, 36),
+      edgeWidth: finiteNumber(view.edgeWidth, 1.7, 0.8, 5),
       horizontalSpacing: finiteNumber(view.horizontalSpacing, 64, 16, 180),
       verticalSpacing: finiteNumber(view.verticalSpacing, 36, 16, 140),
       cardAppearance: BOARD_CARD_APPEARANCES.includes(cardAppearance) ? cardAppearance : 'elevated',

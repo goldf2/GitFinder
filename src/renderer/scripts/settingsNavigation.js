@@ -4,6 +4,7 @@
   if (root) root.SettingsNavigation = api;
 })(typeof window !== 'undefined' ? window : globalThis, function createSettingsNavigation() {
   const ITEMS = Object.freeze([
+    Object.freeze({ id: 'settings-account', label: '账户', summary: '可选登录与本机会话', glyph: '◎', accent: '#4f75c9' }),
     Object.freeze({ id: 'settings-browsing', label: '目录显示', summary: '视图、排列与隐藏项目', glyph: '▦' }),
     Object.freeze({ id: 'settings-sidebar', label: '侧边栏', summary: '项目快捷入口', glyph: '▤' }),
     Object.freeze({ id: 'settings-appearance', label: '外观', summary: '主题与语义色彩', glyph: '◐' }),

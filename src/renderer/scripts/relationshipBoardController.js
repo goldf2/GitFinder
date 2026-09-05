@@ -1590,6 +1590,7 @@
         cardHeight: normalizedNumber(view.cardHeight, defaults.cardHeight, 143, 420),
         textScale: Number.isFinite(textScale) ? Math.min(1.3, Math.max(0.85, textScale)) : defaults.textScale,
         groupTitleFontSize: normalizedNumber(view.groupTitleFontSize, defaults.groupTitleFontSize, 14, 36),
+        edgeWidth: normalizedNumber(view.edgeWidth, defaults.edgeWidth, 0.8, 5),
         horizontalSpacing: normalizedNumber(view.horizontalSpacing, defaults.horizontalSpacing, 16, 180),
         verticalSpacing: normalizedNumber(view.verticalSpacing, defaults.verticalSpacing, 16, 140),
         cardAppearance: view.cardAppearance === 'flat' ? 'flat' : 'elevated',
@@ -2787,6 +2788,7 @@
       }
       form.elements.namedItem('textScale').value = String(display.textScale);
       form.elements.namedItem('groupTitleFontSize').value = String(display.groupTitleFontSize);
+      form.elements.namedItem('edgeWidth').value = String(display.edgeWidth);
       form.elements.namedItem('horizontalSpacing').value = String(display.horizontalSpacing);
       form.elements.namedItem('verticalSpacing').value = String(display.verticalSpacing);
       form.elements.namedItem('cardAppearance').value = display.cardAppearance;
@@ -2808,6 +2810,7 @@
       const cardOutput = form.querySelector('[data-display-card-scale]');
       const textOutput = form.querySelector('[data-display-text-scale]');
       const groupTitleOutput = form.querySelector('[data-display-group-title-size]');
+      const edgeWidthOutput = form.querySelector('[data-display-edge-width]');
       const horizontalSpacingOutput = form.querySelector('[data-display-horizontal-spacing]');
       const verticalSpacingOutput = form.querySelector('[data-display-vertical-spacing]');
       const statusTintOutput = form.querySelector('[data-display-status-tint]');
@@ -2817,6 +2820,7 @@
       if (cardOutput) cardOutput.textContent = `${Math.round(display.cardScale * 100)}%`;
       if (textOutput) textOutput.textContent = `${Math.round(display.textScale * 100)}%`;
       if (groupTitleOutput) groupTitleOutput.textContent = `${Math.round(display.groupTitleFontSize)} px`;
+      if (edgeWidthOutput) edgeWidthOutput.textContent = `${Math.round(display.edgeWidth * 10) / 10} px`;
       if (horizontalSpacingOutput) horizontalSpacingOutput.textContent = `${Math.round(display.horizontalSpacing)} px`;
       if (verticalSpacingOutput) verticalSpacingOutput.textContent = `${Math.round(display.verticalSpacing)} px`;
       if (statusTintOutput) statusTintOutput.textContent = `${Math.round(display.statusTintOpacity * 100)}%`;
@@ -2853,6 +2857,7 @@
         cardHeight: displayNumber('cardHeight', currentDisplay.cardHeight, 143, 420),
         textScale: Number.isFinite(textScale) ? Math.min(1.3, Math.max(0.85, textScale)) : 1,
         groupTitleFontSize: displayNumber('groupTitleFontSize', currentDisplay.groupTitleFontSize, 14, 36),
+        edgeWidth: displayNumber('edgeWidth', currentDisplay.edgeWidth, 0.8, 5),
         horizontalSpacing: displayNumber('horizontalSpacing', currentDisplay.horizontalSpacing, 16, 180),
         verticalSpacing: displayNumber('verticalSpacing', currentDisplay.verticalSpacing, 16, 140),
         cardAppearance: String(data.get('cardAppearance') || '') === 'flat' ? 'flat' : 'elevated',
@@ -4376,6 +4381,7 @@
         this.root.style.setProperty('--relationship-subtitle-font-size', `${Math.round(subtitleBaseSize * display.textScale * 10) / 10}px`);
         this.root.style.setProperty('--relationship-meta-font-size', `${Math.round(metaBaseSize * display.textScale * 10) / 10}px`);
         this.root.style.setProperty('--relationship-group-title-font-size', `${Math.round(display.groupTitleFontSize)}px`);
+        this.root.style.setProperty('--relationship-edge-width', `${display.edgeWidth}px`);
         this.root.style.setProperty('--relationship-filter-context-opacity', String(display.filterContextOpacity));
         this.root.style.setProperty('--relationship-filter-muted-opacity', String(display.filterMutedOpacity));
         this.root.style.setProperty('--relationship-filter-muted-saturation', String(display.filterMutedSaturation));

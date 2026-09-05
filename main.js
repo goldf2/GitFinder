@@ -14,7 +14,7 @@ if (process.platform === 'darwin') {
   }
 }
 
-const { app, BrowserWindow, ipcMain, dialog, Menu, Notification, crashReporter } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Menu, Notification, crashReporter, safeStorage, shell } = require('electron');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -31,6 +31,8 @@ const { registerPanelIPC } = require('./src/main/ipc/panel');
 const { registerTerminalHandlers } = require('./src/main/ipc/terminal');
 const { registerTrustedHandler } = require('./src/main/ipc/security');
 const configService = require('./src/main/services/configService');
+const { createAccountStore } = require('./src/main/services/accountStore');
+const { createAccountService } = require('./src/main/services/accountService');
 const {
   createDetachedTabContext,
   primaryWindowContext
@@ -66,6 +68,7 @@ if (updateConfiguration.enabled) {
 }
 
 let mainWindow = null;
+let accountService = null;
 const updateService = createUpdateService({
   app,
   autoUpdater,
@@ -348,6 +351,24 @@ app.whenReady().then(() => {
   registerPanelIPC();
   registerTerminalHandlers();
 
+  accountService = createAccountService({
+    store: createAccountStore(app.getPath('userData'), safeStorage),
+    openExternal: url => shell.openExternal(url),
+    onChanged: state => BrowserWindow.getAllWindows().forEach(window => {
+      if (!window.isDestroyed()) window.webContents.send('account:changed', state);
+    }),
+    onSignedIn: () => {
+      if (!mainWindow || mainWindow.isDestroyed()) return;
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.show();
+      mainWindow.focus();
+    },
+  });
+  accountService.restore();
+  for (const method of ['status', 'configure', 'signIn', 'cancel', 'signOut', 'refresh']) {
+    registerTrustedHandler(`account:${method}`, (_event, input) => accountService[method](input));
+  }
+
   setupApplicationMenu();
   createWindow({ primary: true });
   updateService.setup();
@@ -368,3 +389,4 @@ app.on('window-all-closed', () => {
     app.quit();
   }
 });
+app.on('before-quit', () => accountService?.dispose());

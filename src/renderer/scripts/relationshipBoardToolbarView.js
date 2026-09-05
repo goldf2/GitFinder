@@ -13,6 +13,7 @@
   function displayPopover({ view, boardView, serverTree, icon, cardIconOptions = [], escapeHtml: escape }) {
     const percent = value => `${Math.round(value * 100)}%`;
     const px = value => `${Math.round(value)} px`;
+    const decimalPx = value => `${Math.round(value * 10) / 10} px`;
     const cardIcons = { server: 'server', deployment: 'deployment', endpoint: 'endpoint', repository: 'repository', project: 'project', ...(view.cardIcons || {}) };
     const sliders = [
       { key: 'cardScale', label: '卡片大小', value: view.cardScale, output: percent(view.cardScale), min: .8, max: 1.4, step: .05, data: 'display-card-scale' },
@@ -27,6 +28,7 @@
       { key: 'filterMutedOpacity', label: '其他未命中项', value: view.filterMutedOpacity, output: percent(view.filterMutedOpacity), min: .03, max: .4, step: .01, data: 'display-muted-opacity', aria: '其他未命中项可视度' },
       { key: 'filterMatchHaloOpacity', label: '命中高亮', value: view.filterMatchHaloOpacity, output: percent(view.filterMatchHaloOpacity), min: 0, max: .6, step: .01, data: 'display-match-halo', aria: '筛选命中高亮强度' }
     ];
+    const edgeWidthSlider = { key: 'edgeWidth', label: '连线粗细', value: view.edgeWidth, output: decimalPx(view.edgeWidth), min: .8, max: 5, step: .1, data: 'display-edge-width' };
     return `<div class="relationship-display-host">
       <button class="relationship-tool-button relationship-display-trigger relationship-icon-tool" data-relationship-action="toggle-display-menu" type="button" aria-label="显示设置" title="显示设置：标题、卡片、布局与画布" aria-haspopup="dialog" aria-expanded="false">${icon}</button>
       <div class="relationship-display-popover" role="dialog" aria-modal="true" aria-labelledby="relationship-display-title" hidden tabindex="-1"><form data-relationship-display-form>
@@ -37,7 +39,7 @@
           <section class="relationship-display-section"><header><h3>命名来源</h3><p>白板默认不改写部署、域名等事实名称</p></header>${select('cardTitleSource', '其他卡片', view.cardTitleSource, [['name', '资源名称'], ['note', '卡片备注']], escape)}${select('deploymentTitleSource', '部署点', view.deploymentTitleSource, [['name', '部署名称'], ['note', '备注描述']], escape)}${select('endpointTitleSource', '访问点', view.endpointTitleSource, [['domain', '域名'], ['website', '网站标题']], escape)}</section>
           <section class="relationship-display-section"><header><h3>图标与识别</h3><p>类型默认图标；单张卡片可在详情中覆盖</p></header>${select('cardIcon-server', '主机', cardIcons.server, cardIconOptions, escape)}${select('cardIcon-deployment', '部署点', cardIcons.deployment, cardIconOptions, escape)}${select('cardIcon-endpoint', '访问点', cardIcons.endpoint, cardIconOptions, escape)}${select('cardIcon-repository', 'Git 仓库', cardIcons.repository, cardIconOptions, escape)}${select('cardIcon-project', '项目', cardIcons.project, cardIconOptions, escape)}</section>
           <section class="relationship-display-section"><header><h3>状态与外观</h3><p>调整卡片层次、状态色和筛选强调</p></header>${select('cardAppearance', '卡片层次', view.cardAppearance, [['elevated', '层次阴影'], ['flat', '简洁平面']], escape)}${sliders.slice(7).map(item => slider(item, escape)).join('')}</section>
-          <section class="relationship-display-section relationship-display-section-wide"><header><h3>画布与关系</h3><p>这些选项只改变呈现，不修改关系事实</p></header><div class="relationship-display-toggles">
+          <section class="relationship-display-section relationship-display-section-wide"><header><h3>画布与关系</h3><p>这些选项只改变呈现，不修改关系事实</p></header>${slider(edgeWidthSlider, escape)}<div class="relationship-display-toggles">
             ${serverTree ? `<label><input name="projectGroupIncludesEndpoints" data-project-endpoints type="checkbox"${boardView.projectGroupIncludesEndpoints ? ' checked' : ''}><span>项目组包含访问点</span></label><small>独占访问点进入项目容器；共享访问点保持独立。</small>` : ''}
             <label><input name="showGrid" type="checkbox"${view.showGrid ? ' checked' : ''}><span>显示画布网格</span></label>
             <label><input name="showEdgeLabels" type="checkbox"${view.showEdgeLabels ? ' checked' : ''}><span>显示关系文字</span></label>

@@ -1,6 +1,6 @@
 {
   "name": "gitfinder-2",
-  "version": "2.0.0-alpha.94",
+  "version": "2.0.0-alpha.95",
   "description": "GitFinder 2 - 本地开发与部署管理中心",
   "main": "main.js",
   "productName": "GitFinder 2 Alpha",
@@ -116,6 +116,7 @@
     "buffer-crc32": "1.0.0",
     "electron-updater": "^6.8.9",
     "express": "^4.18.2",
+    "openid-client": "6.8.7",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "yauzl": "3.4.0",
