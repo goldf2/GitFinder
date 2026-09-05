@@ -6252,14 +6252,16 @@ const App = {
     if (this._fileContextMenuBound) return;
     const menu = document.getElementById('file-context-menu');
     const contentArea = document.getElementById('content-area');
-    if (!menu || !contentArea) return;
+    const sidebarTree = document.getElementById('sidebar-tree');
+    if (!menu || (!contentArea && !sidebarTree)) return;
     this._fileContextMenuBound = true;
     const close = () => {
       menu.hidden = true;
       menu.removeAttribute('style');
+      this._fileContextPath = '';
     };
     const open = event => {
-      const element = event.target?.closest?.('#content-area [data-path][data-type]');
+      const element = event.target?.closest?.('#content-area [data-path][data-type], #sidebar-tree .tree-node[data-path][data-type]');
       if (!element || !this.isFileBrowsingContext()) {
         close();
         return;
@@ -6267,14 +6269,24 @@ const App = {
       event.preventDefault();
       event.stopPropagation();
       const itemPath = element.dataset.path;
-      if (!AppState.selectedPaths.has(itemPath)) {
+      const isSidebarTreeItem = element.matches('#sidebar-tree .tree-node[data-path][data-type]');
+      this._fileContextPath = itemPath;
+      if (!isSidebarTreeItem && !AppState.selectedPaths.has(itemPath)) {
         AppState.selectedPaths = new Set([itemPath]);
         AppState.selectionAnchorPath = itemPath;
         this.syncFileSelectionUI();
         this.showFileSelectionDetail(this.getSelectedFileItems());
         this.updateFileActionBar();
       }
-      const items = this.getSelectedFileItems();
+      const items = isSidebarTreeItem
+        ? [{
+          path: itemPath,
+          name: element.querySelector('.tree-node-name')?.textContent || itemPath.split(/[\\/]/).filter(Boolean).at(-1) || itemPath,
+          type: 'directory',
+          isProject: element.dataset.isProject === 'true',
+          isGitRepo: element.dataset.isGit === 'true'
+        }]
+        : this.getSelectedFileItems();
       const singleDirectory = items.length === 1 && items[0].type === 'directory';
       const projectLabel = document.getElementById('file-context-project-label');
       if (projectLabel) projectLabel.textContent = singleDirectory && items[0].isProject ? '项目设置…' : '设为项目…';
@@ -6295,13 +6307,15 @@ const App = {
       menu.style.top = `${Math.max(8, Math.min(event.clientY, window.innerHeight - height - 8))}px`;
       requestAnimationFrame(() => menu.querySelector('.finder-menu-item:not(:disabled)')?.focus());
     };
-    contentArea.addEventListener('contextmenu', open);
+    if (contentArea) contentArea.addEventListener('contextmenu', open);
+    sidebarTree?.addEventListener('contextmenu', open);
     document.addEventListener('contextmenu', event => {
-      if (!event.target?.closest?.('#content-area [data-path][data-type]')) close();
+      if (!event.target?.closest?.('#content-area [data-path][data-type], #sidebar-tree .tree-node[data-path][data-type]')) close();
     });
     menu.addEventListener('click', event => {
       const action = event.target.closest('[data-context-action]')?.dataset.contextAction;
       if (!action) return;
+      const contextPath = this._fileContextPath;
       close();
       if (action === 'open') this.openSelectedFileItem();
       if (action === 'preview') this.toggleQuickLook();
@@ -6314,7 +6328,10 @@ const App = {
       if (action === 'move') this.moveSelectedItems();
       if (action === 'open-terminal') this.openSelectedInTerminal();
       if (action === 'open-editor') this.openSelectedInEditor();
-      if (action === 'project') this.openSelectedProjectSettings();
+      if (action === 'project') {
+        if (contextPath) this.openLocalProjectDialog(contextPath);
+        else this.openSelectedProjectSettings();
+      }
       if (action === 'trash') this.trashSelectedItems();
     });
     document.addEventListener('click', event => {

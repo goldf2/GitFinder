@@ -116,6 +116,7 @@ test('位置树直接显示受管根，保留项目与 Git 语义并不读取断
 
   assert.equal(app._treeRootsLoaded, true);
   assert.match(container.innerHTML, /data-is-root="true"/);
+  assert.match(container.innerHTML, /data-type="directory"/);
   assert.match(container.innerHTML, /Alpha &lt;Root&gt;/);
   assert.match(container.innerHTML, /data-kind="project" data-git="true"/);
   assert.match(container.innerHTML, /位置不可用/);

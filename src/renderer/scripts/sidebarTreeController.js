@@ -194,7 +194,7 @@
         ? `<button class="tree-node-toggle ${isExpanded ? 'expanded' : ''}" style="margin-left:${indent}px" type="button" aria-expanded="${isExpanded}" aria-label="${isExpanded ? '折叠' : '展开'} ${safeName}">${isExpanded ? '▼' : '▶'}</button>`
         : `<span class="tree-node-toggle tree-node-toggle-placeholder" style="margin-left:${indent}px" aria-hidden="true">•</span>`;
       let html = `
-        <div class="tree-node ${selected ? 'selected' : ''} ${isRoot ? 'is-root' : ''} ${isGitRepo ? 'is-git' : ''} ${isProject ? 'is-project' : ''} ${directoryItem.isHidden ? 'is-hidden' : ''} ${available ? '' : 'is-unavailable'}" data-path="${safePath}" data-depth="${depth}" data-is-root="${isRoot}" data-is-git="${isGitRepo}" data-is-project="${isProject}" aria-disabled="${!available}">
+        <div class="tree-node ${selected ? 'selected' : ''} ${isRoot ? 'is-root' : ''} ${isGitRepo ? 'is-git' : ''} ${isProject ? 'is-project' : ''} ${directoryItem.isHidden ? 'is-hidden' : ''} ${available ? '' : 'is-unavailable'}" data-path="${safePath}" data-type="directory" data-depth="${depth}" data-is-root="${isRoot}" data-is-git="${isGitRepo}" data-is-project="${isProject}" aria-disabled="${!available}">
           ${toggle}
           ${this.app.getItemKindIconHtml(directoryItem, 'tree-node-icon')}
           <span class="tree-node-name" title="${safePath}">${safeName}</span>
