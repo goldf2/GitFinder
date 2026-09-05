@@ -45,6 +45,8 @@ test('目录页包含 Finder 风格右键菜单、剪切和重复副本快捷动
   assert.match(html, /id="file-context-menu"/);
   assert.match(html, /id="file-cut"[\s\S]*?⌘X/);
   assert.match(html, /id="file-duplicate"[\s\S]*?⌘D/);
+  assert.match(appSource, /contentArea\.addEventListener\('contextmenu', open\)/);
+  assert.match(appSource, /#content-area \[data-path\]\[data-type\]/);
   assert.match(appSource, /cutSelectedItems\(\)/);
   assert.match(appSource, /duplicateSelectedItems\(\)/);
   assert.match(appSource, /event\.key\s*===\s*'F2'/);

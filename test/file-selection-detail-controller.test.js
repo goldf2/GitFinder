@@ -9,14 +9,41 @@ class FakeElement {
   constructor() {
     this.style = { display: '' };
     this.innerHTML = '';
+    this.projectButton = null;
+    this.relationshipButton = null;
   }
 
-  querySelector() { return null; }
+  querySelector(selector) {
+    if (selector.includes('file-project-settings')) return this.projectButton;
+    if (selector.includes('show-relationship-resource')) return this.relationshipButton;
+    return null;
+  }
+}
+
+class FakeButton {
+  constructor(dataset = {}) {
+    this.dataset = dataset;
+    this.listeners = new Map();
+  }
+
+  addEventListener(type, listener) {
+    this.listeners.set(type, listener);
+  }
+
+  click() {
+    this.listeners.get('click')?.({ currentTarget: this });
+  }
 }
 
 function createHarness() {
   const empty = new FakeElement();
   const content = new FakeElement();
+  empty.projectButton = new FakeButton({ projectPath: '/workspace/project' });
+  empty.relationshipButton = new FakeButton({
+    relationshipKind: 'project',
+    relationshipRef: 'project_1',
+    relationshipPath: '/workspace/project'
+  });
   const document = {
     getElementById(id) {
       if (id === 'detail-empty') return empty;
@@ -34,7 +61,8 @@ function createHarness() {
     getFileItemSummary: item => item.summary || '',
     getItemKindIconHtml: (item, className) => `<span class="${className}" data-kind="${item.kind}"></span>`,
     cancelRepoSelection: () => calls.push(['cancel-repo']),
-    showResourceInRelationshipBoard: resource => calls.push(['relationship', resource])
+    showResourceInRelationshipBoard: resource => calls.push(['relationship', resource]),
+    openLocalProjectDialog: projectPath => calls.push(['project-dialog', projectPath])
   };
   const fileBrowser = {
     projectLifecycleLabel: item => item.lifecycleLabel || '',
@@ -96,6 +124,21 @@ test('普通文件使用同一文件类型图标且不显示文件夹动作', ()
   assert.match(harness.empty.innerHTML, /data-kind="file"/);
   assert.match(harness.empty.innerHTML, /12 KB/);
   assert.doesNotMatch(harness.empty.innerHTML, /添加到收藏夹|设为项目|关系白板/);
+});
+
+test('目录详情中的设为项目按钮会打开对应路径的项目对话框', () => {
+  const harness = createHarness();
+  harness.controller.show([{
+    path: '/workspace/project',
+    name: 'project',
+    type: 'directory',
+    kind: 'directory',
+    isProject: false,
+    summary: '文件夹'
+  }]);
+
+  harness.empty.projectButton.click();
+  assert.deepEqual(harness.calls.at(-1), ['project-dialog', '/workspace/project']);
 });
 
 test('页面先加载选择简介控制器，App 只保留显示委托', () => {

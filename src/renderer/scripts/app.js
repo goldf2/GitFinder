@@ -6250,20 +6250,22 @@ const App = {
 
   setupFileContextMenu() {
     if (this._fileContextMenuBound) return;
-    this._fileContextMenuBound = true;
     const menu = document.getElementById('file-context-menu');
-    if (!menu) return;
+    const contentArea = document.getElementById('content-area');
+    if (!menu || !contentArea) return;
+    this._fileContextMenuBound = true;
     const close = () => {
       menu.hidden = true;
       menu.removeAttribute('style');
     };
-    document.addEventListener('contextmenu', event => {
-      const element = event.target.closest('#content-area .repo-card, #content-area .repo-list-item');
+    const open = event => {
+      const element = event.target?.closest?.('#content-area [data-path][data-type]');
       if (!element || !this.isFileBrowsingContext()) {
         close();
         return;
       }
       event.preventDefault();
+      event.stopPropagation();
       const itemPath = element.dataset.path;
       if (!AppState.selectedPaths.has(itemPath)) {
         AppState.selectedPaths = new Set([itemPath]);
@@ -6292,6 +6294,10 @@ const App = {
       menu.style.left = `${Math.max(8, Math.min(event.clientX, window.innerWidth - width - 8))}px`;
       menu.style.top = `${Math.max(8, Math.min(event.clientY, window.innerHeight - height - 8))}px`;
       requestAnimationFrame(() => menu.querySelector('.finder-menu-item:not(:disabled)')?.focus());
+    };
+    contentArea.addEventListener('contextmenu', open);
+    document.addEventListener('contextmenu', event => {
+      if (!event.target?.closest?.('#content-area [data-path][data-type]')) close();
     });
     menu.addEventListener('click', event => {
       const action = event.target.closest('[data-context-action]')?.dataset.contextAction;

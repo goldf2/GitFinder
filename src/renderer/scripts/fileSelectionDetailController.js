@@ -42,6 +42,10 @@
           ${item.isProject || item.isGitRepo ? `<button class="btn btn-small" data-detail-action="show-relationship-resource" data-relationship-kind="${item.isProject ? 'project' : 'repository'}" data-relationship-ref="${this.app.escapeHtml(item.isProject ? item.project?.projectId || '' : '')}" data-relationship-path="${this.app.escapeHtml(item.path)}">关系白板</button>` : ''}
         </div>` : ''}
       `;
+      empty.querySelector('[data-app-action="file-project-settings"]')?.addEventListener('click', event => {
+        const button = event.currentTarget;
+        this.app.openLocalProjectDialog(button.dataset.projectPath || item.path);
+      });
       empty.querySelector('[data-detail-action="show-relationship-resource"]')?.addEventListener('click', event => {
         const button = event.currentTarget;
         this.app.showResourceInRelationshipBoard({
