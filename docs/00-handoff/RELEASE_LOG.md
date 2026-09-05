@@ -1,10 +1,12 @@
 # GitFinder 2 发布记录
 
-## 2026-09-06 07:47:51 +0800 · 2.0.0-alpha.105（待打包）
+## 2026-09-06 07:47:51 +0800 · 2.0.0-alpha.105
 
 - 内容：白板改为单画布双元素来源；运行拓扑与代码架构可同时显示，各自拥有独立显示开关、范围和过滤；运行拓扑菜单承载结构与 Project / 服务器树；兼容旧 `layer` / `merged` 数据。沿用 Coolify 局部失败保留缓存、全失败回退本地快照的同步稳态。
-- 门禁：`npm run check` 通过 1057/1057 测试、251 个 JavaScript 文件语法检查和 renderer 构建。
-- 状态：版本已升至 alpha.105，macOS arm64 打包、安装替换、提交和推送待完成；Mac 当前锁屏，未宣称安装版视觉验收。
+- 门禁：`npm run check` 通过 1057/1057 测试、251 个 JavaScript 文件语法检查和 renderer 构建；`npm run pack` 通过，development/ad-hoc 制品门禁通过。
+- 制品：`/Volumes/project/制品与备份/gitfinder-2/2.0.0-alpha.105/GitFinder-2-2.0.0-alpha.105-arm64-mac.zip`；SHA-256：`63100d51ddf0443885c5e59adcf5a2e78dffec729b72507fabd797d0aaa5a4af`。
+- 安装：`/Applications/GitFinder 2 Alpha87.app` 已替换，包内版本 `2.0.0-alpha.105`；旧版备份至 `/Volumes/project/制品与备份/gitfinder-2/installed-backups/alpha104-before-alpha105-20260906/`。提交 `228b26160fecc052d1f4f8a90955edb7d924ef2d` 已完成本地提交。
+- 状态：Mac 当前锁屏，未宣称安装版视觉验收；推送在本次文档收口后完成。
 
 ## 2026-09-06 06:36:00 +0800 · 2.0.0-alpha.104
 

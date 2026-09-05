@@ -12,7 +12,7 @@
 - 兼容：旧 `view.layer` 与 `merged` 只用于读取迁移；旧白板不会因升级丢失，新增运行资源不再隐藏已有代码架构元素。
 - Coolify：继续采用线上 Coolify 作为新鲜数据源；单实例失败合并该实例上一份无凭据缓存，全部失败时优先使用兼容缓存，不清空当前拓扑，并在状态中区分后台刷新与首次同步。
 - 验证：`npm run check` 通过（1057/1057 测试、251 个 JavaScript 文件语法检查、renderer 构建）。新增同一白板双来源、菜单控件和范围过滤回归。
-- 构建：版本 `2.0.0-alpha.105`；下一步完成 macOS arm64 development 打包、安装替换和提交推送。Mac 当前锁屏，安装版视觉 / 手势验收需用户解锁后进行。
+- 构建：版本 `2.0.0-alpha.105`；macOS arm64 development 包已构建并替换 `/Applications/GitFinder 2 Alpha87.app`。制品 ZIP SHA-256：`63100d51ddf0443885c5e59adcf5a2e78dffec729b72507fabd797d0aaa5a4af`；提交 `228b26160fecc052d1f4f8a90955edb7d924ef2d` 已完成本地提交。Mac 当前锁屏，安装版视觉 / 手势验收需用户解锁后进行；推送在文档收口后完成。
 
 ## 当前修复：资源添加与 Coolify 本地缓存同步（alpha.104）
 
