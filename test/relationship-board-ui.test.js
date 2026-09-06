@@ -734,6 +734,31 @@ test('Coolify 同步状态显示已读取的数据数量', () => {
   assert.match(finalizingStatus.label, /部署 23/);
 });
 
+test('Coolify 同步日志按最新运行置顶并显示端点结果与读取数据', () => {
+  const controller = new Controller({ bridge: {} });
+  const oldRun = { runId: 'old', startedAt: '2026-09-06T10:00:00.000Z', status: 'completed' };
+  const latestRun = {
+    runId: 'latest', startedAt: '2026-09-07T10:00:00.000Z', status: 'warning', durationMs: 1234,
+    readCounts: { applications: 20, projects: 8, deployments: 23 },
+    providers: [{ providerLabel: 'con01', status: 'warning', readCounts: { deployments: 23 }, error: '部署历史部分失败' }],
+    endpointSummary: {
+      applications: { requests: 1, succeeded: 1, failed: 0, lastDurationMs: 1470 },
+      'deployment-history': { requests: 8, succeeded: 7, failed: 1, lastDurationMs: 4000, lastError: '请求超时' }
+    },
+    events: [{ kind: 'request', at: '2026-09-07T10:00:01.000Z', providerLabel: 'con01', endpoint: 'applications', status: 'succeeded', responseCount: 20, durationMs: 1470 }]
+  };
+  const runs = controller._syncLogRunList({ runs: [oldRun, latestRun] });
+  assert.deepEqual(runs.map(run => run.runId), ['latest', 'old']);
+  const rendered = controller._syncLogRunHtml(runs[0]);
+  assert.match(rendered, /端点结果/);
+  assert.match(rendered, /部署历史/);
+  assert.match(rendered, /7\/8/);
+  assert.match(rendered, /已读取数据/);
+  assert.match(rendered, /20/);
+  assert.match(rendered, /20 条/);
+  assert.match(rendered, /有警告/);
+});
+
 test('关闭白板后丢弃旧 Coolify 同步进度事件', () => {
   const controller = new Controller({ bridge: {} });
   controller.panelRefreshInFlight = true;

@@ -608,3 +608,66 @@ test('项目只保存 Coolify 稳定 ID，令牌和实例地址不进入便携�
   assert.equal(result.resources[0].resourceUuid, 'app_1');
   assert.equal(service.resolveExternalUrl('https://mes.example.com'), 'https://mes.example.com');
 });
+
+test('Coolify 同步持久化有上限的脱敏诊断日志并可重启读取', async t => {
+  const { root, service } = createHarness(t);
+  await service.connect({
+    baseUrl: 'https://cool.example.com',
+    label: '生产 Coolify',
+    token: 'fixture-log-secret-token'
+  });
+  const result = await service.getTopology({ requestId: 'sync_log_success_1' });
+  assert.equal(result.state, 'ready');
+  const log = service.getSyncLog();
+  assert.equal(log.path, path.join(root, 'coolify-sync-log.json'));
+  assert.equal(log.activeRun, null);
+  assert.equal(log.runs.length, 1);
+  const run = log.runs[0];
+  assert.equal(run.runId, 'sync_log_success_1');
+  assert.equal(run.status, 'completed');
+  assert.equal(run.endpointSummary.applications.succeeded, 1);
+  assert.equal(run.endpointSummary['deployment-history'].succeeded, 1);
+  assert.equal(run.readCounts.applications, 1);
+  assert.ok(run.events.some(event => event.kind === 'phase' && event.phase === 'endpoints'));
+  assert.ok(run.events.some(event => event.kind === 'request' && event.endpoint === 'projects'));
+  const persisted = fs.readFileSync(log.path, 'utf8');
+  assert.doesNotMatch(persisted, /cool\.example\.com|fixture-log-secret-token|Authorization|Bearer/i);
+
+  const restarted = new CoolifyProviderService({ configDirectory: root, now: () => new Date('2026-08-29T06:00:00.000Z') });
+  const restored = restarted.getSyncLog();
+  assert.equal(restored.runs[0].runId, run.runId);
+  assert.equal(restored.runs[0].status, 'completed');
+});
+
+test('Coolify 失败同步日志保留端点错误和读取计数但不泄露凭据', async t => {
+  const { root, service } = createHarness(t);
+  const token = 'fixture-log-failure-token';
+  const provider = await service.connect({ baseUrl: 'https://cool.example.com', label: '生产 Coolify', token });
+  service.fetchImpl = async () => {
+    throw new Error(`request failed https://cool.example.com/api/v1/servers Authorization: Bearer ${token}`);
+  };
+  const result = await service.getTopology({ requestId: 'sync_log_failure_1' });
+  assert.equal(result.state, 'error');
+  const log = service.getSyncLog();
+  const run = log.runs.at(-1);
+  assert.equal(run.runId, 'sync_log_failure_1');
+  assert.equal(run.status, 'failed');
+  assert.equal(run.providers[0].providerId, provider.providerId);
+  assert.ok(Object.values(run.endpointSummary).some(summary => summary.failed > 0));
+  assert.ok(run.events.some(event => event.status === 'failed' && event.error));
+  const persisted = fs.readFileSync(path.join(root, 'coolify-sync-log.json'), 'utf8');
+  assert.doesNotMatch(persisted, /cool\.example\.com|fixture-log-failure-token|Authorization|Bearer/i);
+});
+
+test('重启读取到运行中的同步日志时标记为中断', async t => {
+  const { root, service } = createHarness(t);
+  await service.connect({ baseUrl: 'https://cool.example.com', token: 'fixture-interrupted-token' });
+  const provider = service._loadProviders()[0];
+  const run = service._beginSyncLog([provider], 'sync_log_interrupted_1');
+  assert.equal(run.status, 'running');
+  const restarted = new CoolifyProviderService({ configDirectory: root, now: () => new Date('2026-08-29T06:00:00.000Z') });
+  const log = restarted.getSyncLog();
+  assert.equal(log.activeRun, null);
+  assert.equal(log.runs.at(-1).status, 'interrupted');
+  assert.match(log.runs.at(-1).error, /同步完成前退出/);
+});

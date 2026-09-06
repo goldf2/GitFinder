@@ -21,6 +21,8 @@
     'arrange-around-servers': ['_arrangeAround', ['server-centered'], false, '.relationship-layout-trigger'],
     'server-tree': ['_setStructure', ['server-tree']], 'add-topology-scope': ['_addTopologyScopeToBoard'],
     'refresh-panel': ['_refreshPanelTopology', [{ announce: true }]],
+    'show-sync-log': ['_openSyncLog'], 'refresh-sync-log': ['_openSyncLog'],
+    'close-sync-log': ['_closeSyncLog'], 'open-sync-log-file': ['_openSyncLogFile'],
     'import-json': ['_importRelationshipJson', [], true], 'export-json': ['_exportCurrentBoard', [], true],
     'verify-now': ['_verifySelectedNow'], 'reverse-relationship': ['_reverseSelectedRelationship'],
     'create-group-from-selection': ['_createGroupFromSelection'], 'remove-selection-group': ['_removeSelectionFromGroups']
@@ -462,6 +464,10 @@
       controller.root.querySelector('.relationship-filter-trigger')?.focus();
       return;
     }
+    const syncLog = controller.root.querySelector('[data-sync-log-popover]:not([hidden])');
+    if (syncLog && event.key === 'Escape') {
+      event.preventDefault(); controller._closeSyncLog(); return;
+    }
     if (mod && event.key.toLowerCase() === 'z' && !editing) {
       event.preventDefault();
       if (event.shiftKey) controller.redo(); else controller.undo(); return;
@@ -484,7 +490,7 @@
     const canvas = event.target?.closest?.('.relationship-canvas');
     if (!canvas || mod
       || event.target?.closest?.('button, a, [role="menu"], [role="menuitem"], [role="slider"]')
-      || controller.root.querySelector('.relationship-display-popover:not([hidden]), .relationship-filter-popover:not([hidden]), .relationship-add-menu:not([hidden])')
+      || controller.root.querySelector('.relationship-display-popover:not([hidden]), .relationship-filter-popover:not([hidden]), .relationship-add-menu:not([hidden]), [data-sync-log-popover]:not([hidden])')
       || Array.from(controller.root.ownerDocument?.querySelectorAll('[role="dialog"][aria-modal="true"]') || [])
         .some(dialog => dialog.getClientRects().length > 0)) return;
     const direction = MOVE_DIRECTIONS[event.key.length === 1 ? event.key.toLowerCase() : event.key];

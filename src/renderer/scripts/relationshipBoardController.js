@@ -333,6 +333,8 @@
       this.panelSyncProgress = null;
       this.panelSyncRequestId = '';
       this.panelSyncSequence = 0;
+      this.panelSyncLog = null;
+      this.panelSyncLogLoading = false;
       this._removePanelSyncProgressListener = this.bridge?.panel?.onSyncProgress?.(progress => this._handlePanelSyncProgress(progress)) || null;
       this.panelMetadataRequestId = 0;
       // Local repository origin checks can be slow (a registry may contain
@@ -360,6 +362,7 @@
         if (!event.target.closest?.('.relationship-context-menu')) this._closeContextMenu();
         if (!event.target.closest?.('.relationship-layout-host')) this._closeLayoutMenu();
         if (!event.target.closest?.('.relationship-topology-alerts')) this._closeTopologyAlerts();
+        if (!event.target.closest?.('[data-sync-log-popover], [data-relationship-action="show-sync-log"]')) this._closeSyncLog();
       };
     }
 
@@ -370,6 +373,150 @@
       this.panelSyncRequestId = requestId;
       this.panelSyncProgress = progress;
       this._updatePanelStatus();
+    }
+
+    _closeSyncLog() {
+      const popover = this.root?.querySelector('[data-sync-log-popover]');
+      if (popover) popover.hidden = true;
+      this.root?.querySelector('[data-relationship-action="show-sync-log"]')?.setAttribute('aria-expanded', 'false');
+    }
+
+    _syncLogRunList(log = {}) {
+      let runs = Array.isArray(log.runs) ? [...log.runs]
+        : Array.isArray(log.entries) ? [...log.entries]
+          : (log.run && typeof log.run === 'object' ? [log.run] : []);
+      if (log.activeRun && typeof log.activeRun === 'object'
+        && !runs.some(run => (run.runId || run.id) && (run.runId || run.id) === (log.activeRun.runId || log.activeRun.id))) {
+        runs.push(log.activeRun);
+      }
+      return runs.sort((left, right) => {
+        const leftTime = Date.parse(left?.startedAt || left?.at || '') || 0;
+        const rightTime = Date.parse(right?.startedAt || right?.at || '') || 0;
+        return rightTime - leftTime;
+      });
+    }
+
+    _syncLogEventList(run = {}) {
+      if (Array.isArray(run.events)) return run.events;
+      if (Array.isArray(run.requests)) return run.requests;
+      if (Array.isArray(run.records)) return run.records;
+      return [];
+    }
+
+    _syncLogStateLabel(value) {
+      return ({ running: '进行中', started: '已发起', succeeded: '已完成', completed: '已完成', ready: '已完成', warning: '有警告', failed: '失败', error: '失败', cancelled: '已取消', interrupted: '已中断' })[String(value || '')] || String(value || '未知');
+    }
+
+    _syncLogTime(value) {
+      const date = new Date(value || 0);
+      return Number.isFinite(date.getTime()) ? date.toLocaleString('zh-CN', { hour12: false }) : '时间未知';
+    }
+
+    _syncLogSummaryHtml(run = {}) {
+      const summary = run.summary && typeof run.summary === 'object' ? run.summary : {};
+      const counts = run.readCounts && typeof run.readCounts === 'object' ? run.readCounts : (summary.readCounts || {});
+      const labels = {
+        applications: '应用', services: '服务', databases: '数据库', servers: '服务器', projects: '项目',
+        deployments: '部署', projectDetails: '项目详情', deploymentHistory: '部署历史'
+      };
+      const countItems = Object.entries(labels).filter(([key]) => Number.isInteger(counts[key])).map(([key, label]) => (
+        `<li><span>${escapeHtml(label)}</span><b>${counts[key]}</b></li>`
+      )).join('');
+      const providers = Array.isArray(run.providers) ? run.providers : [];
+      const providerItems = providers.map(provider => {
+        const providerCounts = provider.readCounts && typeof provider.readCounts === 'object' ? provider.readCounts : {};
+        const providerCount = Number.isInteger(providerCounts.deployments) ? ` · ${providerCounts.deployments} 个部署` : '';
+        const error = provider.error ? ` · ${escapeHtml(provider.error)}` : '';
+        return `<li><span>${escapeHtml(provider.label || provider.providerLabel || provider.providerId || 'Coolify')}</span><small>${escapeHtml(this._syncLogStateLabel(provider.state || provider.status))}${providerCount}${error}</small></li>`;
+      }).join('');
+      const endpointSummary = run.endpointSummary && typeof run.endpointSummary === 'object' ? run.endpointSummary : {};
+      const endpointLabels = {
+        applications: '应用', services: '服务', databases: '数据库', servers: '服务器', projects: '项目',
+        'project-detail': '项目详情', 'github-apps': 'GitHub App', 'deployment-history': '部署历史', 'coolify-api': '其他接口'
+      };
+      const endpointItems = Object.entries(endpointSummary).map(([endpoint, rawItem]) => {
+        const item = rawItem && typeof rawItem === 'object' ? rawItem : {};
+        const label = endpointLabels[endpoint] || endpoint;
+        const counts = `${Number(item.succeeded) || 0}/${Number(item.requests) || 0}`;
+        const failed = Number(item.failed) || 0;
+        const duration = Number.isFinite(Number(item.lastDurationMs)) ? ` · ${Math.round(Number(item.lastDurationMs))} ms` : '';
+        const error = item.lastError ? ` · ${escapeHtml(item.lastError)}` : '';
+        return `<li data-state="${failed ? 'failed' : 'succeeded'}"><span>${escapeHtml(label)}</span><small>${escapeHtml(counts)} 次成功${failed ? `，${failed} 次失败` : ''}${escapeHtml(duration)}${error}</small></li>`;
+      }).join('');
+      const summaryJson = Object.keys(summary).length
+        ? `<details class="relationship-sync-log-json"><summary>查看结构化数据摘要</summary><pre>${escapeHtml(JSON.stringify(summary, null, 2))}</pre></details>` : '';
+      return `${countItems ? `<div class="relationship-sync-log-block"><strong>已读取数据</strong><ul class="relationship-sync-log-counts">${countItems}</ul></div>` : ''}
+        ${providerItems ? `<div class="relationship-sync-log-block"><strong>实例结果</strong><ul class="relationship-sync-log-providers">${providerItems}</ul></div>` : ''}
+        ${endpointItems ? `<div class="relationship-sync-log-block"><strong>端点结果</strong><ul class="relationship-sync-log-providers relationship-sync-log-endpoints">${endpointItems}</ul></div>` : ''}${summaryJson}`;
+    }
+
+    _syncLogRunHtml(run = {}, index = 0) {
+      const events = this._syncLogEventList(run);
+      const eventItems = events.slice(-80).reverse().map(event => {
+        const state = event.state || event.status || '';
+        const endpoint = event.endpoint || event.path || event.phaseLabel || event.phase || '同步';
+        const count = Number.isInteger(event.responseCount) ? ` · ${event.responseCount} 条` : (Number.isInteger(event.count) ? ` · ${event.count} 条` : '');
+        const progress = Number.isInteger(event.completed) && Number.isInteger(event.total) ? ` · ${event.completed}/${event.total}` : '';
+        const duration = Number.isFinite(Number(event.durationMs)) ? ` · ${Math.round(Number(event.durationMs))} ms` : '';
+        const error = event.error ? ` · ${event.error}` : '';
+        return `<li data-state="${escapeHtml(String(state))}"><time>${escapeHtml(this._syncLogTime(event.at || event.updatedAt || event.startedAt))}</time><span>${escapeHtml(event.providerLabel || event.providerId || '')}${event.providerLabel || event.providerId ? ' · ' : ''}${escapeHtml(endpoint)}${escapeHtml(progress)}${escapeHtml(count)}${escapeHtml(duration)}${escapeHtml(error)}</span><b>${escapeHtml(this._syncLogStateLabel(state))}</b></li>`;
+      }).join('');
+      const state = run.state || run.status || '';
+      const duration = Number.isFinite(Number(run.durationMs)) ? ` · ${Math.round(Number(run.durationMs))} ms` : '';
+      const error = run.error ? `<p class="relationship-sync-log-error">${escapeHtml(run.error)}</p>` : '';
+      return `<article class="relationship-sync-log-run" data-run-index="${index}">
+        <header><div><strong>${escapeHtml(this._syncLogTime(run.startedAt || run.at))}</strong><small>${escapeHtml(run.runId || run.requestId || run.id || '')}</small></div><b data-state="${escapeHtml(String(state))}">${escapeHtml(this._syncLogStateLabel(state))}${escapeHtml(duration)}</b></header>
+        ${error}${this._syncLogSummaryHtml(run)}
+        ${eventItems ? `<details class="relationship-sync-log-events" open><summary>请求与阶段（${events.length}）</summary><ol>${eventItems}</ol></details>` : '<p class="relationship-sync-log-empty">没有逐请求记录</p>'}
+      </article>`;
+    }
+
+    _renderSyncLog(log = {}) {
+      const popover = this.root?.querySelector('[data-sync-log-popover]');
+      const content = popover?.querySelector('[data-sync-log-content]');
+      if (!popover || !content) return;
+      const runs = this._syncLogRunList(log);
+      const latest = runs[0] || runs.at(-1);
+      const updatedAt = log.updatedAt || latest?.finishedAt || latest?.updatedAt || latest?.startedAt;
+      content.innerHTML = `${updatedAt ? `<p class="relationship-sync-log-note">最近记录：${escapeHtml(this._syncLogTime(updatedAt))}</p>` : ''}${runs.length ? runs.slice(0, 6).map((run, index) => this._syncLogRunHtml(run, index)).join('') : '<p class="relationship-sync-log-empty">尚无同步记录。点击刷新后这里会显示每个端点的读取结果。</p>'}`;
+      const open = popover.querySelector('[data-relationship-action="open-sync-log-file"]');
+      if (open) open.disabled = !log.path || log.exists === false;
+    }
+
+    async _openSyncLog() {
+      const popover = this.root?.querySelector('[data-sync-log-popover]');
+      const content = popover?.querySelector('[data-sync-log-content]');
+      if (!popover || !content) return false;
+      popover.hidden = false;
+      this.root?.querySelector('[data-relationship-action="show-sync-log"]')?.setAttribute('aria-expanded', 'true');
+      if (!this.bridge?.panel?.getSyncLog) {
+        content.innerHTML = '<p class="relationship-sync-log-empty">当前安装包尚未提供同步日志接口。</p>';
+        return false;
+      }
+      if (this.panelSyncLogLoading) return true;
+      this.panelSyncLogLoading = true;
+      content.innerHTML = '<p class="relationship-sync-log-empty">正在读取本机脱敏日志…</p>';
+      try {
+        const log = await this.bridge.panel.getSyncLog();
+        this.panelSyncLog = log || { runs: [] };
+        this._renderSyncLog(this.panelSyncLog);
+        return true;
+      } catch (error) {
+        content.innerHTML = `<p class="relationship-sync-log-error">读取同步日志失败：${escapeHtml(error?.message || String(error))}</p>`;
+        return false;
+      } finally {
+        this.panelSyncLogLoading = false;
+      }
+    }
+
+    async _openSyncLogFile() {
+      try {
+        if (!this.bridge?.panel?.openSyncLog) throw new Error('当前安装包不支持打开日志文件');
+        await this.bridge.panel.openSyncLog();
+        this.notify('已在文件管理器中打开 Coolify 同步日志', 'success');
+      } catch (error) {
+        this.notify(`无法打开同步日志：${error?.message || String(error)}`, 'error');
+      }
     }
 
     async open(container, options = {}) {
@@ -430,6 +577,7 @@
       this.panelRefreshInFlight = false;
       this.panelSyncRequestId = '';
       this.panelSyncProgress = null;
+      this.panelSyncLogLoading = false;
       this.panelMetadataRequestId += 1;
       this.repositoryRefreshRequestId += 1;
       this.repositoryRefreshInFlight = false;
@@ -3068,8 +3216,14 @@
             <div class="relationship-panel-status" data-state="${escapeHtml(panelStatus.state)}">
               <span data-panel-topology-status role="status" aria-live="polite" title="${escapeHtml(panelStatus.title)}">${escapeHtml(panelStatus.label)}</span>
               <button class="relationship-tool-button" data-relationship-action="refresh-panel" type="button" title="刷新 Coolify 动态拓扑" aria-label="刷新 Coolify 动态拓扑">↻</button>
+              <button class="relationship-tool-button relationship-sync-log-trigger" data-relationship-action="show-sync-log" type="button" aria-haspopup="dialog" aria-expanded="false" title="查看 Coolify 同步日志与读取数据" aria-label="查看 Coolify 同步日志与读取数据">日志</button>
               <button class="relationship-tool-button relationship-icon-tool" data-relationship-action="check-endpoints" type="button" title="重新检测全部访问点（本机 HTTP 检测）" aria-label="重新检测全部访问点（本机 HTTP 检测）">◉</button>
             </div>
+            <section class="relationship-sync-log-popover" data-sync-log-popover role="dialog" aria-modal="false" aria-label="Coolify 同步日志" hidden>
+              <header><div><strong>Coolify 同步详情</strong><small>只显示脱敏的请求、读取数量和错误，不包含令牌</small></div><div class="relationship-sync-log-actions"><button type="button" data-relationship-action="refresh-sync-log" title="重新读取日志">↻</button><button type="button" data-relationship-action="close-sync-log" aria-label="关闭同步日志">×</button></div></header>
+              <div class="relationship-sync-log-content" data-sync-log-content><p class="relationship-sync-log-empty">点击“日志”读取本机记录。</p></div>
+              <footer><button type="button" data-relationship-action="open-sync-log-file" disabled>在文件管理器中打开日志文件</button></footer>
+            </section>
             ${displayPopover}
             ${filterPopover}
             ${ToolbarView.addMenu(toolbarIcon('add'))}

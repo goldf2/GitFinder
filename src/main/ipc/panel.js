@@ -65,6 +65,17 @@ function registerPanelIPC(options = {}) {
   registerTrustedHandler('panel:disconnect', async (event, providerId = '') => service.disconnect(providerId));
   registerTrustedHandler('panel:getCatalog', async (event, providerId = '') => service.getCatalog(providerId));
   registerTrustedHandler('panel:getCachedTopology', async () => service.getCachedTopology());
+  registerTrustedHandler('panel:getSyncLog', async () => {
+    if (typeof service.getSyncLog !== 'function') return { state: 'unavailable', runs: [], path: '' };
+    return service.getSyncLog();
+  });
+  registerTrustedHandler('panel:openSyncLog', async () => {
+    if (typeof service.getSyncLog !== 'function') throw new Error('Coolify 同步日志暂不可用');
+    const log = service.getSyncLog();
+    if (!log?.path) throw new Error('Coolify 同步日志文件尚未生成');
+    shell.showItemInFolder(log.path);
+    return { path: log.path };
+  });
   registerTrustedHandler('panel:refreshTopology', async (event, options = {}) => getTopologyForEvent(service, event, options));
   registerTrustedHandler('panel:getTopology', async (event, options = {}) => getTopologyForEvent(service, event, options));
   registerTrustedHandler('panel:checkEndpoints', async (event, values = {}) => service.checkEndpoints(values));

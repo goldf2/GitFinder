@@ -15,6 +15,10 @@ const {
 
 const SESSION_SCHEMA_VERSION = 1;
 const TOPOLOGY_CACHE_SCHEMA_VERSION = 1;
+const SYNC_LOG_SCHEMA_VERSION = 1;
+const MAX_SYNC_LOG_RUNS = 12;
+const MAX_SYNC_LOG_EVENTS = 512;
+const MAX_SYNC_LOG_BYTES = 1024 * 1024;
 const BINDINGS_SCHEMA_VERSION = 2;
 const API_PREFIX = '/api/v1';
 const REQUEST_TIMEOUT_MS = 12_000;
@@ -51,6 +55,61 @@ const PROGRESS_COUNT_KEYS = [
   'applications', 'services', 'databases', 'servers', 'projects', 'deployments',
   'projectDetails', 'deploymentHistory'
 ];
+
+function syncLogEndpoint(pathname = '') {
+  const value = String(pathname || '').split('?')[0];
+  if (['applications', 'services', 'databases', 'servers', 'projects', 'project-detail', 'github-apps', 'deployment-history'].includes(value)) return value;
+  if (/\/applications$/i.test(value)) return 'applications';
+  if (/\/services$/i.test(value)) return 'services';
+  if (/\/databases$/i.test(value)) return 'databases';
+  if (/\/servers$/i.test(value)) return 'servers';
+  if (/\/projects$/i.test(value)) return 'projects';
+  if (/\/projects\/[^/]+$/i.test(value)) return 'project-detail';
+  if (/\/github-apps$/i.test(value)) return 'github-apps';
+  if (/\/deployments\/applications\//i.test(value)) return 'deployment-history';
+  return 'coolify-api';
+}
+
+function syncLogSecrets(options = {}) {
+  return [options.baseUrl, options.token, options.accessToken]
+    .map(value => String(value || '').trim())
+    .filter(value => value.length >= 3);
+}
+
+function redactSyncLogText(value, secrets = [], maxLength = 500) {
+  let text = redactProgressText(value, maxLength);
+  for (const secret of secrets) text = text.split(secret).join('[redacted]');
+  return text
+    .replace(/(?:authorization|access[_-]?token|api[_-]?key|secret|password|token)\s*[:=]\s*[^\s,;}]*/gi, '[redacted-secret]')
+    .replace(/\b(?:bearer|token|secret|password|access[_-]?token)\s+[^\s,;}]*/gi, '[redacted-secret]')
+    .slice(0, maxLength);
+}
+
+function emitSyncLog(options = {}, payload = {}) {
+  if (typeof options.onSyncLog !== 'function') return;
+  const secrets = syncLogSecrets(options);
+  const event = {
+    kind: ['phase', 'request', 'provider'].includes(payload.kind) ? payload.kind : 'event',
+    at: normalizeTimestamp(payload.at, new Date().toISOString()),
+    ...(payload.phase ? { phase: redactSyncLogText(payload.phase, secrets, 64) } : {}),
+    ...(payload.endpoint ? { endpoint: syncLogEndpoint(payload.endpoint) } : {}),
+    ...(payload.status ? { status: redactSyncLogText(payload.status, secrets, 32) } : {}),
+    ...(payload.providerId ? { providerId: redactSyncLogText(payload.providerId, secrets, 180) } : {}),
+    ...(payload.providerLabel ? { providerLabel: redactSyncLogText(payload.providerLabel, secrets, 160) } : {}),
+    ...(payload.completed !== undefined ? { completed: progressCount(payload.completed) } : {}),
+    ...(payload.total !== undefined ? { total: progressCount(payload.total) } : {}),
+    ...(payload.durationMs !== undefined ? { durationMs: progressCount(payload.durationMs) } : {}),
+    ...(payload.responseCount !== undefined ? { responseCount: progressCount(payload.responseCount) } : {}),
+    ...(payload.readCounts ? { readCounts: normalizeProgressCounts(payload.readCounts) } : {}),
+    ...(payload.error ? { error: redactSyncLogText(payload.error, secrets, 500) } : {})
+  };
+  try {
+    const result = options.onSyncLog(event);
+    if (result && typeof result.catch === 'function') result.catch(() => {});
+  } catch (_) {
+    // Logging is diagnostic-only and must never interrupt a Coolify read.
+  }
+}
 
 function normalizeProgressCounts(value) {
   if (!value || typeof value !== 'object') return {};
@@ -439,18 +498,45 @@ async function readCoolifyOverviewInternal(options = {}) {
     progressState.phase = phase;
     progressState.completed = progressCount(completed);
     progressState.total = progressCount(total);
+    const phaseKey = `${phase}:${status}:${progressState.completed}:${progressState.total}`;
+    if (phaseKey !== progressState.lastLoggedPhaseKey || status !== 'running') {
+      emitSyncLog(options, {
+        kind: 'phase', phase, status, completed, total, readCounts, error
+      });
+      progressState.lastLoggedPhaseKey = phaseKey;
+    }
     emitProgress(options, { phase, completed, total, status, error, readCounts });
   };
   const baseUrl = normalizeCoolifyBaseUrl(options.baseUrl);
   const token = normalizeToken(options.token);
   const observedAt = normalizeTimestamp(options.observedAt, new Date().toISOString());
-  const get = (pathname, requestOptions = {}) => requestCoolifyJson({
-    ...options,
-    ...requestOptions,
-    baseUrl,
-    token,
-    pathname
-  });
+  const get = (pathname, requestOptions = {}) => {
+    const endpoint = syncLogEndpoint(pathname);
+    const startedAt = Date.now();
+    emitSyncLog({ ...options, baseUrl, token }, {
+      kind: 'request', endpoint, phase: progressState.phase, status: 'started'
+    });
+    return requestCoolifyJson({
+      ...options,
+      ...requestOptions,
+      baseUrl,
+      token,
+      pathname
+    }).then(value => {
+      emitSyncLog({ ...options, baseUrl, token }, {
+        kind: 'request', endpoint, phase: progressState.phase, status: 'succeeded',
+        durationMs: Date.now() - startedAt,
+        ...(Array.isArray(value) ? { responseCount: value.length } : {})
+      });
+      return value;
+    }).catch(error => {
+      emitSyncLog({ ...options, baseUrl, token }, {
+        kind: 'request', endpoint, phase: progressState.phase, status: 'failed',
+        durationMs: Date.now() - startedAt, error: error?.message || String(error)
+      });
+      throw error;
+    });
+  };
   const endpointPaths = [
     `${API_PREFIX}/applications`,
     `${API_PREFIX}/services`,
@@ -622,6 +708,7 @@ async function readCoolifyOverviewInternal(options = {}) {
     servers,
     deployments: resources,
     errors,
+    readCounts: { ...readCounts },
     deploymentHistory: {
       mode: historyMode,
       requested: historyApplications.length,
@@ -695,6 +782,10 @@ class CoolifyProviderService {
     this.endpointHealth = options.endpointHealth || new EndpointHealthService();
     this.endpointChecksCacheKey = '';
     this.activeSyncControllers = new Set();
+    this.syncLog = null;
+    this.syncLogLoaded = false;
+    this.activeSyncRuns = new Map();
+    this.syncRunCounter = 0;
   }
 
   _configDirectory() {
@@ -709,6 +800,200 @@ class CoolifyProviderService {
   _associationsPath() { return path.join(this._configDirectory(), 'coolify-repository-associations.json'); }
 
   _topologyCachePath() { return path.join(this._configDirectory(), 'coolify-topology-cache.json'); }
+
+  _syncLogPath() { return path.join(this._configDirectory(), 'coolify-sync-log.json'); }
+
+  _emptySyncLog() {
+    return { schemaVersion: SYNC_LOG_SCHEMA_VERSION, runs: [] };
+  }
+
+  _loadSyncLog() {
+    if (this.syncLogLoaded) return this.syncLog;
+    this.syncLogLoaded = true;
+    this.syncLog = this._emptySyncLog();
+    let changed = false;
+    try {
+      const filePath = this._syncLogPath();
+      if (fs.existsSync(filePath)) {
+        const stat = fs.lstatSync(filePath);
+        if (!stat.isFile() || stat.isSymbolicLink() || stat.size > MAX_SYNC_LOG_BYTES) throw new Error('Coolify 同步日志文件无效');
+        const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+        if (Number(parsed.schemaVersion) !== SYNC_LOG_SCHEMA_VERSION || !Array.isArray(parsed.runs)) throw new Error('Coolify 同步日志版本不受支持');
+        this.syncLog.runs = parsed.runs.filter(run => run && typeof run === 'object').slice(-MAX_SYNC_LOG_RUNS);
+      } else changed = true;
+    } catch (_) {
+      // A corrupt diagnostic log must not prevent the topology from loading.
+      this.syncLog = this._emptySyncLog();
+      changed = true;
+    }
+    const interruptedAt = normalizeTimestamp(this.now(), new Date().toISOString());
+    for (const run of this.syncLog.runs) {
+      if (run.status !== 'running') continue;
+      run.status = 'interrupted';
+      run.endedAt = interruptedAt;
+      run.updatedAt = interruptedAt;
+      run.error = '应用在同步完成前退出';
+      changed = true;
+    }
+    if (changed) this._persistSyncLog();
+    return this.syncLog;
+  }
+
+  _persistSyncLog() {
+    if (!this.syncLog) return;
+    try {
+      const runs = Array.isArray(this.syncLog.runs)
+        ? this.syncLog.runs.slice(-MAX_SYNC_LOG_RUNS).map(run => ({
+          ...run,
+          events: Array.isArray(run.events) ? run.events.slice(-MAX_SYNC_LOG_EVENTS) : []
+        }))
+        : [];
+      const payload = { schemaVersion: SYNC_LOG_SCHEMA_VERSION, runs };
+      // Keep the persisted diagnostic artifact bounded even when an instance has
+      // hundreds of project/detail requests.  Endpoint counters remain intact;
+      // only the oldest timeline events are dropped first.
+      const serializedLength = () => JSON.stringify(payload, null, 2).length;
+      while (serializedLength() > MAX_SYNC_LOG_BYTES) {
+        const candidate = runs.find(run => run.events.length > 0);
+        if (candidate) {
+          candidate.events.shift();
+          candidate.droppedEvents = progressCount(candidate.droppedEvents) + 1;
+          continue;
+        }
+        if (runs.length <= 1) break;
+        runs.shift();
+      }
+      writeJsonAtomic(this._syncLogPath(), payload);
+    } catch (_) {
+      // Diagnostic persistence is best-effort and must not interrupt a sync.
+    }
+  }
+
+  _syncRunId(requestId = '', secrets = []) {
+    const supplied = redactSyncLogText(requestId, secrets, 96).replace(/[^a-zA-Z0-9_.:-]/g, '_');
+    if (supplied) return supplied;
+    this.syncRunCounter += 1;
+    return `sync_${Date.now()}_${this.syncRunCounter}`;
+  }
+
+  _beginSyncLog(providers = [], requestId = '') {
+    try {
+      this._loadSyncLog();
+      const startedAt = normalizeTimestamp(this.now(), new Date().toISOString());
+      const secrets = providers.flatMap(provider => [provider?.baseUrl, provider?.accessToken]);
+      const run = {
+        runId: this._syncRunId(requestId, secrets),
+        status: 'running',
+        startedAt,
+        updatedAt: startedAt,
+        endedAt: null,
+        providerCount: providers.length,
+        providers: providers.map(provider => ({
+          providerId: redactSyncLogText(provider?.providerId, [], 180),
+          providerLabel: redactSyncLogText(provider?.label, [provider?.baseUrl, provider?.accessToken], 160),
+          status: 'pending',
+          readCounts: {}
+        })),
+        endpointSummary: {},
+        readCounts: {},
+        events: [],
+        droppedEvents: 0
+      };
+      this.syncLog.runs.push(run);
+      this.syncLog.runs = this.syncLog.runs.slice(-MAX_SYNC_LOG_RUNS);
+      this.activeSyncRuns.set(run.runId, run);
+      // Persist the running marker immediately so an interrupted process can be diagnosed.
+      this._persistSyncLog();
+      return run;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  _appendSyncLog(runId, payload = {}, secrets = []) {
+    const run = this.activeSyncRuns.get(runId);
+    if (!run) return;
+    const endpoint = payload.endpoint ? syncLogEndpoint(payload.endpoint) : undefined;
+    const event = {
+      kind: ['phase', 'request', 'provider'].includes(payload.kind) ? payload.kind : 'event',
+      at: normalizeTimestamp(payload.at, new Date().toISOString()),
+      ...(payload.phase ? { phase: redactSyncLogText(payload.phase, secrets, 64) } : {}),
+      ...(endpoint ? { endpoint } : {}),
+      ...(payload.status ? { status: redactSyncLogText(payload.status, secrets, 32) } : {}),
+      ...(payload.providerId ? { providerId: redactSyncLogText(payload.providerId, secrets, 180) } : {}),
+      ...(payload.providerLabel ? { providerLabel: redactSyncLogText(payload.providerLabel, secrets, 160) } : {}),
+      ...(payload.completed !== undefined ? { completed: progressCount(payload.completed) } : {}),
+      ...(payload.total !== undefined ? { total: progressCount(payload.total) } : {}),
+      ...(payload.durationMs !== undefined ? { durationMs: progressCount(payload.durationMs) } : {}),
+      ...(payload.responseCount !== undefined ? { responseCount: progressCount(payload.responseCount) } : {}),
+      ...(payload.readCounts ? { readCounts: normalizeProgressCounts(payload.readCounts) } : {}),
+      ...(payload.error ? { error: redactSyncLogText(payload.error, secrets, 500) } : {})
+    };
+    if (run.events.length >= MAX_SYNC_LOG_EVENTS) {
+      run.events.shift();
+      run.droppedEvents += 1;
+    }
+    run.events.push(event);
+    run.updatedAt = event.at;
+    if (event.readCounts) {
+      run.readCounts = { ...run.readCounts, ...event.readCounts };
+    }
+    if (event.kind === 'request' && event.endpoint) {
+      const summary = run.endpointSummary[event.endpoint] || {
+        requests: 0, succeeded: 0, failed: 0, lastStatus: '', lastDurationMs: null, lastError: ''
+      };
+      if (event.status === 'started') summary.requests += 1;
+      if (event.status === 'succeeded') summary.succeeded += 1;
+      if (event.status === 'failed') summary.failed += 1;
+      if (event.status) summary.lastStatus = event.status;
+      if (event.durationMs !== undefined) summary.lastDurationMs = event.durationMs;
+      if (event.error) summary.lastError = event.error;
+      run.endpointSummary[event.endpoint] = summary;
+    }
+    if (event.kind === 'provider' && event.providerId) {
+      const provider = run.providers.find(item => item.providerId === event.providerId);
+      if (provider) {
+        if (event.status) provider.status = event.status;
+        if (event.readCounts) provider.readCounts = { ...provider.readCounts, ...event.readCounts };
+        if (event.error) provider.error = event.error;
+      }
+    }
+  }
+
+  _finishSyncLog(run, summary = {}, secrets = []) {
+    if (!run || !this.activeSyncRuns.has(run.runId)) return;
+    const endedAt = normalizeTimestamp(this.now(), new Date().toISOString());
+    run.status = ['completed', 'warning', 'failed', 'cancelled'].includes(summary.status) ? summary.status : 'completed';
+    run.endedAt = endedAt;
+    run.updatedAt = endedAt;
+    run.durationMs = Math.max(0, Date.parse(endedAt) - Date.parse(run.startedAt));
+    if (summary.error) run.error = redactSyncLogText(summary.error, secrets, 500);
+    if (summary.state) run.state = redactSyncLogText(summary.state, [], 32);
+    if (summary.errors) run.errors = summary.errors.slice(0, MAX_SYNC_LOG_RUNS).map(error => ({
+      providerId: redactSyncLogText(error?.providerId, [], 180),
+      providerLabel: redactSyncLogText(error?.label, [], 160),
+      message: redactSyncLogText(error?.message, secrets, 500)
+    }));
+    run.completedProviders = progressCount(summary.completedProviders);
+    this.activeSyncRuns.delete(run.runId);
+    this._persistSyncLog();
+  }
+
+  getSyncLog() {
+    const log = this._loadSyncLog();
+    const runs = JSON.parse(JSON.stringify(log.runs || []));
+    const activeRun = runs.filter(run => run.status === 'running').at(-1) || null;
+    const filePath = this._syncLogPath();
+    return { path: filePath, exists: fs.existsSync(filePath), schemaVersion: SYNC_LOG_SCHEMA_VERSION, runs, activeRun };
+  }
+
+  clearSyncLog() {
+    this._loadSyncLog();
+    if (this.activeSyncRuns.size) throw new Error('同步进行中，暂不能清理日志');
+    this.syncLog = this._emptySyncLog();
+    try { fs.rmSync(this._syncLogPath(), { force: true }); } catch (_) {}
+    return this.getSyncLog();
+  }
 
   _readTopologyCacheEnvelope() {
     const filePath = this._topologyCachePath();
@@ -1025,29 +1310,45 @@ class CoolifyProviderService {
   async _aggregate(providerId = '', options = {}) {
     const providers = providerId ? [this._findProvider(providerId)] : this._loadProviders();
     if (!providers.length) return { state: 'unconfigured', providers: [], successes: [], errors: [] };
+    const syncRun = this._beginSyncLog(providers, options.requestId);
     const providerTimeoutMs = options.providerTimeoutMs || PROVIDER_SYNC_TIMEOUT_MS;
     const providerCount = providers.length;
     const startedAt = normalizeTimestamp(this.now(), new Date().toISOString());
     let completedProviders = 0;
-    const reportProvider = (provider, payload = {}) => emitProgress({
-      ...options,
-      signal: undefined,
-      providerId: provider?.providerId || payload.providerId,
-      providerLabel: provider?.label || payload.providerLabel,
-      providerCount,
-      completedProviders,
-      startedAt
-    }, {
-      ...payload,
-      providerCount,
-      completedProviders,
-      startedAt,
-      updatedAt: normalizeTimestamp(this.now(), new Date().toISOString())
-    });
+    const reportProvider = (provider, payload = {}) => {
+      if (syncRun) this._appendSyncLog(syncRun.runId, {
+        kind: 'phase',
+        ...payload,
+        providerId: provider?.providerId || payload.providerId,
+        providerLabel: provider?.label || payload.providerLabel
+      }, [provider?.baseUrl, provider?.accessToken]);
+      return emitProgress({
+        ...options,
+        signal: undefined,
+        providerId: provider?.providerId || payload.providerId,
+        providerLabel: provider?.label || payload.providerLabel,
+        providerCount,
+        completedProviders,
+        startedAt
+      }, {
+        ...payload,
+        providerCount,
+        completedProviders,
+        startedAt,
+        updatedAt: normalizeTimestamp(this.now(), new Date().toISOString())
+      });
+    };
     const settled = await Promise.allSettled(providers.map(async provider => {
       const controller = new AbortController();
       let active = true;
       this.activeSyncControllers.add(controller);
+      const providerStartedAt = Date.now();
+      if (syncRun) this._appendSyncLog(syncRun.runId, {
+        kind: 'provider',
+        providerId: provider.providerId,
+        providerLabel: provider.label,
+        status: 'started'
+      }, [provider.baseUrl, provider.accessToken]);
       try {
         const overview = await withTimeout(
           signal => this._overview(provider, {
@@ -1056,6 +1357,14 @@ class CoolifyProviderService {
             onProgress: progress => {
               if (!active) return;
               reportProvider(provider, progress);
+            },
+            onSyncLog: event => {
+              if (!active || !syncRun) return;
+              this._appendSyncLog(syncRun.runId, {
+                ...event,
+                providerId: provider.providerId,
+                providerLabel: provider.label
+              }, [provider.baseUrl, provider.accessToken]);
             }
           }),
           providerTimeoutMs,
@@ -1065,6 +1374,15 @@ class CoolifyProviderService {
         if (!this._isCurrentProvider(provider)) throw Object.assign(new Error('Coolify 实例已变更，同步结果已丢弃'), { code: 'ESTALE' });
         completedProviders += 1;
         const warning = Array.isArray(overview.errors) && overview.errors.length > 0;
+        if (syncRun) this._appendSyncLog(syncRun.runId, {
+          kind: 'provider',
+          providerId: provider.providerId,
+          providerLabel: provider.label,
+          status: warning ? 'warning' : 'succeeded',
+          durationMs: Date.now() - providerStartedAt,
+          readCounts: overview.readCounts,
+          error: warning ? overview.errors[0]?.message : ''
+        }, [provider.baseUrl, provider.accessToken]);
         reportProvider(provider, {
           phase: 'finalizing',
           completed: 1,
@@ -1077,6 +1395,14 @@ class CoolifyProviderService {
       } catch (error) {
         completedProviders += 1;
         const cancelled = error?.code === 'ABORT_ERR' || controller.signal.aborted;
+        if (syncRun) this._appendSyncLog(syncRun.runId, {
+          kind: 'provider',
+          providerId: provider.providerId,
+          providerLabel: provider.label,
+          status: cancelled ? 'cancelled' : 'failed',
+          durationMs: Date.now() - providerStartedAt,
+          error: error?.message
+        }, [provider.baseUrl, provider.accessToken]);
         reportProvider(provider, {
           phase: 'finalizing',
           completed: 0,
@@ -1102,8 +1428,8 @@ class CoolifyProviderService {
       successes,
       errors
     };
+    const overallState = successes.length ? (errors.length ? 'warning' : 'ready') : 'error';
     if (typeof options.onProgress === 'function') {
-      const overallState = successes.length ? (errors.length ? 'warning' : 'ready') : 'error';
       emitProgress({
         ...options,
         signal: undefined,
@@ -1120,6 +1446,12 @@ class CoolifyProviderService {
         allowAborted: true
       });
     }
+    if (syncRun) this._finishSyncLog(syncRun, {
+      status: overallState === 'error' ? 'failed' : (overallState === 'warning' ? 'warning' : 'completed'),
+      state: overallState,
+      completedProviders,
+      errors
+    }, providers.flatMap(provider => [provider.baseUrl, provider.accessToken]));
     return aggregate;
   }
 
