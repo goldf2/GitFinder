@@ -315,6 +315,7 @@
       this.documentLibrary = [];
       this.openDocumentIds = new Set();
       this.localWorkspace = null;
+      this.localWorkspaceMode = false;
       this.documentBusy = false;
       this.panelTopologyResult = { state: 'unconfigured', topology: { servers: [], deployments: [] }, bindings: [] };
       this.panelProjection = { entities: [], relationships: [], placements: [], metadata: { state: 'unconfigured' } };
@@ -329,6 +330,12 @@
       this.repositoryAssociationRevision = 0;
       this.panelRefreshTimer = null;
       this.panelRefreshInFlight = false;
+      this.panelMetadataRequestId = 0;
+      // Local repository origin checks can be slow (a registry may contain
+      // dozens of entries).  They must never keep an otherwise usable
+      // Coolify topology in the global "syncing" state.
+      this.repositoryRefreshInFlight = false;
+      this.repositoryRefreshRequestId = 0;
       this.endpointCheckTimer = null;
       this.endpointCheckRequest = null;
       this.endpointChecksPending = 0;
@@ -376,6 +383,7 @@
           await this._persistNow();
           if (openRequestId !== this.openRequestId || this.container !== container || !isCurrent()) return;
         }
+        this.localWorkspaceMode = !this.documentRecord;
         this.render();
         if (this.bridge?.panel?.getCachedTopology) {
           void this._restoreCachedPanelTopology().finally(() => {
@@ -407,6 +415,9 @@
       this.displayLayoutEdit = null;
       this.openRequestId += 1;
       this.panelRefreshInFlight = false;
+      this.panelMetadataRequestId += 1;
+      this.repositoryRefreshRequestId += 1;
+      this.repositoryRefreshInFlight = false;
       clearTimeout(this.endpointCheckTimer);
       this.endpointCheckTimer = null;
       this.endpointCheckRequest = null;
@@ -1009,6 +1020,7 @@
         <div class="relationship-menu-separator" role="separator"></div>
         <fieldset class="relationship-scope-options"><legend>拓扑范围</legend>${topologyScopeModes.map(([key, label, hint]) => `<label><input type="radio" name="relationship-topology-scope-mode" value="${key}" data-topology-scope-mode${topologyScopeMode === key ? ' checked' : ''}><span><b>${label}</b><small>${hint}</small></span></label>`).join('')}</fieldset>
         ${topologyScopeIdSelect}<small class="relationship-scope-count">当前范围：${this._scopePlacements(this._unarchivedPlacements()).filter(item => this._isTopologyEntity(this._allEntitiesById().get(item.entityId))).length} 个运行节点</small>
+        ${!this.documentRecord && topologyScopeMode !== 'board' ? '<button type="button" role="menuitem" data-relationship-action="add-topology-scope">将当前范围加入本机工作区</button><small>把在线预览的节点、关系和布局固化到当前白板；不会修改 Coolify。</small>' : ''}
         <div class="relationship-menu-separator" role="separator"></div>
         <button type="button" role="menuitem" data-relationship-action="deployment-archive">归档的部署（${this._combinedPlacements().filter(item => item.archived).length}）</button>`;
       const layoutMenu = `<p>只改变位置、方向和间距，不改变结构，也不创建副本。</p>
@@ -1117,7 +1129,7 @@
       this.panelTopologyResult = { ...result, bindings };
       const providerErrors = Array.isArray(result.errors) ? result.errors.filter(entry => entry?.message) : [];
       this.panelLastError = providerErrors.length
-        ? `${providerErrors.length} 个 Coolify 同步失败：${providerErrors[0].message}`
+        ? `${providerErrors.length} 个 Coolify 同步失败${providerErrors[0].label ? `（${providerErrors[0].label}）` : ''}：${providerErrors[0].message}`
         : (result.state === 'error' ? String(result.error || 'Coolify 同步失败') : '');
       const canvas = this.root?.querySelector('.relationship-canvas');
       this.panelProjection = PanelTopologyProjection?.buildProjection?.({
@@ -1186,14 +1198,15 @@
       const readTopology = this.bridge?.panel?.refreshTopology || this.bridge?.panel?.getTopology;
       if (this.panelRefreshInFlight || !readTopology) return false;
       this.panelRefreshInFlight = true;
+      const metadataRequestId = ++this.panelMetadataRequestId;
       const openRequestId = this.openRequestId;
       const associationRevision = this.repositoryAssociationRevision;
       this._updatePanelStatus();
       try {
-        const [topology, repositories] = await Promise.all([
-          readTopology.call(this.bridge.panel),
-          this.bridge.panel.getLocalRepositories?.() || Promise.resolve(this.panelRepositories)
-        ]);
+        // Do not couple the Coolify request to local repository origin checks.
+        // The latter invokes `git remote get-url` for every registered repo and
+        // can take tens of seconds on an offline/network-mounted directory.
+        const topology = await readTopology.call(this.bridge.panel);
         if (openRequestId !== this.openRequestId || !this.root?.isConnected || this.flowMutationActive) return false;
         if (topology?.state === 'error' && this.panelProjection?.entities?.length) {
           const errors = Array.isArray(topology.errors) ? topology.errors : [];
@@ -1202,13 +1215,12 @@
           if (options.announce) this.notify(`Coolify 刷新失败：${this.panelLastError}`, 'error');
           return false;
         }
-        const result = await this._topologyWithProjectBindings(topology);
-        const associations = await this.bridge.panel.getRepositoryAssociations?.() || [];
         if (openRequestId !== this.openRequestId || !this.root?.isConnected || this.flowMutationActive) return false;
-        if (associationRevision === this.repositoryAssociationRevision) this.repositoryAssociations = associations;
-        this.panelRepositories = repositories;
-        this._setResources(this.panelProjects, repositories);
-        this._setPanelTopology(result);
+        this._setResources(this.panelProjects, this.panelRepositories);
+        // Apply the actual Coolify snapshot immediately.  Project bindings,
+        // repository associations and local Git origin checks are optional
+        // metadata and continue in the background below.
+        this._setPanelTopology(topology);
         if (this.root?.isConnected) {
           this._renderResources();
           this._renderGraph();
@@ -1218,6 +1230,11 @@
           // The topology is visible before starting any public endpoint requests.
           void this._refreshEndpointChecks({ force: options.announce === true });
         }
+        // Refresh local repository metadata after the topology has become
+        // usable.  This second pass updates repository/deployment bindings
+        // without holding panelRefreshInFlight open.
+        void this._refreshPanelBindings({ topology, openRequestId, associationRevision, metadataRequestId });
+        void this._refreshPanelRepositories({ openRequestId, associationRevision, metadataRequestId });
         if (options.announce) this.notify('Coolify 动态拓扑已刷新', 'success');
         return true;
       } catch (error) {
@@ -1236,6 +1253,56 @@
           this._updatePanelStatus();
           this._schedulePanelRefresh();
         }
+      }
+    }
+
+    async _refreshPanelBindings({ topology, openRequestId = this.openRequestId, associationRevision = this.repositoryAssociationRevision, metadataRequestId = this.panelMetadataRequestId } = {}) {
+      if (!topology || !this.bridge?.panel) return false;
+      try {
+        const bindingPromise = this._topologyWithProjectBindings(topology).catch(() => topology);
+        const associationPromise = Promise.resolve(this.bridge.panel.getRepositoryAssociations?.()).catch(() => this.repositoryAssociations);
+        const [result, associations] = await Promise.all([bindingPromise, associationPromise]);
+        if (openRequestId !== this.openRequestId || metadataRequestId !== this.panelMetadataRequestId
+          || !this.root?.isConnected || this.flowMutationActive) return false;
+        if (associationRevision === this.repositoryAssociationRevision && Array.isArray(associations)) this.repositoryAssociations = associations;
+        this._setPanelTopology(result || topology);
+        this._renderResources();
+        this._renderGraph();
+        this._updateFilterSummary();
+        this._updateSummary();
+        this._updatePanelStatus();
+        return true;
+      } catch (_) {
+        // Bindings are local annotations; a malformed or slow association
+        // file must not turn a healthy Coolify snapshot into a failed sync.
+        return false;
+      }
+    }
+
+    async _refreshPanelRepositories({ openRequestId = this.openRequestId, associationRevision = this.repositoryAssociationRevision, metadataRequestId = this.panelMetadataRequestId } = {}) {
+      if (this.repositoryRefreshInFlight || !this.bridge?.panel?.getLocalRepositories) return false;
+      this.repositoryRefreshInFlight = true;
+      const refreshRequestId = ++this.repositoryRefreshRequestId;
+      try {
+        const repositories = await this.bridge.panel.getLocalRepositories();
+        if (openRequestId !== this.openRequestId || metadataRequestId !== this.panelMetadataRequestId
+          || !this.root?.isConnected || this.flowMutationActive) return false;
+        this.panelRepositories = Array.isArray(repositories) ? repositories : this.panelRepositories;
+        if (associationRevision !== this.repositoryAssociationRevision) return false;
+        this._setResources(this.panelProjects, this.panelRepositories);
+        this._setPanelTopology(this.panelTopologyResult);
+        this._renderResources();
+        this._renderGraph();
+        this._updateFilterSummary();
+        this._updateSummary();
+        this._updatePanelStatus();
+        return true;
+      } catch (_) {
+        // Repository metadata is supplementary.  Preserve the previous
+        // snapshot and leave Coolify's status untouched when it is unavailable.
+        return false;
+      } finally {
+        if (refreshRequestId === this.repositoryRefreshRequestId) this.repositoryRefreshInFlight = false;
       }
     }
 
@@ -1366,7 +1433,22 @@
     }
 
     _resourceCatalog() {
-      return ResourceView.catalog({ resources: this.resources, entities: this._combinedEntities(), placements: this._combinedPlacements(),
+      // The live Coolify projection is a source, not a persisted membership of
+      // the current board.  Only placements owned by the active board should
+      // turn the resource action into “定位”; otherwise a fresh local board
+      // incorrectly reports every observed deployment as already placed.
+      const board = activeBoard(this.store);
+      const boardPlacements = Array.isArray(board?.placements) ? [...board.placements] : [];
+      if (this._architectureVisible()) {
+        const ids = new Set(boardPlacements.map(placement => placement.entityId));
+        for (const placement of this.architectureProjection?.placements || []) {
+          if (!ids.has(placement.entityId)) {
+            ids.add(placement.entityId);
+            boardPlacements.push(placement);
+          }
+        }
+      }
+      return ResourceView.catalog({ resources: this.resources, entities: this._combinedEntities(), placements: boardPlacements,
         documents: this.documentLibrary, displayName: entity => this._entityDisplayName(entity), displaySubtitle: entity => {
           const fallback = this._entitySubtitle(entity, null, false) || TYPE_LABELS[entity.type];
           return this._entityDisplaySubtitle(entity, fallback);
@@ -1445,16 +1527,27 @@
       const architectureVisible = this._architectureVisible();
       const aliases = topologyVisible ? this._endpointAliases() : new Map();
       const entities = new Map(this._combinedEntities().map(entity => [entity.id, entity]));
+      // Keep source classification independent from visibility.  A hidden source
+      // is intentionally absent from _combinedEntities(), but its persisted
+      // placement still needs to be removed from the visible graph rather than
+      // being treated as a free canvas card.
+      const sourceEntities = this._allSourceEntitiesById();
       const placements = (board?.placements || []).filter(item => {
         if (aliases.has(item.entityId)) return false;
-        const entity = entities.get(item.entityId);
+        const entity = entities.get(item.entityId) || sourceEntities.get(item.entityId);
         if (!entity) return true;
         if (this._isArchitectureEntity(entity, item)) return architectureVisible;
         if (this._isTopologyEntity(entity)) return topologyVisible;
         return true;
       });
       const ids = new Set(placements.map(placement => placement.entityId));
-      const runtimePlacements = topologyVisible && !this.documentRecord ? (this.panelProjection?.placements || []) : [];
+      // The local workspace is a persistent composition surface, not a live
+      // Coolify snapshot. Keep online topology as a preview only when the
+      // user explicitly chooses a scope other than “当前白板”.
+      const topologyScopeMode = this._readBoardView().topologyScopeMode;
+      const runtimePlacements = topologyVisible && !this.documentRecord
+        && (!this.localWorkspaceMode || topologyScopeMode !== 'board')
+        ? (this.panelProjection?.placements || []) : [];
       for (const placement of runtimePlacements) {
         if (!ids.has(placement.entityId) && entities.has(placement.entityId) && !aliases.has(placement.entityId)) {
           ids.add(placement.entityId);
@@ -1689,6 +1782,28 @@
       return new Map(this._combinedEntities().map(entity => [entity.id, entity]));
     }
 
+    _allSourceEntitiesById() {
+      const entities = new Map();
+      const add = entity => {
+        if (!entity?.id) return;
+        const previous = entities.get(entity.id);
+        if (!previous) {
+          entities.set(entity.id, entity);
+          return;
+        }
+        entities.set(entity.id, {
+          ...previous,
+          ...entity,
+          details: { ...(previous.details || {}), ...(entity.details || {}) },
+          runtime: { ...(previous.runtime || {}), ...(entity.runtime || {}) }
+        });
+      };
+      for (const entity of this.store?.entities || []) add(entity);
+      for (const entity of this.panelProjection?.entities || []) add(entity);
+      for (const entity of this.architectureProjection?.entities || []) add(entity);
+      return entities;
+    }
+
     _portableFactFields(fact) {
       const result = {};
       if (Model.FACT_SOURCES.includes(fact?.source)) result.source = fact.source;
@@ -1821,17 +1936,25 @@
           ? { state: 'refreshing', label: 'Coolify 后台同步中…', title: '当前显示上次成功快照；在线刷新完成后会自动替换' }
           : { state: 'loading', label: 'Coolify 同步中…', title: '正在读取只读动态拓扑' };
       }
-      if (this.panelLastError && metadata.deploymentCount) {
-        return {
-          state: 'error',
-          label: `Coolify ${metadata.deploymentCount} 个部署 · 同步失败`,
-          title: `${this.panelLastError}；保留最后成功快照`
-        };
-      }
       if (state === 'ready') {
         const stale = this._panelSnapshotStale();
         const failure = metadata.failureCount ? ` · ${metadata.failureCount} 个最近失败` : '';
         const cachePrefix = this.panelTopologyResult?.cached ? '缓存 · ' : '';
+        const providers = Array.isArray(this.panelTopologyResult?.providers) ? this.panelTopologyResult.providers : [];
+        const failedProviderIds = new Set([
+          ...(Array.isArray(this.panelTopologyResult?.staleProviders) ? this.panelTopologyResult.staleProviders : []),
+          ...(Array.isArray(this.panelTopologyResult?.errors) ? this.panelTopologyResult.errors.map(error => error?.providerId).filter(Boolean) : [])
+        ]);
+        const providerCount = Math.max(providers.length, Number(metadata.providerCount) || 0, failedProviderIds.size);
+        if (failedProviderIds.size || this.panelLastError) {
+          const syncedCount = Math.max(0, providerCount - failedProviderIds.size);
+          const scope = providerCount > 1 ? `${syncedCount}/${providerCount} 个 Coolify 已同步` : 'Coolify 已同步';
+          return {
+            state: 'warning',
+            label: `${scope} · ${failedProviderIds.size ? `${failedProviderIds.size} 个实例失败` : '刷新失败'}`,
+            title: `${this.panelLastError || '最近一次刷新未完成'}；${this.panelTopologyResult?.cached ? '已保留失败实例的最后成功快照' : '当前仍显示最近成功数据'}`
+          };
+        }
         const providerPrefix = metadata.providerCount > 1 ? `${cachePrefix}${metadata.providerCount} 个 Coolify · ` : `Coolify ${cachePrefix}`;
         return {
           state: stale ? 'stale' : (metadata.failureCount ? 'warning' : 'ready'),
@@ -2834,7 +2957,7 @@
         <section class="relationship-workspace" aria-label="关系白板">
           <nav class="whiteboard-document-tabs" aria-label="白板文档标签页">
             <button type="button" class="whiteboard-new-button" data-relationship-action="new-document" title="新建独立白板项目">＋ 新建白板</button>
-            <button type="button" data-document-home aria-current="${!this.documentRecord}">本机白板</button>
+            <button type="button" data-document-home aria-current="${!this.documentRecord}" title="本机资源工作区：组合本地项目、仓库与 Coolify 资源">本机工作区</button>
             ${this.documentLibrary.filter(item => this.openDocumentIds.has(item.id)).map(item => `<button type="button" data-open-document="${escapeHtml(item.id)}" aria-current="${this.documentRecord?.id === item.id}" title="${escapeHtml(item.path)}">▧ ${escapeHtml(item.name)}</button>`).join('')}
             <span></span><button type="button" data-relationship-action="open-document">打开…</button>
             <button type="button" data-relationship-action="save-document">保存</button><button type="button" data-relationship-action="save-document-as" title="另存为独立项目文件夹，复制项目内媒体">另存为…</button>
@@ -4502,7 +4625,11 @@
           ].filter(Boolean).join('');
           const action = preview.kind === 'whiteboard'
             ? `<button class="relationship-primary-button" type="button" data-open-document="${escapeHtml(String(preview.id || '').replace(/"/g, ''))}">打开白板</button>`
-            : (preview.key ? `<button class="relationship-primary-button" type="button" data-add-resource="${escapeHtml(preview.key)}">添加到白板</button>` : '');
+            : (preview.key
+              ? (preview.placed === true
+                ? `<button class="relationship-primary-button" type="button" data-locate-resource="${escapeHtml(preview.key)}">定位到白板</button>`
+                : `<button class="relationship-primary-button" type="button" data-add-resource="${escapeHtml(preview.key)}">添加到白板</button>`)
+              : '');
           panel.hidden = false;
           body.classList.add('has-inspector');
           panel.innerHTML = `<header class="relationship-inspector-header"><div><small>${escapeHtml(kindLabel)} · 资源库</small><h3>${escapeHtml(preview.name || kindLabel)}</h3></div>${this._inspectorHeaderActions('关闭摘要')}</header>
@@ -5048,18 +5175,30 @@
         this._ensureRuntimeLayerForResource(resource.kind);
       }
       if (resource.entityId) {
-        const placement = this._combinedPlacements().find(candidate => candidate.entityId === resource.entityId);
+        const board = activeBoard(this.store);
+        const placement = board?.placements?.find(candidate => candidate.entityId === resource.entityId);
         if (placement) {
           this._focusEntityOnBoard(resource.entityId);
           return;
         }
-        const existingEntity = this.store.entities.find(candidate => candidate.id === resource.entityId)
-          || (this.documentRecord && this.panelProjection.entities.find(candidate => candidate.id === resource.entityId) ? this._portableEntity(this.panelProjection.entities.find(candidate => candidate.id === resource.entityId)) : null);
-        if (!existingEntity) {
+        // Dynamic Coolify entities are read-only source facts until the user
+        // explicitly adds them.  Persist a portable snapshot on the active
+        // board so the resource can be composed with other sources and still
+        // be available when Coolify is offline.
+        const existingEntity = this.store.entities.find(candidate => candidate.id === resource.entityId);
+        const sourceEntity = this._allSourceEntitiesById().get(resource.entityId);
+        const portableEntity = existingEntity || (sourceEntity ? this._portableEntity(sourceEntity) : null);
+        const projectedPlacement = this._combinedPlacements().find(candidate => candidate.entityId === resource.entityId);
+        if (resource.kind === 'architecture' && projectedPlacement && !portableEntity) {
+          this._focusEntityOnBoard(resource.entityId);
+          return;
+        }
+        const entityToAdd = portableEntity;
+        if (!entityToAdd) {
           this.notify('该云端资源暂时不可用，请刷新 Coolify 数据', 'warning');
           return;
         }
-        this._addEntity(existingEntity, point);
+        this._addEntity(entityToAdd, point);
         return;
       }
       let entity = this.store.entities.find(candidate => candidate.type === resource.kind && candidate.refId === resource.refId);
@@ -5078,6 +5217,73 @@
         };
       }
       this._addEntity(entity, point);
+    }
+
+    _addTopologyScopeToBoard() {
+      const board = activeBoard(this.store);
+      const view = this._boardView();
+      if (!board || this.documentRecord) {
+        this.notify('只有本机工作区可以把在线拓扑固化到当前白板', 'info');
+        return false;
+      }
+      if (view.topologyScopeMode === 'board') {
+        this.notify('当前范围已经是本机工作区中的资源', 'info');
+        return false;
+      }
+      const sourceEntities = this._allSourceEntitiesById();
+      const previewPlacements = this._scopePlacements(this._unarchivedPlacements())
+        .filter(placement => this._isTopologyEntity(sourceEntities.get(placement.entityId)));
+      const existingIds = new Set(board.placements.map(placement => placement.entityId));
+      const newPlacements = previewPlacements.filter(placement => !existingIds.has(placement.entityId));
+      const newEntities = newPlacements.map(placement => sourceEntities.get(placement.entityId))
+        .filter(Boolean)
+        .filter(entity => !this.store.entities.some(candidate => candidate.id === entity.id));
+      if (!newPlacements.length) {
+        board.view = { ...view, topologyScopeMode: 'board', topologyScopeId: '' };
+        this._persistSoon(0);
+        this.render();
+        this.notify('当前范围的资源已经在本机工作区中', 'info');
+        return true;
+      }
+      if (this.store.entities.length + newEntities.length > Model.MAX_ENTITIES) {
+        this.notify(`当前范围需要 ${newEntities.length} 个节点，超过本机白板上限`, 'warning');
+        return false;
+      }
+      const projectedIds = new Set([...existingIds, ...newPlacements.map(placement => placement.entityId)]);
+      const allGroupIds = new Set(this.store.entities.filter(entity => entity.type === 'group').map(entity => entity.id));
+      this._recordMutation();
+      for (const entity of newEntities) {
+        const portable = this._portableEntity(entity);
+        this.store.entities.push(portable);
+        if (portable.type === 'group') allGroupIds.add(portable.id);
+      }
+      for (const placement of newPlacements) {
+        const copy = { entityId: placement.entityId, x: Math.round(placement.x), y: Math.round(placement.y) };
+        if (placement.groupId && allGroupIds.has(placement.groupId) && projectedIds.has(placement.groupId)) copy.groupId = placement.groupId;
+        for (const key of ['groupBackground', 'groupBorder', 'groupLayout', 'groupWidth', 'groupHeight', 'groupShape', 'groupAppearance', 'locked', 'moveWithDescendants', 'expanded', 'endpointView']) {
+          if (placement[key] !== undefined) copy[key] = placement[key];
+        }
+        Object.assign(copy, normalizePlacementAnnotations(placement));
+        board.placements.push(copy);
+      }
+      const relationKeys = new Set(this.store.relationships.map(item => `${item.type}\u0000${item.sourceId}\u0000${item.targetId}`));
+      const relationIds = new Set(this.store.relationships.map(item => item.id));
+      let importedRelationshipCount = 0;
+      const importedRelationships = this._combinedRelationships(this._combinedPlacements(board))
+        .filter(item => projectedIds.has(item.sourceId) && projectedIds.has(item.targetId));
+      for (const relationship of importedRelationships) {
+        const key = `${relationship.type}\u0000${relationship.sourceId}\u0000${relationship.targetId}`;
+        const portable = this._portableRelationship(relationship);
+        if (relationKeys.has(key) || relationIds.has(portable.id) || this.store.relationships.length >= Model.MAX_RELATIONSHIPS) continue;
+        relationKeys.add(key);
+        relationIds.add(portable.id);
+        this.store.relationships.push(portable);
+        importedRelationshipCount += 1;
+      }
+      board.view = { ...view, topologyScopeMode: 'board', topologyScopeId: '' };
+      this._finishBoardMutation();
+      this.notify(`已将当前 Coolify 范围加入本机工作区：${newPlacements.length} 个节点、${importedRelationshipCount} 条关系`, 'success');
+      return true;
     }
 
     _ensureRuntimeLayerForResource(kind) {
@@ -5446,7 +5652,7 @@
         const result = await this.bridge.relationshipBoards.createDocument({ store });
         if (result.cancelled) return;
         if (!this.documentRecord) this.localWorkspace = this.store;
-        this.documentRecord = result.record; this.store = result.store;
+        this.documentRecord = result.record; this.localWorkspaceMode = false; this.store = result.store;
         this.openDocumentIds.add(result.record.id); this._resetDocumentSelection();
         await this._refreshDocumentLibrary(); this.render();
         this.notify('已创建独立白板项目；拖入文件默认复制到项目', 'success');
@@ -5493,6 +5699,7 @@
         if (result.cancelled) return;
         if (!this.documentRecord) this.localWorkspace = this.store;
         this.documentRecord = result.record;
+        this.localWorkspaceMode = false;
         this.openDocumentIds.add(result.record.id);
         this.store = Model.assertValidStore(result.store);
         this._resetDocumentSelection();
@@ -5542,6 +5749,7 @@
       clearTimeout(this.saveTimer); this.saveTimer = null;
       if (!await this._persistNow()) return;
       this.documentRecord = null;
+      this.localWorkspaceMode = true;
       this.store = this.localWorkspace || Model.normalizeStore((await this.bridge.relationshipBoards.get()).store).value;
       this.localWorkspace = null;
       this._resetDocumentSelection();
@@ -5591,7 +5799,7 @@
     async _importRelationshipJson() {
       if (this.importInFlight || !this.bridge?.relationshipBoards?.previewImport) return false;
       if (this.documentRecord) {
-        this.notify('导入合并用于本机白板合集。请先切换到“本机白板”；独立文件请使用“打开…”', 'info');
+        this.notify('导入合并用于本机工作区。请先切换到“本机工作区”；独立文件请使用“打开…”', 'info');
         return false;
       }
       const rootAtStart = this.root;
@@ -5672,8 +5880,8 @@
           ? escapeHtml(`${preview.sourceLabel || 'Coolify'} · 本次只读快照`)
           : `${escapeHtml(preview.fileName)} · ${Math.max(1, Math.ceil(Number(preview.fileSize || 0) / 1024))} KB`;
         const applyGuard = isCoolify
-          ? '应用时若本机白板发生变化或预览过期会拒绝操作，并先创建同步前备份。'
-          : '应用时若本机白板或源文件发生变化会拒绝操作，并先创建导入前备份。';
+          ? '应用时若本机工作区发生变化或预览过期会拒绝操作，并先创建同步前备份。'
+          : '应用时若本机工作区或源文件发生变化会拒绝操作，并先创建导入前备份。';
         overlay.innerHTML = `
           <form class="relationship-dialog relationship-import-dialog" role="dialog" aria-modal="true" aria-labelledby="relationship-import-title" aria-describedby="relationship-import-boundary">
             <header><div><h3 id="relationship-import-title">${isCoolify ? '确认同步 Coolify 关系' : '确认导入关系事实'}</h3><small>${sourceCaption}</small></div><button type="button" data-dialog-cancel aria-label="关闭">×</button></header>

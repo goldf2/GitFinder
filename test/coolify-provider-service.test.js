@@ -8,6 +8,7 @@ const {
   CoolifyProviderService,
   normalizeCoolifyBaseUrl,
   normalizeCoolifyResource,
+  requestCoolifyJson,
   readCoolifyOverview
 } = require('../src/main/services/coolifyProviderService');
 
@@ -161,6 +162,19 @@ test('Coolify 地址只接受站点根地址和安全协议', () => {
   assert.throws(() => normalizeCoolifyBaseUrl('https://cool.example.com/project/one'), /根地址/);
 });
 
+test('Coolify 网络失败保留可诊断但不泄露地址或令牌的错误码', async () => {
+  const error = Object.assign(new TypeError('fetch failed'), { cause: { code: 'ETIMEDOUT' } });
+  await assert.rejects(
+    requestCoolifyJson({ baseUrl: 'https://cool.example.com', token: 'fixture-secret-token', pathname: '/api/v1/servers', fetchImpl: async () => { throw error; } }),
+    failure => {
+      assert.match(failure.message, /网络连接失败|连接超时/);
+      assert.match(failure.message, /ETIMEDOUT/);
+      assert.doesNotMatch(failure.message, /cool\.example\.com|fixture-secret-token/);
+      return true;
+    }
+  );
+});
+
 test('直接读取 Coolify 官方只读端点并归一化主机、部署和最近失败', async t => {
   const { calls, fetchImpl } = createHarness(t);
   const overview = await readCoolifyOverview({
@@ -178,9 +192,49 @@ test('直接读取 Coolify 官方只读端点并归一化主机、部署和最�
   assert.equal(overview.deployments[0].recentFailure.known, true);
   assert.equal(overview.deployments[0].recentFailure.hasFailure, true);
   assert.equal(overview.deployments[1].recentFailure.known, false);
+  assert.deepEqual(overview.deploymentHistory, { mode: 'full', requested: 1, total: 1, deferred: 0 });
   assert.ok(calls.every(call => call.method === 'GET'));
   assert.ok(calls.every(call => call.authorization === 'Bearer coolify-read-token-123'));
   assert.equal(calls.some(call => call.path.startsWith('/api/gitfinder/')), false);
+});
+
+test('拓扑快速路径限制部署历史请求，不让大规模应用列表阻塞首屏', async t => {
+  const { calls, fetchImpl } = createHarness(t);
+  const overview = await readCoolifyOverview({
+    baseUrl: 'https://cool.example.com',
+    token: 'fixture-read-token',
+    fetchImpl,
+    deploymentHistoryMode: 'fast',
+    deploymentHistoryLimit: 0
+  });
+  assert.deepEqual(overview.deploymentHistory, { mode: 'fast', requested: 0, total: 1, deferred: 1 });
+  assert.equal(calls.some(call => call.path.startsWith('/api/v1/deployments/applications/')), false);
+  assert.equal(overview.deployments[0].recentFailure.known, false);
+});
+
+test('getTopology 使用快速部署历史模式，目录详情仍可单独读取完整历史', async t => {
+  const { service } = createHarness(t);
+  await service.connect({ baseUrl: 'https://cool.example.com', token: 'fixture-read-token' });
+  const optionsSeen = [];
+  service._overview = async (provider, options) => {
+    optionsSeen.push(options);
+    return {
+      generatedAt: '2026-08-29T05:32:00.000Z',
+      servers: [],
+      deployments: [],
+      errors: [],
+      deploymentHistory: { mode: options.deploymentHistoryMode || 'full', requested: 0, total: 0, deferred: 0 }
+    };
+  };
+  await service.getTopology();
+  assert.equal(optionsSeen[0].deploymentHistoryMode, 'fast');
+  optionsSeen.length = 0;
+  service._overview = async (provider, options) => {
+    optionsSeen.push(options);
+    return { generatedAt: '2026-08-29T05:32:00.000Z', servers: [], deployments: [], errors: [] };
+  };
+  await service.getCatalog();
+  assert.equal(optionsSeen[0].deploymentHistoryMode, undefined);
 });
 
 test('字段归一化不把未知部署历史伪装成没有失败', () => {

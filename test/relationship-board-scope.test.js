@@ -52,8 +52,12 @@ test('白板保留一个画布，运行拓扑和代码架构作为独立可见�
 test('运行拓扑默认只显示当前白板，显式选择范围后才展开资源', () => {
   const controller = runtimeFixture();
   const board = controller.store.boards[0];
+  controller.localWorkspaceMode = true;
   board.view.topologyScopeMode = 'board';
+  assert.deepEqual(controller._combinedPlacements(), []);
   assert.deepEqual(controller._filteredGraph().placements, []);
+  board.view.topologyScopeMode = 'all';
+  assert.equal(controller._combinedPlacements().length, placementsForRuntimeFixture(controller).length);
   board.view.topologyScopeMode = 'project';
   board.view.topologyScopeId = 'entity_scope_project';
   assert.deepEqual(controller._filteredGraph().placements.map(item => item.entityId), [
@@ -65,6 +69,10 @@ test('运行拓扑默认只显示当前白板，显式选择范围后才展开�
     'entity_scope_deploy_a', 'entity_scope_repo', 'entity_scope_endpoint', 'entity_scope_project'
   ]);
 });
+
+function placementsForRuntimeFixture(controller) {
+  return controller.panelProjection.placements;
+}
 
 test('架构范围可按边界或组件邻接关系缩小，并可隐藏边界容器', () => {
   const controller = new Controller({ bridge: {} });
@@ -162,4 +170,29 @@ test('运行拓扑和代码架构可以同时进入同一白板的过滤结果',
   const ids = controller._filteredGraph().placements.map(item => item.entityId);
   assert.ok(ids.includes('entity_scope_server'));
   assert.ok(ids.includes('entity_arch_scope'));
+});
+
+test('隐藏来源时不会保留该来源已经持久化的白板卡片', () => {
+  const controller = runtimeFixture();
+  const board = controller.store.boards[0];
+  board.placements = [
+    { entityId: 'entity_scope_server', x: 0, y: 0 },
+    { entityId: 'entity_manual', x: 320, y: 0 }
+  ];
+  controller.store.entities = [{ id: 'entity_manual', type: 'text', name: '手工卡片', details: {} }];
+  board.view.showTopology = false;
+  assert.deepEqual(controller._combinedPlacements().map(item => item.entityId), ['entity_manual']);
+
+  board.view.showTopology = true;
+  board.view.showArchitecture = false;
+  controller.architectureProjection = {
+    entities: [{ id: 'entity_arch_hidden', type: 'architecture', name: '隐藏架构', details: {} }],
+    relationships: [],
+    placements: [{ entityId: 'entity_arch_hidden', x: 640, y: 0, architectureReadOnly: true }]
+  };
+  board.placements.push({ entityId: 'entity_arch_hidden', x: 640, y: 0, architectureReadOnly: true });
+  const visibleIds = controller._combinedPlacements().map(item => item.entityId);
+  assert.ok(visibleIds.includes('entity_scope_server'));
+  assert.ok(visibleIds.includes('entity_manual'));
+  assert.equal(visibleIds.includes('entity_arch_hidden'), false);
 });

@@ -43,6 +43,10 @@ test('直接动作复用参数路由且排列后不再额外整页重绘', () =>
   assert.deepEqual(calls.at(-1), ['save', true]);
 });
 
+test('运行拓扑范围加入白板动作映射到控制器', () => {
+  assert.deepEqual(ActionRouter.resolve('add-topology-scope'), ['_addTopologyScopeToBoard']);
+});
+
 test('控制器只保留兼容入口，DOM 事件由动作路由统一分发', () => {
   for (const [suffix, method] of Object.entries({ Click: 'handleClick', Keydown: 'handleKeydown' })) {
     const handler = controllerSource.match(new RegExp(`    _handle${suffix}\\(event\\) \\{[\\s\\S]*?\\n    \\}`))?.[0] || '';
@@ -68,6 +72,41 @@ test('控制器只保留兼容入口，DOM 事件由动作路由统一分发', (
   controller._handleClick({ target: { closest: selector => selector.includes('[data-add-resource]')
     ? { dataset: { addResource: 'project:one' } } : null } });
   assert.deepEqual(calls.pop(), ['resource', 'project:one']);
+});
+
+test('资源按钮从完整资源目录解析动态实体键和已放置项目键', () => {
+  const controller = new Controller({ bridge: {} });
+  const calls = [];
+  controller._closeContextMenu = () => {};
+  controller._resourceCatalog = () => [
+    { key: 'entity:deployment_1', kind: 'deployment', entityId: 'entity_deployment_1', name: '部署' },
+    { key: 'project:one', kind: 'project', refId: 'project_1', entityId: 'entity_project_1', placed: true, name: '项目' }
+  ];
+  controller.resourceMap.set('project:one', { key: 'project:one', kind: 'project', refId: 'project_1', name: '项目' });
+  controller._addResource = resource => calls.push(['add', resource?.entityId]);
+  controller._focusEntityOnBoard = entityId => calls.push(['locate', entityId]);
+
+  const click = dataset => ActionRouter.handleClick(controller, { target: {
+    closest: selector => selector.includes(dataset.addResource ? '[data-add-resource]' : '[data-locate-resource]')
+      ? { dataset } : null
+  } });
+  click({ addResource: 'entity:deployment_1' });
+  click({ locateResource: 'project:one' });
+
+  controller._clientToWorld = () => ({ x: 40, y: 60 });
+  ActionRouter.handleDrop(controller, {
+    target: { closest: selector => selector === '.relationship-canvas' ? {} : null },
+    dataTransfer: {
+      files: [],
+      getData: type => type === 'application/x-gitfinder-relationship-resource' ? 'entity:deployment_1' : '',
+      types: ['application/x-gitfinder-relationship-resource']
+    },
+    clientX: 40,
+    clientY: 60,
+    preventDefault: () => {}
+  });
+
+  assert.deepEqual(calls, [['add', 'entity_deployment_1'], ['locate', 'entity_project_1'], ['add', 'entity_deployment_1']]);
 });
 
 test('变更、输入和提交事件复用同一动作路由边界', () => {

@@ -392,7 +392,56 @@ test('项目仓库、Panel 主机部署和访问端点归入稳定资源分类',
   assert.equal(resourceSections.find(section => section.id === 'deployment').label, '站点与部署');
   assert.equal(resourceSections.find(section => section.id === 'endpoint').label, '访问端点');
 
-  assert.deepEqual(resourceSections.flatMap(section => section.items.filter(item => item.placed).map(item => item.name)), ['Con01', 'MES production']);
+  assert.deepEqual(resourceSections.flatMap(section => section.items.filter(item => item.placed).map(item => item.name)), []);
+});
+
+test('本机工作区把 Coolify 资源作为可组合来源，加入后才标记为已放置', () => {
+  const controller = new Controller({ bridge: {} });
+  controller.store = {
+    schemaVersion: 1,
+    activeBoardId: 'board_composable01',
+    entities: [],
+    relationships: [],
+    boards: [{ id: 'board_composable01', name: '本机工作区', viewport: { x: 0, y: 0, zoom: 1 }, view: RelationshipGraphModel.defaultBoardView(), placements: [] }]
+  };
+  controller.panelProjection = {
+    entities: [{ id: 'entity_server_composable', type: 'server', name: 'Con01', details: { hostLabel: 'Con01' }, source: 'observed', transient: true, runtime: { dynamicKind: 'panel-server' } }],
+    relationships: [],
+    placements: [{ entityId: 'entity_server_composable', x: 80, y: 80, dynamic: true }],
+    metadata: { state: 'ready' }
+  };
+  const resource = controller._resourceCatalog().find(item => item.key === 'entity:entity_server_composable');
+  assert.equal(resource?.placed, false);
+  controller._persistSoon = controller._renderGraph = controller._refreshHistoryButtons = controller._updateSummary = () => {};
+  controller._recordMutation = () => {};
+  controller._addResource(resource);
+  assert.equal(controller.store.entities.some(entity => entity.id === 'entity_server_composable'), true);
+  assert.equal(controller.store.boards[0].placements.some(item => item.entityId === 'entity_server_composable'), true);
+  assert.equal(controller._resourceCatalog().find(item => item.key === resource.key)?.placed, true);
+});
+
+test('本机工作区默认不注入在线拓扑，显式选择范围后可一次性固化节点和关系', () => {
+  const controller = new Controller({ bridge: {} });
+  const server = { id: 'entity_scope_server01', type: 'server', name: 'Con01', details: { hostLabel: 'Con01' }, source: 'observed', transient: true };
+  const deployment = { id: 'entity_scope_deploy01', type: 'deployment', name: 'MES', details: { environment: 'production' }, source: 'observed', transient: true };
+  controller.store = {
+    schemaVersion: 1, activeBoardId: 'board_scope_add01', entities: [], relationships: [],
+    boards: [{ id: 'board_scope_add01', name: '本机工作区', viewport: { x: 0, y: 0, zoom: 1 }, view: { ...RelationshipGraphModel.defaultBoardView(), topologyScopeMode: 'server', topologyScopeId: server.id }, placements: [] }]
+  };
+  controller.localWorkspaceMode = true;
+  controller.panelProjection = {
+    entities: [server, deployment],
+    relationships: [{ id: 'relation_panel_runs01', type: 'runs_on', sourceId: deployment.id, targetId: server.id, source: 'observed' }],
+    placements: [{ entityId: server.id, x: 80, y: 80, dynamic: true }, { entityId: deployment.id, x: 420, y: 80, dynamic: true }],
+    metadata: { state: 'ready' }
+  };
+  controller._persistSoon = controller._renderGraph = controller._refreshHistoryButtons = controller._updateSummary = () => {};
+  controller._addTopologyScopeToBoard();
+  assert.deepEqual(controller.store.entities.map(entity => entity.id).sort(), [server.id, deployment.id].sort());
+  assert.deepEqual(controller.store.boards[0].placements.map(item => item.entityId).sort(), [server.id, deployment.id].sort());
+  assert.equal(controller.store.relationships.length, 1);
+  assert.equal(controller.store.boards[0].view.topologyScopeMode, 'board');
+  assert.equal(controller._combinedPlacements().length, 2);
 });
 
 test('当前白板资源包含文字、媒体、群组和缺失仓库，并随白板切换更新', () => {
@@ -599,6 +648,39 @@ test('Coolify 动态拓扑通过只读 IPC 投影到白板而不写入持久关�
   assert.doesNotMatch(JSON.stringify(exported), /\/Volumes\/|"transient"|"dynamic"|"provider"/);
 });
 
+test('Coolify 部分实例失败时显示部分同步，不把可用快照误报为全盘失败', () => {
+  const controller = new Controller({ bridge: {} });
+  controller.store = {
+    schemaVersion: 1,
+    activeBoardId: 'board_partial_status',
+    entities: [],
+    relationships: [],
+    boards: [{ id: 'board_partial_status', name: '状态', viewport: { x: 0, y: 0, zoom: 1 }, view: RelationshipGraphModel.defaultBoardView(), placements: [] }]
+  };
+  controller._setPanelTopology({
+    state: 'ready',
+    cached: true,
+    staleProviders: ['al02'],
+    providers: [
+      { providerId: 'con01', label: 'Con01' },
+      { providerId: 'al02', label: 'AL02' },
+      { providerId: 'al03', label: 'AL03' }
+    ],
+    errors: [{ providerId: 'al02', label: 'AL02', message: 'Coolify API /api/v1/servers 连接超时（ETIMEDOUT）' }],
+    topology: {
+      generatedAt: '2026-09-06T00:00:00.000Z',
+      servers: [{ nodeId: 'con01-server', providerId: 'con01', name: 'Con01' }],
+      deployments: [{ resourceUuid: 'deployment-1', providerId: 'con01', nodeId: 'con01-server', name: 'MES' }]
+    }
+  });
+  const status = controller._panelStatusView();
+  assert.equal(status.state, 'warning');
+  assert.match(status.label, /2\/3 个 Coolify 已同步/);
+  assert.match(status.label, /1 个实例失败/);
+  assert.doesNotMatch(status.label, /同步失败/);
+  assert.match(status.title, /AL02|ETIMEDOUT/);
+});
+
 test('关系白板不等待全盘项目扫描或 Coolify 网络即可先显示本机关系与仓库', async () => {
   let resolveProjects;
   const projects = new Promise(resolve => { resolveProjects = resolve; });
@@ -683,6 +765,72 @@ test('关系白板先恢复 Coolify 缓存，再在后台刷新且刷新失败�
   assert.equal(await controller._refreshPanelTopology(), false);
   assert.equal(controller.panelTopologyResult.state, 'ready');
   assert.match(controller.panelLastError, /offline/);
+});
+
+test('Coolify 拓扑可先完成，本地仓库远程检查不会阻塞同步状态', async () => {
+  let resolveRepositories;
+  const repositories = new Promise(resolve => { resolveRepositories = resolve; });
+  const controller = new Controller({ bridge: { panel: {
+    refreshTopology: async () => ({
+      state: 'ready',
+      topology: { servers: [{ nodeId: 'server-1', name: 'Con01' }], deployments: [] }
+    }),
+    getLocalRepositories: () => repositories
+  } } });
+  controller.root = { isConnected: true, querySelector: () => null };
+  controller.store = RelationshipGraphModel.defaultStore();
+  controller._topologyWithProjectBindings = async result => result;
+  controller._setPanelTopology = result => { controller.panelTopologyResult = result; };
+  controller._setResources = () => {};
+  controller._renderResources = () => {};
+  controller._renderGraph = () => {};
+  controller._updateFilterSummary = () => {};
+  controller._updateSummary = () => {};
+  controller._updatePanelStatus = () => {};
+  controller._schedulePanelRefresh = () => {};
+  controller._refreshEndpointChecks = async () => {};
+
+  assert.equal(await controller._refreshPanelTopology(), true);
+  assert.equal(controller.panelRefreshInFlight, false);
+  assert.equal(controller.repositoryRefreshInFlight, true);
+  assert.equal(controller.panelTopologyResult.state, 'ready');
+
+  resolveRepositories([{ id: 'repo-1', name: 'repo', path: '/repo', available: true }]);
+  for (let attempt = 0; attempt < 10 && controller.repositoryRefreshInFlight; attempt += 1) {
+    await new Promise(resolve => setImmediate(resolve));
+  }
+  assert.equal(controller.repositoryRefreshInFlight, false);
+  assert.equal(controller.panelRepositories[0].id, 'repo-1');
+});
+
+test('Coolify 拓扑不等待项目绑定或关联文件 IPC', async () => {
+  let resolveAssociations;
+  const associations = new Promise(resolve => { resolveAssociations = resolve; });
+  const controller = new Controller({ bridge: { panel: {
+    refreshTopology: async () => ({
+      state: 'ready',
+      topology: { servers: [{ nodeId: 'server-1', name: 'Con01' }], deployments: [] }
+    }),
+    getRepositoryAssociations: () => associations,
+    getProjectBindings: () => new Promise(() => {})
+  } } });
+  controller.root = { isConnected: true, querySelector: () => null };
+  controller.store = RelationshipGraphModel.defaultStore();
+  controller.panelProjects = [{ projectId: 'project-1', path: '/project', name: 'Project' }];
+  controller._setPanelTopology = result => { controller.panelTopologyResult = result; };
+  controller._setResources = () => {};
+  controller._renderResources = () => {};
+  controller._renderGraph = () => {};
+  controller._updateFilterSummary = () => {};
+  controller._updateSummary = () => {};
+  controller._updatePanelStatus = () => {};
+  controller._schedulePanelRefresh = () => {};
+  controller._refreshEndpointChecks = async () => {};
+
+  assert.equal(await controller._refreshPanelTopology(), true);
+  assert.equal(controller.panelRefreshInFlight, false);
+  assert.equal(controller.panelTopologyResult.state, 'ready');
+  resolveAssociations([]);
 });
 
 test('拓扑刷新等待期间开始拖动时保留当前模型，下一次刷新恢复更新', async (t) => {

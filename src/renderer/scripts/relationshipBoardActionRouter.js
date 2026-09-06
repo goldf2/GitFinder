@@ -19,7 +19,8 @@
     'arrange-by-coolify-projects': ['_arrangeByCoolifyProjects', [], false, '.relationship-layout-trigger'],
     'arrange-around-selection': ['_arrangeAround', ['selection-centered'], false, '.relationship-layout-trigger'],
     'arrange-around-servers': ['_arrangeAround', ['server-centered'], false, '.relationship-layout-trigger'],
-    'server-tree': ['_setStructure', ['server-tree']], 'refresh-panel': ['_refreshPanelTopology', [{ announce: true }]],
+    'server-tree': ['_setStructure', ['server-tree']], 'add-topology-scope': ['_addTopologyScopeToBoard'],
+    'refresh-panel': ['_refreshPanelTopology', [{ announce: true }]],
     'import-json': ['_importRelationshipJson', [], true], 'export-json': ['_exportCurrentBoard', [], true],
     'verify-now': ['_verifySelectedNow'], 'reverse-relationship': ['_reverseSelectedRelationship'],
     'create-group-from-selection': ['_createGroupFromSelection'], 'remove-selection-group': ['_removeSelectionFromGroups']
@@ -47,6 +48,20 @@
 
   function resolve(action) {
     return ACTIONS[String(action || '')] || null;
+  }
+
+  function resourceByKey(controller, key) {
+    let catalogResource = null;
+    try {
+      const catalog = controller._resourceCatalog?.();
+      catalogResource = Array.isArray(catalog)
+        ? catalog.find(resource => resource.key === key)
+        : null;
+    } catch (_) {
+      // The resource catalog is unavailable while the board is loading; the
+      // registry fallback still handles project/repository actions.
+    }
+    return catalogResource || controller.resourceMap?.get?.(key);
   }
 
   function dismissesTransientMenus(action) {
@@ -184,7 +199,7 @@
       void controller._addFiles(paths, controller._clientToWorld(event.clientX, event.clientY)); return;
     }
     const key = event.dataTransfer.getData('application/x-gitfinder-relationship-resource');
-    const resource = controller.resourceMap.get(key);
+    const resource = resourceByKey(controller, key);
     if (!resource) return;
     event.preventDefault();
     controller._addResource(resource, controller._clientToWorld(event.clientX, event.clientY));
@@ -395,15 +410,14 @@
       controller.root.querySelector('.relationship-add-trigger').setAttribute('aria-expanded', 'false');
       controller._createManualEntity(data.addNodeType, contextPoint); return;
     }
-    if (data.addResource) return controller._addResource(controller.resourceMap.get(data.addResource));
+    if (data.addResource) return controller._addResource(resourceByKey(controller, data.addResource));
     if (data.locateResource) {
-      const resource = controller.resourceMap.get(data.locateResource);
+      const resource = resourceByKey(controller, data.locateResource);
       if (resource?.entityId) controller._focusEntityOnBoard(resource.entityId);
       return;
     }
     if (data.resourceKey) {
-      const resource = controller._resourceCatalog?.().find(item => item.key === data.resourceKey)
-        || controller.resourceMap.get(data.resourceKey);
+      const resource = resourceByKey(controller, data.resourceKey);
       if (resource) controller._selectResourcePreview?.(resource);
       return;
     }

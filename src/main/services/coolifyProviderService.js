@@ -209,6 +209,43 @@ function safeHttpError(status, pathname) {
   return `Coolify API ${pathname} 返回 HTTP ${status}`;
 }
 
+function networkErrorCode(error) {
+  const visited = new Set();
+  const queue = [error];
+  while (queue.length) {
+    const current = queue.shift();
+    if (!current || (typeof current !== 'object' && typeof current !== 'function') || visited.has(current)) continue;
+    visited.add(current);
+    const code = String(current.code || '').trim();
+    if (code) return code;
+    if (current.cause) queue.push(current.cause);
+    if (Array.isArray(current.errors)) queue.push(...current.errors);
+  }
+  return '';
+}
+
+function safeNetworkError(pathname, error) {
+  const code = networkErrorCode(error);
+  const descriptions = {
+    ETIMEDOUT: '连接超时',
+    UND_ERR_CONNECT_TIMEOUT: '连接超时',
+    ECONNREFUSED: '连接被拒绝',
+    ENETUNREACH: '网络不可达',
+    EHOSTUNREACH: '主机不可达',
+    ENOTFOUND: '域名解析失败',
+    EAI_AGAIN: '域名解析暂时失败',
+    CERT_HAS_EXPIRED: 'TLS 证书已过期',
+    ERR_TLS_CERT_ALTNAME_INVALID: 'TLS 证书域名不匹配',
+    UNABLE_TO_VERIFY_LEAF_SIGNATURE: 'TLS 证书校验失败'
+  };
+  const description = descriptions[code];
+  if (description) return new Error(`Coolify API ${pathname} ${description}${code ? `（${code}）` : ''}`);
+  if (error?.name === 'TypeError' && /fetch failed/i.test(String(error.message || ''))) {
+    return new Error(`Coolify API ${pathname} 网络连接失败`);
+  }
+  return null;
+}
+
 async function requestCoolifyJson(options = {}) {
   const fetchImpl = options.fetchImpl || globalThis.fetch;
   if (typeof fetchImpl !== 'function') throw new Error('当前运行环境不支持 Coolify API 请求');
@@ -238,6 +275,8 @@ async function requestCoolifyJson(options = {}) {
     return parsed?.data ?? parsed;
   } catch (error) {
     if (error?.name === 'AbortError') throw new Error(`Coolify API ${pathname} 请求超时`);
+    const networkError = safeNetworkError(pathname, error);
+    if (networkError) throw networkError;
     throw error;
   } finally {
     clearTimeout(timeout);
@@ -262,7 +301,13 @@ async function readCoolifyOverview(options = {}) {
   const baseUrl = normalizeCoolifyBaseUrl(options.baseUrl);
   const token = normalizeToken(options.token);
   const observedAt = normalizeTimestamp(options.observedAt, new Date().toISOString());
-  const get = pathname => requestCoolifyJson({ ...options, baseUrl, token, pathname });
+  const get = (pathname, requestOptions = {}) => requestCoolifyJson({
+    ...options,
+    ...requestOptions,
+    baseUrl,
+    token,
+    pathname
+  });
   const endpointResults = await Promise.allSettled([
     get(`${API_PREFIX}/applications`),
     get(`${API_PREFIX}/services`),
@@ -328,12 +373,35 @@ async function readCoolifyOverview(options = {}) {
     resource.environment_uuid || resource.environment?.uuid || resource.environment_id || ''
   )) || {};
 
-  const deploymentResults = await mapWithConcurrency(applications.slice(0, MAX_DEPLOYMENT_LOOKUPS), 4, application => (
-    get(`${API_PREFIX}/deployments/applications/${encodeURIComponent(application.uuid)}?skip=0&take=1`)
-  ));
+  // Deployment history is useful detail, but it is not required to draw the
+  // topology. A large Coolify fleet can have dozens of applications and each
+  // history endpoint has its own timeout. The topology path therefore uses a
+  // bounded "fast" pass (the most recently updated applications only), while
+  // catalog/detail reads keep the complete history pass by default.
+  const historyMode = options.deploymentHistoryMode === 'fast' ? 'fast' : 'full';
+  const requestedHistoryLimit = Number(options.deploymentHistoryLimit);
+  const historyLimit = historyMode === 'fast'
+    ? Math.min(MAX_DEPLOYMENT_LOOKUPS, Math.max(0, Number.isFinite(requestedHistoryLimit) ? requestedHistoryLimit : 8))
+    : MAX_DEPLOYMENT_LOOKUPS;
+  const historyApplications = applications
+    .map((application, index) => ({ application, index }))
+    .sort((left, right) => {
+      const leftTime = Date.parse(left.application.updated_at || left.application.updatedAt || '') || 0;
+      const rightTime = Date.parse(right.application.updated_at || right.application.updatedAt || '') || 0;
+      return rightTime - leftTime;
+    })
+    .slice(0, historyLimit);
+  const deploymentResults = await mapWithConcurrency(
+    historyApplications,
+    historyMode === 'fast' ? 8 : 4,
+    ({ application }) => get(
+      `${API_PREFIX}/deployments/applications/${encodeURIComponent(application.uuid)}?skip=0&take=1`,
+      historyMode === 'fast' ? { timeoutMs: options.deploymentHistoryTimeoutMs || 4_000 } : {}
+    )
+  );
   const deploymentByApplication = new Map();
   deploymentResults.forEach((result, index) => {
-    const application = applications[index];
+    const application = historyApplications[index].application;
     if (result.status === 'fulfilled') deploymentByApplication.set(String(application.uuid), deploymentFacts(result.value, observedAt));
     else errors.push({ kind: 'deployment', resourceUuid: String(application.uuid), message: result.reason?.message || String(result.reason) });
   });
@@ -368,7 +436,18 @@ async function readCoolifyOverview(options = {}) {
       coolifyUrl: baseUrl
     };
   });
-  return { generatedAt: observedAt, servers, deployments: resources, errors };
+  return {
+    generatedAt: observedAt,
+    servers,
+    deployments: resources,
+    errors,
+    deploymentHistory: {
+      mode: historyMode,
+      requested: historyApplications.length,
+      total: applications.length,
+      deferred: Math.max(0, applications.length - historyApplications.length)
+    }
+  };
 }
 
 function normalizeBinding(value = {}) {
@@ -710,8 +789,9 @@ class CoolifyProviderService {
     return remaining.map(provider => this._publicConnection(provider));
   }
 
-  async _overview(provider) {
+  async _overview(provider, options = {}) {
     const overview = await readCoolifyOverview({
+      ...options,
       baseUrl: provider.baseUrl,
       token: provider.accessToken,
       fetchImpl: this.fetchImpl,
@@ -723,10 +803,10 @@ class CoolifyProviderService {
     return overview;
   }
 
-  async _aggregate(providerId = '') {
+  async _aggregate(providerId = '', options = {}) {
     const providers = providerId ? [this._findProvider(providerId)] : this._loadProviders();
     if (!providers.length) return { state: 'unconfigured', providers: [], successes: [], errors: [] };
-    const settled = await Promise.allSettled(providers.map(async provider => ({ provider, overview: await this._overview(provider) })));
+    const settled = await Promise.allSettled(providers.map(async provider => ({ provider, overview: await this._overview(provider, options) })));
     const successes = settled.filter(result => result.status === 'fulfilled').map(result => result.value);
     const errors = settled.flatMap((result, index) => result.status === 'rejected'
       ? [{ providerId: providers[index].providerId, label: providers[index].label, message: result.reason?.message || String(result.reason) }]
@@ -755,7 +835,7 @@ class CoolifyProviderService {
   }
 
   async getTopology() {
-    const result = await this._aggregate();
+    const result = await this._aggregate('', { deploymentHistoryMode: 'fast' });
     const currentProviders = this._loadProviders();
     this.endpointHealth.retainProviders(currentProviders.map(item => item.providerId));
     for (const { provider, overview } of result.successes) {
@@ -783,11 +863,36 @@ class CoolifyProviderService {
       }
       return { state: 'error', providers: result.providers, topology: empty, bindings: [], errors: result.errors, cached: false };
     }
+    const cachedDeploymentFacts = new Map((cachedSnapshot?.topology?.deployments || []).map(resource => [
+      `${resource.providerId || ''}\u0000${resource.resourceUuid || resource.uuid || resource.id || resource.name || ''}`,
+      resource
+    ]));
+    const restoreCachedHistory = (resource, providerId) => {
+      const cached = cachedDeploymentFacts.get(`${providerId}\u0000${resource.resourceUuid || resource.uuid || resource.id || resource.name || ''}`);
+      if (!cached) return resource;
+      const next = { ...resource };
+      let restored = false;
+      if (!next.lastDeployment && cached.lastDeployment) {
+        next.lastDeployment = cached.lastDeployment;
+        restored = true;
+      }
+      if ((!next.recentFailure || !next.recentFailure.known) && cached.recentFailure?.known) {
+        next.recentFailure = cached.recentFailure;
+        restored = true;
+      }
+      if (next.commitSource === 'configuration' && cached.commitSource === 'deployment-history' && cached.commit) {
+        next.commit = cached.commit;
+        next.commitSource = 'deployment-history-cache';
+        restored = true;
+      }
+      if (restored) next.deploymentHistoryStale = true;
+      return next;
+    };
     const servers = result.successes.flatMap(({ provider, overview }) => overview.servers.map(server => ({
       ...server, providerId: provider.providerId, providerLabel: provider.label
     })));
     const deployments = result.successes.flatMap(({ provider, overview }) => overview.deployments.map(resource => ({
-      ...resource, providerId: provider.providerId, providerLabel: provider.label
+      ...restoreCachedHistory(resource, provider.providerId), providerId: provider.providerId, providerLabel: provider.label
     })));
     // Keep the last successful snapshot for a provider that timed out or
     // temporarily rejected the request. A single unhealthy Coolify instance
