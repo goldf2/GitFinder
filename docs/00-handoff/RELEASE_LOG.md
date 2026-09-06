@@ -2,6 +2,7 @@
 
 ## 2026-09-07 05:52:00 +0800 · 2.0.0-alpha.112（已构建并替换本机）
 
+- 提交：`4d792c4ed4b7732addcd37d6c01e63ade49af090`，已推送 `origin/main`。
 - 内容：在 Coolify 同步阶段进度上增加安全的已读数据计数。基础端点显示服务器 / 项目 / 应用 / 服务 / 数据库数量；项目详情和部署历史显示已完成数量；状态标题保留完整读数，最终状态继续显示服务器、部署和失败汇总。
 - 门禁：`npm run check` 通过 1079/1079 测试、251 个 JavaScript 文件语法检查和 renderer 构建；`npm run pack` 通过 development/ad-hoc 制品门禁。正式分发资格仍为否。
 - 制品：`/Volumes/project/项目/gitfinder-2/dist/GitFinder-2-2.0.0-alpha.112-arm64-mac.zip`；SHA-256 `2b38301303bd4b922a1ffb33a80cfe041f2eddcd32c85eb121154dcf64e14162`；同时生成 `dist/latest-mac.yml` 与 `dist/release-verification.json`。
