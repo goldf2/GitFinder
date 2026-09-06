@@ -13,7 +13,7 @@
 - Coolify 状态：单实例失败继续保留其它实例和该实例上一份无凭据快照，状态显示 `x/y 个 Coolify 已同步 · n 个实例失败`；网络错误映射为超时、拒绝、DNS、TLS 等安全错误码，不显示地址或令牌。
 - 同步性能：Coolify 拓扑请求、项目绑定、关联文件和本地仓库 `git remote` 检查已拆成独立后台步骤；拓扑返回后立即可用，不再被几十个本地仓库的 3 秒命令超时或慢关联 IPC 卡成“同步中”。旧请求有 generation guard，不会覆盖关闭 / 重开后的新白板。
 - 同步性能：拓扑首屏使用快速部署历史策略：最多读取最近更新的 8 个应用，其余历史详情不阻塞主机 / Project / 部署关系；已有缓存中的提交和最近失败事实会保留并标记为历史详情可能陈旧。完整部署历史仍由目录 / 详情读取路径提供。
-- 当前实测：alpha.108 启动后 `coolify-topology-cache.json` 最近一次刷新为 `ready`，3 个配置实例、35 个部署、`errors=[]`；其中 10 个部署的历史详情来自旧缓存并标记 `deploymentHistoryStale`，不影响主机 / Project / 部署关系显示。此前失败证据为 AL02 的 TCP 443 `ETIMEDOUT`，Con01 / AL03 可达。若再次失败，优先检查 AL02 到 `cool-al02` 的网络 / 反向代理 / TLS，而不是清空本地白板。
+- 当前实测：alpha.108 启动后 `coolify-topology-cache.json` 最近一次刷新为 `ready`，3 个配置实例、35 个部署、`errors=[]`；拓扑关系可用，未重新读取的历史字段会沿用上一份无凭据缓存，不影响主机 / Project / 部署关系显示。此前失败证据为 AL02 的 TCP 443 `ETIMEDOUT`，Con01 / AL03 可达。若再次失败，优先检查 AL02 到 `cool-al02` 的网络 / 反向代理 / TLS，而不是清空本地白板。
 - 验证：专项新增本机工作区默认不注入在线拓扑、范围固化节点关系、动态资源动作、拓扑先完成、延迟绑定 / 关联 IPC、快速部署历史和安全网络错误回归；全量 `npm run check` 已通过（1068/1068 测试、251 个 JavaScript 文件语法检查、renderer 构建）。
 - 发布：版本 `2.0.0-alpha.108` 已由代码提交 `b0fb685dc71f3c1825ce76a2d15248440a96e17f` 构建。制品目录为 `/Volumes/project/制品与备份/gitfinder-2/2.0.0-alpha.108/`，ZIP SHA-256 为 `e23a6ce32281c6e3235fe407727f2b131c0cf9a602442186e75105639fbdab36`，ASAR SHA-256 为 `5f426aa37d6b444c99bd514d121b1d02534d7dfcaaea70156329f4855cca4814`。已备份 alpha.107 至 `/Volumes/project/制品与备份/gitfinder-2/installed-backups/alpha107-before-alpha108-20260906/` 并替换 `/Applications/GitFinder 2 Alpha87.app`；包内版本和 codesign 校验通过。代码提交 `b0fb685` 与文档提交 `c111936` 已推送 `origin/main`；当前 Mac 锁屏，视觉白板验收需解锁。
 
