@@ -757,6 +757,14 @@ test('Coolify 同步日志按最新运行置顶并显示端点结果与读取数
   assert.match(rendered, /20/);
   assert.match(rendered, /20 条/);
   assert.match(rendered, /有警告/);
+  const cached = controller._syncLogCachedHtml({
+    providers: [{ providerLabel: 'con01' }],
+    topology: { servers: [{}, {}], deployments: [{}, {}, {}], generatedAt: '2026-09-07T10:00:00.000Z' },
+    errors: []
+  });
+  assert.match(cached, /当前本地缓存/);
+  assert.match(cached, /2 台服务器/);
+  assert.match(cached, /3 个部署/);
 });
 
 test('关闭白板后丢弃旧 Coolify 同步进度事件', () => {

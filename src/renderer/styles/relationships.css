@@ -264,6 +264,8 @@
 .relationship-sync-log-error { margin: 8px 0; padding: 7px 8px; border-radius: 7px; color: var(--status-dirty); background: color-mix(in srgb, var(--status-dirty) 10%, transparent); font-size: 10px; line-height: 1.45; overflow-wrap: anywhere; }
 .relationship-sync-log-block { margin-top: 9px; }
 .relationship-sync-log-block > strong { color: var(--text-secondary); font-size: 10px; }
+.relationship-sync-log-cache { padding: 7px 8px; border-radius: 7px; background: var(--accent-bg); }
+.relationship-sync-log-cache p { margin: 4px 0 0; color: var(--text-tertiary); font-size: 10px; line-height: 1.45; overflow-wrap: anywhere; }
 .relationship-sync-log-counts, .relationship-sync-log-providers { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; margin: 6px 0 0; padding: 0; list-style: none; }
 .relationship-sync-log-counts li { display: flex; flex-direction: column; gap: 2px; padding: 5px 6px; border-radius: 6px; background: var(--bg-primary); color: var(--text-tertiary); font-size: 9px; }
 .relationship-sync-log-counts b { color: var(--text-primary); font-size: 12px; }

@@ -450,6 +450,18 @@
         ${endpointItems ? `<div class="relationship-sync-log-block"><strong>端点结果</strong><ul class="relationship-sync-log-providers relationship-sync-log-endpoints">${endpointItems}</ul></div>` : ''}${summaryJson}`;
     }
 
+    _syncLogCachedHtml(snapshot = null) {
+      if (!snapshot || typeof snapshot !== 'object') return '';
+      const providers = Array.isArray(snapshot.providers) ? snapshot.providers : [];
+      const topology = snapshot.topology && typeof snapshot.topology === 'object' ? snapshot.topology : {};
+      const servers = Array.isArray(topology.servers) ? topology.servers.length : 0;
+      const deployments = Array.isArray(topology.deployments) ? topology.deployments.length : 0;
+      const errors = Array.isArray(snapshot.errors) ? snapshot.errors.length : 0;
+      const cachedAt = snapshot.cachedAt || topology.generatedAt;
+      const providerNames = providers.map(provider => provider.label || provider.providerLabel || provider.providerId).filter(Boolean).join('、');
+      return `<div class="relationship-sync-log-cache relationship-sync-log-block"><strong>当前本地缓存（不触发网络请求）</strong><p>${escapeHtml(providerNames || `${providers.length} 个 Coolify 实例`)} · ${servers} 台服务器 · ${deployments} 个部署${errors ? ` · ${errors} 个同步错误` : ''}${cachedAt ? ` · ${escapeHtml(this._syncLogTime(cachedAt))}` : ''}</p></div>`;
+    }
+
     _syncLogRunHtml(run = {}, index = 0) {
       const events = this._syncLogEventList(run);
       const eventItems = events.slice(-80).reverse().map(event => {
@@ -478,7 +490,7 @@
       const runs = this._syncLogRunList(log);
       const latest = runs[0] || runs.at(-1);
       const updatedAt = log.updatedAt || latest?.finishedAt || latest?.updatedAt || latest?.startedAt;
-      content.innerHTML = `${updatedAt ? `<p class="relationship-sync-log-note">最近记录：${escapeHtml(this._syncLogTime(updatedAt))}</p>` : ''}${runs.length ? runs.slice(0, 6).map((run, index) => this._syncLogRunHtml(run, index)).join('') : '<p class="relationship-sync-log-empty">尚无同步记录。点击刷新后这里会显示每个端点的读取结果。</p>'}`;
+      content.innerHTML = `${updatedAt ? `<p class="relationship-sync-log-note">最近记录：${escapeHtml(this._syncLogTime(updatedAt))}</p>` : ''}${this._syncLogCachedHtml(log.cachedTopology)}${runs.length ? runs.slice(0, 6).map((run, index) => this._syncLogRunHtml(run, index)).join('') : '<p class="relationship-sync-log-empty">尚无同步记录。点击刷新后这里会显示每个端点的读取结果。</p>'}`;
       const open = popover.querySelector('[data-relationship-action="open-sync-log-file"]');
       if (open) open.disabled = !log.path || log.exists === false;
     }
@@ -498,7 +510,11 @@
       content.innerHTML = '<p class="relationship-sync-log-empty">正在读取本机脱敏日志…</p>';
       try {
         const log = await this.bridge.panel.getSyncLog();
-        this.panelSyncLog = log || { runs: [] };
+        let cachedTopology = null;
+        if (this.bridge.panel.getCachedTopology) {
+          try { cachedTopology = await this.bridge.panel.getCachedTopology(); } catch (_) { cachedTopology = null; }
+        }
+        this.panelSyncLog = { ...(log || { runs: [] }), cachedTopology };
         this._renderSyncLog(this.panelSyncLog);
         return true;
       } catch (error) {

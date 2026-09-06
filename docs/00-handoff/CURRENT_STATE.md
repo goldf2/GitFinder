@@ -4,16 +4,14 @@
 
 > 本文件是标准交接入口，记录当前工作树中已复核的最新事实。较早的项目过程与领域背景继续保留在 `docs/ai-handoff/`，不在这里重复复制。
 
-## 当前修复：Coolify 同步日志与读取数据明细（alpha.113，已构建并替换本机）
+## 当前修复：Coolify 同步日志与读取数据明细（alpha.114，待构建）
 
 - 现象核对：本机旧版 alpha.112 的 `coolify-topology-cache.json` 最近一次状态为 `ready`、`errors=[]`，读取到 3 个实例、3 台服务器、35 个部署；状态栏中的“3 个最近失败”是 Coolify 返回的部署历史事实，不是同步请求失败。
 - 诊断证据：只读检查 Con01 和 AL03 的当前链路均返回 HTTP 200；Con01 较慢的端点主要是 applications / services / projects 及部署历史，AL03 在亚秒级完成。未对 AL02 发起新的网络探针，避免扩大访问范围。
 - 修改：同步服务在本机应用数据目录写入有上限的 `coolify-sync-log.json`；每次同步记录阶段、实例、端点类别、开始 / 成功 / 失败、耗时、响应数量、读取计数和脱敏错误。最多保留 12 次运行、每次 512 个事件，文件上限 1 MiB；令牌、授权头、完整 URL 和原始响应不落盘。
-- 界面：关系白板工具栏新增“日志”，直接显示最近同步、实例结果、已读取数量、端点成功 / 失败次数、耗时和逐事件时间线；可在文件管理器中定位日志文件。同步进行中和应用重启中断也会显示，不把部署失败与同步失败混为一谈。
+- 界面：关系白板工具栏新增“日志”，直接显示最近同步、实例结果、已读取数量、端点成功 / 失败次数、耗时和逐事件时间线；没有新日志时也读取本机拓扑缓存，直接显示当前实例 / 服务器 / 部署数量，不触发网络请求；可在文件管理器中定位日志文件。同步进行中和应用重启中断也会显示，不把部署失败与同步失败混为一谈。
 - 验证：Coolify、白板和 Panel 专项通过；renderer 构建、251 个 JavaScript 文件语法检查和 `git diff --check` 通过。全量测试仍有一个既有的 `test/relationship-css-reuse.test.js` 边框计数失败（HEAD 基线同样为 19 次，阈值为 18），与本次日志改动无关。
-- 发布：版本 `2.0.0-alpha.113`，代码提交 `a570febc66efe181da4a77ac497f9feafefa1f39` 已构建；macOS arm64 development ZIP `/Volumes/project/制品与备份/gitfinder-2/2.0.0-alpha.113/GitFinder-2-2.0.0-alpha.113-arm64-mac.zip`，SHA-256 `e43ea47cd9a0f671288afcb031938d70c30b829692ec7725baf5701a21b1be45`，ASAR SHA-256 `dae29cd1145aacd4013a79861fad72e59ff0dfc386939a4b3404905488d7fc8f`。
-- 安装：已替换 `/Applications/GitFinder 2 Alpha87.app`，包内版本 alpha.113，codesign deep/strict 通过；替换前包备份于 `/Volumes/project/制品与备份/gitfinder-2/installed-backups/alpha113-pre-final-rebuild-20260907-062833/`，alpha.112 仍可从上一份备份恢复。开发包为 ad-hoc 签名，尚未上传商店或切换公开 current。
-- 待用户验收：旧 alpha.112 尚未生成日志；新版首次同步后点击白板工具栏“日志”，确认真实端点和读取计数显示。为遵守当前访问边界，本轮没有额外探测 AL02。
+- 待完成：递增到 alpha.114 后构建、替换本机、提交并推送；在安装版点击“日志”确认缓存摘要 / 真实日志内容。为遵守当前访问边界，本轮没有额外探测 AL02。
 
 ## 当前修复：Coolify 同步进度与已读数据可见（alpha.112，已构建并替换本机）
 
