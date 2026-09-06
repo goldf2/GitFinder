@@ -8,6 +8,13 @@
 - 验证：Coolify 服务专项 18/18；全量 `npm run check` 1068/1068，251 个 JavaScript 文件语法检查和 renderer 构建通过。
 - 遗留：待执行 alpha.108 macOS arm64 打包、替换本机安装版、可见同步验收、提交并推送。
 
+## 2026-09-06 20:47:00 +0800 · alpha.108 构建与本机替换
+
+- 构建：`npm run pack` 成功；代码提交 `b0fb685dc71f3c1825ce76a2d15248440a96e17f`，版本 `2.0.0-alpha.108`。开发包为 ad-hoc 签名，正式分发资格仍为否。
+- 制品：ZIP `/Volumes/project/制品与备份/gitfinder-2/2.0.0-alpha.108/GitFinder-2-2.0.0-alpha.108-arm64-mac.zip`，SHA-256 `e23a6ce32281c6e3235fe407727f2b131c0cf9a602442186e75105639fbdab36`；ASAR SHA-256 `5f426aa37d6b444c99bd514d121b1d02534d7dfcaaea70156329f4855cca4814`。
+- 安装：正常退出旧 alpha.107，备份至 `/Volumes/project/制品与备份/gitfinder-2/installed-backups/alpha107-before-alpha108-20260906/`，替换 `/Applications/GitFinder 2 Alpha87.app`；Info.plist 版本、构建 / 安装 ASAR 和 `codesign --verify --deep --strict` 均通过。
+- 实测：启动后 Coolify 无凭据缓存刷新为 `ready`，3 个实例、35 个部署、`errors=[]`；10 个部署历史从缓存恢复并标记陈旧。Mac 目前锁屏，CUA 视觉验收待用户解锁。
+
 ## 2026-09-06 20:20:00 +0800 · alpha.107 Coolify 同步非阻塞修复
 
 - 目标：修复本机工作区语义完成后仍显示 Coolify“同步中”过久 / 经常失效的剩余阻塞。

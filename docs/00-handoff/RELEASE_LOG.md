@@ -1,10 +1,12 @@
 # GitFinder 2 发布记录
 
-## 2026-09-06 20:40:00 +0800 · 2.0.0-alpha.108（待打包）
+## 2026-09-06 20:47:00 +0800 · 2.0.0-alpha.108（已构建，待推送）
 
 - 内容：延续 alpha.107 的本机工作区资源组合语义和 Coolify 后台解耦；新增拓扑快速部署历史策略，避免大型 Coolify 应用列表的历史端点阻塞首屏，并从无凭据缓存保留未重新读取的历史事实。
-- 门禁：`npm run check` 已通过 1068/1068 测试、251 个 JavaScript 文件语法检查和 renderer 构建；macOS arm64 制品、本机替换、提交和推送待完成。
-- 发布范围：尚未上传商店或切换公开 current；完成打包后补充 ZIP、清单、哈希、安装版和提交证据。
+- 门禁：`npm run check` 已通过 1068/1068 测试、251 个 JavaScript 文件语法检查和 renderer 构建；`npm run pack` 通过 development/ad-hoc 制品门禁。
+- 制品：`/Volumes/project/制品与备份/gitfinder-2/2.0.0-alpha.108/GitFinder-2-2.0.0-alpha.108-arm64-mac.zip`，SHA-256 `e23a6ce32281c6e3235fe407727f2b131c0cf9a602442186e75105639fbdab36`；ASAR SHA-256 `5f426aa37d6b444c99bd514d121b1d02534d7dfcaaea70156329f4855cca4814`；源码提交 `b0fb685dc71f3c1825ce76a2d15248440a96e17f`。
+- 安装：`/Applications/GitFinder 2 Alpha87.app` 已替换，包内版本 `2.0.0-alpha.108`，旧版备份到 `/Volumes/project/制品与备份/gitfinder-2/installed-backups/alpha107-before-alpha108-20260906/`。正式签名 / 公证仍未执行。
+- 发布范围：尚未上传商店或切换公开 current；文档收口后推送。Mac 锁屏导致安装版视觉验收待解锁。
 
 ## 2026-09-06 20:20:00 +0800 · 2.0.0-alpha.107（待打包）
 
