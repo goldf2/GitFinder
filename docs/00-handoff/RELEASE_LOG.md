@@ -1,5 +1,14 @@
 # GitFinder 2 发布记录
 
+## 2026-09-07 06:30:00 +0800 · 2.0.0-alpha.113（已构建并替换本机）
+
+- 提交：`a570febc66efe181da4a77ac497f9feafefa1f39`，代码提交已完成；文档收口随后单独提交。
+- 内容：Coolify 同步持久化脱敏日志；关系白板“日志”面板显示阶段、端点状态、耗时、响应数量、实例结果、读取计数和错误；支持在文件管理器中定位日志；限制 12 次运行 / 512 事件 / 1 MiB。
+- 门禁：renderer 构建、Coolify / 白板 / Panel 专项通过，251 个 JavaScript 文件语法检查通过；全量测试唯一失败为工作树既有 `relationship-css-reuse` 边框计数阈值，HEAD 基线同样为 19 次 / 阈值 18；本次没有新增该失败。
+- 制品：`/Volumes/project/制品与备份/gitfinder-2/2.0.0-alpha.113/GitFinder-2-2.0.0-alpha.113-arm64-mac.zip`；ZIP SHA-256 `e43ea47cd9a0f671288afcb031938d70c30b829692ec7725baf5701a21b1be45`；ASAR SHA-256 `dae29cd1145aacd4013a79861fad72e59ff0dfc386939a4b3404905488d7fc8f`；同时生成 `latest-mac.yml` 与 `release-verification.json`。
+- 安装：`/Applications/GitFinder 2 Alpha87.app` 包内版本 `2.0.0-alpha.113`，codesign deep/strict 通过；替换前 alpha.113 包备份于 `/Volumes/project/制品与备份/gitfinder-2/installed-backups/alpha113-pre-final-rebuild-20260907-062833/`，alpha.112 可从上一份备份恢复。
+- 范围：开发包为 ad-hoc 签名，不具备正式分发资格；尚未上传商店、切换公开 current 或额外探测 AL02。待用户首次新版同步后确认日志面板。
+
 ## 2026-09-07 05:52:00 +0800 · 2.0.0-alpha.112（已构建并替换本机）
 
 - 提交：`4d792c4ed4b7732addcd37d6c01e63ade49af090`，已推送 `origin/main`。
