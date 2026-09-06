@@ -1,5 +1,15 @@
 # GitFinder 2 Debug 记录
 
+## GF-COOLIFY-20260907-01 · Coolify 同步挂起被误判为闪退
+
+- 时间：2026-09-07 04:57:09 +0800；状态：已修复并由用户现场截图确认，交付 alpha.110。
+- 现象：关系白板长时间停在“Coolify 后台同步中…”，画布暂时空白；录屏结束后主进程、渲染进程仍存在，未发现 GitFinder 崩溃报告。
+- 根因：Coolify 请求原先仅调用 `AbortController.abort()`；当 fetch 或响应体 Promise 不兑现时，IPC 请求仍可永久悬挂，且实例聚合没有 provider 级截止时间。
+- 修改：`requestCoolifyJson` 增加硬超时和外部取消；每个 provider 设置 30 秒同步预算并向下传播 `AbortSignal`；连接更新 / 断开取消活跃同步；provider 身份校验阻止迟到结果写入访问点白名单或拓扑缓存。
+- 回归：Coolify / endpoint 专项 29/29；全量 `npm run check` 通过 1073/1073 测试、251 个 JavaScript 文件语法检查和 renderer 构建；`npm run pack` 通过。
+- 现场验收：安装版 alpha.110 重新打开后状态栏显示“3 个 Coolify · 3 台服务器 · 35 个部署 · 3 个最近失败”，同步已结束且进程保持运行。橙色表示 Coolify 已完成读取但存在 3 条最近失败部署记录，不表示同步再次挂死。
+- 交付：修复提交 `e9145ab` 已推送 `origin/main`；macOS arm64 制品和回滚备份路径见 `CURRENT_STATE.md` 与 `RELEASE_LOG.md`。后续若需处理橙色警告，应单独定位 3 条失败部署，不要把它们与本次同步挂起混为一谈。
+
 ## GF-DIR-20260905-01 · 目录右键与设为项目动作无响应
 
 - 时间：2026-09-05 18:02:00 +0800；状态：已修复并交付 alpha.98。
