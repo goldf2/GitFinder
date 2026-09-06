@@ -589,9 +589,10 @@ test('白板不在画布内重复暴露 Coolify Token，连接统一放在应用
 });
 
 test('Coolify 动态拓扑通过只读 IPC 投影到白板而不写入持久关系事实', () => {
-  assert.match(preloadSource, /getTopology:\s*\(\)\s*=>\s*ipcRenderer\.invoke\('panel:getTopology'\)/);
+  assert.match(preloadSource, /getTopology:\s*\(options = \{\}\)\s*=>\s*ipcRenderer\.invoke\('panel:getTopology', options\)/);
   assert.match(preloadSource, /getCachedTopology:\s*\(\)\s*=>\s*ipcRenderer\.invoke\('panel:getCachedTopology'\)/);
-  assert.match(preloadSource, /refreshTopology:\s*\(\)\s*=>\s*ipcRenderer\.invoke\('panel:refreshTopology'\)/);
+  assert.match(preloadSource, /refreshTopology:\s*\(options = \{\}\)\s*=>\s*ipcRenderer\.invoke\('panel:refreshTopology', options\)/);
+  assert.match(preloadSource, /onSyncProgress:\s*\(callback\)/);
   assert.match(preloadSource, /getProjectBindings:\s*\(directoryPath\)\s*=>\s*ipcRenderer\.invoke\('panel:getProjectBindings'/);
   assert.match(controllerSource, /PanelTopologyProjection/);
   assert.match(controllerSource, /data-panel-topology-status/);
@@ -679,6 +680,81 @@ test('Coolify 部分实例失败时显示部分同步，不把可用快照误报
   assert.match(status.label, /1 个实例失败/);
   assert.doesNotMatch(status.label, /同步失败/);
   assert.match(status.title, /AL02|ETIMEDOUT/);
+});
+
+test('Coolify 同步状态显示实例、阶段和阶段计数', () => {
+  const controller = new Controller({ bridge: {} });
+  controller.panelRefreshInFlight = true;
+  controller.panelSyncRequestId = 'panel_sync_test_1';
+  controller.panelSyncProgress = {
+    requestId: 'panel_sync_test_1',
+    state: 'running',
+    phase: 'project-details',
+    phaseLabel: '读取 Project 详情',
+    providerLabel: 'con01',
+    providerCount: 3,
+    completedProviders: 1,
+    completed: 14,
+    total: 37,
+    readCounts: { servers: 3, projects: 9, applications: 20, services: 2, databases: 1, deployments: 23, projectDetails: 7 },
+    updatedAt: new Date().toISOString()
+  };
+  const status = controller._panelStatusView();
+  assert.equal(status.state, 'loading');
+  assert.match(status.label, /1\/3 个 Coolify/);
+  assert.match(status.label, /con01/);
+  assert.match(status.label, /读取 Project 详情 14\/37/);
+  assert.match(status.label, /已读 项目详情 7\/37/);
+});
+
+test('Coolify 同步状态显示已读取的数据数量', () => {
+  const controller = new Controller({ bridge: {} });
+  controller.panelRefreshInFlight = true;
+  controller.panelSyncRequestId = 'panel_sync_data_1';
+  controller.panelSyncProgress = {
+    requestId: 'panel_sync_data_1',
+    state: 'running',
+    phase: 'endpoints',
+    phaseLabel: '读取基础资源',
+    providerLabel: 'con01',
+    providerCount: 1,
+    completedProviders: 0,
+    completed: 4,
+    total: 5,
+    readCounts: { servers: 3, projects: 9, applications: 20, services: 2, databases: 1, deployments: 23 }
+  };
+  const status = controller._panelStatusView();
+  assert.match(status.label, /已读 服务器 3/);
+  assert.match(status.label, /项目 9/);
+  assert.match(status.title, /应用 20/);
+  assert.match(status.title, /数据库 1/);
+  controller.panelSyncProgress = { ...controller.panelSyncProgress, phase: 'finalizing', phaseLabel: '整理拓扑' };
+  const finalizingStatus = controller._panelStatusView();
+  assert.match(finalizingStatus.label, /已读 服务器 3/);
+  assert.match(finalizingStatus.label, /部署 23/);
+});
+
+test('关闭白板后丢弃旧 Coolify 同步进度事件', () => {
+  const controller = new Controller({ bridge: {} });
+  controller.panelRefreshInFlight = true;
+  controller.panelSyncRequestId = 'panel_sync_current';
+  controller._updatePanelStatus = () => {};
+  controller._handlePanelSyncProgress({
+    requestId: 'panel_sync_old',
+    state: 'running',
+    phaseLabel: '读取部署历史',
+    providerCount: 2,
+    completedProviders: 1
+  });
+  assert.equal(controller.panelSyncProgress, null);
+  controller._handlePanelSyncProgress({
+    requestId: 'panel_sync_current',
+    state: 'running',
+    phaseLabel: '读取部署历史',
+    providerCount: 2,
+    completedProviders: 1
+  });
+  assert.equal(controller.panelSyncProgress.requestId, 'panel_sync_current');
 });
 
 test('关系白板不等待全盘项目扫描或 Coolify 网络即可先显示本机关系与仓库', async () => {

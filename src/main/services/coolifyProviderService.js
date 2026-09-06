@@ -27,6 +27,84 @@ const MAX_PROJECTS = 256;
 const MAX_BINDINGS = 50;
 const MAX_BINDING_REPOSITORIES = 8;
 const MAX_DEPLOYMENT_LOOKUPS = 100;
+const PROGRESS_PHASES = new Set(['endpoints', 'project-details', 'deployment-history', 'finalizing']);
+const PROGRESS_PHASE_LABELS = {
+  endpoints: '读取基础资源',
+  'project-details': '读取项目详情',
+  'deployment-history': '读取部署历史',
+  finalizing: '整理拓扑'
+};
+
+function redactProgressText(value, maxLength = 160) {
+  return cleanText(value, maxLength)
+    .replace(/https?:\/\/[^\s]+/gi, '[redacted-url]')
+    .replace(/\b(?:bearer|token|secret|password|access[_-]?token)\s*[:=]?\s*[^\s,;]+/gi, '[redacted-secret]');
+}
+
+function progressCount(value, fallback = 0) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return fallback;
+  return Math.max(0, Math.floor(number));
+}
+
+const PROGRESS_COUNT_KEYS = [
+  'applications', 'services', 'databases', 'servers', 'projects', 'deployments',
+  'projectDetails', 'deploymentHistory'
+];
+
+function normalizeProgressCounts(value) {
+  if (!value || typeof value !== 'object') return {};
+  return PROGRESS_COUNT_KEYS.reduce((counts, key) => {
+    if (value[key] !== undefined && value[key] !== null) counts[key] = progressCount(value[key]);
+    return counts;
+  }, {});
+}
+
+/**
+ * Progress is deliberately a best-effort side channel.  A renderer callback
+ * must never be able to interrupt a sync, and its payload must not contain a
+ * provider URL, API token, or an arbitrary fetch error.
+ */
+function emitProgress(options = {}, payload = {}) {
+  if (typeof options.onProgress !== 'function') return;
+  if (options.signal?.aborted && !payload.allowAborted) return;
+  const phase = PROGRESS_PHASES.has(payload.phase) ? payload.phase : 'finalizing';
+  const total = progressCount(payload.total);
+  const completed = Math.min(total, progressCount(payload.completed));
+  const status = ['running', 'completed', 'failed', 'cancelled'].includes(payload.status)
+    ? payload.status : 'running';
+  const state = ['running', 'ready', 'warning', 'error', 'cancelled'].includes(payload.state)
+    ? payload.state
+    : ({ completed: 'ready', failed: 'error', cancelled: 'cancelled' }[status] || 'running');
+  const providerCount = progressCount(payload.providerCount ?? options.providerCount);
+  const completedProviders = Math.min(providerCount, progressCount(payload.completedProviders ?? options.completedProviders));
+  const startedAt = redactProgressText(payload.startedAt ?? options.startedAt, 40);
+  const updatedAt = redactProgressText(payload.updatedAt ?? new Date().toISOString(), 40);
+  const event = {
+    requestId: redactProgressText(options.requestId, 160),
+    providerId: redactProgressText(options.providerId, 160),
+    providerLabel: redactProgressText(options.providerLabel, 160),
+    phase,
+    phaseLabel: PROGRESS_PHASE_LABELS[phase],
+    state,
+    providerCount,
+    completedProviders,
+    completed,
+    total,
+    status,
+    startedAt,
+    updatedAt
+  };
+  const readCounts = normalizeProgressCounts(payload.readCounts);
+  if (Object.keys(readCounts).length) event.readCounts = readCounts;
+  if (payload.error) event.error = redactProgressText(payload.error, 240);
+  try {
+    const result = options.onProgress(event);
+    if (result && typeof result.catch === 'function') result.catch(() => {});
+  } catch (_) {
+    // Progress observers are non-critical and must not affect synchronization.
+  }
+}
 
 function normalizeCoolifyBaseUrl(value) {
   return normalizeBaseUrl(value, {
@@ -354,7 +432,15 @@ async function mapWithConcurrency(values, concurrency, mapper) {
   return results;
 }
 
-async function readCoolifyOverview(options = {}) {
+async function readCoolifyOverviewInternal(options = {}) {
+  const progressState = options._progressState || { phase: 'endpoints' };
+  const readCounts = {};
+  const report = (phase, completed, total, status = 'running', error = '') => {
+    progressState.phase = phase;
+    progressState.completed = progressCount(completed);
+    progressState.total = progressCount(total);
+    emitProgress(options, { phase, completed, total, status, error, readCounts });
+  };
   const baseUrl = normalizeCoolifyBaseUrl(options.baseUrl);
   const token = normalizeToken(options.token);
   const observedAt = normalizeTimestamp(options.observedAt, new Date().toISOString());
@@ -365,14 +451,27 @@ async function readCoolifyOverview(options = {}) {
     token,
     pathname
   });
-  const endpointResults = await Promise.allSettled([
-    get(`${API_PREFIX}/applications`),
-    get(`${API_PREFIX}/services`),
-    get(`${API_PREFIX}/databases`),
-    get(`${API_PREFIX}/servers`),
-    get(`${API_PREFIX}/projects`)
-  ]);
+  const endpointPaths = [
+    `${API_PREFIX}/applications`,
+    `${API_PREFIX}/services`,
+    `${API_PREFIX}/databases`,
+    `${API_PREFIX}/servers`,
+    `${API_PREFIX}/projects`
+  ];
   const names = ['applications', 'services', 'databases', 'servers', 'projects'];
+  let endpointCompleted = 0;
+  report('endpoints', 0, endpointPaths.length);
+  const endpointResults = await Promise.allSettled(endpointPaths.map((pathname, index) => Promise.resolve()
+    .then(() => get(pathname))
+    .then(value => {
+      if (Array.isArray(value)) readCounts[names[index]] = value.length;
+      return value;
+    })
+    .finally(() => {
+      endpointCompleted += 1;
+      report('endpoints', endpointCompleted, endpointPaths.length);
+    })));
+  report('endpoints', endpointPaths.length, endpointPaths.length, 'completed');
   const values = endpointResults.map(result => result.status === 'fulfilled' && Array.isArray(result.value) ? result.value : []);
   const errors = endpointResults.flatMap((result, index) => result.status === 'rejected'
     ? [{ kind: names[index], message: result.reason?.message || String(result.reason) }]
@@ -381,6 +480,7 @@ async function readCoolifyOverview(options = {}) {
     throw endpointResults[0].reason;
   }
   const [applications, services, databases, rawServers, rawProjects] = values;
+  readCounts.deployments = applications.length + services.length + databases.length;
   if (applications.length + services.length + databases.length > MAX_RESOURCES) throw new Error(`Coolify 资源数量超过 ${MAX_RESOURCES} 个的安全上限`);
   if (rawServers.length > MAX_SERVERS) throw new Error(`Coolify 服务器数量超过 ${MAX_SERVERS} 个的安全上限`);
   if (rawProjects.length > MAX_PROJECTS) throw new Error(`Coolify 项目数量超过 ${MAX_PROJECTS} 个的安全上限`);
@@ -389,15 +489,29 @@ async function readCoolifyOverview(options = {}) {
   // Resolve only its explicit source identity; never infer the host from a name.
   const needsGithubSource = resource => resource.source_type === 'App\\Models\\GithubApp' && resource.source_id != null
     && ![resource.git_full_url, resource.git_repository, resource.repository].some(repositoryKey);
+  const needsSourceHosts = applications.some(needsGithubSource);
+  let projectDetailsCompleted = 0;
+  const projectDetailsTotal = rawProjects.length + (needsSourceHosts ? 1 : 0);
+  readCounts.projectDetails = 0;
+  report('project-details', 0, projectDetailsTotal);
   const [projectDetails, sourceHosts] = await Promise.all([
-    mapWithConcurrency(rawProjects, 4, project => get(`${API_PREFIX}/projects/${encodeURIComponent(project.uuid)}`)),
-    applications.some(needsGithubSource) ? get(`${API_PREFIX}/github-apps`).then(sources => new Map(
+    mapWithConcurrency(rawProjects, 4, project => get(`${API_PREFIX}/projects/${encodeURIComponent(project.uuid)}`).finally(() => {
+      projectDetailsCompleted += 1;
+      readCounts.projectDetails = projectDetailsCompleted;
+      report('project-details', projectDetailsCompleted, projectDetailsTotal);
+    })),
+    needsSourceHosts ? get(`${API_PREFIX}/github-apps`).then(sources => new Map(
       (Array.isArray(sources) ? sources : []).map(source => [String(source.id), cleanText(source.html_url, 1000)])
     )).catch(error => {
       errors.push({ kind: 'repository-source', message: error.message });
       return new Map();
+    }).finally(() => {
+      projectDetailsCompleted += 1;
+      readCounts.projectDetails = projectDetailsCompleted;
+      report('project-details', projectDetailsCompleted, projectDetailsTotal);
     }) : new Map()
   ]);
+  report('project-details', projectDetailsTotal, projectDetailsTotal, 'completed');
   const environmentById = new Map();
   projectDetails.forEach((result, index) => {
     if (result.status === 'rejected') {
@@ -448,20 +562,30 @@ async function readCoolifyOverview(options = {}) {
       return rightTime - leftTime;
     })
     .slice(0, historyLimit);
+  let deploymentCompleted = 0;
+  readCounts.deploymentHistory = 0;
+  report('deployment-history', 0, historyApplications.length);
   const deploymentResults = await mapWithConcurrency(
     historyApplications,
     historyMode === 'fast' ? 8 : 4,
     ({ application }) => get(
       `${API_PREFIX}/deployments/applications/${encodeURIComponent(application.uuid)}?skip=0&take=1`,
       historyMode === 'fast' ? { timeoutMs: options.deploymentHistoryTimeoutMs || 4_000 } : {}
-    )
+    ).finally(() => {
+      deploymentCompleted += 1;
+      readCounts.deploymentHistory = deploymentCompleted;
+      report('deployment-history', deploymentCompleted, historyApplications.length);
+    })
   );
+  report('deployment-history', historyApplications.length, historyApplications.length, 'completed');
   const deploymentByApplication = new Map();
   deploymentResults.forEach((result, index) => {
     const application = historyApplications[index].application;
     if (result.status === 'fulfilled') deploymentByApplication.set(String(application.uuid), deploymentFacts(result.value, observedAt));
     else errors.push({ kind: 'deployment', resourceUuid: String(application.uuid), message: result.reason?.message || String(result.reason) });
   });
+
+  report('finalizing', 0, 1);
 
   const resources = [
     ...applications.map(resource => normalizeCoolifyResource(resource, 'application', {
@@ -493,7 +617,7 @@ async function readCoolifyOverview(options = {}) {
       coolifyUrl: baseUrl
     };
   });
-  return {
+  const result = {
     generatedAt: observedAt,
     servers,
     deployments: resources,
@@ -505,6 +629,27 @@ async function readCoolifyOverview(options = {}) {
       deferred: Math.max(0, applications.length - historyApplications.length)
     }
   };
+  report('finalizing', 1, 1, 'completed');
+  return result;
+}
+
+async function readCoolifyOverview(options = {}) {
+  const progressState = { phase: 'endpoints' };
+  const internalOptions = { ...options, _progressState: progressState };
+  try {
+    return await readCoolifyOverviewInternal(internalOptions);
+  } catch (error) {
+    const cancelled = error?.code === 'ABORT_ERR' || options.signal?.aborted;
+    emitProgress(options, {
+      phase: progressState.phase,
+      completed: progressState.completed,
+      total: progressState.total,
+      status: cancelled ? 'cancelled' : 'failed',
+      error: cancelled ? '' : error?.message,
+      allowAborted: true
+    });
+    throw error;
+  }
 }
 
 function normalizeBinding(value = {}) {
@@ -881,19 +1026,69 @@ class CoolifyProviderService {
     const providers = providerId ? [this._findProvider(providerId)] : this._loadProviders();
     if (!providers.length) return { state: 'unconfigured', providers: [], successes: [], errors: [] };
     const providerTimeoutMs = options.providerTimeoutMs || PROVIDER_SYNC_TIMEOUT_MS;
+    const providerCount = providers.length;
+    const startedAt = normalizeTimestamp(this.now(), new Date().toISOString());
+    let completedProviders = 0;
+    const reportProvider = (provider, payload = {}) => emitProgress({
+      ...options,
+      signal: undefined,
+      providerId: provider?.providerId || payload.providerId,
+      providerLabel: provider?.label || payload.providerLabel,
+      providerCount,
+      completedProviders,
+      startedAt
+    }, {
+      ...payload,
+      providerCount,
+      completedProviders,
+      startedAt,
+      updatedAt: normalizeTimestamp(this.now(), new Date().toISOString())
+    });
     const settled = await Promise.allSettled(providers.map(async provider => {
       const controller = new AbortController();
+      let active = true;
       this.activeSyncControllers.add(controller);
       try {
         const overview = await withTimeout(
-          signal => this._overview(provider, { ...options, signal }),
+          signal => this._overview(provider, {
+            ...options,
+            signal,
+            onProgress: progress => {
+              if (!active) return;
+              reportProvider(provider, progress);
+            }
+          }),
           providerTimeoutMs,
           `Coolify 实例同步超时（超过 ${Math.ceil(providerTimeoutMs / 1000)} 秒）`,
           { controller }
         );
         if (!this._isCurrentProvider(provider)) throw Object.assign(new Error('Coolify 实例已变更，同步结果已丢弃'), { code: 'ESTALE' });
+        completedProviders += 1;
+        const warning = Array.isArray(overview.errors) && overview.errors.length > 0;
+        reportProvider(provider, {
+          phase: 'finalizing',
+          completed: 1,
+          total: 1,
+          status: 'completed',
+          state: warning ? 'warning' : 'ready',
+          error: warning ? overview.errors[0]?.message : ''
+        });
         return { provider, overview };
+      } catch (error) {
+        completedProviders += 1;
+        const cancelled = error?.code === 'ABORT_ERR' || controller.signal.aborted;
+        reportProvider(provider, {
+          phase: 'finalizing',
+          completed: 0,
+          total: 1,
+          status: cancelled ? 'cancelled' : 'failed',
+          state: cancelled ? 'cancelled' : 'error',
+          error: error?.message,
+          allowAborted: true
+        });
+        throw error;
       } finally {
+        active = false;
         this.activeSyncControllers.delete(controller);
       }
     }));
@@ -901,12 +1096,31 @@ class CoolifyProviderService {
     const errors = settled.flatMap((result, index) => result.status === 'rejected'
       ? [{ providerId: providers[index].providerId, label: providers[index].label, message: result.reason?.message || String(result.reason) }]
       : []);
-    return {
+    const aggregate = {
       state: successes.length ? 'ready' : 'error',
       providers: providers.map(provider => this._publicConnection(provider)),
       successes,
       errors
     };
+    if (typeof options.onProgress === 'function') {
+      const overallState = successes.length ? (errors.length ? 'warning' : 'ready') : 'error';
+      emitProgress({
+        ...options,
+        signal: undefined,
+        providerCount,
+        completedProviders,
+        startedAt
+      }, {
+        phase: 'finalizing',
+        completed: providerCount,
+        total: providerCount,
+        status: overallState === 'error' ? 'failed' : 'completed',
+        state: overallState,
+        error: errors[0]?.message,
+        allowAborted: true
+      });
+    }
+    return aggregate;
   }
 
   async getCatalog(providerId = '') {
@@ -924,8 +1138,8 @@ class CoolifyProviderService {
     };
   }
 
-  async getTopology() {
-    const result = await this._aggregate('', { deploymentHistoryMode: 'fast' });
+  async getTopology(options = {}) {
+    const result = await this._aggregate('', { ...options, deploymentHistoryMode: 'fast' });
     const currentProviders = this._loadProviders();
     this.endpointHealth.retainProviders(currentProviders.map(item => item.providerId));
     for (const { provider, overview } of result.successes) {

@@ -1,5 +1,21 @@
 # GitFinder 2 发布记录
 
+## 2026-09-07 05:52:00 +0800 · 2.0.0-alpha.112（已构建并替换本机）
+
+- 内容：在 Coolify 同步阶段进度上增加安全的已读数据计数。基础端点显示服务器 / 项目 / 应用 / 服务 / 数据库数量；项目详情和部署历史显示已完成数量；状态标题保留完整读数，最终状态继续显示服务器、部署和失败汇总。
+- 门禁：`npm run check` 通过 1079/1079 测试、251 个 JavaScript 文件语法检查和 renderer 构建；`npm run pack` 通过 development/ad-hoc 制品门禁。正式分发资格仍为否。
+- 制品：`/Volumes/project/项目/gitfinder-2/dist/GitFinder-2-2.0.0-alpha.112-arm64-mac.zip`；SHA-256 `2b38301303bd4b922a1ffb33a80cfe041f2eddcd32c85eb121154dcf64e14162`；同时生成 `dist/latest-mac.yml` 与 `dist/release-verification.json`。
+- 安装：`/Applications/GitFinder 2 Alpha87.app` 包内版本 `2.0.0-alpha.112`，codesign deep/strict 通过；alpha.111 替换前备份位于 `/Volumes/project/制品与备份/gitfinder-2/installed-backups/alpha111-pre-alpha112-replace-20260907/`。
+- 实测：CUA 采样到 `2/3 个 Coolify · con01 · 读取基础资源 2/5 · 已读 服务器 1 · 项目 8`，同步完成后显示 `3 个 Coolify · 3 台服务器 · 35 个部署 · 3 个最近失败`；进程持续存活。
+- 发布范围：尚未上传商店或切换公开 current；Windows / 正式签名未执行。
+
+## 2026-09-07 05:38:00 +0800 · 2.0.0-alpha.111（源码已实现，待构建）
+
+- 内容：为 Coolify 同步增加阶段进度事件和实例级计数；状态栏显示基础资源、项目详情、部署历史、拓扑整理等阶段，保留 alpha.110 的超时、取消、缓存和迟到结果保护。
+- IPC：新增 `panel:syncProgress` 定向事件和 requestId；事件不包含 URL、Token 或未脱敏网络错误。
+- 验证：Coolify 专项 26/26；关系白板与 Panel 专项合计 129 项通过。完整门禁、制品和安装验收待本次打包完成后补录。
+- 发布范围：尚未构建或替换本机，尚未上传商店；Windows / 正式签名未执行。
+
 ## 2026-09-07 04:32:00 +0800 · 2.0.0-alpha.110（已构建并替换本机）
 
 - 内容：修复 Coolify API / provider 同步永久挂起导致的白板“后台同步中”假闪退；增加硬请求超时、30 秒 provider 截止、AbortSignal 传播、配置变更取消和迟到结果防污染。

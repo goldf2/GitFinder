@@ -233,6 +233,76 @@ test('直接读取 Coolify 官方只读端点并归一化主机、部署和最�
   assert.equal(calls.some(call => call.path.startsWith('/api/gitfinder/')), false);
 });
 
+test('Coolify 读取进度按阶段递增并报告安全计数', async t => {
+  const { fetchImpl } = createHarness(t);
+  const progress = [];
+  await readCoolifyOverview({
+    baseUrl: 'https://cool.example.com',
+    token: 'fixture-progress-token',
+    providerId: 'provider_1',
+    providerLabel: '生产 Coolify',
+    requestId: 'sync_123',
+    fetchImpl,
+    onProgress: event => progress.push(event)
+  });
+  assert.ok(progress.length > 0);
+  assert.equal(progress[0].phase, 'endpoints');
+  const phases = [...new Set(progress.map(event => event.phase))];
+  assert.deepEqual(phases, ['endpoints', 'project-details', 'deployment-history', 'finalizing']);
+  let lastPhase = -1;
+  for (const event of progress) {
+    const phaseIndex = phases.indexOf(event.phase);
+    assert.ok(phaseIndex >= lastPhase, `阶段不应回退：${event.phase}`);
+    lastPhase = phaseIndex;
+    assert.equal(event.requestId, 'sync_123');
+    assert.equal(event.providerId, 'provider_1');
+    assert.equal(event.providerLabel, '生产 Coolify');
+    assert.ok(event.completed <= event.total);
+    assert.equal(event.state, event.status === 'completed' ? 'ready' : 'running');
+    assert.doesNotMatch(JSON.stringify(event), /cool\.example\.com|fixture-progress-token|Bearer/i);
+  }
+  for (const phase of phases) {
+    const phaseEvents = progress.filter(event => event.phase === phase);
+    const last = phaseEvents.at(-1);
+    assert.equal(last.completed, last.total, `${phase} 应报告完成计数`);
+    assert.equal(last.status, 'completed', `${phase} 应报告完成状态`);
+  }
+  const endpointWithCounts = progress.find(event => event.phase === 'endpoints' && event.readCounts?.applications === 1);
+  assert.ok(endpointWithCounts, '基础端点阶段应显示已读取的应用数量');
+  assert.equal(endpointWithCounts.readCounts.services, 1);
+  assert.equal(endpointWithCounts.readCounts.databases, 0);
+  assert.equal(endpointWithCounts.readCounts.servers, 1);
+  assert.equal(endpointWithCounts.readCounts.projects, 1);
+  const projectDetails = progress.filter(event => event.phase === 'project-details').at(-1);
+  assert.equal(projectDetails.readCounts.projectDetails, 1);
+  const history = progress.filter(event => event.phase === 'deployment-history').at(-1);
+  assert.equal(history.readCounts.deploymentHistory, 1);
+  assert.equal(history.readCounts.deployments, 2);
+});
+
+test('聚合进度携带请求 ID、实例总数和已完成实例数', async t => {
+  const { service } = createHarness(t);
+  await service.connect({ baseUrl: 'https://cool.example.com', label: '生产 Coolify', token: 'fixture-progress-token' });
+  await service.connect({ baseUrl: 'https://cool-standby.example.com', label: '备用 Coolify', token: 'fixture-progress-token-2' });
+  const progress = [];
+  const result = await service._aggregate('', {
+    deploymentHistoryMode: 'fast',
+    requestId: 'sync_aggregate_1',
+    onProgress: event => progress.push(event)
+  });
+  assert.equal(result.state, 'ready');
+  assert.ok(progress.length > 0);
+  assert.ok(progress.every(event => event.requestId === 'sync_aggregate_1'));
+  assert.ok(progress.every(event => event.providerCount === 2));
+  assert.equal(Math.max(...progress.map(event => event.completedProviders)), 2);
+  assert.ok(progress.some(event => event.state === 'ready' && event.status === 'completed'));
+  assert.ok(progress.some(event => event.phase === 'endpoints'));
+  assert.ok(progress.some(event => event.phase === 'project-details'));
+  assert.ok(progress.some(event => event.phase === 'deployment-history'));
+  assert.ok(progress.some(event => event.phase === 'finalizing'));
+  assert.doesNotMatch(JSON.stringify(progress), /cool\.example\.com|fixture-progress-token|Bearer/i);
+});
+
 test('拓扑快速路径限制部署历史请求，不让大规模应用列表阻塞首屏', async t => {
   const { calls, fetchImpl } = createHarness(t);
   const overview = await readCoolifyOverview({
@@ -297,6 +367,28 @@ test('实例级超时会取消底层读取，避免迟到响应污染白名单',
   assert.equal(result.errors[0].providerId, provider.providerId);
   assert.equal(signal.aborted, true);
   assert.equal(service.allowedExternalUrls.size, 0);
+});
+
+test('实例超时和失败会报告可识别的失败进度，不泄露地址或令牌', async t => {
+  const { service } = createHarness(t);
+  await service.connect({ baseUrl: 'https://cool.example.com', label: '生产 Coolify', token: 'fixture-progress-token' });
+  service._overview = () => new Promise(() => {});
+  const progress = [];
+  const result = await service._aggregate('', {
+    providerTimeoutMs: 20,
+    requestId: 'sync_timeout_1',
+    onProgress: event => progress.push(event)
+  });
+  assert.equal(result.state, 'error');
+  assert.ok(progress.length > 0);
+  const final = progress.at(-1);
+  assert.equal(final.requestId, 'sync_timeout_1');
+  assert.equal(final.phase, 'finalizing');
+  assert.equal(final.state, 'error');
+  assert.equal(final.status, 'failed');
+  assert.equal(final.completedProviders, 1);
+  assert.match(final.error, /同步超时/);
+  assert.doesNotMatch(JSON.stringify(progress), /cool\.example\.com|fixture-progress-token|Bearer/i);
 });
 
 test('断开实例后迟到的同步结果不会写入白名单或作为成功结果返回', async t => {

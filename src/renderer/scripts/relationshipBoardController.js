@@ -330,6 +330,10 @@
       this.repositoryAssociationRevision = 0;
       this.panelRefreshTimer = null;
       this.panelRefreshInFlight = false;
+      this.panelSyncProgress = null;
+      this.panelSyncRequestId = '';
+      this.panelSyncSequence = 0;
+      this._removePanelSyncProgressListener = this.bridge?.panel?.onSyncProgress?.(progress => this._handlePanelSyncProgress(progress)) || null;
       this.panelMetadataRequestId = 0;
       // Local repository origin checks can be slow (a registry may contain
       // dozens of entries).  They must never keep an otherwise usable
@@ -357,6 +361,15 @@
         if (!event.target.closest?.('.relationship-layout-host')) this._closeLayoutMenu();
         if (!event.target.closest?.('.relationship-topology-alerts')) this._closeTopologyAlerts();
       };
+    }
+
+    _handlePanelSyncProgress(progress = {}) {
+      if (!this.panelRefreshInFlight || !progress || typeof progress !== 'object') return;
+      const requestId = String(progress.requestId || '');
+      if (!requestId || (this.panelSyncRequestId && requestId !== this.panelSyncRequestId)) return;
+      this.panelSyncRequestId = requestId;
+      this.panelSyncProgress = progress;
+      this._updatePanelStatus();
     }
 
     async open(container, options = {}) {
@@ -415,6 +428,8 @@
       this.displayLayoutEdit = null;
       this.openRequestId += 1;
       this.panelRefreshInFlight = false;
+      this.panelSyncRequestId = '';
+      this.panelSyncProgress = null;
       this.panelMetadataRequestId += 1;
       this.repositoryRefreshRequestId += 1;
       this.repositoryRefreshInFlight = false;
@@ -1198,6 +1213,18 @@
       const readTopology = this.bridge?.panel?.refreshTopology || this.bridge?.panel?.getTopology;
       if (this.panelRefreshInFlight || !readTopology) return false;
       this.panelRefreshInFlight = true;
+      const panelSyncRequestId = `panel_sync_${Date.now()}_${++this.panelSyncSequence}`;
+      this.panelSyncRequestId = panelSyncRequestId;
+      this.panelSyncProgress = {
+        requestId: panelSyncRequestId,
+        state: 'running',
+        phase: 'starting',
+        phaseLabel: '准备同步 Coolify',
+        providerCount: 0,
+        completedProviders: 0,
+        completed: 0,
+        total: null
+      };
       const metadataRequestId = ++this.panelMetadataRequestId;
       const openRequestId = this.openRequestId;
       const associationRevision = this.repositoryAssociationRevision;
@@ -1206,7 +1233,7 @@
         // Do not couple the Coolify request to local repository origin checks.
         // The latter invokes `git remote get-url` for every registered repo and
         // can take tens of seconds on an offline/network-mounted directory.
-        const topology = await readTopology.call(this.bridge.panel);
+        const topology = await readTopology.call(this.bridge.panel, { requestId: panelSyncRequestId });
         if (openRequestId !== this.openRequestId || !this.root?.isConnected || this.flowMutationActive) return false;
         if (topology?.state === 'error' && this.panelProjection?.entities?.length) {
           const errors = Array.isArray(topology.errors) ? topology.errors : [];
@@ -1250,6 +1277,10 @@
       } finally {
         if (openRequestId === this.openRequestId) {
           this.panelRefreshInFlight = false;
+          if (this.panelSyncRequestId === panelSyncRequestId) {
+            this.panelSyncRequestId = '';
+            this.panelSyncProgress = null;
+          }
           this._updatePanelStatus();
           this._schedulePanelRefresh();
         }
@@ -1927,11 +1958,64 @@
       return `${Math.round(hours / 24)} 天前`;
     }
 
+    _panelProgressDataView(progress = {}) {
+      const counts = progress?.readCounts && typeof progress.readCounts === 'object' ? progress.readCounts : {};
+      const hasCount = key => Number.isInteger(counts[key]) && counts[key] >= 0;
+      const parts = [];
+      const add = (key, label, suffix = '') => {
+        if (hasCount(key)) parts.push(`${label} ${counts[key]}${suffix}`);
+      };
+      const phase = String(progress.phase || '');
+      if (phase === 'endpoints') {
+        add('servers', '服务器');
+        add('projects', '项目');
+        add('applications', '应用');
+        add('services', '服务');
+        add('databases', '数据库');
+      } else if (phase === 'project-details') {
+        const total = Number.isInteger(progress.total) && progress.total >= 0 ? progress.total : null;
+        add('projectDetails', '项目详情', total === null ? '' : `/${total}`);
+      } else if (phase === 'deployment-history') {
+        const total = Number.isInteger(progress.total) && progress.total >= 0 ? progress.total : null;
+        add('deploymentHistory', '部署历史', total === null ? '' : `/${total}`);
+      } else {
+        add('servers', '服务器');
+        add('projects', '项目');
+        add('deployments', '部署');
+        add('deploymentHistory', '历史');
+      }
+      if (!parts.length) return { label: '', title: '' };
+      const label = `已读 ${parts.join(' · ')}`;
+      return { label, title: label };
+    }
+
     _panelStatusView() {
       const state = this.panelTopologyResult?.state || this.panelProjection?.metadata?.state || 'unconfigured';
       const metadata = this.panelProjection?.metadata || {};
       if (this.panelRefreshInFlight) {
         const hasSnapshot = this.panelTopologyResult?.cached === true || Boolean(metadata.deploymentCount);
+        const progress = this.panelSyncProgress;
+        if (progress?.requestId === this.panelSyncRequestId) {
+          const providerCount = Number.isInteger(progress.providerCount) && progress.providerCount > 0
+            ? progress.providerCount : 0;
+          const completedProviders = Number.isInteger(progress.completedProviders)
+            ? Math.max(0, progress.completedProviders) : 0;
+          const scope = providerCount > 1 ? `${Math.min(completedProviders, providerCount)}/${providerCount} 个 Coolify` : 'Coolify';
+          const phase = String(progress.phaseLabel || '同步中').trim() || '同步中';
+          const count = Number.isInteger(progress.total) && progress.total > 0
+            ? ` ${Math.min(Math.max(0, progress.completed || 0), progress.total)}/${progress.total}` : '';
+          const provider = String(progress.providerLabel || '').trim();
+          const data = this._panelProgressDataView(progress);
+          const label = [scope, provider, `${phase}${count}`, data.label].filter(Boolean).join(' · ');
+          const detail = progress.error
+            ? `；${progress.error}`
+            : (progress.updatedAt ? `；最近更新 ${this._relativeTime(progress.updatedAt)}` : '');
+          return {
+            state: hasSnapshot ? 'refreshing' : 'loading',
+            label,
+            title: `${hasSnapshot ? '当前显示上次成功快照；' : ''}${phase}${data.title ? `；${data.title}` : ''}${detail}`
+          };
+        }
         return hasSnapshot
           ? { state: 'refreshing', label: 'Coolify 后台同步中…', title: '当前显示上次成功快照；在线刷新完成后会自动替换' }
           : { state: 'loading', label: 'Coolify 同步中…', title: '正在读取只读动态拓扑' };
@@ -2982,7 +3066,7 @@
             <button class="relationship-tool-button" data-relationship-action="create-group-from-selection" type="button" title="将选中节点建立视觉分组 (⌘G)" disabled>群组</button>
             <div class="relationship-toolbar-spacer"></div>
             <div class="relationship-panel-status" data-state="${escapeHtml(panelStatus.state)}">
-              <span data-panel-topology-status title="${escapeHtml(panelStatus.title)}">${escapeHtml(panelStatus.label)}</span>
+              <span data-panel-topology-status role="status" aria-live="polite" title="${escapeHtml(panelStatus.title)}">${escapeHtml(panelStatus.label)}</span>
               <button class="relationship-tool-button" data-relationship-action="refresh-panel" type="button" title="刷新 Coolify 动态拓扑" aria-label="刷新 Coolify 动态拓扑">↻</button>
               <button class="relationship-tool-button relationship-icon-tool" data-relationship-action="check-endpoints" type="button" title="重新检测全部访问点（本机 HTTP 检测）" aria-label="重新检测全部访问点（本机 HTTP 检测）">◉</button>
             </div>

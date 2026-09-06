@@ -150,8 +150,14 @@ contextBridge.exposeInMainWorld('gitFinder', {
     disconnect: (providerId) => ipcRenderer.invoke('panel:disconnect', providerId),
     getCatalog: (providerId) => ipcRenderer.invoke('panel:getCatalog', providerId),
     getCachedTopology: () => ipcRenderer.invoke('panel:getCachedTopology'),
-    refreshTopology: () => ipcRenderer.invoke('panel:refreshTopology'),
-    getTopology: () => ipcRenderer.invoke('panel:getTopology'),
+    refreshTopology: (options = {}) => ipcRenderer.invoke('panel:refreshTopology', options),
+    getTopology: (options = {}) => ipcRenderer.invoke('panel:getTopology', options),
+    onSyncProgress: (callback) => {
+      if (typeof callback !== 'function') return () => {};
+      const listener = (_event, progress) => callback(progress);
+      ipcRenderer.on('panel:syncProgress', listener);
+      return () => ipcRenderer.removeListener('panel:syncProgress', listener);
+    },
     checkEndpoints: (values) => ipcRenderer.invoke('panel:checkEndpoints', values),
     getEndpointChecks: () => ipcRenderer.invoke('panel:getEndpointChecks'),
     getRepositoryAssociations: () => ipcRenderer.invoke('panel:getRepositoryAssociations'),

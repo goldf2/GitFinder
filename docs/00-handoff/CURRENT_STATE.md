@@ -1,8 +1,16 @@
 # GitFinder 2 当前状态
 
-更新时间：2026-09-07 04:32:00 +0800
+更新时间：2026-09-07 05:52:00 +0800
 
 > 本文件是标准交接入口，记录当前工作树中已复核的最新事实。较早的项目过程与领域背景继续保留在 `docs/ai-handoff/`，不在这里重复复制。
+
+## 当前修复：Coolify 同步进度与已读数据可见（alpha.112，已构建并替换本机）
+
+- 现状：同步阶段不再只显示布尔状态；主进程通过 `panel:syncProgress` 向当前窗口推送实例、阶段、阶段计数和 `readCounts`。状态栏可显示 `2/3 个 Coolify · con01 · 读取基础资源 2/5 · 已读 服务器 1 · 项目 8` 等真实读数；项目详情 / 部署历史阶段显示 `已读 项目详情 N/M`、`已读 部署历史 N/M`。
+- 阶段：读取基础资源、读取项目详情、读取部署历史、整理拓扑。并发端点显示已完成 / 总数及已返回的服务器、项目、应用、服务、数据库数量，不把不同耗时阶段伪合并为百分比。
+- 安全与一致性：事件只包含 requestId、实例标识、阶段、计数、已读数量、状态和脱敏错误；白板关闭 / 重开后按 requestId 丢弃旧进度，IPC 重新过滤读数，原有超时、取消、缓存和迟到结果保护保持不变。
+- 验证：专项新增“已读取数据数量”回归；全量 `npm run check` 通过 1079/1079，251 个 JavaScript 文件语法检查和 renderer 构建通过。安装版 CUA 采样到 `2/3 个 Coolify · con01 · 读取基础资源 2/5 · 已读 服务器 1 · 项目 8`，随后完成并显示 `3 个 Coolify · 3 台服务器 · 35 个部署 · 3 个最近失败`；进程持续存活。
+- 发布：版本 `2.0.0-alpha.112`，macOS arm64 development ZIP `/Volumes/project/项目/gitfinder-2/dist/GitFinder-2-2.0.0-alpha.112-arm64-mac.zip`，SHA-256 `2b38301303bd4b922a1ffb33a80cfe041f2eddcd32c85eb121154dcf64e14162`。已替换 `/Applications/GitFinder 2 Alpha87.app`，包内版本 alpha.112，codesign deep/strict 通过；替换前 alpha.111 备份于 `/Volumes/project/制品与备份/gitfinder-2/installed-backups/alpha111-pre-alpha112-replace-20260907/`。开发包为 ad-hoc 签名，尚未上传商店或切换公开 current。
 
 ## 当前修复：Coolify 同步挂起导致白板看似闪退（alpha.110，已打包并替换本机）
 
