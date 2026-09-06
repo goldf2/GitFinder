@@ -1,8 +1,16 @@
 # GitFinder 2 当前状态
 
-更新时间：2026-09-06 20:47:00 +0800
+更新时间：2026-09-07 04:32:00 +0800
 
 > 本文件是标准交接入口，记录当前工作树中已复核的最新事实。较早的项目过程与领域背景继续保留在 `docs/ai-handoff/`，不在这里重复复制。
+
+## 当前修复：Coolify 同步挂起导致白板看似闪退（alpha.110，已打包并替换本机）
+
+- 现象复核：用户录屏结束后 GitFinder 主进程、GPU/网络/渲染进程仍然存在，没有 GitFinder 崩溃报告；真正可复现的是白板状态长期停在“Coolify 后台同步中…”，画布暂时空白，容易被误判为闪退。
+- 根因：Coolify 请求原先只调用 `AbortController.abort()`；当 Electron/Node 的 fetch 或响应体 Promise 不兑现时，IPC 请求仍可永久悬挂。实例聚合也没有 provider 级截止时间。
+- 修复：请求增加不可绕过的硬超时；每个 Coolify 实例增加 30 秒同步预算；provider 截止时间通过 `AbortSignal` 向下传给所有端点、项目详情和部署历史请求；连接更新 / 断开时取消进行中的同步；provider 身份校验阻止迟到结果写入访问点白名单或拓扑缓存。
+- 验证：Coolify 专项 29/29；全量 `npm run check` 通过 1073/1073 测试、251 个 JavaScript 文件语法检查和 renderer 构建。安装版 alpha.110 启动后通过 CDP 读取到 `3 个 Coolify · 3 台服务器 · 35 个部署 · 3 个最近失败` 的可完成状态；进程持续存活，启动日志没有新增异常。
+- 发布：版本 `2.0.0-alpha.110`；制品目录 `/Volumes/project/制品与备份/gitfinder-2/2.0.0-alpha.110/`，macOS arm64 ZIP SHA-256 为 `8dedebe68cd44442d7bd2d436d4b3bd6af2ae204f151f81d8dd3832dc994f1ef`。已替换 `/Applications/GitFinder 2 Alpha87.app`，`CFBundleShortVersionString=2.0.0-alpha.110`，codesign deep/strict 通过。alpha.108 旧版和本轮替换前 alpha.110 均有可恢复备份；开发包为 ad-hoc 签名，不具备正式分发资格。
 
 ## 当前交付：本机工作区资源组合与 Coolify 同步稳态（alpha.108，已打包并替换本机）
 

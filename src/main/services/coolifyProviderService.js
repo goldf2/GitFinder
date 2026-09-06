@@ -18,6 +18,7 @@ const TOPOLOGY_CACHE_SCHEMA_VERSION = 1;
 const BINDINGS_SCHEMA_VERSION = 2;
 const API_PREFIX = '/api/v1';
 const REQUEST_TIMEOUT_MS = 12_000;
+const PROVIDER_SYNC_TIMEOUT_MS = 30_000;
 const MAX_RESPONSE_BYTES = 4 * 1024 * 1024;
 const MAX_PROVIDERS = 12;
 const MAX_RESOURCES = 2_000;
@@ -252,9 +253,30 @@ async function requestCoolifyJson(options = {}) {
   const baseUrl = normalizeCoolifyBaseUrl(options.baseUrl);
   const pathname = String(options.pathname || '');
   if (!pathname.startsWith(`${API_PREFIX}/`) && pathname !== API_PREFIX) throw new Error('Coolify API 路径无效');
+  const externalSignal = options.signal;
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), options.timeoutMs || REQUEST_TIMEOUT_MS);
-  try {
+  const timeoutMs = Number.isFinite(Number(options.timeoutMs))
+    ? Math.max(1, Number(options.timeoutMs)) : REQUEST_TIMEOUT_MS;
+  let rejectHardTimeout;
+  const hardTimeout = new Promise((_, reject) => { rejectHardTimeout = reject; });
+  const abortRequest = reason => {
+    const error = reason instanceof Error
+      ? reason
+      : Object.assign(new Error(`Coolify API ${pathname} 请求已取消`), { code: 'ABORT_ERR' });
+    try { controller.abort(error); } catch (_) { controller.abort(); }
+    rejectHardTimeout(error);
+  };
+  const onExternalAbort = () => abortRequest(externalSignal.reason);
+  if (externalSignal) {
+    if (externalSignal.aborted) onExternalAbort();
+    else externalSignal.addEventListener('abort', onExternalAbort, { once: true });
+  }
+  const timeout = setTimeout(() => {
+    const error = Object.assign(new Error(`Coolify API ${pathname} 请求超时`), { code: 'ETIMEDOUT' });
+    controller.abort(error);
+    rejectHardTimeout(error);
+  }, timeoutMs);
+  const request = (async () => {
     const response = await fetchImpl(new URL(pathname, baseUrl), {
       method: 'GET',
       headers: {
@@ -273,14 +295,49 @@ async function requestCoolifyJson(options = {}) {
     let parsed;
     try { parsed = JSON.parse(bytes.toString('utf8')); } catch (_) { throw new Error('Coolify API 返回了无效 JSON'); }
     return parsed?.data ?? parsed;
+  })();
+  try {
+    // AbortController is best-effort across Electron/Node fetch implementations.
+    // The hard race also covers a response body whose promise never settles.
+    return await Promise.race([request, hardTimeout]);
   } catch (error) {
-    if (error?.name === 'AbortError') throw new Error(`Coolify API ${pathname} 请求超时`);
+    if (error?.name === 'AbortError') {
+      if (externalSignal?.aborted) throw Object.assign(new Error(`Coolify API ${pathname} 请求已取消`), { code: 'ABORT_ERR' });
+      throw new Error(`Coolify API ${pathname} 请求超时`);
+    }
     const networkError = safeNetworkError(pathname, error);
     if (networkError) throw networkError;
     throw error;
   } finally {
     clearTimeout(timeout);
+    externalSignal?.removeEventListener('abort', onExternalAbort);
   }
+}
+
+function withTimeout(task, timeoutMs, message, options = {}) {
+  const duration = Number.isFinite(Number(timeoutMs)) ? Math.max(1, Number(timeoutMs)) : PROVIDER_SYNC_TIMEOUT_MS;
+  const controller = options.controller || new AbortController();
+  let rejectTimeout;
+  const timeout = new Promise((_, reject) => { rejectTimeout = reject; });
+  const rejectAbort = reason => {
+    const error = reason instanceof Error ? reason : Object.assign(new Error('Coolify 同步已取消'), { code: 'ABORT_ERR' });
+    rejectTimeout(error);
+  };
+  const onAbort = () => rejectAbort(controller.signal.reason);
+  if (controller.signal.aborted) onAbort();
+  else controller.signal.addEventListener('abort', onAbort, { once: true });
+  const timer = setTimeout(() => {
+    const error = Object.assign(new Error(message), { code: 'ETIMEDOUT' });
+    try { controller.abort(error); } catch (_) { controller.abort(); }
+    rejectTimeout(error);
+  }, duration);
+  const promise = typeof task === 'function'
+    ? Promise.resolve().then(() => task(controller.signal))
+    : Promise.resolve(task);
+  return Promise.race([promise, timeout]).finally(() => {
+    clearTimeout(timer);
+    controller.signal.removeEventListener('abort', onAbort);
+  });
 }
 
 async function mapWithConcurrency(values, concurrency, mapper) {
@@ -492,6 +549,7 @@ class CoolifyProviderService {
     this.allowedExternalUrls = new Set();
     this.endpointHealth = options.endpointHealth || new EndpointHealthService();
     this.endpointChecksCacheKey = '';
+    this.activeSyncControllers = new Set();
   }
 
   _configDirectory() {
@@ -722,6 +780,17 @@ class CoolifyProviderService {
   getConnections() { return this._loadProviders().map(provider => this._publicConnection(provider)); }
   getConnection(providerId = '') { return this._publicConnection(providerId ? this._loadProviders().find(item => item.providerId === providerId) : this._loadProviders()[0]); }
 
+  _abortActiveSyncs() {
+    for (const controller of this.activeSyncControllers) {
+      try { controller.abort(Object.assign(new Error('Coolify 配置已变更，同步结果已取消'), { code: 'ABORT_ERR' })); } catch (_) { controller.abort(); }
+    }
+  }
+
+  _isCurrentProvider(provider) {
+    const current = this._loadProviders().find(item => item.providerId === provider?.providerId);
+    return Boolean(current && current.baseUrl === provider.baseUrl && current.accessToken === provider.accessToken);
+  }
+
   async connect(values = {}) {
     const baseUrl = normalizeCoolifyBaseUrl(values.baseUrl);
     const token = normalizeToken(values.token);
@@ -744,6 +813,7 @@ class CoolifyProviderService {
     if (index < 0 && providers.length >= MAX_PROVIDERS) throw new Error(`最多添加 ${MAX_PROVIDERS} 个 Coolify 实例`);
     if (index >= 0) providers.splice(index, 1, provider);
     else providers.push(provider);
+    this._abortActiveSyncs();
     this._saveProviders(providers);
     return this._publicConnection(provider);
   }
@@ -771,6 +841,7 @@ class CoolifyProviderService {
         : new Date(this.now()).toISOString()
     };
     providers.splice(index, 1, provider);
+    this._abortActiveSyncs();
     this._saveProviders(providers);
     if (baseUrl !== current.baseUrl) {
       this.endpointHealth.setTargets(provider.providerId, []);
@@ -781,6 +852,7 @@ class CoolifyProviderService {
   }
 
   disconnect(providerId = '') {
+    this._abortActiveSyncs();
     const remaining = providerId ? this._loadProviders().filter(item => item.providerId !== providerId) : [];
     this._saveProviders(remaining);
     this._retainCachedProviders(remaining.map(item => item.providerId));
@@ -795,8 +867,10 @@ class CoolifyProviderService {
       baseUrl: provider.baseUrl,
       token: provider.accessToken,
       fetchImpl: this.fetchImpl,
+      signal: options.signal,
       observedAt: new Date(this.now()).toISOString()
     });
+    if (!this._isCurrentProvider(provider)) throw Object.assign(new Error('Coolify 实例已变更，同步结果已丢弃'), { code: 'ESTALE' });
     for (const value of [provider.baseUrl, ...overview.servers.flatMap(server => [server.coolifyUrl]), ...overview.deployments.flatMap(resource => [resource.coolifyUrl, ...resource.domains])]) {
       if (value) this.allowedExternalUrls.add(value);
     }
@@ -806,7 +880,23 @@ class CoolifyProviderService {
   async _aggregate(providerId = '', options = {}) {
     const providers = providerId ? [this._findProvider(providerId)] : this._loadProviders();
     if (!providers.length) return { state: 'unconfigured', providers: [], successes: [], errors: [] };
-    const settled = await Promise.allSettled(providers.map(async provider => ({ provider, overview: await this._overview(provider, options) })));
+    const providerTimeoutMs = options.providerTimeoutMs || PROVIDER_SYNC_TIMEOUT_MS;
+    const settled = await Promise.allSettled(providers.map(async provider => {
+      const controller = new AbortController();
+      this.activeSyncControllers.add(controller);
+      try {
+        const overview = await withTimeout(
+          signal => this._overview(provider, { ...options, signal }),
+          providerTimeoutMs,
+          `Coolify 实例同步超时（超过 ${Math.ceil(providerTimeoutMs / 1000)} 秒）`,
+          { controller }
+        );
+        if (!this._isCurrentProvider(provider)) throw Object.assign(new Error('Coolify 实例已变更，同步结果已丢弃'), { code: 'ESTALE' });
+        return { provider, overview };
+      } finally {
+        this.activeSyncControllers.delete(controller);
+      }
+    }));
     const successes = settled.filter(result => result.status === 'fulfilled').map(result => result.value);
     const errors = settled.flatMap((result, index) => result.status === 'rejected'
       ? [{ providerId: providers[index].providerId, label: providers[index].label, message: result.reason?.message || String(result.reason) }]

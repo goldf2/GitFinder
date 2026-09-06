@@ -1,5 +1,14 @@
 # GitFinder 2 研发会话记录
 
+## 2026-09-07 04:32:00 +0800 · alpha.110 Coolify 挂起 / 闪退误判修复
+
+- 目标：处理 2026-09-07 录屏中的“闪退”反馈，并验证 Coolify 同步失败不会把关系白板永久卡在同步态。
+- 诊断：录屏结束后主进程和渲染进程仍在；无新的 GitFinder 崩溃报告。用不返回的 fetch 复现原实现会永久悬挂；因此根因是同步 IPC 挂起而非进程退出。
+- 修改：`requestCoolifyJson` 增加硬超时和外部取消；`_aggregate` 为每个 provider 设置 30 秒截止并传播 AbortSignal；连接更新 / 断开取消活跃请求；同步完成前后校验 provider 身份，迟到结果不写访问点白名单或缓存。新增 4 项超时、取消和迟到结果回归。
+- 验证：Coolify / endpoint 专项 29/29；全量 `npm run check` 1073/1073，251 个 JS 语法检查通过；`npm run pack` 通过 development/ad-hoc 产物门禁；安装版启动后版本、拓扑状态和进程存活已核对。
+- 交付：alpha.110，ZIP SHA-256 `8dedebe68cd44442d7bd2d436d4b3bd6af2ae204f151f81d8dd3832dc994f1ef`；安装路径 `/Applications/GitFinder 2 Alpha87.app`；旧版备份路径见 CURRENT_STATE。
+- 遗留：等待用户现场确认录屏路径不再复现；用户确认有效后再按规则归档 `/Volumes/project/支持文档/修复报告/` 修复报告。
+
 ## 2026-09-06 20:40:00 +0800 · alpha.108 Coolify 拓扑快速路径
 
 - 目标：继续处理 Coolify 资源较多或单应用 API 超时时，拓扑首屏长时间停留“同步中”的问题。

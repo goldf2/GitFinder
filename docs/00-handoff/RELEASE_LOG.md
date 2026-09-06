@@ -1,5 +1,14 @@
 # GitFinder 2 发布记录
 
+## 2026-09-07 04:32:00 +0800 · 2.0.0-alpha.110（已构建并替换本机）
+
+- 内容：修复 Coolify API / provider 同步永久挂起导致的白板“后台同步中”假闪退；增加硬请求超时、30 秒 provider 截止、AbortSignal 传播、配置变更取消和迟到结果防污染。
+- 门禁：Coolify 专项 29/29；`npm run check` 通过 1073/1073 测试、251 个 JavaScript 文件语法检查和 renderer 构建；`npm run pack` 通过 development/ad-hoc 制品门禁。正式分发资格仍为否。
+- 制品：`/Volumes/project/制品与备份/gitfinder-2/2.0.0-alpha.110/GitFinder-2-2.0.0-alpha.110-arm64-mac.zip`；SHA-256 `8dedebe68cd44442d7bd2d436d4b3bd6af2ae204f151f81d8dd3832dc994f1ef`；同时保存 `latest-mac.yml` 与 `release-verification.json`。
+- 安装：正常退出旧进程后，旧版保存至 `/Volumes/project/制品与备份/gitfinder-2/installed-backups/alpha108-before-alpha110-20260907/`，本轮替换前包保存至 `installed-backups/alpha110-pre-final-20260907/`；当前安装版为 alpha.110，codesign deep/strict 通过。
+- 实测：无调试参数启动后进程持续存活；渲染层最终报告 `3 个 Coolify · 3 台服务器 · 35 个部署 · 3 个最近失败`，没有新增启动异常。录屏表现判定为请求挂起 / 空白态，不是已证实的进程崩溃。
+- 发布范围：尚未上传商店或切换公开 current；Windows / 正式签名本轮未执行。
+
 ## 2026-09-06 20:47:00 +0800 · 2.0.0-alpha.108（已构建并推送）
 
 - 内容：延续 alpha.107 的本机工作区资源组合语义和 Coolify 后台解耦；新增拓扑快速部署历史策略，避免大型 Coolify 应用列表的历史端点阻塞首屏，并从无凭据缓存保留未重新读取的历史事实。

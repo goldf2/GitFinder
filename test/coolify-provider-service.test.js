@@ -175,6 +175,41 @@ test('Coolify 网络失败保留可诊断但不泄露地址或令牌的错误码
   );
 });
 
+test('Coolify 请求即使底层 fetch 不响应也会在硬超时后结束', async () => {
+  const started = Date.now();
+  await assert.rejects(
+    requestCoolifyJson({
+      baseUrl: 'https://cool.example.com',
+      token: 'fixture-read-token',
+      pathname: '/api/v1/servers',
+      timeoutMs: 20,
+      fetchImpl: () => new Promise(() => {})
+    }),
+    error => /请求超时|连接超时/.test(error.message)
+  );
+  assert.ok(Date.now() - started < 500, '硬超时不应把同步挂死');
+});
+
+test('Coolify 请求支持外部取消并把取消信号传给底层 fetch', async () => {
+  const controller = new AbortController();
+  let requestSignal;
+  const pending = requestCoolifyJson({
+    baseUrl: 'https://cool.example.com',
+    token: 'fixture-read-token',
+    pathname: '/api/v1/servers',
+    signal: controller.signal,
+    timeoutMs: 1_000,
+    fetchImpl: async (_url, options) => {
+      requestSignal = options.signal;
+      return new Promise(() => {});
+    }
+  });
+  await new Promise(resolve => setImmediate(resolve));
+  controller.abort();
+  await assert.rejects(pending, /取消/);
+  assert.equal(requestSignal.aborted, true);
+});
+
 test('直接读取 Coolify 官方只读端点并归一化主机、部署和最近失败', async t => {
   const { calls, fetchImpl } = createHarness(t);
   const overview = await readCoolifyOverview({
@@ -235,6 +270,52 @@ test('getTopology 使用快速部署历史模式，目录详情仍可单独读�
   };
   await service.getCatalog();
   assert.equal(optionsSeen[0].deploymentHistoryMode, undefined);
+});
+
+test('单个 Coolify 实例同步超时不会阻塞白板状态', async t => {
+  const { service } = createHarness(t);
+  await service.connect({ baseUrl: 'https://cool.example.com', token: 'fixture-read-token' });
+  service._overview = () => new Promise(() => {});
+  const started = Date.now();
+  const result = await service._aggregate('', { providerTimeoutMs: 20 });
+  assert.equal(result.state, 'error');
+  assert.equal(result.successes.length, 0);
+  assert.equal(result.errors.length, 1);
+  assert.match(result.errors[0].message, /同步超时/);
+  assert.ok(Date.now() - started < 500, '实例级超时不应把白板同步挂死');
+});
+
+test('实例级超时会取消底层读取，避免迟到响应污染白名单', async t => {
+  const { service } = createHarness(t);
+  const provider = await service.connect({ baseUrl: 'https://cool.example.com', token: 'fixture-read-token' });
+  let signal;
+  service._overview = (_provider, options) => {
+    signal = options.signal;
+    return new Promise(() => {});
+  };
+  const result = await service._aggregate('', { providerTimeoutMs: 20 });
+  assert.equal(result.errors[0].providerId, provider.providerId);
+  assert.equal(signal.aborted, true);
+  assert.equal(service.allowedExternalUrls.size, 0);
+});
+
+test('断开实例后迟到的同步结果不会写入白名单或作为成功结果返回', async t => {
+  const { service } = createHarness(t);
+  const provider = await service.connect({ baseUrl: 'https://cool.example.com', token: 'fixture-read-token' });
+  let release;
+  service._overview = () => new Promise(resolve => { release = resolve; });
+  const pending = service._aggregate('', { providerTimeoutMs: 1_000 });
+  await new Promise(resolve => setImmediate(resolve));
+  service.disconnect(provider.providerId);
+  release({
+    generatedAt: '2026-08-29T05:32:00.000Z',
+    servers: [],
+    deployments: [{ coolifyUrl: 'https://late.example.com', domains: ['https://late.example.com'] }],
+    errors: []
+  });
+  const result = await pending;
+  assert.equal(result.successes.length, 0);
+  assert.equal(service.allowedExternalUrls.has('https://late.example.com'), false);
 });
 
 test('字段归一化不把未知部署历史伪装成没有失败', () => {
