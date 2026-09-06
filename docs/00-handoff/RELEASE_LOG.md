@@ -1,9 +1,13 @@
 # GitFinder 2 发布记录
 
-## 2026-09-07 06:35:00 +0800 · 2.0.0-alpha.114（缓存摘要补丁，待构建）
+## 2026-09-07 06:38:00 +0800 · 2.0.0-alpha.114（已构建并替换本机）
 
 - 内容：日志面板无同步运行记录时读取本机 `coolify-topology-cache.json`，显示实例、服务器、部署和缓存时间，不触发 Coolify 网络请求；保留 alpha.113 的脱敏逐请求日志能力。
-- 版本：`package.json` / `package-lock.json` 已递增至 `2.0.0-alpha.114`；构建、安装和推送待完成。
+- 提交：`0ccb435d6f9d7e7ef4b1a0aa354dfb1246b89838`，已完成代码提交；文档收口随后单独提交。
+- 门禁：renderer 构建、Coolify / 白板 / Panel 专项通过，251 个 JavaScript 文件语法检查通过；全量测试唯一失败为工作树既有 `relationship-css-reuse` 边框计数阈值，HEAD 基线同样为 19 次 / 阈值 18；本次没有新增该失败。
+- 制品：`/Volumes/project/制品与备份/gitfinder-2/2.0.0-alpha.114/GitFinder-2-2.0.0-alpha.114-arm64-mac.zip`；ZIP SHA-256 `cd0e496546db9fb01729993b20001c5247b557c79ebe416dc29d651ccdece436`；ASAR SHA-256 `fa22634ebc54e247c3a7d0679951ce54b2cbb5e22d24c23ee18147c56d782639`；同时生成 `latest-mac.yml` 与 `release-verification.json`。
+- 安装：`/Applications/GitFinder 2 Alpha87.app` 包内版本 `2.0.0-alpha.114`，codesign deep/strict 通过；替换前 alpha.113 包备份于 `/Volumes/project/制品与备份/gitfinder-2/installed-backups/alpha113-before-alpha114-20260907-063419/`。
+- 范围：开发包为 ad-hoc 签名，不具备正式分发资格；尚未上传商店、切换公开 current 或额外探测 AL02。待用户点击日志面板确认。
 
 ## 2026-09-07 06:30:00 +0800 · 2.0.0-alpha.113（已构建并替换本机）
 

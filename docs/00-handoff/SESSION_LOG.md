@@ -6,7 +6,8 @@
 - 修改：服务层新增有界持久化 `coolify-sync-log.json`；IPC / preload 新增读取和定位日志；关系白板工具栏新增“日志”弹层，显示实例、端点、耗时、响应数量、读取计数、错误与事件时间线；日志运行按最新时间置顶；无日志时补充本机缓存摘要，不触发网络。
 - 证据：旧 alpha.112 缓存为 `ready`、3 实例 / 3 服务器 / 35 部署 / `errors=[]`；Con01、AL03 只读端点 HTTP 200，Con01 延迟较高；未重新探测 AL02。
 - 验证：Coolify 29 项、白板 / Panel 专项通过；renderer 构建和 251 个 JS 语法检查通过。全量测试唯一失败是既有关系 CSS 计数阈值，不属于本次改动。
-- 接续：缓存摘要改动递增 alpha.114 后重新打包、安装替换并推送；再由用户点击日志面板做最终验收，不额外触发 AL02 探针。
+- 发布：提交 `0ccb435d6f9d7e7ef4b1a0aa354dfb1246b89838`；ZIP SHA-256 `cd0e496546db9fb01729993b20001c5247b557c79ebe416dc29d651ccdece436`；ASAR SHA-256 `fa22634ebc54e247c3a7d0679951ce54b2cbb5e22d24c23ee18147c56d782639`。已替换 `/Applications/GitFinder 2 Alpha87.app`，codesign deep/strict 通过。
+- 接续：用户点击日志面板做最终验收；不额外触发 AL02 探针。
 
 ## 2026-09-07 05:52:00 +0800 · alpha.112 Coolify 已读数据计数可见
 
