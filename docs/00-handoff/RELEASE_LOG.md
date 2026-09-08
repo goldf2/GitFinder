@@ -1,9 +1,10 @@
 # GitFinder 2 发布记录
 
-## 2026-09-09 +08:00 · 2.0.0-alpha.129（已构建，待解锁验收）
+## 2026-09-09 +08:00 · 2.0.0-alpha.129（已构建、已安装、已推送）
 
 - 实例同步总超时默认 90 秒，可在设置中心调为 30–300 秒；保留历史请求独立超时和真实失败记录。
-- 专项 22/22、全量 `npm run check` 1090/1090 通过，252 个 JavaScript 文件语法检查通过；已安装 `/Applications/GitFinder 2 Alpha129.app`。Mac 锁屏，设置页交互和真实 con01 验证待解锁；提交 `b37dfdc` 尚未推送。
+- 专项 22/22、全量 `npm run check` 1090/1090 通过，252 个 JavaScript 文件语法检查通过；已安装 `/Applications/GitFinder 2 Alpha129.app`，设置页现场确认默认 90 秒、范围 30–300 秒，保存后返回白板；提交 `b37dfdc`、`3fed2be` 已推送 `origin/main`。
+- 制品：`/Volumes/project/项目/gitfinder-2/dist/GitFinder-2-2.0.0-alpha.129-arm64-mac.zip`，SHA-256 `87fe4e58fa212e44657c8a8e7e639faee3ad8c00c8dbe34a3eb57fdf23e39957`。
 
 ## 2026-09-09 · 2.0.0-alpha.128（已构建，待推送）
 
