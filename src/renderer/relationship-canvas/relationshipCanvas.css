@@ -346,6 +346,8 @@
 .gf-relationship-flow .react-flow__edge-path {
   stroke: #747fbd;
   stroke-width: var(--relationship-edge-width, 1.7px);
+  /* Keep links readable when the canvas is zoomed out. */
+  vector-effect: non-scaling-stroke;
 }
 
 .gf-relationship-flow .react-flow__edge.selected .react-flow__edge-path {

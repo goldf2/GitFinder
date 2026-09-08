@@ -148,6 +148,7 @@ test('当前白板可调连线粗细，选中、告警和只读摘要继续保�
   assert.match(controllerSource, /--relationship-edge-width/);
   assert.doesNotMatch(canvasCss, /\.gf-relationship-flow\s*\{[^}]*--relationship-edge-width/s);
   assert.match(canvasCss, /\.react-flow__edge-path\s*\{[^}]*stroke-width:\s*var\(--relationship-edge-width,\s*1\.7px\)/s);
+  assert.match(canvasCss, /\.react-flow__edge-path\s*\{[^}]*vector-effect:\s*non-scaling-stroke/s);
   assert.match(canvasCss, /\.react-flow__edge\.selected[^{]*\{[^}]*calc\(var\(--relationship-edge-width,\s*1\.7px\) \+ 0\.8px\)/s);
   assert.match(canvasCss, /\.is-topology-alert[^{]*\{[^}]*calc\(var\(--relationship-edge-width,\s*1\.7px\) \+ 0\.8px\)/s);
   assert.match(adapterSource, /is-visual-summary[\s\S]*?max\(0\.5px, calc\(var\(--relationship-edge-width, 1\.7px\) - 0\.45px\)\)/);
