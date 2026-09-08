@@ -18,8 +18,8 @@
 6. 在 GitFinder 账户页的服务配置中填写 HTTPS issuer 和公开 Client ID，保存后登录。
    任何 Client Secret、管理员口令均不应填入桌面端。
 
-默认候选地址是 `https://auth.oaktechz.com`，Client ID 留空，不能用示例名冒充真实配置。
-2026-09-05 接入时该服务返回 503，尚无已确认的 GitFinder Client ID，因此生产登录待服务恢复后联调。
+默认候选地址是 `https://casdoor.xiangshu.me`，Client ID 留空，不能用示例名冒充真实配置。
+该地址是当前 OakTech Casdoor 生产 Issuer；使用前仍需在 GitFinder 账户设置中填写 GitFinder 桌面应用的公开 Client ID。
 
 ## 协议与存储边界
 

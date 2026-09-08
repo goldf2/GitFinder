@@ -172,7 +172,7 @@
       });
     }
 
-    settingsMarkup(connections = []) {
+    settingsMarkup(connections = [], deploymentHistoryTimeout = this.deploymentHistoryTimeout || 4000) {
       const providers = (Array.isArray(connections) ? connections : [connections]).filter(connection => connection?.providerId);
       const connectedCount = providers.filter(connection => connection.configured).length;
       const providerCards = providers.length ? providers.map(connection => {
@@ -207,7 +207,8 @@
           </section>
           <section class="panel-provider-block panel-provider-form" aria-labelledby="panel-provider-form-title">
             <div class="panel-provider-add-heading"><strong id="panel-provider-form-title">添加或更新连接</strong><small>相同地址会更新已有会话，不会重复添加</small></div>
-            <div class="panel-provider-fields">
+          <div class="panel-provider-fields">
+              <label class="app-settings-row" for="coolify-deployment-history-timeout"><span><strong>部署历史请求超时</strong><small>1–120 秒；网络较慢时可适当调大</small></span><input id="coolify-deployment-history-timeout" type="number" min="1" max="120" step="1" value="${Math.round(deploymentHistoryTimeout / 1000)}"><span>秒</span></label>
               <label class="app-settings-row" for="panel-provider-url">
                 <span><strong>Coolify 地址</strong><small>填写管理后台根地址；不要填写项目、环境或 API 子路径</small></span>
                 <input id="panel-provider-url" type="url" spellcheck="false" placeholder="https://coolify.example.com" value="">

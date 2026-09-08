@@ -2,7 +2,7 @@ const http = require('node:http');
 const { createCasdoorClient } = require('./casdoorClient');
 
 const REDIRECT_URI = 'http://127.0.0.1:43821/oauth/callback';
-const DEFAULT_CONFIGURATION = { issuer: 'https://auth.oaktechz.com', clientId: '' };
+const DEFAULT_CONFIGURATION = { issuer: 'https://casdoor.xiangshu.me', clientId: '' };
 
 function normalizeConfiguration(input) {
   const issuer = new URL(String(input?.issuer || '').trim());

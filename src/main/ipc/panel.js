@@ -40,10 +40,12 @@ function sendTopologyProgress(event, progress, requestId) {
   try { event.sender.send('panel:syncProgress', payload); } catch (_) {}
 }
 
-function getTopologyForEvent(service, event, options = {}) {
+async function getTopologyForEvent(service, event, options = {}) {
   const requestId = normalizeSyncRequestId(options?.requestId);
+  const timeout = configService.get('coolifyDeploymentHistoryTimeoutMs');
   return service.getTopology({
     requestId,
+    deploymentHistoryTimeoutMs: timeout,
     onProgress: progress => sendTopologyProgress(event, progress, requestId)
   });
 }

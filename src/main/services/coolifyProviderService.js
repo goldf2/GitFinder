@@ -22,6 +22,7 @@ const MAX_SYNC_LOG_BYTES = 1024 * 1024;
 const BINDINGS_SCHEMA_VERSION = 2;
 const API_PREFIX = '/api/v1';
 const REQUEST_TIMEOUT_MS = 12_000;
+const DEFAULT_DEPLOYMENT_HISTORY_TIMEOUT_MS = 4_000;
 const PROVIDER_SYNC_TIMEOUT_MS = 30_000;
 const MAX_RESPONSE_BYTES = 4 * 1024 * 1024;
 const MAX_PROVIDERS = 12;
@@ -31,6 +32,10 @@ const MAX_PROJECTS = 256;
 const MAX_BINDINGS = 50;
 const MAX_BINDING_REPOSITORIES = 8;
 const MAX_DEPLOYMENT_LOOKUPS = 100;
+function deploymentHistoryTimeoutMs(value = process.env.GITFINDER_COOLIFY_DEPLOYMENT_HISTORY_TIMEOUT_MS) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.max(1_000, Math.min(120_000, Math.floor(parsed))) : DEFAULT_DEPLOYMENT_HISTORY_TIMEOUT_MS;
+}
 const PROGRESS_PHASES = new Set(['endpoints', 'project-details', 'deployment-history', 'finalizing']);
 const PROGRESS_PHASE_LABELS = {
   endpoints: '读取基础资源',
@@ -656,7 +661,7 @@ async function readCoolifyOverviewInternal(options = {}) {
     historyMode === 'fast' ? 8 : 4,
     ({ application }) => get(
       `${API_PREFIX}/deployments/applications/${encodeURIComponent(application.uuid)}?skip=0&take=1`,
-      historyMode === 'fast' ? { timeoutMs: options.deploymentHistoryTimeoutMs || 4_000 } : {}
+      historyMode === 'fast' ? { timeoutMs: deploymentHistoryTimeoutMs(options.deploymentHistoryTimeoutMs) } : {}
     ).finally(() => {
       deploymentCompleted += 1;
       readCounts.deploymentHistory = deploymentCompleted;
@@ -1669,4 +1674,6 @@ module.exports = {
   MAX_PROVIDERS,
   MAX_RESOURCES,
   MAX_SERVERS
+  ,DEFAULT_DEPLOYMENT_HISTORY_TIMEOUT_MS
+  ,deploymentHistoryTimeoutMs
 };
