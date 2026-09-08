@@ -946,7 +946,9 @@
           delete annotations.groupWidth;
           delete annotations.groupHeight;
         }
-        const groupId = override && preserveStructure ? override.groupId : placement.groupId;
+        const groupId = runtimePreviewLayout && liveProjectMember
+          ? placement.groupId
+          : (override && preserveStructure ? override.groupId : placement.groupId);
         const validGroup = groupId && placedIds.has(groupId) && groupIds.has(groupId);
         delete placement.groupId;
         return override ? {
@@ -1070,6 +1072,23 @@
         const position = byId.get(item.entityId); item.x = Math.round(position.x); item.y = Math.round(position.y);
         if (entities.get(item.entityId)?.type === 'group') {
           for (const key of ['groupWidth', 'groupHeight']) if (position[key] != null) item[key] = position[key];
+        }
+      }
+      // Runtime preview placements can be cloned while merging a persistent
+      // board with the live snapshot. Copy the arranged geometry back to the
+      // projection before saving; otherwise the next render restores stale
+      // coordinates from the original projection objects.
+      if (!this.documentRecord && this.panelProjection?.placements) {
+        const runtimeById = new Map(this.panelProjection.placements.map(item => [item.entityId, item]));
+        for (const item of placements) {
+          if (!item.dynamic) continue;
+          const target = runtimeById.get(item.entityId);
+          if (!target) continue;
+          target.x = item.x; target.y = item.y;
+          if (entities.get(item.entityId)?.type === 'group') {
+            if (Number.isFinite(item.groupWidth)) target.groupWidth = Math.round(item.groupWidth);
+            if (Number.isFinite(item.groupHeight)) target.groupHeight = Math.round(item.groupHeight);
+          }
         }
       }
       this._saveDynamicPlacementOverrides(placements.filter(item => item.dynamic).map(item => item.entityId));
@@ -2909,7 +2928,11 @@
       }
       this._saveDynamicPlacementOverrides(items.filter(item => item.dynamic).map(item => item.entityId));
       this._finishBoardMutation();
-      if (enabled && arrangeBoard && this._boardView().layout !== 'free') this.fitContent();
+      if (enabled && arrangeBoard && this._boardView().layout !== 'free') {
+        this.fitContent();
+        queueMicrotask(() => this.fitContent());
+        setTimeout(() => this.fitContent(), 0);
+      }
     }
 
     _arrangeProjectGroup(groupId) {

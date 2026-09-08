@@ -1,5 +1,11 @@
 # GitFinder 2 发布记录
 
+## 2026-09-09 · 2.0.0-alpha.128（已构建，待推送）
+
+- 内容：修复自动排列结果未回写运行时动态坐标、动态覆盖清除实时 Project 归属，以及布局更新后 Fit View 时序导致的局部显示。
+- 验证：关系白板专项 141/141；全量 `npm run check` 通过 1087/1087，251 个 JavaScript 文件语法检查通过；已安装 `/Applications/GitFinder 2 Alpha128.app` 并确认应用启动、关系白板工具栏可见；自动排列按钮现场点击复测受 macOS 辅助功能树未刷新限制，需后续解锁/刷新后再做交互截图确认。
+- 制品：`/Volumes/project/项目/gitfinder-2/dist/GitFinder-2-2.0.0-alpha.128-arm64-mac.zip`，SHA-256 `4bba2dbda723775c23a668a640d26a04c8667c023c1e8fd1aacbb22b02d723ae`。
+
 ## 2026-09-08 · 2.0.0-alpha.127（已构建、已推送）
 
 - 内容：自动 Project 容器碰撞让位改用实际成员边界，避免旧宽高导致的标题/容器重叠。

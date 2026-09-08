@@ -1,5 +1,14 @@
 # GitFinder 2 Debug 记录
 
+## GF-LAYOUT-20260909-01 · 全部自动排列结果被运行时合并覆盖
+
+- 时间：2026-09-09；状态：已复现，待修复。
+- 现象：点击“全部自动排列”时，画布短暂收紧后可能回到旧位置或只显示局部节点；同一 Coolify 快照再次合并后容器尺寸、坐标发生变化。当前本机数据中 con01 的 3 个 Project 容器显示为 0 个成员。
+- 证据：离线重放本机白板与 Coolify 缓存，排列前总范围约 `84334 × 55007`；点击后约 `7392 × 4502`；再次合并同一快照后约 `6732 × 4160`，Project 容器宽高也从 `1604/1028` 回退到 `1000`。现场点击自动排列后截图出现单个访问点卡片占满画布，随后 Fit View 才恢复全图。
+- 根因 1：`_combinedPlacements()`（`relationshipBoardController.js`）为实时 Project 和其成员创建展开副本；`_arrangeCurrentLayout()` 修改的是副本，但 `_saveDynamicPlacementOverrides()` 又从 `panelProjection.placements` 原对象保存，因此排列结果没有回写到实际运行时模型，下一次 render/refresh 会被旧坐标覆盖。alpha.128 已加入统一回写。
+- 根因 2：`_applyDynamicLayoutOverrides()` 在动态布局覆盖存在但没有 `groupId` 时，会先删除实时 placement 的 `groupId`，再把“缺少覆盖归属”解释为未分组；本机动态覆盖中已有这种记录，导致 con01 的部署从 Project 容器脱离，容器显示 0 成员。alpha.128 已改为保留实时归属。
+- 根因 3：`fitContent()` 通过 React Flow 的异步 `fitView` 排队，而自动排列和重绘分别更新节点；在节点尚未完成测量时触发 fit，可能把单个已测量节点作为当前边界，形成“只显示一张卡”的中间视图。alpha.128 已补充延后 fit。
+
 ## GF-COOLIFY-20260907-02 · Coolify 拉取日志和数据明细缺失
 
 - 时间：2026-09-07 06:22:00 +0800；状态：已补充本地缓存摘要并完成 alpha.114 构建替换，待用户确认。

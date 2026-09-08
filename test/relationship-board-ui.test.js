@@ -1819,6 +1819,12 @@ test('实时拓扑预览刷新已有部署的 Project 容器归属并移除过�
   assert.equal(placements.find(item => item.entityId === 'entity_deployment').groupId, 'entity_live_group');
   assert.equal(placements.some(item => item.entityId === 'entity_old_group'), false);
   assert.equal(placements.find(item => item.entityId === 'entity_deployment').note, '保留批注');
+  controller.dynamicLayoutStore = { version: 1, boards: { board_runtime_groups: {
+    entity_deployment: { x: 900, y: 700 }
+  } } };
+  controller._applyDynamicLayoutOverrides();
+  assert.equal(controller.panelProjection.placements.find(item => item.entityId === 'entity_deployment').groupId, 'entity_live_group',
+    '动态覆盖缺少 groupId 时仍应保留实时 Project 归属');
 });
 
 test('自动分组在工具栏和空白右键菜单都有明确入口，并复用 Coolify Projects 操作', () => {
