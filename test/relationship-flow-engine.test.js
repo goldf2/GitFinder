@@ -136,6 +136,7 @@ test('Project 标题使用 React Flow 屏幕空间工具条，缩放时保持统
 
 test('Project 标题完整显示，成员数量不参与标题宽度竞争且字号可配置', () => {
   assert.match(canvasCss, /--relationship-group-title-font-size/);
+  assert.match(canvasCss, /\.gf-flow-group-title-toolbar\s*\{[^}]*z-index:\s*1000[^}]*background:/s);
   assert.doesNotMatch(canvasCss, /\.gf-flow-group-title-toolbar strong\s*\{[^}]*text-overflow:\s*ellipsis/s);
   assert.doesNotMatch(canvasCss, /\.gf-flow-group-title-toolbar button\s*\{[^}]*max-width:\s*calc/s);
   assert.match(toolbarViewSource, /key: 'groupTitleFontSize'/);

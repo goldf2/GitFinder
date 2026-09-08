@@ -298,12 +298,20 @@ test('正式发布拒绝调试 get-task-allow 权限', () => {
   assert.equal(result.eligibleForDistribution, false);
 });
 
-test('Alpha 工作流构建双平台产物并只推送 OakTech 草稿', () => {
+test('Alpha 工作流从同一提交构建双平台产物并创建 OakTech 与 GitHub 双草稿', () => {
   const projectRoot = path.resolve(__dirname, '..');
+  const ciWorkflow = fs.readFileSync(path.join(projectRoot, '.github/workflows/ci.yml'), 'utf8');
   const workflow = fs.readFileSync(path.join(projectRoot, '.github/workflows/release.yml'), 'utf8');
+  const publishWorkflow = fs.readFileSync(path.join(projectRoot, '.github/workflows/publish-release.yml'), 'utf8');
   const buildScript = fs.readFileSync(path.join(projectRoot, 'scripts/build-mac.sh'), 'utf8');
   const packageScript = fs.readFileSync(path.join(projectRoot, 'scripts/package-mac.js'), 'utf8');
   const packageJson = JSON.parse(fs.readFileSync(path.join(projectRoot, 'package.json'), 'utf8'));
+
+  assert.match(ciWorkflow, /pull_request:/);
+  assert.match(ciWorkflow, /branches: \[main\]/);
+  assert.match(ciWorkflow, /ubuntu-latest, macos-14, windows-latest/);
+  assert.match(ciWorkflow, /run: npm run check/);
+  assert.doesNotMatch(ciWorkflow, /OAKTECH_RELEASE_WRITE_TOKEN|contents:\s*write/);
 
   assert.match(workflow, /workflow_dispatch:/);
   assert.doesNotMatch(workflow, /push:\s*[\s\S]*tags:/);
@@ -315,7 +323,13 @@ test('Alpha 工作流构建双平台产物并只推送 OakTech 草稿', () => {
   assert.match(workflow, /push-store-draft:/);
   assert.match(workflow, /release:push-draft/);
   assert.match(workflow, /environment: oaktech-release/);
-  assert.doesNotMatch(workflow, /softprops\/action-gh-release/);
+  assert.match(workflow, /github-draft:/);
+  assert.match(workflow, /gh release create/);
+  assert.match(workflow, /--draft/);
+  assert.match(workflow, /--target "\$GITHUB_SHA"/);
+  assert.match(publishWorkflow, /environment: oaktech-publish/);
+  assert.match(publishWorkflow, /Verify OakTech public manifests are already current/);
+  assert.match(publishWorkflow, /gh release edit "v\$EXPECTED_VERSION" --draft=false/);
 
   assert.match(buildScript, /node scripts\/package-mac\.js/);
   assert.match(packageScript, /resources.*app-update\.yml/);

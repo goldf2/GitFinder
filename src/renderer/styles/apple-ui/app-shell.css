@@ -1,0 +1,138 @@
+/* Window chrome and Finder-like sidebar. */
+
+:is(.toolbar, .workspace-tab-strip, .status-bar, .relationship-toolbar) {
+  background: var(--ui-material-toolbar);
+  border-color: var(--ui-divider);
+  backdrop-filter: blur(24px) saturate(155%);
+}
+
+.toolbar { box-shadow: inset 0 -1px 0 rgb(255 255 255 / 12%); }
+.workspace-tab-strip { box-shadow: inset 0 -1px 0 rgb(255 255 255 / 8%); }
+.status-bar { box-shadow: inset 0 1px 0 rgb(255 255 255 / 8%); }
+
+.sidebar {
+  background: var(--ui-material-sidebar);
+  border-right-color: var(--ui-divider);
+  backdrop-filter: blur(28px) saturate(145%);
+}
+
+:is(
+  .finder-nav-group,
+  .finder-toolbar-button,
+  .finder-menu-trigger,
+  .search-box,
+  .app-version-badge,
+  .relationship-snap-control
+) {
+  border-color: var(--ui-divider);
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-material-control);
+  box-shadow: var(--ui-shadow-control);
+}
+
+:where(.finder-nav-group, .finder-toolbar-button, .finder-menu-trigger) {
+  border: 1px solid var(--ui-divider);
+}
+
+.search-box:focus-within {
+  background: var(--ui-material-surface);
+  box-shadow: var(--ui-focus-ring), var(--ui-shadow-control);
+}
+
+.workspace-tab.active {
+  border-color: var(--ui-divider);
+  background: var(--ui-material-surface);
+}
+
+.sidebar-navigation {
+  top: -8px;
+  gap: 2px;
+  margin: 0 10px 8px;
+  padding: 2px;
+  border: 1px solid var(--ui-divider);
+  border-radius: 10px;
+  background: var(--ui-material-control);
+  box-shadow: inset 0 1px 1px rgb(0 0 0 / 5%);
+  backdrop-filter: blur(18px) saturate(140%);
+}
+
+.sidebar-navigation button {
+  min-height: 27px;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: var(--ui-radius-control);
+  background: transparent;
+  font-size: 12px;
+  font-weight: 560;
+}
+
+.sidebar-navigation button[aria-selected="true"] {
+  background: var(--ui-material-surface);
+  color: var(--text-primary);
+  box-shadow: var(--ui-shadow-control);
+}
+
+.sidebar-title {
+  padding-block: 7px 4px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+}
+
+:where(.sidebar-item, .sidebar-tag-item, .tree-node) {
+  border-radius: 6px;
+
+  &:hover { background: var(--ui-material-control-hover); }
+}
+
+.tree-node.is-unavailable:hover { background: transparent; }
+
+:is(
+  .sidebar-item.active,
+  .sidebar-shortcut-all.active,
+  .sidebar-shortcut-open.active,
+  .sidebar-tag-item.selected,
+  .tree-node.selected
+),
+.sidebar-shortcut-row.active .sidebar-shortcut-open {
+  border-left-color: transparent;
+  background: var(--ui-highlight-strong);
+  color: var(--text-primary);
+}
+
+.sidebar-add-btn {
+  min-height: 28px;
+  border: 1px solid var(--ui-divider);
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-material-control);
+  box-shadow: var(--ui-shadow-control);
+}
+
+:is(.finder-menu, .workspace-tab-context-menu) {
+  border: 1px solid var(--ui-divider);
+  border-radius: var(--ui-radius-popover);
+  background: var(--ui-material-surface);
+  box-shadow: var(--ui-shadow-floating);
+  backdrop-filter: blur(28px) saturate(155%);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  :is(
+    .toolbar,
+    .workspace-tab-strip,
+    .status-bar,
+    .sidebar,
+    .sidebar-navigation,
+    .finder-menu,
+    .workspace-tab-context-menu
+  ) {
+    backdrop-filter: none;
+  }
+
+  :is(.toolbar, .workspace-tab-strip, .status-bar, .sidebar) {
+    background: var(--bg-secondary);
+  }
+
+  :is(.finder-menu, .workspace-tab-context-menu) {
+    background: var(--bg-primary);
+  }
+}

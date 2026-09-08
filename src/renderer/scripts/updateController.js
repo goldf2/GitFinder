@@ -30,12 +30,19 @@
       return { label: '重启并安装', title: '更新已下载，重启应用完成安装', disabled: false, tone: 'ready-install' };
     }
     if (state.phase === 'up-to-date') {
-      return { label: '已是最新', title: '当前已是最新版本', disabled: false, tone: 'success' };
+      return { label: '没有可用更新', title: '更新源没有更高版本', disabled: false, tone: 'success' };
     }
     if (state.phase === 'error') {
       return { label: '重新检查', title: state.error || '检查更新失败', disabled: false, tone: 'error' };
     }
     return { label: '检查更新', title: '手动检查软件更新', disabled: false, tone: '' };
+  }
+
+  function detailForState(state = {}) {
+    if (state.error) return state.errorCode ? `[${state.errorCode}] ${state.error}` : state.error;
+    const source = `更新源：${state.feedHost || '官方发布源'}`;
+    if (!state.remoteVersion) return source;
+    return `${source} · 线上版本 v${state.remoteVersion}`;
   }
 
   class Controller {
@@ -51,7 +58,9 @@
         automaticChecks: true,
         phase: 'idle',
         availableVersion: '',
+        remoteVersion: '',
         progress: 0,
+        errorCode: '',
         error: '',
       };
       this.bound = false;
@@ -75,11 +84,11 @@
       this.document.getElementById('app-version')?.addEventListener('click', () => this.check());
 
       this.bridge.updater.onAvailable(info => {
-        this.setState({ phase: 'available', availableVersion: info?.version || '', error: '' });
+        this.setState({ phase: 'available', availableVersion: info?.version || '', remoteVersion: info?.version || '', errorCode: '', error: '' });
         this.onStatusMessage('发现新版本，可在“软件更新”中下载安装', 'info');
       });
-      this.bridge.updater.onUpToDate(() => {
-        this.setState({ phase: 'up-to-date', availableVersion: '', error: '' });
+      this.bridge.updater.onUpToDate((_event, info) => {
+        this.setState({ phase: 'up-to-date', availableVersion: '', remoteVersion: info?.version || '', errorCode: '', error: '' });
         this.scheduleIdleReset();
       });
       this.bridge.updater.onDownloading(() => this.setState({ phase: 'downloading', progress: 0, error: '' }));
@@ -178,18 +187,18 @@
 
     async check() {
       if (!this.state.enabled || this.state.phase === 'checking' || this.state.phase === 'downloading') return false;
-      this.setState({ phase: 'checking', error: '' });
+      this.setState({ phase: 'checking', errorCode: '', error: '' });
       try {
         const result = await this.bridge.updater.check();
         if (result?.available) {
-          this.setState({ phase: 'available', availableVersion: result.version || '', error: '' });
+          this.setState({ phase: 'available', availableVersion: result.version || '', remoteVersion: result.version || '', errorCode: '', error: '' });
         } else if (result?.reason) {
           this.setState({ enabled: false, reason: result.reason, phase: 'idle' });
         } else if (result?.error) {
-          this.setState({ phase: 'error', error: result.error });
+          this.setState({ phase: 'error', errorCode: result.errorCode || '', error: result.error });
           this.onStatusMessage(`检查更新失败：${result.error}`, 'error');
         } else {
-          this.setState({ phase: 'up-to-date', availableVersion: '', error: '' });
+          this.setState({ phase: 'up-to-date', availableVersion: '', remoteVersion: result?.version || '', errorCode: '', error: '' });
           this.scheduleIdleReset();
         }
         return result;
@@ -229,9 +238,7 @@
         else summary.textContent = `当前版本 ${version}`;
       }
       if (detail) {
-        detail.textContent = this.state.error
-          ? this.state.error
-          : `更新源：${this.state.feedHost || '官方发布源'}`;
+        detail.textContent = detailForState(this.state);
       }
       if (automaticChecks) {
         automaticChecks.checked = this.state.automaticChecks !== false;
@@ -240,5 +247,5 @@
     }
   }
 
-  return Object.freeze({ Controller, presentationForState });
+  return Object.freeze({ Controller, detailForState, presentationForState });
 });

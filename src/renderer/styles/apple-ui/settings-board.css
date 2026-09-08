@@ -1,0 +1,212 @@
+/* Settings surfaces and relationship-board chrome. Domain layout stays in feature CSS. */
+
+.main-container.settings-mode .content-scroll {
+  background: color-mix(in srgb, var(--bg-secondary) 92%, var(--bg-primary));
+}
+
+.app-settings-layout {
+  overflow: hidden;
+  border: 1px solid var(--ui-divider);
+  border-radius: var(--ui-radius-surface);
+  background: var(--ui-material-surface);
+  box-shadow: var(--ui-shadow-surface);
+}
+
+.app-settings-navigation {
+  padding: 14px 12px;
+  border-right: 1px solid var(--ui-divider);
+  background: var(--ui-material-sidebar);
+  backdrop-filter: blur(24px) saturate(145%);
+}
+
+.app-settings-navigation-item {
+  border-radius: var(--ui-radius-control);
+  transition:
+    color var(--ui-motion-fast) ease-out,
+    background-color var(--ui-motion-fast) ease-out,
+    box-shadow var(--ui-motion-fast) ease-out,
+    transform var(--ui-motion-fast) ease-out;
+}
+
+.app-settings-navigation-item[aria-selected="true"] {
+  background: var(--ui-highlight-strong);
+  color: var(--text-primary);
+}
+
+.app-settings-content {
+  padding: 0 20px 24px;
+  background: color-mix(in srgb, var(--bg-secondary) 54%, var(--ui-material-surface));
+}
+
+.app-settings-controls {
+  border: 1px solid var(--ui-divider);
+  border-radius: var(--ui-radius-popover);
+  background: var(--ui-material-surface);
+  box-shadow: var(--ui-shadow-control);
+}
+
+.app-settings-row + .app-settings-row { border-top: 1px solid var(--ui-divider); }
+.semantic-color-editor { border-top-color: var(--ui-divider); }
+
+.app-settings-page :where(
+  select,
+  textarea,
+  input:not([type]),
+  input[type="text"],
+  input[type="url"],
+  input[type="password"],
+  input[type="search"],
+  input[type="number"]
+) {
+  min-height: 32px;
+  border: 1px solid var(--ui-divider);
+  border-radius: var(--ui-radius-control);
+  outline: none;
+  background-color: var(--ui-material-control);
+  color: var(--text-primary);
+  transition:
+    border-color var(--ui-motion-fast) ease-out,
+    box-shadow var(--ui-motion-fast) ease-out,
+    background-color var(--ui-motion-fast) ease-out;
+
+  &:focus-visible {
+    border-color: color-mix(in srgb, var(--accent-primary) 62%, var(--ui-divider));
+    background-color: var(--ui-material-surface);
+    box-shadow: var(--ui-focus-ring);
+  }
+}
+
+.app-settings-toggle {
+  position: relative;
+  width: 32px;
+  height: 20px;
+  margin-right: 3px;
+  appearance: none;
+  border: 1px solid color-mix(in srgb, var(--text-tertiary) 28%, transparent);
+  border-radius: 999px;
+  outline: none;
+  background: color-mix(in srgb, var(--text-tertiary) 24%, var(--bg-primary));
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / 12%);
+  cursor: pointer;
+  transition:
+    background-color var(--ui-motion-standard) var(--ui-motion-ease),
+    border-color var(--ui-motion-standard) var(--ui-motion-ease),
+    box-shadow var(--ui-motion-fast) ease-out;
+
+  &::before {
+    content: "";
+    position: absolute;
+    top: 1px;
+    left: 1px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 3px rgb(0 0 0 / 30%);
+    transition: transform var(--ui-motion-standard) var(--ui-motion-ease);
+  }
+
+  &:checked {
+    border-color: var(--accent-primary);
+    background: var(--accent-primary);
+  }
+
+  &:checked::before { transform: translateX(12px); }
+  &:focus-visible { box-shadow: var(--ui-focus-ring), inset 0 1px 2px rgb(0 0 0 / 10%); }
+  &:disabled { opacity: var(--ui-disabled-opacity); cursor: default; }
+}
+
+.app-settings-page .btn:not(.btn-primary) {
+  border-color: var(--ui-divider);
+  background: var(--ui-material-control);
+}
+
+:is(
+  .relationship-layout-menu,
+  .relationship-display-popover,
+  .relationship-filter-popover,
+  .relationship-add-menu,
+  .relationship-context-menu,
+  .gf-flow-node-toolbar,
+  .gf-flow-group-title-toolbar,
+  .gf-flow-group-actions
+) {
+  border-color: var(--ui-divider);
+  border-radius: var(--ui-radius-popover);
+  background: var(--ui-material-surface);
+  box-shadow: var(--ui-shadow-floating);
+  backdrop-filter: blur(24px) saturate(150%);
+}
+
+:is(
+  .relationship-layout-menu,
+  .relationship-display-popover,
+  .relationship-filter-popover,
+  .relationship-add-menu,
+  .relationship-context-menu
+) {
+  border: 1px solid var(--ui-divider);
+}
+
+:is(.gf-flow-node-toolbar button, .gf-flow-group-actions button) {
+  border-color: var(--ui-divider);
+  background: var(--ui-material-control);
+  color: var(--text-primary);
+}
+
+:is(.gf-flow-node-toolbar button, .gf-flow-group-actions button).is-active {
+  border-color: var(--accent-primary);
+  background: var(--ui-highlight-strong);
+  color: var(--accent-primary);
+}
+
+@media (max-width: 760px) {
+  .app-settings-content {
+    padding-left: 14px;
+    padding-right: 12px;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  :is(
+    .app-settings-navigation,
+    .relationship-toolbar,
+    .relationship-layout-menu,
+    .relationship-display-popover,
+    .relationship-filter-popover,
+    .relationship-add-menu,
+    .relationship-context-menu,
+    .gf-flow-node-toolbar,
+    .gf-flow-group-title-toolbar,
+    .gf-flow-group-actions
+  ) {
+    backdrop-filter: none;
+  }
+
+  .app-settings-navigation,
+  .relationship-toolbar {
+    background: var(--bg-secondary);
+  }
+
+  :is(
+    .app-settings-layout,
+    .app-settings-controls,
+    .relationship-layout-menu,
+    .relationship-display-popover,
+    .relationship-filter-popover,
+    .relationship-add-menu,
+    .relationship-context-menu,
+    .gf-flow-node-toolbar,
+    .gf-flow-group-title-toolbar,
+    .gf-flow-group-actions
+  ) {
+    background: var(--bg-primary);
+  }
+}
+
+@media (prefers-contrast: more) {
+  .app-settings-navigation-item[aria-selected="true"] {
+    outline: 1px solid var(--accent-primary);
+    outline-offset: -1px;
+  }
+}

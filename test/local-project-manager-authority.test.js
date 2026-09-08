@@ -7,7 +7,7 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
 const AUTHORITY_SOURCE = process.env.GITFINDER_AUTHORITY_SOURCE || path.resolve(
-  '/Volumes/project/开发中/工具/local-project-manager/scripts/gitfinder_authority.py'
+  '/Volumes/project/项目/local-project-manager/scripts/gitfinder_authority.py'
 );
 const authorityTest = process.platform !== 'win32' && fs.existsSync(AUTHORITY_SOURCE)
   ? test

@@ -134,6 +134,77 @@
     return Math.max(0, limit);
   }
 
+  function overlaps(left, right) {
+    return left.x < right.x + right.width && left.x + left.width > right.x
+      && left.y < right.y + right.height && left.y + left.height > right.y;
+  }
+
+  // Group titles are rendered by React Flow in screen space, outside the
+  // container frame. Persisted/manual boards can still contain a card in that
+  // band, so protect the title at render time without changing relationships,
+  // group membership, or the stored placement until the user moves a card.
+  function avoidGroupTitleCollisions(nodes = [], options = {}) {
+    const absolute = absolutePositions(nodes);
+    const childCounts = nodes.reduce((counts, node) => {
+      if (node.parentId) counts.set(node.parentId, (counts.get(node.parentId) || 0) + 1);
+      return counts;
+    }, new Map());
+    const zoom = Math.max(0.03, Number(options.zoom) || 1);
+    const fontSize = Math.max(14, Math.min(36, Number(options.groupTitleFontSize) || 20));
+    const titles = nodes.filter(node => node.type === 'relationshipGroup').map(node => {
+      const position = absolute.get(node.id) || { x: 0, y: 0 };
+      const size = nodeDimensions(node);
+      const width = (typeof FlowRouting?.titleWidth === 'function'
+        ? FlowRouting.titleWidth(node.data?.entity, childCounts.get(node.id) || 0, fontSize)
+        : 120) / zoom;
+      const height = (fontSize + 10) / zoom;
+      const offset = 8 / zoom;
+      return {
+        ownerId: node.id,
+        x: position.x + size.width / 2 - width / 2,
+        y: position.y - offset - height,
+        width,
+        height
+      };
+    });
+    if (!titles.length) return nodes;
+
+    const rectangles = new Map(nodes.map(node => {
+      const position = absolute.get(node.id) || { x: 0, y: 0 };
+      const size = nodeDimensions(node);
+      return [node.id, { node, x: position.x, y: position.y, width: size.width, height: size.height }];
+    }));
+    const candidatesFor = (rect, title, gap) => [
+      { x: title.x - rect.width - gap, y: title.y },
+      { x: title.x + title.width + gap, y: title.y },
+      { x: title.x, y: title.y - rect.height - gap },
+      { x: title.x, y: title.y + title.height + gap }
+    ];
+    const canPlace = (candidate, currentId) => {
+      if (titles.some(title => overlaps(candidate, title))) return false;
+      return [...rectangles.values()].some(rect => rect.node.id !== currentId && overlaps(candidate, rect)) === false;
+    };
+    const cards = nodes.filter(node => node.type !== 'relationshipGroup' && node.type !== 'endpoint' && !node.parentId
+      && node.data?.placement?.locked !== true);
+    for (const node of cards) {
+      const rect = rectangles.get(node.id);
+      if (!rect) continue;
+      const blockers = titles.filter(title => overlaps(rect, title));
+      if (!blockers.length) continue;
+      let best = null;
+      for (const title of blockers) for (const candidate of candidatesFor(rect, title, 16 / zoom)) {
+        if (!canPlace({ ...candidate, width: rect.width, height: rect.height }, node.id)) continue;
+        const distance = Math.hypot(candidate.x - rect.x, candidate.y - rect.y);
+        if (!best || distance < best.distance) best = { ...candidate, distance };
+      }
+      if (!best) continue;
+      const dx = best.x - rect.x, dy = best.y - rect.y;
+      node.position = { ...(node.position || {}), x: (Number(node.position?.x) || 0) + dx, y: (Number(node.position?.y) || 0) + dy };
+      rectangles.set(node.id, { ...rect, x: best.x, y: best.y });
+    }
+    return nodes;
+  }
+
   function constrainProjectNodes(nodes = []) {
     const next = nodes.map(node => ({ ...node, position: { ...(node.position || {}) }, data: { ...(node.data || {}) } }));
     const byId = new Map(next.map(node => [node.id, node]));
@@ -333,6 +404,7 @@
         }
       };
     });
+    if (!options.linkedNodeIds) nodes = avoidGroupTitleCollisions(nodes, options);
     nodes = constrainProjectNodes(nodes);
     const visible = new Set(nodes.map(item => item.id));
     const edges = (graph.relationships || []).filter(edge => visible.has(edge.sourceId) && visible.has(edge.targetId))
@@ -399,6 +471,7 @@
     statusTone,
     showsRuntimeStatus,
     constrainProjectNodes,
+    avoidGroupTitleCollisions,
     movementRoots,
     applyLinkedDrag,
     snapProjectDeployment: ProjectSnap.snap,

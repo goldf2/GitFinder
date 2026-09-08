@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { Controller, presentationForState } = require('../src/renderer/scripts/updateController');
+const { Controller, detailForState, presentationForState } = require('../src/renderer/scripts/updateController');
 
 test('更新按钮状态覆盖检查、下载和安装三个阶段', () => {
   assert.deepEqual(presentationForState({ enabled: true, phase: 'idle' }), {
@@ -45,4 +45,10 @@ test('更新设置提供自动检查开关并明确下载前需要确认', () =>
   assert.match(markup, /id="settings-update-auto-check"/);
   assert.match(markup, /data-update-auto-check/);
   assert.match(markup, /下载前会再次征求确认/);
+});
+
+test('无可用更新时显示线上版本，更新错误保留错误码', () => {
+  assert.equal(presentationForState({ enabled: true, phase: 'up-to-date' }).label, '没有可用更新');
+  assert.equal(detailForState({ feedHost: 'oaktechz.com', remoteVersion: '2.0.0-alpha.86' }), '更新源：oaktechz.com · 线上版本 v2.0.0-alpha.86');
+  assert.equal(detailForState({ errorCode: 'ERR_NETWORK', error: '连接失败' }), '[ERR_NETWORK] 连接失败');
 });

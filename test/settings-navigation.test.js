@@ -39,7 +39,10 @@ test('纵向设置导航支持方向键、Home 和 End', () => {
 test('设置页采用左侧分类导航与右侧单分类内容', () => {
   const html = fs.readFileSync(path.join(projectRoot, 'src/renderer/index.html'), 'utf8');
   const appSource = fs.readFileSync(path.join(projectRoot, 'src/renderer/scripts/app.js'), 'utf8');
-  const css = fs.readFileSync(path.join(projectRoot, 'src/renderer/styles/content.css'), 'utf8');
+  const css = [
+    'src/renderer/styles/content.css',
+    'src/renderer/styles/apple-ui/settings-board.css'
+  ].map(file => fs.readFileSync(path.join(projectRoot, file), 'utf8')).join('\n');
 
   assert.ok(html.indexOf('scripts/settingsNavigation.js') < html.indexOf('scripts/app.js'));
   assert.match(appSource, /class="app-settings-navigation"/);

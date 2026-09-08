@@ -1,0 +1,142 @@
+/* Shared tokens and control feedback. Existing theme variables remain the color source. */
+
+:root {
+  color-scheme: light;
+  --ui-font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, "Segoe UI", "Helvetica Neue", sans-serif;
+  --ui-radius-control: 8px;
+  --ui-radius-popover: 12px;
+  --ui-radius-surface: 14px;
+  --ui-material-toolbar: color-mix(in srgb, var(--bg-secondary) 82%, transparent);
+  --ui-material-sidebar: color-mix(in srgb, var(--bg-primary) 76%, transparent);
+  --ui-material-surface: color-mix(in srgb, var(--bg-primary) 92%, transparent);
+  --ui-material-control: color-mix(in srgb, var(--bg-input) 74%, transparent);
+  --ui-material-control-hover: color-mix(in srgb, var(--bg-active) 86%, transparent);
+  --ui-divider: color-mix(in srgb, var(--border-color) 78%, transparent);
+  --ui-highlight-strong: color-mix(in srgb, var(--accent-primary) 22%, transparent);
+  --ui-focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent-primary) 28%, transparent);
+  --ui-shadow-control: 0 1px 1px rgb(0 0 0 / 6%), inset 0 1px 0 rgb(255 255 255 / 18%);
+  --ui-shadow-surface: 0 1px 2px rgb(0 0 0 / 7%), 0 8px 28px rgb(0 0 0 / 8%);
+  --ui-shadow-floating: 0 18px 48px rgb(0 0 0 / 18%), 0 2px 10px rgb(0 0 0 / 10%);
+  --ui-motion-fast: 100ms;
+  --ui-motion-standard: 180ms;
+  --ui-motion-ease: cubic-bezier(0.2, 0.72, 0.2, 1);
+  --ui-pressed-scale: 0.97;
+  --ui-disabled-opacity: 0.42;
+}
+
+[data-effective-mode="dark"] {
+  color-scheme: dark;
+  --ui-material-toolbar: color-mix(in srgb, var(--bg-secondary) 88%, transparent);
+  --ui-material-sidebar: color-mix(in srgb, var(--bg-primary) 78%, transparent);
+  --ui-material-surface: color-mix(in srgb, var(--bg-primary) 90%, transparent);
+  --ui-material-control: color-mix(in srgb, var(--bg-tertiary) 68%, transparent);
+  --ui-material-control-hover: color-mix(in srgb, var(--bg-active) 92%, transparent);
+  --ui-divider: color-mix(in srgb, var(--border-color) 88%, transparent);
+  --ui-highlight-strong: color-mix(in srgb, var(--accent-primary) 27%, transparent);
+  --ui-shadow-control: 0 1px 1px rgb(0 0 0 / 28%), inset 0 1px 0 rgb(255 255 255 / 7%);
+  --ui-shadow-surface: 0 1px 2px rgb(0 0 0 / 32%), 0 10px 32px rgb(0 0 0 / 24%);
+  --ui-shadow-floating: 0 20px 54px rgb(0 0 0 / 46%), 0 2px 12px rgb(0 0 0 / 32%);
+}
+
+body {
+  font-family: var(--ui-font-family);
+  font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+:where(
+  .toolbar button,
+  .workspace-tab-strip button,
+  .sidebar-navigation button,
+  .sidebar-add-btn,
+  .tree-node-toggle,
+  .btn,
+  .app-settings-page button,
+  .relationship-toolbar button,
+  .gf-flow-node-toolbar button,
+  .gf-flow-group-actions button
+) {
+  -webkit-tap-highlight-color: transparent;
+  transform-origin: center;
+  transition:
+    color var(--ui-motion-fast) ease-out,
+    background-color var(--ui-motion-fast) ease-out,
+    border-color var(--ui-motion-fast) ease-out,
+    box-shadow var(--ui-motion-fast) ease-out,
+    transform var(--ui-motion-fast) ease-out,
+    opacity var(--ui-motion-fast) ease-out;
+
+  &:active:not(:disabled) {
+    transform: scale(var(--ui-pressed-scale));
+  }
+
+  &:disabled {
+    opacity: var(--ui-disabled-opacity);
+    cursor: default;
+    transform: none;
+  }
+}
+
+.btn {
+  border-radius: var(--ui-radius-control);
+  box-shadow: var(--ui-shadow-control);
+}
+
+:is(.nav-btn, .finder-toolbar-button, .finder-menu-trigger, .search-scope-btn,
+  .workspace-new-tab, .sidebar-add-btn, .tree-node-toggle, .btn,
+  .sidebar-navigation button, .app-settings-page button:not(.app-settings-navigation-item),
+  .relationship-toolbar button, .gf-flow-node-toolbar button,
+  .gf-flow-group-actions button):focus-visible {
+  outline: none;
+  box-shadow: var(--ui-focus-ring);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(
+    .toolbar button,
+    .workspace-tab-strip button,
+    .workspace-tab,
+    .sidebar-navigation button,
+    .sidebar-add-btn,
+    .tree-node-toggle,
+    .btn,
+    .app-settings-page button,
+    .relationship-toolbar button,
+    .gf-flow-node-toolbar button,
+    .gf-flow-group-actions button,
+    .app-settings-toggle,
+    .app-settings-toggle::before
+  ) {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  :where(
+    .toolbar button,
+    .workspace-tab-strip button,
+    .sidebar-navigation button,
+    .sidebar-add-btn,
+    .tree-node-toggle,
+    .btn,
+    .app-settings-page button,
+    .relationship-toolbar button,
+    .gf-flow-node-toolbar button,
+    .gf-flow-group-actions button
+  ):active:not(:disabled) {
+    transform: none !important;
+  }
+}
+
+@media (prefers-contrast: more) {
+  :root {
+    --ui-divider: color-mix(in srgb, var(--text-primary) 58%, transparent);
+    --ui-focus-ring: 0 0 0 3px var(--accent-primary);
+  }
+}

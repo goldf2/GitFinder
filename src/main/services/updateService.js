@@ -207,7 +207,7 @@ function createUpdateService({
       showUpdateNotification(version);
     });
 
-    autoUpdater.on('update-not-available', () => send('updater:up-to-date'));
+    autoUpdater.on('update-not-available', info => send('updater:up-to-date', info));
     autoUpdater.on('download-progress', (progress = {}) => send('updater:progress', {
       percent: Number(progress.percent) || 0,
       transferred: Number(progress.transferred) || 0,
@@ -286,6 +286,7 @@ function createUpdateService({
       .catch((error) => ({
         available: false,
         currentVersion: app.getVersion(),
+        errorCode: error?.code || null,
         error: error?.message || String(error),
       }))
       .finally(() => { checkPromise = null; });

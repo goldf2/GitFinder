@@ -31,7 +31,7 @@ GitFinder 2.0 的定位是“本地开发与部署管理中心”。它是与 Gi
 
 ## 当前已知环境
 
-- GitFinder 1.x 仓库：`/Volumes/project/已部署/git-status-monitor`。
+- GitFinder 1.x 仓库：`/Volumes/project/项目/git-status-monitor`。
 - 1.x 当前本地版本：`1.30.13`，本地 `main` 已包含一个未推送的稳定维护提交。
 - 本地“开发中/已部署”范围未找到 Xiangshu Panel 源码仓库；在有 API 契约前，Panel 按外部数据提供方处理。
 

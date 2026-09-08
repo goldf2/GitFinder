@@ -50,7 +50,7 @@ git clone <仓库地址> gitfinder-2
 Set-Location .\gitfinder-2
 ```
 
-如果项目还没有远程仓库，可以把 `/Volumes/project/开发中/gitfinder-2` 复制到 Windows，例如放在 `C:\Work\gitfinder-2`，再进入该目录：
+如果项目还没有远程仓库，可以把 `/Volumes/project/项目/gitfinder-2` 复制到 Windows，例如放在 `C:\Work\gitfinder-2`，再进入该目录：
 
 ```powershell
 Set-Location C:\Work\gitfinder-2

@@ -28,6 +28,11 @@ on:
         required: true
         default: true
         type: boolean
+      create_github_draft:
+        description: Mirror verified artifacts to a private GitHub Draft Release
+        required: true
+        default: true
+        type: boolean
 
 permissions:
   contents: read
@@ -169,3 +174,50 @@ jobs:
           name: GitFinder-2-store-release-${{ inputs.expected_version }}
           path: release-bundle/store-release.json
           retention-days: 30
+
+  github-draft:
+    name: Create GitHub Draft Release mirror
+    if: ${{ inputs.create_github_draft }}
+    needs: [macos, windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download verified platform artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: GitFinder-2-*-alpha
+          path: release-bundle
+          merge-multiple: true
+      - name: Create or refresh the immutable GitHub draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_VERSION: ${{ inputs.expected_version }}
+          RELEASE_TITLE: ${{ inputs.title_en }}
+          RELEASE_NOTES_EN: ${{ inputs.notes_en }}
+          RELEASE_NOTES_ZH: ${{ inputs.notes_zh }}
+        run: |
+          tag="v$EXPECTED_VERSION"
+          node -e "require('fs').writeFileSync('release-notes.md', process.env.RELEASE_NOTES_ZH + '\n\n' + process.env.RELEASE_NOTES_EN + '\n')"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            test "$(gh release view "$tag" --json isDraft --jq .isDraft)" = "true"
+            gh release upload "$tag" release-bundle/* --clobber
+            gh release edit "$tag" --title "$RELEASE_TITLE" --notes-file release-notes.md
+          else
+            gh release create "$tag" release-bundle/* \
+              --draft \
+              --prerelease \
+              --target "$GITHUB_SHA" \
+              --title "$RELEASE_TITLE" \
+              --notes-file release-notes.md
+          fi
+      - name: Verify required mirror assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_VERSION: ${{ inputs.expected_version }}
+        run: |
+          assets="$(gh release view "v$EXPECTED_VERSION" --json assets --jq '.assets[].name')"
+          grep -Fx 'latest-mac.yml' <<<"$assets"
+          grep -Fx 'latest.yml' <<<"$assets"
+          grep -E "GitFinder-2-${EXPECTED_VERSION}-arm64-mac\\.zip" <<<"$assets"
+          grep -E "GitFinder-2-${EXPECTED_VERSION}-x64-win-setup\\.exe" <<<"$assets"

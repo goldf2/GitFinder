@@ -99,6 +99,34 @@ test('没有筛选时 Project 容器默认不虚化', () => {
   assert.equal(model.nodes.find(item => item.id === 'project').data.filterState, '');
 });
 
+test('Project 标题与外部卡片重叠时只调整渲染位置，不破坏关系和容器形状', () => {
+  const graph = {
+    entities: [
+      { id: 'entity_panel_projectgroup_collision', type: 'group', name: 'con01 - 企业官网服务', details: {} },
+      { id: 'entity_endpoint_collision', type: 'endpoint', name: '访问点', details: {} }
+    ],
+    placements: [
+      { entityId: 'entity_panel_projectgroup_collision', x: 400, y: 300, groupWidth: 600, groupHeight: 400, groupShape: 'polygon' },
+      { entityId: 'entity_endpoint_collision', x: 520, y: 270 }
+    ],
+    relationships: []
+  };
+  const before = structuredClone(graph);
+  const model = Adapter.toFlowModel(graph, { cardWidth: 280, cardHeight: 143, groupTitleFontSize: 20, zoom: 1 });
+  const group = model.nodes.find(node => node.id === 'entity_panel_projectgroup_collision');
+  const endpoint = model.nodes.find(node => node.id === 'entity_endpoint_collision');
+  const titleWidth = 120;
+  const title = { x: group.position.x + group.style.width / 2 - titleWidth / 2, y: group.position.y - 38, width: titleWidth, height: 30 };
+  const card = { ...endpoint.position, width: endpoint.style.width, height: endpoint.style.height };
+  const overlaps = (left, right) => left.x < right.x + right.width && left.x + left.width > right.x
+    && left.y < right.y + right.height && left.y + left.height > right.y;
+
+  assert.equal(overlaps(card, title), false, '外部访问点不能继续遮挡 Project 标题');
+  assert.notDeepEqual(endpoint.position, before.placements[1], '只调整画布渲染节点，不改变输入白板数据');
+  assert.equal(group.data.placement.groupShape, 'polygon');
+  assert.equal(graph.placements[0].groupShape, 'polygon');
+});
+
 test('Project 内部署拖动时吸附到同级对齐线并保持显示设置间距', () => {
   const graph = fixture();
   graph.entities.push({ id: 'deployment-b', type: 'deployment', name: '预览部署', details: {} });

@@ -245,11 +245,19 @@
 }
 
 .gf-flow-group-title-toolbar {
+  position: relative;
+  z-index: 1000;
   display: flex;
   align-items: baseline;
   gap: 9px;
   width: max-content;
   white-space: nowrap;
+  padding: 3px 7px;
+  border: 1px solid rgb(210 216 228 / 90%);
+  border-radius: 8px;
+  background: rgb(255 255 255 / 96%);
+  box-shadow: 0 6px 18px rgb(37 48 69 / 12%);
+  pointer-events: auto;
 }
 
 .gf-flow-group-title-toolbar strong {

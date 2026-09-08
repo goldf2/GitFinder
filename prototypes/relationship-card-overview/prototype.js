@@ -7,7 +7,7 @@
       status: 'synced', statusLabel: '已同步', summary: 'main · a24c7e1', updated: '2 分钟前',
       x: 40, y: 360, todos: 0, reminders: 0, overdue: 0,
       metrics: [['分支', 'main'], ['提交', 'a24c7e1'], ['工作区', '干净'], ['远端', '已同步']],
-      facts: [['本地目录', '/Volumes/project/开发中/mes-lite'], ['远程仓库', 'goldf2/mes-lite'], ['最近提交', '修复库存一致性检查']],
+      facts: [['本地目录', '/Volumes/project/项目/mes-lite'], ['远程仓库', 'goldf2/mes-lite'], ['最近提交', '修复库存一致性检查']],
       note: '生产 MES 主仓库；由多个部署资源引用。',
     },
     {

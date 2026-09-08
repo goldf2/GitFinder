@@ -1,0 +1,86 @@
+name: GitFinder 2 - publish verified mirrors
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_version:
+        description: Version already published as current by the OakTech administrator
+        required: true
+        type: string
+      channel:
+        description: OakTech release channel
+        required: true
+        default: alpha
+        type: choice
+        options: [alpha, beta, stable]
+      prerelease:
+        description: Keep the GitHub Release marked as a prerelease
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gitfinder-2-publish-${{ inputs.channel }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Verify OakTech current and publish GitHub mirror
+    runs-on: ubuntu-latest
+    environment: oaktech-publish
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify OakTech public manifests are already current
+        env:
+          OAKTECH_RELEASE_BASE_URL: ${{ vars.OAKTECH_RELEASE_BASE_URL || 'https://oaktechz.com' }}
+          EXPECTED_VERSION: ${{ inputs.expected_version }}
+          CHANNEL: ${{ inputs.channel }}
+        run: |
+          mkdir -p verification
+          curl --fail --silent --show-error "$OAKTECH_RELEASE_BASE_URL/releases/gitfinder-2/$CHANNEL/latest-mac.yml" > verification/latest-mac.yml
+          curl --fail --silent --show-error "$OAKTECH_RELEASE_BASE_URL/releases/gitfinder-2/$CHANNEL/latest.yml" > verification/latest.yml
+          node - <<'NODE'
+          const fs = require('fs');
+          const expected = process.env.EXPECTED_VERSION;
+          for (const file of ['verification/latest-mac.yml', 'verification/latest.yml']) {
+            const match = fs.readFileSync(file, 'utf8').match(/^version:\s*['"]?([^'"\s]+)['"]?/m);
+            if (!match || match[1] !== expected) {
+              throw new Error(`${file} expected ${expected}, received ${match?.[1] || 'missing version'}`);
+            }
+          }
+          NODE
+      - name: Verify the GitHub mirror is still a complete draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_VERSION: ${{ inputs.expected_version }}
+        run: |
+          tag="v$EXPECTED_VERSION"
+          test "$(gh release view "$tag" --json isDraft --jq .isDraft)" = "true"
+          assets="$(gh release view "$tag" --json assets --jq '.assets[].name')"
+          grep -Fx 'latest-mac.yml' <<<"$assets"
+          grep -Fx 'latest.yml' <<<"$assets"
+          grep -E "GitFinder-2-${EXPECTED_VERSION}-arm64-mac\\.zip" <<<"$assets"
+          grep -E "GitFinder-2-${EXPECTED_VERSION}-x64-win-setup\\.exe" <<<"$assets"
+      - name: Publish the GitHub Release mirror
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_VERSION: ${{ inputs.expected_version }}
+          PRERELEASE: ${{ inputs.prerelease }}
+        run: gh release edit "v$EXPECTED_VERSION" --draft=false --prerelease="$PRERELEASE"
+      - name: Verify both public manifest mirrors
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_VERSION: ${{ inputs.expected_version }}
+        run: |
+          test "$(gh release view "v$EXPECTED_VERSION" --json isDraft --jq .isDraft)" = "false"
+          curl --fail --location --silent --show-error \
+            "https://github.com/$GITHUB_REPOSITORY/releases/download/v$EXPECTED_VERSION/latest-mac.yml" \
+            | grep -F "version: $EXPECTED_VERSION"
+          curl --fail --location --silent --show-error \
+            "https://github.com/$GITHUB_REPOSITORY/releases/download/v$EXPECTED_VERSION/latest.yml" \
+            | grep -F "version: $EXPECTED_VERSION"

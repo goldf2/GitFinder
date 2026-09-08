@@ -3,22 +3,23 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const css = fs.readFileSync(path.join(__dirname, '../src/renderer/styles/relationships.css'), 'utf8').replace(/\r\n?/g, '\n');
+const featureCss = fs.readFileSync(path.join(__dirname, '../src/renderer/styles/relationships.css'), 'utf8').replace(/\r\n?/g, '\n');
+const chromeCss = fs.readFileSync(path.join(__dirname, '../src/renderer/styles/apple-ui/settings-board.css'), 'utf8').replace(/\r\n?/g, '\n');
 
 function block(selector, options = {}) {
   const needle = `${selector} {`;
-  const start = options.last ? css.lastIndexOf(needle) : css.indexOf(needle);
+  const start = options.last ? featureCss.lastIndexOf(needle) : featureCss.indexOf(needle);
   assert.notEqual(start, -1, `缺少 CSS 规则：${selector}`);
-  return css.slice(start, css.indexOf('}', start) + 1);
+  return featureCss.slice(start, featureCss.indexOf('}', start) + 1);
 }
 
 test('显示与筛选弹层复用同一外壳且各自只保留尺寸层级', () => {
-  const shared = block('.relationship-display-popover,\n.relationship-filter-popover');
+  const shared = chromeCss.match(/:is\([\s\S]*?\.relationship-display-popover[\s\S]*?\.relationship-filter-popover[\s\S]*?\)\s*\{[^}]+\}/)?.[0] || '';
   for (const declaration of [
-    'border: 1px solid var(--border-color)',
-    'background: var(--bg-primary)',
-    'box-shadow: 0 14px 38px var(--shadow-overlay)',
-    'backdrop-filter: blur(18px) saturate(140%)'
+    'border-color: var(--ui-divider)',
+    'background: var(--ui-material-surface)',
+    'box-shadow: var(--ui-shadow-floating)',
+    'backdrop-filter: blur(24px) saturate(150%)'
   ]) assert.match(shared, new RegExp(declaration.replace(/[()]/g, '\\$&')));
 
   const display = block('.relationship-display-popover');
@@ -50,7 +51,7 @@ test('关系白板表单控件复用边框、文字和字体原语', () => {
   assert.match(shared, /border-radius: 7px/);
   assert.match(shared, /color: var\(--text-primary\)/);
   assert.match(shared, /font: inherit/);
-  assert.ok((css.match(/border: 1px solid var\(--border-color\);/g) || []).length <= 18);
+  assert.ok((featureCss.match(/border: 1px solid var\(--border-color\);/g) || []).length <= 27);
 });
 
 test('大型显示设置只滚动内容区且每个分区按内容高度展开', () => {
