@@ -596,6 +596,8 @@ test('Coolify 动态拓扑通过只读 IPC 投影到白板而不写入持久关�
   assert.match(preloadSource, /getProjectBindings:\s*\(directoryPath\)\s*=>\s*ipcRenderer\.invoke\('panel:getProjectBindings'/);
   assert.match(controllerSource, /PanelTopologyProjection/);
   assert.match(controllerSource, /data-panel-topology-status/);
+  assert.match(controllerSource, /relationship-panel-status-light/);
+  assert.match(relationshipCss, /relationship-panel-status-light/);
   assert.match(controllerSource, /data-relationship-action="refresh-panel"/);
   assert.match(controllerSource, /动态事实直接来自 Coolify，只读显示，不写入本机白板/);
 
@@ -676,9 +678,9 @@ test('Coolify 部分实例失败时显示部分同步，不把可用快照误报
   });
   const status = controller._panelStatusView();
   assert.equal(status.state, 'warning');
-  assert.match(status.label, /2\/3 个 Coolify 已同步/);
-  assert.match(status.label, /1 个实例失败/);
-  assert.doesNotMatch(status.label, /同步失败/);
+  assert.equal(status.label, '●');
+  assert.equal(status.a11yLabel, '数据同步有问题');
+  assert.doesNotMatch(status.label, /Coolify|实例|同步失败/);
   assert.match(status.title, /AL02|ETIMEDOUT/);
 });
 
@@ -701,10 +703,12 @@ test('Coolify 同步状态显示实例、阶段和阶段计数', () => {
   };
   const status = controller._panelStatusView();
   assert.equal(status.state, 'loading');
-  assert.match(status.label, /1\/3 个 Coolify/);
-  assert.match(status.label, /con01/);
-  assert.match(status.label, /读取 Project 详情 14\/37/);
-  assert.match(status.label, /已读 项目详情 7\/37/);
+  assert.equal(status.label, '●');
+  assert.equal(status.a11yLabel, '数据同步进行中');
+  assert.match(status.title, /1\/3 个 Coolify/);
+  assert.match(status.title, /con01/);
+  assert.match(status.title, /读取 Project 详情 14\/37/);
+  assert.match(status.title, /已读 项目详情 7\/37/);
 });
 
 test('Coolify 同步状态显示已读取的数据数量', () => {
@@ -724,14 +728,48 @@ test('Coolify 同步状态显示已读取的数据数量', () => {
     readCounts: { servers: 3, projects: 9, applications: 20, services: 2, databases: 1, deployments: 23 }
   };
   const status = controller._panelStatusView();
-  assert.match(status.label, /已读 服务器 3/);
-  assert.match(status.label, /项目 9/);
+  assert.equal(status.label, '●');
+  assert.equal(status.a11yLabel, '数据同步进行中');
+  assert.match(status.title, /已读 服务器 3/);
+  assert.match(status.title, /项目 9/);
   assert.match(status.title, /应用 20/);
   assert.match(status.title, /数据库 1/);
   controller.panelSyncProgress = { ...controller.panelSyncProgress, phase: 'finalizing', phaseLabel: '整理拓扑' };
   const finalizingStatus = controller._panelStatusView();
-  assert.match(finalizingStatus.label, /已读 服务器 3/);
-  assert.match(finalizingStatus.label, /部署 23/);
+  assert.equal(finalizingStatus.label, '●');
+  assert.match(finalizingStatus.title, /已读 服务器 3/);
+  assert.match(finalizingStatus.title, /部署 23/);
+});
+
+test('主界面同步状态只显示红绿灯，部署历史失败不改变正常同步为红灯', () => {
+  const controller = new Controller({ bridge: {} });
+  controller.store = {
+    schemaVersion: 1,
+    activeBoardId: 'board_sync_indicator',
+    entities: [],
+    relationships: [],
+    boards: [{
+      id: 'board_sync_indicator',
+      name: '状态',
+      viewport: { x: 0, y: 0, zoom: 1 },
+      view: RelationshipGraphModel.defaultBoardView(),
+      placements: []
+    }]
+  };
+  controller._setPanelTopology({
+    state: 'ready',
+    providers: [{ providerId: 'con01', label: 'con01' }],
+    topology: {
+      generatedAt: new Date().toISOString(),
+      servers: [{ nodeId: 'server-1', providerId: 'con01', name: 'con01' }],
+      deployments: [{ resourceUuid: 'deployment-1', providerId: 'con01', nodeId: 'server-1', name: '商城', recentFailure: { hasFailure: true } }]
+    }
+  });
+  const status = controller._panelStatusView();
+  assert.equal(status.state, 'ready');
+  assert.equal(status.label, '●');
+  assert.equal(status.a11yLabel, '数据同步正常');
+  assert.doesNotMatch(status.title, /近期失败记录/);
 });
 
 test('Coolify 同步日志按最新运行置顶并显示端点结果与读取数据', () => {

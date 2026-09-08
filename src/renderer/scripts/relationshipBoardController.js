@@ -2302,6 +2302,7 @@
     _panelStatusView() {
       const state = this.panelTopologyResult?.state || this.panelProjection?.metadata?.state || 'unconfigured';
       const metadata = this.panelProjection?.metadata || {};
+      const indicator = '●';
       if (this.panelRefreshInFlight) {
         const hasSnapshot = this.panelTopologyResult?.cached === true || Boolean(metadata.deploymentCount);
         const progress = this.panelSyncProgress;
@@ -2316,49 +2317,46 @@
             ? ` ${Math.min(Math.max(0, progress.completed || 0), progress.total)}/${progress.total}` : '';
           const provider = String(progress.providerLabel || '').trim();
           const data = this._panelProgressDataView(progress);
-          const label = [scope, provider, `${phase}${count}`, data.label].filter(Boolean).join(' · ');
+          const progressLabel = [scope, provider, `${phase}${count}`, data.label].filter(Boolean).join(' · ');
           const detail = progress.error
             ? `；${progress.error}`
             : (progress.updatedAt ? `；最近更新 ${this._relativeTime(progress.updatedAt)}` : '');
           return {
             state: hasSnapshot ? 'refreshing' : 'loading',
-            label,
-            title: `${hasSnapshot ? '当前显示上次成功快照；' : ''}${phase}${data.title ? `；${data.title}` : ''}${detail}`
+            label: indicator,
+            a11yLabel: '数据同步进行中',
+            title: `${hasSnapshot ? '当前显示上次成功快照；' : ''}${progressLabel}${detail}`
           };
         }
         return hasSnapshot
-          ? { state: 'refreshing', label: 'Coolify 后台同步中…', title: '当前显示上次成功快照；在线刷新完成后会自动替换' }
-          : { state: 'loading', label: 'Coolify 同步中…', title: '正在读取只读动态拓扑' };
+          ? { state: 'refreshing', label: indicator, a11yLabel: '数据同步进行中', title: '当前显示上次成功快照；在线刷新完成后会自动替换' }
+          : { state: 'loading', label: indicator, a11yLabel: '数据同步进行中', title: '正在读取只读动态拓扑' };
       }
       if (state === 'ready') {
         const stale = this._panelSnapshotStale();
-        const failure = metadata.failureCount ? ` · ${metadata.failureCount} 个部署有近期失败记录` : '';
-        const cachePrefix = this.panelTopologyResult?.cached ? '缓存 · ' : '';
         const providers = Array.isArray(this.panelTopologyResult?.providers) ? this.panelTopologyResult.providers : [];
         const failedProviderIds = new Set([
           ...(Array.isArray(this.panelTopologyResult?.staleProviders) ? this.panelTopologyResult.staleProviders : []),
           ...(Array.isArray(this.panelTopologyResult?.errors) ? this.panelTopologyResult.errors.map(error => error?.providerId).filter(Boolean) : [])
         ]);
-        const providerCount = Math.max(providers.length, Number(metadata.providerCount) || 0, failedProviderIds.size);
         if (failedProviderIds.size || this.panelLastError) {
-          const syncedCount = Math.max(0, providerCount - failedProviderIds.size);
-          const scope = providerCount > 1 ? `${syncedCount}/${providerCount} 个 Coolify 已同步` : 'Coolify 已同步';
           return {
             state: 'warning',
-            label: `${scope} · ${failedProviderIds.size ? `${failedProviderIds.size} 个实例失败` : '刷新失败'}`,
+            label: indicator,
+            a11yLabel: '数据同步有问题',
             title: `${this.panelLastError || '最近一次刷新未完成'}；${this.panelTopologyResult?.cached ? '已保留失败实例的最后成功快照' : '当前仍显示最近成功数据'}`
           };
         }
-        const providerPrefix = metadata.providerCount > 1 ? `${cachePrefix}${metadata.providerCount} 个 Coolify · ` : `Coolify ${cachePrefix}`;
         return {
-          state: stale ? 'stale' : (metadata.failureCount ? 'warning' : 'ready'),
-          label: `${providerPrefix}${metadata.serverCount || 0} 台服务器 · ${metadata.deploymentCount || 0} 个部署${failure}`,
+          state: stale ? 'stale' : 'ready',
+          label: indicator,
+          a11yLabel: stale ? '数据同步有问题' : '数据同步正常',
           title: `${this.panelTopologyResult?.cached ? '已从本机缓存恢复；' : ''}最后同步 ${this._relativeTime(metadata.generatedAt)}${stale ? '；数据已陈旧' : ''}`
         };
       }
-      if (state === 'reauthentication-required') return { state, label: 'Coolify 需要重新连接', title: '请在设置中重新输入只读 API Token' };
-      if (state === 'error') return { state, label: 'Coolify 同步失败', title: this.panelLastError || '无法读取动态拓扑' };
-      return { state: 'unconfigured', label: 'Coolify 未连接', title: '可在设置中直接连接 Coolify' };
+      if (state === 'reauthentication-required') return { state: 'error', label: indicator, a11yLabel: '数据同步有问题', title: '请在设置中重新输入只读 API Token' };
+      if (state === 'error') return { state, label: indicator, a11yLabel: '数据同步有问题', title: this.panelLastError || '无法读取动态拓扑' };
+      return { state: 'unconfigured', label: indicator, a11yLabel: '尚未配置 Coolify', title: '可在设置中直接连接 Coolify' };
     }
 
     _topologyAlerts() {
@@ -2420,6 +2418,7 @@
       element.parentElement.dataset.state = status.state;
       element.dataset.state = status.state;
       element.textContent = status.label;
+      element.setAttribute('aria-label', status.a11yLabel || status.title);
       element.title = status.title;
       if (refresh) refresh.disabled = this.panelRefreshInFlight || !(this.bridge?.panel?.refreshTopology || this.bridge?.panel?.getTopology);
     }
@@ -3380,7 +3379,7 @@
             <button class="relationship-tool-button" data-relationship-action="create-group-from-selection" type="button" title="将选中节点建立视觉分组 (⌘G)" disabled>群组</button>
             <div class="relationship-toolbar-spacer"></div>
             <div class="relationship-panel-status" data-state="${escapeHtml(panelStatus.state)}">
-              <span data-panel-topology-status role="status" aria-live="polite" title="${escapeHtml(panelStatus.title)}">${escapeHtml(panelStatus.label)}</span>
+              <span class="relationship-panel-status-light" data-panel-topology-status role="status" aria-live="polite" aria-label="${escapeHtml(panelStatus.a11yLabel || panelStatus.title)}" title="${escapeHtml(panelStatus.title)}">${escapeHtml(panelStatus.label)}</span>
               <button class="relationship-tool-button" data-relationship-action="refresh-panel" type="button" title="刷新 Coolify 动态拓扑" aria-label="刷新 Coolify 动态拓扑">↻</button>
               <button class="relationship-tool-button relationship-sync-log-trigger" data-relationship-action="show-sync-log" type="button" aria-haspopup="dialog" aria-expanded="false" title="查看 Coolify 同步日志与读取数据" aria-label="查看 Coolify 同步日志与读取数据">日志</button>
               <button class="relationship-tool-button relationship-icon-tool" data-relationship-action="check-endpoints" type="button" title="重新检测全部访问点（本机 HTTP 检测）" aria-label="重新检测全部访问点（本机 HTTP 检测）">◉</button>

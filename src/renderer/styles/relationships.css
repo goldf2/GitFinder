@@ -187,27 +187,42 @@
   border-left: 1px solid var(--border-color);
 }
 
-.relationship-panel-status > span {
-  max-width: min(330px, 28vw);
-  overflow: hidden;
+.relationship-panel-status-light {
+  position: relative;
+  display: inline-flex;
+  width: 10px;
+  height: 10px;
+  flex: 0 0 10px;
+  align-items: center;
+  justify-content: center;
   color: var(--text-tertiary);
-  font-size: 10px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-size: 0;
+  line-height: 1;
 }
 
-.relationship-panel-status[data-state="ready"] > span {
+.relationship-panel-status-light::before {
+  display: block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 2px color-mix(in srgb, currentColor 14%, transparent);
+  content: '';
+}
+
+.relationship-panel-status[data-state="ready"] .relationship-panel-status-light {
   color: #3f985d;
 }
 
-.relationship-panel-status[data-state="warning"] > span,
-.relationship-panel-status[data-state="stale"] > span {
-  color: #b78332;
+.relationship-panel-status[data-state="warning"] .relationship-panel-status-light,
+.relationship-panel-status[data-state="stale"] .relationship-panel-status-light,
+.relationship-panel-status[data-state="error"] .relationship-panel-status-light {
+  color: var(--status-dirty);
 }
 
-.relationship-panel-status[data-state="error"] > span,
-.relationship-panel-status[data-state="unsupported"] > span {
-  color: var(--status-dirty);
+.relationship-panel-status[data-state="loading"] .relationship-panel-status-light,
+.relationship-panel-status[data-state="refreshing"] .relationship-panel-status-light {
+  color: #b78332;
 }
 
 .relationship-sync-log-trigger {
