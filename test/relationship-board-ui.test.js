@@ -1789,28 +1789,34 @@ test('实时拓扑预览刷新已有部署的 Project 容器归属并移除过�
     schemaVersion: 1, activeBoardId: 'board_runtime_groups', relationships: [],
     entities: [
       { id: 'entity_old_group', type: 'group', name: '旧项目', transient: true, runtime: { dynamicKind: 'coolify-project-group' } },
+      { id: 'entity_live_group', type: 'group', name: '当前项目', transient: true, runtime: { dynamicKind: 'coolify-project-group' } },
       { id: 'entity_deployment', type: 'deployment', name: '服务', transient: true, details: {} }
     ],
     boards: [{ id: 'board_runtime_groups', name: '实时拓扑', viewport: { x: 0, y: 0, zoom: 1 }, view: {
       ...globalThis.RelationshipGraphModel.defaultBoardView(), topologyScopeMode: 'all', structure: 'server-tree'
     }, placements: [
-      { entityId: 'entity_old_group', x: 0, y: 0 },
+      { entityId: 'entity_old_group', x: 0, y: 0, groupWidth: 2400, groupHeight: 1600 },
+      { entityId: 'entity_live_group', x: 320, y: 0, groupWidth: 2400, groupHeight: 1600 },
       { entityId: 'entity_deployment', x: 40, y: 80, groupId: 'entity_old_group', note: '保留批注' }
     ] }]
   };
   controller.localWorkspaceMode = true;
   controller.panelProjection = {
     entities: [
-      { id: 'entity_new_group', type: 'group', name: '新项目', transient: true, runtime: { dynamicKind: 'coolify-project-group' } },
+      { id: 'entity_live_group', type: 'group', name: '当前项目', transient: true, runtime: { dynamicKind: 'coolify-project-group' } },
       { id: 'entity_deployment', type: 'deployment', name: '服务', transient: true, details: {} }
     ],
     placements: [
-      { entityId: 'entity_new_group', x: 100, y: 100, dynamic: true },
-      { entityId: 'entity_deployment', x: 140, y: 180, groupId: 'entity_new_group', dynamic: true }
+      { entityId: 'entity_live_group', x: 100, y: 100, dynamic: true, groupLayout: 'auto' },
+      { entityId: 'entity_deployment', x: 140, y: 180, groupId: 'entity_live_group', dynamic: true }
     ], relationships: []
   };
   const placements = controller._combinedPlacements();
-  assert.equal(placements.find(item => item.entityId === 'entity_deployment').groupId, 'entity_new_group');
+  const liveGroup = placements.find(item => item.entityId === 'entity_live_group');
+  assert.equal(liveGroup.groupLayout, 'auto');
+  assert.equal('groupWidth' in liveGroup, false, '实时 Project 不应保留旧的超大宽度');
+  assert.equal('groupHeight' in liveGroup, false, '实时 Project 不应保留旧的超大高度');
+  assert.equal(placements.find(item => item.entityId === 'entity_deployment').groupId, 'entity_live_group');
   assert.equal(placements.some(item => item.entityId === 'entity_old_group'), false);
   assert.equal(placements.find(item => item.entityId === 'entity_deployment').note, '保留批注');
 });
@@ -2100,6 +2106,24 @@ test('动态群组排列设置、尺寸与导出保留，锁定成员不被自�
   c._toggleGroupLayout('entity_inner001');
   assert.notEqual(c.store.boards[0].placements[1].groupLayout, 'auto');
   assert.match(notifications.at(-1), /锁定/);
+});
+
+test('实时 Project 自动容器按成员实际边界让位，避免顶层容器重叠', () => {
+  const { controller: c } = nestedGroupFixture();
+  const entities = c._allEntitiesById();
+  const groupA = { id: 'entity_live_project_a', type: 'group', runtime: { dynamicKind: 'coolify-project-group' } };
+  const groupB = { id: 'entity_live_project_b', type: 'group', runtime: { dynamicKind: 'coolify-project-group' } };
+  entities.set(groupA.id, groupA); entities.set(groupB.id, groupB);
+  const placements = [
+    { entityId: groupA.id, x: 0, y: 0, width: 320, height: 180, groupWidth: 320, groupHeight: 180, groupLayout: 'auto' },
+    { entityId: groupB.id, x: 40, y: 20, width: 320, height: 180, groupWidth: 320, groupHeight: 180, groupLayout: 'auto' },
+    { entityId: 'entity_member_a', groupId: groupA.id, x: 0, y: 0, width: 960, height: 260 },
+    { entityId: 'entity_member_b', groupId: groupB.id, x: 40, y: 20, width: 960, height: 260 }
+  ];
+  c._separateAutoProjectGroups(placements, entities, 48);
+  assert.equal(placements[0].groupWidth, 988);
+  assert.ok(placements[1].x >= placements[0].x + placements[0].groupWidth + 48);
+  assert.equal(placements[3].x, placements[1].x);
 });
 
 test('筛选隐藏自动群组成员不重新排位或收缩边框', () => {

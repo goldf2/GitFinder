@@ -931,22 +931,37 @@
       const groupIds = new Set(this._combinedEntities().filter(item => item.type === 'group').map(item => item.id));
       const placedIds = new Set(this._combinedPlacements().map(item => item.entityId));
       const liveEntities = new Map(this.panelProjection.entities.map(item => [item.id, item]));
+      const runtimePreviewLayout = this._readBoardView().topologyScopeMode !== 'board';
+      const liveProjectGroupIds = new Set(this.panelProjection.placements
+        .filter(item => item.groupLayout === 'auto' && liveEntities.get(item.entityId)?.runtime?.dynamicKind === 'coolify-project-group')
+        .map(item => item.entityId));
       this.panelProjection.placements = this.panelProjection.placements.map(placement => {
         const override = boardLayout[placement.entityId] || liveEntities.get(placement.entityId)?.runtime?.endpointSources
           ?.map(source => boardLayout[source.entityId]).find(Boolean);
+        const liveProjectGroup = runtimePreviewLayout && placement.groupLayout === 'auto'
+          && liveEntities.get(placement.entityId)?.runtime?.dynamicKind === 'coolify-project-group';
+        const liveProjectMember = liveProjectGroupIds.has(placement.groupId);
+        const annotations = normalizePlacementAnnotations(override);
+        if (liveProjectGroup) {
+          delete annotations.groupWidth;
+          delete annotations.groupHeight;
+        }
         const groupId = override && preserveStructure ? override.groupId : placement.groupId;
         const validGroup = groupId && placedIds.has(groupId) && groupIds.has(groupId);
         delete placement.groupId;
         return override ? {
           ...placement,
-          x: override.x,
-          y: override.y,
-          ...(Number.isFinite(override.groupWidth) ? { groupWidth: override.groupWidth } : {}),
-          ...(Number.isFinite(override.groupHeight) ? { groupHeight: override.groupHeight } : {}),
-          ...normalizePlacementAnnotations(override),
+          ...(!runtimePreviewLayout || (!liveProjectGroup && !liveProjectMember) ? { x: override.x, y: override.y } : {}),
+          // Live Project containers are derived from the current Coolify
+          // snapshot. Never reapply a stale persisted frame size: the display
+          // geometry will measure the current members on the next render.
+          ...(!liveProjectGroup && Number.isFinite(override.groupWidth) ? { groupWidth: override.groupWidth } : {}),
+          ...(!liveProjectGroup && Number.isFinite(override.groupHeight) ? { groupHeight: override.groupHeight } : {}),
+          ...annotations,
           ...(override.groupShape ? { groupShape: override.groupShape } : {}),
           ...(override.groupAppearance ? { groupAppearance: override.groupAppearance } : {}),
           ...(validGroup ? { groupId } : {}),
+          ...(liveProjectGroup ? { groupLayout: 'auto' } : {}),
           userPositioned: true
         } : { ...placement, ...(validGroup ? { groupId } : {}) };
       });
@@ -1036,6 +1051,9 @@
         const result = this._isServerTree()
           ? PanelTopologyProjection.arrangeServerTree(input, { ...options, groupTitleSpace })
           : PanelTopologyProjection.arrangeBoardLayout(input, { ...options, groupTitleSpace });
+        if (this._boardView().layout !== 'galaxy') {
+          this._separateAutoProjectGroups(result.placements, entities, Math.max(48, options.horizontalSpacing / 2));
+        }
         if (!(canvas?.clientWidth > 120 && canvas?.clientHeight > 120) || !result.placements.length
           || !result.placements.some(item => entities.get(item.entityId)?.type === 'group')) break;
         const rects = result.placements.map(item => ({ ...item,
@@ -1056,6 +1074,38 @@
       }
       this._saveDynamicPlacementOverrides(placements.filter(item => item.dynamic).map(item => item.entityId));
       this._persistSoon(0);
+    }
+
+    _separateAutoProjectGroups(placements = [], entities = this._allEntitiesById(), gap = 80) {
+      const index = LayoutPrimitives.indexPlacements(placements);
+      const groups = placements.filter(item => {
+        const entity = entities.get(item.entityId);
+        return entity?.type === 'group' && entity.runtime?.dynamicKind === 'coolify-project-group'
+          && !item.groupId && item.groupLayout === 'auto' && !item.locked;
+      }).sort((a, b) => a.y - b.y || a.x - b.x || a.entityId.localeCompare(b.entityId));
+      const placed = [];
+      for (const group of groups) {
+        const members = index.descendants(group.entityId);
+        const width = Math.max(GROUP_MIN_WIDTH, Number(group.groupWidth) || 0,
+          ...members.map(item => (Number(item.x) || 0) + (Number(item.width) || this._nodeDimensions().width)
+            - (Number(group.x) || 0) + GROUP_PADDING_X));
+        const height = Math.max(GROUP_MIN_HEIGHT, Number(group.groupHeight) || 0,
+          ...members.map(item => (Number(item.y) || 0) + (Number(item.height) || this._nodeDimensions().height)
+            - (Number(group.y) || 0) + GROUP_PADDING_BOTTOM));
+        group.groupWidth = Math.round(width); group.groupHeight = Math.round(height);
+        let shiftX = 0;
+        for (const previous of placed) {
+          const overlaps = group.x + shiftX < previous.x + previous.width + gap
+            && group.x + shiftX + width + gap > previous.x
+            && group.y < previous.y + previous.height + gap
+            && group.y + height + gap > previous.y;
+          if (overlaps) shiftX = Math.max(shiftX, previous.x + previous.width + gap - group.x);
+        }
+        if (shiftX) {
+          for (const item of [group, ...index.descendants(group.entityId)]) item.x += shiftX;
+        }
+        placed.push({ x: group.x, y: group.y, width, height });
+      }
     }
 
     _setLayout(style) {
@@ -1335,13 +1385,39 @@
       }) || { entities: [], relationships: [], placements: [], metadata: { state: result.state || 'unconfigured' } };
       const board = this.store && activeBoard(this.store);
       if (board?.view?.structure === 'coolify-projects' && board.placements.length) {
-        const right = Math.max(...board.placements.map(item => {
+        // Runtime preview nodes are positioned from the fresh projection. Do
+        // not let their legacy board coordinates push the whole preview off
+        // canvas when a user previously dragged a deployment far away.
+        const liveIds = new Set(this.panelProjection.placements.map(item => item.entityId));
+        const basePlacements = board.placements.filter(item => !liveIds.has(item.entityId));
+        const right = basePlacements.length ? Math.max(...basePlacements.map(item => {
           const geometry = this._placementGeometry(item, board.placements);
           return geometry.x + geometry.width;
-        }));
+        })) : 0;
         for (const placement of this.panelProjection.placements) placement.x += right + 80;
       }
       this._applyDynamicLayoutOverrides(options);
+      // Runtime Project previews are derived data, so an automatic board
+      // should re-pack them together with local resources after each refresh.
+      // This also repairs legacy coordinates that would otherwise force Fit
+      // View to zoom out over a mostly empty canvas.
+      const hasLegacyOffCanvasLayout = this.panelProjection.placements.some(item => (
+        Math.abs(Number(item.x) || 0) > 10000 || Math.abs(Number(item.y) || 0) > 10000
+        || Number(item.groupWidth) > 5000 || Number(item.groupHeight) > 5000
+      ));
+      if (!this.documentRecord && this._readBoardView().topologyScopeMode !== 'board'
+        && board?.view?.layout !== 'free' && hasLegacyOffCanvasLayout) {
+        this._arrangeCurrentLayout();
+        // React Flow must receive the new node geometry before fitting. The
+        // caller renders immediately after this method, so defer one microtask
+        // to fit the actual updated canvas rather than the stale viewport.
+        this._autoLayoutReflowed = true;
+        queueMicrotask(() => {
+          if (!this._autoLayoutReflowed) return;
+          this._autoLayoutReflowed = false;
+          if (this.root?.isConnected) this.fitContent();
+        });
+      }
     }
 
     _schedulePanelRefresh() {
@@ -1730,6 +1806,11 @@
       const topologyScopeMode = this._readBoardView().topologyScopeMode;
       const previewingRuntime = topologyVisible && !this.documentRecord && topologyScopeMode !== 'board';
       const liveTopologyIds = new Set((this.panelProjection?.placements || []).map(item => item.entityId));
+      const liveProjectGroupIds = new Set((this.panelProjection?.placements || [])
+        .filter(item => item.groupLayout === 'auto'
+          && this.panelProjection?.entities?.some(entity => entity.id === item.entityId
+            && entity.runtime?.dynamicKind === 'coolify-project-group'))
+        .map(item => item.entityId));
       // Keep source classification independent from visibility.  A hidden source
       // is intentionally absent from _combinedEntities(), but its persisted
       // placement still needs to be removed from the visible graph rather than
@@ -1763,9 +1844,27 @@
           // groupIds forever because runtime placements are only appended.
           const index = placements.findIndex(item => item.entityId === placement.entityId);
           const current = index >= 0 ? placements[index] : null;
-          if (current && previewingRuntime && entities.get(placement.entityId)?.type !== 'group'
-            && current.groupId !== placement.groupId) {
-            const next = { ...current };
+          const entity = entities.get(placement.entityId);
+          const liveProjectGroup = entity?.type === 'group'
+            && entity.runtime?.dynamicKind === 'coolify-project-group'
+            && placement.groupLayout === 'auto';
+          if (current && previewingRuntime && liveProjectGroup) {
+            // A Project container is derived from the live snapshot. Keep
+            // local position/annotations, but discard legacy dimensions so
+            // automatic geometry can shrink to the current members.
+            const next = { ...current, groupLayout: 'auto' };
+            delete next.groupWidth;
+            delete next.groupHeight;
+            placements[index] = next;
+          } else if (current && previewingRuntime && entity?.type !== 'group'
+            && (current.groupId !== placement.groupId || liveProjectGroupIds.has(placement.groupId))) {
+            // Live Project children are also derived from the current
+            // snapshot. Reuse local annotations, but let the fresh runtime
+            // position participate in automatic fitting instead of retaining
+            // an old off-canvas coordinate.
+            const next = liveProjectGroupIds.has(placement.groupId)
+              ? { ...placement, ...normalizePlacementAnnotations(current) }
+              : { ...current };
             if (placement.groupId) next.groupId = placement.groupId;
             else delete next.groupId;
             placements[index] = next;

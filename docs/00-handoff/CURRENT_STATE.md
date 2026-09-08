@@ -1,5 +1,12 @@
 # GitFinder 2 当前状态
 
+## 当前修复：实时预览自动收紧 Project 容器并避免容器重叠（alpha.127，待构建）
+
+- 根因：实时 Coolify 预览复用了旧动态布局中的 Project 容器宽高和成员坐标；布局更新后旧容器仍可能达到数万像素，Fit View 被空白区域撑开，缩小后卡片无法完整显示。
+- 修改：实时 Project 容器始终按当前成员自动测量，忽略旧容器宽高和离屏坐标；项目预览不再被本机旧运行节点坐标整体推到画布外；检测到历史离屏布局时自动重新整理一次；自动排列后对顶层 Project 容器做碰撞让位，避免标题和容器叠在一起。当前白板模式仍保留用户手动位置。
+- 验证：全量 `npm run check` 通过 1087/1087，251 个 JavaScript 文件语法检查通过；使用本机缓存和白板数据重建后，拓扑总范围由约 `80320 × 76473` 收紧到约 `6212 × 3729`，Project 容器宽高恢复为内容尺寸；安装版现场截图复核因 macOS 锁屏暂未完成。
+- 发布：版本 `2.0.0-alpha.127`；macOS arm64 development ZIP `/Volumes/project/项目/gitfinder-2/dist/GitFinder-2-2.0.0-alpha.127-arm64-mac.zip`，SHA-256 `cfb5279929471796d2798d18f25bc9664218a54393af25b3d1543e0a74ee49ca`；已复制至 `/Applications/GitFinder 2 Alpha127.app`，待解锁后复核界面。
+
 ## 当前修复：实时拓扑刷新恢复 Project 容器归属（alpha.121，已构建、安装并验证）
 
 - 根因：本机工作区已有部署只保留旧的 `groupId`；实时 Coolify 投影原先只追加不存在的 placement，不会更新已有部署的 Project 归属，导致服务器项目树中多数部署直接挂在主机下，旧容器也可能继续占位。

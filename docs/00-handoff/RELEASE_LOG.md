@@ -1,5 +1,17 @@
 # GitFinder 2 发布记录
 
+## 2026-09-08 · 2.0.0-alpha.127（已构建、已推送）
+
+- 内容：自动 Project 容器碰撞让位改用实际成员边界，避免旧宽高导致的标题/容器重叠。
+- 验证：全量 `npm run check` 通过 1087/1087，251 个 JavaScript 文件语法检查通过；已复制 `/Applications/GitFinder 2 Alpha127.app`，macOS 锁屏导致现场截图复核待解锁。
+- 制品：`/Volumes/project/项目/gitfinder-2/dist/GitFinder-2-2.0.0-alpha.127-arm64-mac.zip`，SHA-256 `cfb5279929471796d2798d18f25bc9664218a54393af25b3d1543e0a74ee49ca`。
+- 提交：`f10ac50` 已推送 `origin/main`。
+
+## 2026-09-08 · 2.0.0-alpha.124（构建中）
+
+- 内容：实时 Coolify Project 自动容器按内容收紧，并在顶层容器重叠时自动让位，避免标题和容器互相覆盖。
+- 验证：关系白板、显示重排和 Panel 拓扑专项 117/117 通过；全量构建、安装、提交和推送待完成。
+
 ## 2026-09-08 · 2.0.0-alpha.121（已构建、安装并验证）
 
 - 内容：实时 Coolify 预览刷新已有部署的 Project 容器归属，移除过期临时容器，同时保留本机坐标、批注和卡片设置；修复服务器项目树中多数项目容器不显示的问题。
@@ -181,3 +193,9 @@
 - 制品：`/Volumes/project/项目/gitfinder-2/dist/GitFinder-2-2.0.0-alpha.120-arm64-mac.zip`，SHA-256 `20dc5b3daba95c280a8f28ab6b8423a6dc403d3965c8f72a4107f9db2a906759`。
 - 安装：`/Applications/GitFinder 2 Alpha120.app`，包内版本 `2.0.0-alpha.120`；启动后可见缓存首屏与 3 个 Coolify / 35 个部署数据。旧安装目录保留为可恢复副本。
 - 提交：`553dba0` 已推送 `origin/main`。
+# 2026-09-08 21:10 +0800 · alpha.123
+
+- 状态：构建中，修复实时 Coolify 预览的超大 Project 容器和离屏坐标。
+- 版本：`2.0.0-alpha.123`。
+- 变更文件：`src/renderer/scripts/relationshipBoardController.js`、`test/relationship-board-ui.test.js`、版本文件。
+- 发布门槛：待全量 `npm run check`、`npm run pack`、本机安装启动和关系白板可见验证完成后更新为已发布。
