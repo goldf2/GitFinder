@@ -30,6 +30,14 @@ function createService(configDir) {
   return service;
 }
 
+test('Coolify 实例同步总超时可由设置保存并在重开后恢复', t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'gitfinder-sync-timeout-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const service = createService(root);
+  service.setRendererPreference('coolifyProviderSyncTimeoutMs', 180000);
+  assert.equal(createService(root).get('coolifyProviderSyncTimeoutMs'), 180000);
+});
+
 test('自动更新检查默认开启并允许界面独立关闭', (t) => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'gitfinder-update-preference-'));
   t.after(() => fs.rmSync(tempRoot, { recursive: true, force: true }));

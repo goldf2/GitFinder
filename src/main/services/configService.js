@@ -39,6 +39,7 @@ const RENDERER_PREFERENCE_KEYS = new Set([
   'automaticUpdateChecks',
   'semanticColorProfile',
   'coolifyDeploymentHistoryTimeoutMs',
+  'coolifyProviderSyncTimeoutMs',
   'detailSectionOrder',
   'markdownDocumentSelections',
   'projectControlSelections',

@@ -19,6 +19,14 @@ function createController() {
   });
 }
 
+test('Coolify 设置展示实例总超时默认 90 秒并恢复已保存值', () => {
+  const controller = createController();
+  assert.match(controller.settingsMarkup([]), /id="coolify-provider-sync-timeout"[^>]*min="30"[^>]*max="300"[^>]*value="90"/);
+  controller.providerSyncTimeout = 180000;
+  assert.match(controller.settingsMarkup([]), /id="coolify-provider-sync-timeout"[^>]*value="180"/);
+  assert.match(read('src/renderer/scripts/app.js'), /config\.set\('coolifyProviderSyncTimeoutMs', coolifyProviderSyncTimeoutMs\)/);
+});
+
 test('部署面板区分未配置、未关联和已就绪状态', () => {
   const controller = createController();
   assert.match(controller._resultMarkup({ state: 'unconfigured' }, {}), /尚未连接 Coolify/);

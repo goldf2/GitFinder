@@ -43,9 +43,11 @@ function sendTopologyProgress(event, progress, requestId) {
 async function getTopologyForEvent(service, event, options = {}) {
   const requestId = normalizeSyncRequestId(options?.requestId);
   const timeout = configService.get('coolifyDeploymentHistoryTimeoutMs');
+  const providerTimeout = Math.max(30000, Math.min(300000, Number(configService.get('coolifyProviderSyncTimeoutMs')) || 90000));
   return service.getTopology({
     requestId,
     deploymentHistoryTimeoutMs: timeout,
+    providerTimeoutMs: providerTimeout,
     onProgress: progress => sendTopologyProgress(event, progress, requestId)
   });
 }

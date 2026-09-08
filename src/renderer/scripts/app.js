@@ -984,6 +984,7 @@ const App = {
     }]));
     const deploymentHistoryTimeout = Math.max(1000, Math.min(120000, Number(await window.gitFinder.config.get('coolifyDeploymentHistoryTimeoutMs').catch(() => 4000)) || 4000));
     this.panelDeploymentController.deploymentHistoryTimeout = deploymentHistoryTimeout;
+    this.panelDeploymentController.providerSyncTimeout = Math.max(30000, Math.min(300000, Number(await window.gitFinder.config.get('coolifyProviderSyncTimeoutMs').catch(() => 90000)) || 90000));
     const semanticPresetOptions = Object.entries(window.SemanticColors.PRESETS)
       .map(([id, preset]) => `<option value="${id}"${selected(semanticColors.preset, id)}>${this.escapeHtml(preset.label)}</option>`)
       .join('');
@@ -1501,6 +1502,7 @@ const App = {
     const preferredEditor = document.getElementById('preferred-editor')?.value || '';
     const semanticColorProfile = this.readSemanticColorSettings();
     const coolifyDeploymentHistoryTimeoutMs = Math.max(1000, Math.min(120000, (Number(document.getElementById('coolify-deployment-history-timeout')?.value) || 4) * 1000));
+    const coolifyProviderSyncTimeoutMs = Math.max(30000, Math.min(300000, (Number(document.getElementById('coolify-provider-sync-timeout')?.value) || 90) * 1000));
     AppState.defaultCardStyle = cardStyle;
     AppState.defaultSortBy = sortBy;
     AppState.defaultSortOrder = sortOrder;
@@ -1522,6 +1524,7 @@ const App = {
       window.gitFinder.config.set('preferredEditor', preferredEditor),
       window.gitFinder.config.set('semanticColorProfile', semanticColorProfile),
       window.gitFinder.config.set('coolifyDeploymentHistoryTimeoutMs', coolifyDeploymentHistoryTimeoutMs),
+      window.gitFinder.config.set('coolifyProviderSyncTimeoutMs', coolifyProviderSyncTimeoutMs),
       this.projectShortcutsController.savePreferences(projectShortcutPreferences)
     ]);
     const returnMode = AppState.settingsReturnMode && AppState.settingsReturnMode !== 'settings'

@@ -2332,7 +2332,7 @@
       }
       if (state === 'ready') {
         const stale = this._panelSnapshotStale();
-        const failure = metadata.failureCount ? ` · ${metadata.failureCount} 个最近失败` : '';
+        const failure = metadata.failureCount ? ` · ${metadata.failureCount} 个部署有近期失败记录` : '';
         const cachePrefix = this.panelTopologyResult?.cached ? '缓存 · ' : '';
         const providers = Array.isArray(this.panelTopologyResult?.providers) ? this.panelTopologyResult.providers : [];
         const failedProviderIds = new Set([
