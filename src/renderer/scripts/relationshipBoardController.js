@@ -562,8 +562,13 @@
         this.localWorkspaceMode = !this.documentRecord;
         this.render();
         if (this.bridge?.panel?.getCachedTopology) {
-          void this._restoreCachedPanelTopology().finally(() => {
-            if (openRequestId === this.openRequestId) this._refreshPanelTopology();
+          void this._restoreCachedPanelTopology().then(restored => {
+            if (openRequestId !== this.openRequestId || !this.root?.isConnected) return;
+            // The local snapshot is the first paint for the workspace. Keep it
+            // visible while the normal timer performs a non-blocking refresh;
+            // only an absent cache needs an immediate network read.
+            if (restored) this._schedulePanelRefresh();
+            else this._refreshPanelTopology();
           });
         } else if (this.bridge?.panel?.refreshTopology || this.bridge?.panel?.getTopology) this._refreshPanelTopology();
         else this._schedulePanelRefresh();

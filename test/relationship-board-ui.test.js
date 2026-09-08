@@ -876,6 +876,33 @@ test('关系白板先恢复 Coolify 缓存，再在后台刷新且刷新失败�
   assert.match(controller.panelLastError, /offline/);
 });
 
+test('打开本机工作区有 Coolify 缓存时不立即依赖网络刷新', async () => {
+  const originalDocument = globalThis.document;
+  let refreshes = 0;
+  globalThis.document = { addEventListener() {}, removeEventListener() {} };
+  try {
+    const controller = new Controller({ bridge: { panel: {
+      getCachedTopology: async () => ({ state: 'ready', cached: true, topology: { servers: [], deployments: [] } }),
+      refreshTopology: async () => { refreshes += 1; return { state: 'ready', topology: { servers: [], deployments: [] } }; }
+    } } });
+    controller._load = async () => { controller.store = RelationshipGraphModel.defaultStore(); controller.loaded = true; };
+    controller.render = () => { controller.root = { isConnected: true, querySelector: () => null }; };
+    controller._topologyWithProjectBindings = async result => result;
+    controller._setPanelTopology = result => { controller.panelTopologyResult = result; };
+    controller._renderGraph = () => {};
+    controller._updateFilterSummary = () => {};
+    controller._updateSummary = () => {};
+    controller._updatePanelStatus = () => {};
+    controller._schedulePanelRefresh = () => {};
+    await controller.open({ innerHTML: '' });
+    await new Promise(resolve => setTimeout(resolve, 10));
+    assert.equal(controller.panelTopologyResult.cached, true);
+    assert.equal(refreshes, 0);
+  } finally {
+    globalThis.document = originalDocument;
+  }
+});
+
 test('Coolify 拓扑可先完成，本地仓库远程检查不会阻塞同步状态', async () => {
   let resolveRepositories;
   const repositories = new Promise(resolve => { resolveRepositories = resolve; });
