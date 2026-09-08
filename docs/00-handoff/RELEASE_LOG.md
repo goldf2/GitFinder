@@ -1,5 +1,12 @@
 # GitFinder 2 发布记录
 
+## 2026-09-08 · 2.0.0-alpha.121（已构建、安装并验证）
+
+- 内容：实时 Coolify 预览刷新已有部署的 Project 容器归属，移除过期临时容器，同时保留本机坐标、批注和卡片设置；修复服务器项目树中多数项目容器不显示的问题。
+- 验证：`npm run check` 通过 1086/1086；251 个 JavaScript 文件语法检查通过；现场切换服务器项目树确认多个 Project 容器可见。
+- 制品：`/Volumes/project/项目/gitfinder-2/dist/GitFinder-2-2.0.0-alpha.121-arm64-mac.zip`，SHA-256 `0671cd0ac217031be19ef227ec1d0b1ccc581ff793e9143f50e677a946843d6f`；同时生成 `latest-mac.yml` 与 `release-verification.json`。
+- 安装：`/Applications/GitFinder 2 Alpha121.app`，包内版本 `2.0.0-alpha.121`；开发包为 ad-hoc 签名，不具备正式分发资格。
+
 ## 2026-09-07 06:38:00 +0800 · 2.0.0-alpha.114（已构建并替换本机）
 
 - 内容：日志面板无同步运行记录时读取本机 `coolify-topology-cache.json`，显示实例、服务器、部署和缓存时间，不触发 Coolify 网络请求；保留 alpha.113 的脱敏逐请求日志能力。
@@ -167,3 +174,10 @@
 - 制品：`/Volumes/project/制品与备份/gitfinder-2/2.0.0-alpha.102/`，ZIP SHA-256 `17d6e497a631f6551a91d006ae35e4917adfb18bc282ffda5f9cfffc7404264c`；验证报告绑定提交 `3c17cb7fefccdac1ed5bf2d0c4cdc04c729057b9`。
 - 安装：已替换 `/Applications/GitFinder 2 Alpha87.app` 并启动；Info.plist 与运行界面均为 `2.0.0-alpha.102`，安装 ASAR 与构建产物一致。
 - 范围：本轮未构建 Windows、未上传商店或切换公开 current；用户原配置保持在原安装路径，待用户确认资源库实际点击体验后归档修复报告。
+# 2026-09-08 20:20:00 +0800 · 2.0.0-alpha.120
+
+- 内容：本机工作区优先恢复无凭据 Coolify 缓存，缓存首屏不再等待网络；无缓存时才立即刷新，后续按 30 秒周期后台更新。关系连线加入 `non-scaling-stroke`，缩小画布仍保持可读粗细。
+- 门禁：`npm run check` 通过 1085/1085 测试、251 个 JavaScript 文件语法检查；`npm run pack` 通过 development 产物门禁。
+- 制品：`/Volumes/project/项目/gitfinder-2/dist/GitFinder-2-2.0.0-alpha.120-arm64-mac.zip`，SHA-256 `20dc5b3daba95c280a8f28ab6b8423a6dc403d3965c8f72a4107f9db2a906759`。
+- 安装：`/Applications/GitFinder 2 Alpha120.app`，包内版本 `2.0.0-alpha.120`；启动后可见缓存首屏与 3 个 Coolify / 35 个部署数据。旧安装目录保留为可恢复副本。
+- 提交：`553dba0` 已推送 `origin/main`。

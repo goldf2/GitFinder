@@ -1727,6 +1727,9 @@
       const architectureVisible = this._architectureVisible();
       const aliases = topologyVisible ? this._endpointAliases() : new Map();
       const entities = new Map(this._combinedEntities().map(entity => [entity.id, entity]));
+      const topologyScopeMode = this._readBoardView().topologyScopeMode;
+      const previewingRuntime = topologyVisible && !this.documentRecord && topologyScopeMode !== 'board';
+      const liveTopologyIds = new Set((this.panelProjection?.placements || []).map(item => item.entityId));
       // Keep source classification independent from visibility.  A hidden source
       // is intentionally absent from _combinedEntities(), but its persisted
       // placement still needs to be removed from the visible graph rather than
@@ -1737,6 +1740,12 @@
         const entity = entities.get(item.entityId) || sourceEntities.get(item.entityId);
         if (!entity) return true;
         if (this._isArchitectureEntity(entity, item)) return architectureVisible;
+        // A live Project container is derived from the current Coolify snapshot.
+        // Do not keep an obsolete transient container around when previewing a
+        // refreshed topology; it would hide the current group or leave cards
+        // attached to a project that no longer exists.
+        if (previewingRuntime && entity?.type === 'group' && entity.transient
+          && entity.runtime?.dynamicKind === 'coolify-project-group' && !liveTopologyIds.has(item.entityId)) return false;
         if (this._isTopologyEntity(entity)) return topologyVisible;
         return true;
       });
@@ -1744,12 +1753,26 @@
       // The local workspace is a persistent composition surface, not a live
       // Coolify snapshot. Keep online topology as a preview only when the
       // user explicitly chooses a scope other than “当前白板”.
-      const topologyScopeMode = this._readBoardView().topologyScopeMode;
       const runtimePlacements = topologyVisible && !this.documentRecord
         && (!this.localWorkspaceMode || topologyScopeMode !== 'board')
         ? (this.panelProjection?.placements || []) : [];
       for (const placement of runtimePlacements) {
-        if (!ids.has(placement.entityId) && entities.has(placement.entityId) && !aliases.has(placement.entityId)) {
+        if (ids.has(placement.entityId)) {
+          // Preserve the user's local coordinates and annotations, but refresh
+          // the live Project ownership. Existing boards otherwise retain stale
+          // groupIds forever because runtime placements are only appended.
+          const index = placements.findIndex(item => item.entityId === placement.entityId);
+          const current = index >= 0 ? placements[index] : null;
+          if (current && previewingRuntime && entities.get(placement.entityId)?.type !== 'group'
+            && current.groupId !== placement.groupId) {
+            const next = { ...current };
+            if (placement.groupId) next.groupId = placement.groupId;
+            else delete next.groupId;
+            placements[index] = next;
+          }
+          continue;
+        }
+        if (entities.has(placement.entityId) && !aliases.has(placement.entityId)) {
           ids.add(placement.entityId);
           placements.push(placement);
         }

@@ -1783,6 +1783,38 @@ function nestedGroupFixture() {
   return { controller, notifications };
 }
 
+test('实时拓扑预览刷新已有部署的 Project 容器归属并移除过期容器', () => {
+  const controller = new Controller({ bridge: {} });
+  controller.store = {
+    schemaVersion: 1, activeBoardId: 'board_runtime_groups', relationships: [],
+    entities: [
+      { id: 'entity_old_group', type: 'group', name: '旧项目', transient: true, runtime: { dynamicKind: 'coolify-project-group' } },
+      { id: 'entity_deployment', type: 'deployment', name: '服务', transient: true, details: {} }
+    ],
+    boards: [{ id: 'board_runtime_groups', name: '实时拓扑', viewport: { x: 0, y: 0, zoom: 1 }, view: {
+      ...globalThis.RelationshipGraphModel.defaultBoardView(), topologyScopeMode: 'all', structure: 'server-tree'
+    }, placements: [
+      { entityId: 'entity_old_group', x: 0, y: 0 },
+      { entityId: 'entity_deployment', x: 40, y: 80, groupId: 'entity_old_group', note: '保留批注' }
+    ] }]
+  };
+  controller.localWorkspaceMode = true;
+  controller.panelProjection = {
+    entities: [
+      { id: 'entity_new_group', type: 'group', name: '新项目', transient: true, runtime: { dynamicKind: 'coolify-project-group' } },
+      { id: 'entity_deployment', type: 'deployment', name: '服务', transient: true, details: {} }
+    ],
+    placements: [
+      { entityId: 'entity_new_group', x: 100, y: 100, dynamic: true },
+      { entityId: 'entity_deployment', x: 140, y: 180, groupId: 'entity_new_group', dynamic: true }
+    ], relationships: []
+  };
+  const placements = controller._combinedPlacements();
+  assert.equal(placements.find(item => item.entityId === 'entity_deployment').groupId, 'entity_new_group');
+  assert.equal(placements.some(item => item.entityId === 'entity_old_group'), false);
+  assert.equal(placements.find(item => item.entityId === 'entity_deployment').note, '保留批注');
+});
+
 test('自动分组在工具栏和空白右键菜单都有明确入口，并复用 Coolify Projects 操作', () => {
   const { controller } = nestedGroupFixture();
   assert.match(controller._layoutMenuHtml(), /data-board-structure="coolify-projects"/);

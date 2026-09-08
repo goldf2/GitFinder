@@ -1,8 +1,24 @@
 # GitFinder 2 当前状态
 
-更新时间：2026-09-07 06:38:00 +0800
+## 当前修复：实时拓扑刷新恢复 Project 容器归属（alpha.121，已构建、安装并验证）
+
+- 根因：本机工作区已有部署只保留旧的 `groupId`；实时 Coolify 投影原先只追加不存在的 placement，不会更新已有部署的 Project 归属，导致服务器项目树中多数部署直接挂在主机下，旧容器也可能继续占位。
+- 修改：在实时预览范围（非“当前白板”）合并拓扑时，以当前 Coolify placement 更新已有部署的 `groupId`，保留本机坐标、批注和卡片设置；同时过滤不再出现在当前快照中的临时 Project 容器。未修改持久化白板事实。
+- 验证：新增回归测试覆盖“旧容器 → 新容器”归属更新、过期容器移除和批注保留；全量 `npm run check` 通过 1086/1086，251 个 JavaScript 文件语法检查通过。安装版现场切换“服务器项目树”后，原先仅显示 1 个 Project 容器，现显示共享资源、AL02/AL03 及 con01 的多个 Project 容器。
+- 发布：版本 `2.0.0-alpha.121`；macOS arm64 development ZIP `/Volumes/project/项目/gitfinder-2/dist/GitFinder-2-2.0.0-alpha.121-arm64-mac.zip`，SHA-256 `0671cd0ac217031be19ef227ec1d0b1ccc581ff793e9143f50e677a946843d6f`。
+- 安装：已安装 `/Applications/GitFinder 2 Alpha121.app`，`CFBundleShortVersionString=2.0.0-alpha.121`。开发包为 ad-hoc 签名，仅用于本机验收。
+
+更新时间：2026-09-08 20:20:00 +0800
 
 > 本文件是标准交接入口，记录当前工作树中已复核的最新事实。较早的项目过程与领域背景继续保留在 `docs/ai-handoff/`，不在这里重复复制。
+
+## 当前修复：本机工作区缓存首屏与缩放连线可读性（alpha.120，已构建、安装并推送）
+
+- 修改：打开本机工作区时优先恢复 `coolify-topology-cache.json`，缓存成功后只进入 30 秒后台刷新周期；只有没有可用缓存时才立即请求 Coolify。缓存首屏不会因网络超时变空。
+- 修改：关系连线使用 `vector-effect: non-scaling-stroke`，缩小画布时保持屏幕像素粗细；原有显示设置中的 0.8–5 px 仍作为基础粗细。
+- 验证：全量 `npm run check` 通过 1085/1085，251 个 JavaScript 文件语法检查通过；新增缓存首屏回归和连线样式断言。安装版 alpha.120 启动后实测状态先显示“缓存 · 3 个 Coolify · 3 台服务器 · 35 个部署 · 3 个最近失败”，随后可继续后台更新。
+- 发布：提交 `553dba0` 已推送 `origin/main`；macOS arm64 development ZIP `/Volumes/project/项目/gitfinder-2/dist/GitFinder-2-2.0.0-alpha.120-arm64-mac.zip`，SHA-256 `20dc5b3daba95c280a8f28ab6b8423a6dc403d3965c8f72a4107f9db2a906759`。
+- 安装：已安装 `/Applications/GitFinder 2 Alpha120.app`，`CFBundleShortVersionString=2.0.0-alpha.120`；旧 alpha.119 与误复制的 alpha.86 均保留在 `/Applications/`，未删除。开发包为 ad-hoc 签名，仅用于本机验收。
 
 ## 当前修复：Coolify 同步日志与读取数据明细（alpha.114，已构建并替换本机）
 

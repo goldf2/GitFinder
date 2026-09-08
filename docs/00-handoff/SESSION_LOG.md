@@ -1,5 +1,13 @@
 # GitFinder 2 研发会话记录
 
+## 2026-09-08 · alpha.121 Project 容器归属修复
+
+- 现象：本机工作区的部署数据存在，但服务器项目树只显示少量 Project 容器；项目分组视图能显示完整容器集合。
+- 根因：已有白板 placement 的旧 `groupId` 优先于实时 Coolify placement，刷新只追加新节点，未更新已有部署的当前 Project 归属。
+- 修改：实时预览范围合并时刷新已有部署的 `groupId`，保留本机坐标和批注；过滤当前快照不存在的临时 Project 容器。新增控制器回归测试。
+- 验证：全量 1086/1086、语法 251 个文件；alpha.121 安装版现场确认服务器项目树显示共享资源、AL02/AL03 与 con01 多个 Project 容器。
+- 接续：主机卡片仍建议采用独立语义卡片变体（服务器图标、主机名、在线状态、部署数），不使用装饰性示意图片；待用户确认后再单独实现。
+
 ## 2026-09-07 06:22:00 +0800 · alpha.113 Coolify 同步诊断日志
 
 - 目标：让用户直接查看 Coolify 拉取的脱敏日志和已读取数据，区分同步请求错误与部署历史失败。
@@ -255,3 +263,10 @@
 - 证据：安装版 `CFBundleShortVersionString=2.0.0-alpha.103`；ZIP SHA-256 为 `90d7deb7f14a087c0862fa286ab2a1f7ebbedf11babd7c5a344a4aff6a7ba11d`；`relationship-boards.json` 当前白板为 architecture 层但 `architectureSnapshotId` 为空；本机仓库未发现 `.gitfinder/architecture/` 快照目录。
 - 结论：代码架构入口已经在 alpha.103；当前为空是因为没有导入 Archify 快照，不是代码架构层被移除。仓库详情的“导入架构”会把 JSON 保存到仓库的 `.gitfinder/architecture/`，导入后再从白板“结构 → 代码架构”选择范围。
 - 遗留：用户需要实际导入一个 Archify JSON 并确认快照、边界、组件邻接三种范围；确认有效后按规则归档修复报告。
+# 2026-09-08 20:20:00 +0800 · alpha.120 本机工作区缓存首屏与自适应连线
+
+- 目标：缩小白板时保持连线可读，并让本机工作区打开时不依赖 Coolify 网络刷新。
+- 实际完成：`relationshipCanvas.css` 使用 `vector-effect: non-scaling-stroke`；关系白板打开流程先恢复本地拓扑缓存，缓存成功后仅调度后台刷新；新增对应回归测试；版本升至 alpha.120。
+- 验证：全量检查 1085/1085；macOS arm64 development 打包通过；安装版 alpha.120 启动后读取到缓存摘要 `3 个 Coolify · 3 台服务器 · 35 个部署 · 3 个最近失败`。
+- 发布：提交 `553dba0` 已推送；制品 ZIP SHA-256 为 `20dc5b3daba95c280a8f28ab6b8423a6dc403d3965c8f72a4107f9db2a906759`。
+- 遗留：主机卡片视觉仍与部署卡片共享卡片骨架；如要继续优化，建议采用专用主机卡片变体和服务器图标，不使用纯装饰图片替代语义文本。
