@@ -81,8 +81,10 @@ const AppState = {
   settingsReturnMode: null,
   settingsSection: 'settings-account',
   localProjects: [],
+  projectGroups: [],
   localProjectsLoading: false,
   projectDialog: null,
+  projectGroupDialog: null,
   developerTools: null,
   history: [],
   historyIndex: -1,
@@ -224,6 +226,7 @@ const App = {
     // 必须在 loadGroups 之前,否则侧边栏分类计数会显示为 0
     await this.loadPersistedRepos();
     await this.loadProjectShortcuts();
+    await this.loadProjectGroups();
     await this.loadGroups();
     await this.loadTags();
     await this.smartCollectionsController.load();
@@ -484,6 +487,9 @@ const App = {
     document.getElementById('local-project-close-btn')?.addEventListener('click', () => this.closeLocalProjectDialog());
     document.getElementById('local-project-cancel-btn')?.addEventListener('click', () => this.closeLocalProjectDialog());
     document.getElementById('local-project-save-btn')?.addEventListener('click', () => this.saveLocalProjectDialog());
+    document.getElementById('project-group-close-btn')?.addEventListener('click', () => this.closeProjectGroupDialog());
+    document.getElementById('project-group-cancel-btn')?.addEventListener('click', () => this.closeProjectGroupDialog());
+    document.getElementById('project-group-save-btn')?.addEventListener('click', () => this.saveProjectGroupDialog());
     window.gitFinder.app.onShortcut(action => {
       if (action === 'new-tab') this.createWorkspaceTab();
       if (action === 'restore-tab') this.restoreClosedWorkspaceTab();
@@ -526,6 +532,9 @@ const App = {
       }
       if (action === 'refresh-local-projects') this.renderProjectsView(true);
       if (action === 'choose-local-project') this.chooseLocalProjectDirectory();
+      if (action === 'create-project-group') this.openProjectGroupDialog();
+      if (action === 'edit-project-group') this.openProjectGroupDialog(event.target.closest('[data-project-group-id]')?.dataset.projectGroupId);
+      if (action === 'delete-project-group') this.deleteProjectGroup(event.target.closest('[data-project-group-id]')?.dataset.projectGroupId);
       if (action === 'open-settings') this.openSettingsPage();
       if (action === 'close-settings') this.closeSettingsPage();
       if (action === 'save-settings') this.saveAppSettings();
@@ -4558,6 +4567,150 @@ const App = {
     this.updateStatusBar();
   },
 
+  async loadProjectGroups() {
+    try {
+      const store = await window.gitFinder.projectGroups?.list?.();
+      const normalized = window.ProjectGroups?.normalizeStore(store);
+      AppState.projectGroups = normalized?.groups || [];
+    } catch (error) {
+      AppState.projectGroups = [];
+      console.warn('项目组读取失败:', error);
+    }
+    return AppState.projectGroups;
+  },
+
+  projectGroupAccent(color) {
+    return ({
+      gray: '#8e8e93', red: '#ff3b30', orange: '#ff9500', yellow: '#c88a00',
+      green: '#34c759', blue: '#007aff', purple: '#af52de', pink: '#ff2d55'
+    })[color] || '#af52de';
+  },
+
+  renderProjectGroups(projects = AppState.localProjects) {
+    const knownProjects = new Map((Array.isArray(projects) ? projects : [])
+      .filter(project => project?.projectId)
+      .map(project => [project.projectId, project]));
+    const groups = (Array.isArray(AppState.projectGroups) ? AppState.projectGroups : [])
+      .filter(group => group?.groupId)
+      .map(group => ({
+        ...group,
+        projects: (Array.isArray(group.projectIds) ? group.projectIds : [])
+          .map(projectId => knownProjects.get(projectId))
+          .filter(Boolean)
+      }));
+    if (!groups.length) return '';
+    return `
+      <section class="project-group-section" aria-labelledby="project-groups-heading">
+        <div class="project-group-section-heading">
+          <strong id="project-groups-heading">项目组</strong>
+          <span>${groups.length} 个组 · 用于管理子项目</span>
+        </div>
+        <div class="project-group-grid">
+          ${groups.map(group => `
+            <article class="project-group-card" style="--project-group-accent:${this.projectGroupAccent(group.color)}" data-project-group-id="${this.escapeHtml(group.groupId)}">
+              <header>
+                <span class="sidebar-icon" aria-hidden="true">▰</span>
+                <h3 title="${this.escapeHtml(group.name)}">${this.escapeHtml(group.name)}</h3>
+                <span class="project-group-card-count">${group.projects.length} 个子项目</span>
+                <div class="project-group-card-actions">
+                  <button class="btn btn-tiny" data-app-action="edit-project-group" data-project-group-id="${this.escapeHtml(group.groupId)}" type="button">编辑</button>
+                  <button class="btn btn-tiny" data-app-action="delete-project-group" data-project-group-id="${this.escapeHtml(group.groupId)}" type="button" aria-label="删除项目组 ${this.escapeHtml(group.name)}">删除</button>
+                </div>
+              </header>
+              <p>${this.escapeHtml(group.description || '暂无项目组简介')}</p>
+              <ul class="project-group-projects">
+                ${group.projects.length
+                  ? group.projects.map(project => `<li><button class="project-group-project" data-app-action="open-local-project" data-project-path="${this.escapeHtml(project.path)}" type="button" title="${this.escapeHtml(project.path)}">${this.escapeHtml(project.name)}</button></li>`).join('')
+                  : '<li class="project-group-empty">尚未添加子项目</li>'}
+              </ul>
+            </article>`).join('')}
+        </div>
+      </section>`;
+  },
+
+  openProjectGroupDialog(groupId = '') {
+    const modal = document.getElementById('project-group-modal');
+    const select = document.getElementById('project-group-projects');
+    if (!modal || !select) return;
+    const group = (AppState.projectGroups || []).find(item => item?.groupId === groupId) || null;
+    const projects = [...(AppState.localProjects || [])]
+      .filter(project => project?.projectId && project?.path)
+      .sort((left, right) => String(left.name || left.path).localeCompare(String(right.name || right.path), 'zh-CN'));
+    const selected = new Set(group?.projectIds || []);
+    select.innerHTML = projects.length
+      ? projects.map(project => `<option value="${this.escapeHtml(project.projectId)}"${selected.has(project.projectId) ? ' selected' : ''}>${this.escapeHtml(project.name)} · ${this.escapeHtml(project.path)}</option>`).join('')
+      : '<option disabled>暂无可加入的本地项目</option>';
+    document.getElementById('project-group-title').textContent = group ? '项目组设置' : '新建项目组';
+    document.getElementById('project-group-name').value = group?.name || '';
+    document.getElementById('project-group-description').value = group?.description || '';
+    document.getElementById('project-group-color').value = group?.color || 'purple';
+    document.getElementById('project-group-feedback').textContent = group
+      ? `项目组 ID：${group.groupId}`
+      : '项目组只保存项目关系，不移动文件夹';
+    document.getElementById('project-group-save-btn').textContent = group ? '保存设置' : '创建项目组';
+    AppState.projectGroupDialog = { groupId: group?.groupId || '' };
+    modal.style.display = 'flex';
+    requestAnimationFrame(() => document.getElementById('project-group-name')?.focus());
+  },
+
+  closeProjectGroupDialog() {
+    document.getElementById('project-group-modal').style.display = 'none';
+    AppState.projectGroupDialog = null;
+  },
+
+  async saveProjectGroupDialog() {
+    const dialogState = AppState.projectGroupDialog;
+    if (!dialogState) return;
+    const name = document.getElementById('project-group-name')?.value?.trim() || '';
+    const feedback = document.getElementById('project-group-feedback');
+    const saveButton = document.getElementById('project-group-save-btn');
+    if (!name) {
+      if (feedback) feedback.textContent = '请填写项目组名称';
+      document.getElementById('project-group-name')?.focus();
+      return;
+    }
+    const projectIds = [...(document.getElementById('project-group-projects')?.selectedOptions || [])]
+      .map(option => option.value)
+      .filter(Boolean);
+    const values = {
+      name,
+      description: document.getElementById('project-group-description')?.value || '',
+      color: document.getElementById('project-group-color')?.value || 'purple',
+      projectIds
+    };
+    if (saveButton) saveButton.disabled = true;
+    if (feedback) feedback.textContent = '正在保存项目组…';
+    try {
+      const result = dialogState.groupId
+        ? await window.gitFinder.projectGroups.update(dialogState.groupId, values)
+        : await window.gitFinder.projectGroups.create(values);
+      const index = AppState.projectGroups.findIndex(group => group.groupId === result.groupId);
+      AppState.projectGroups = index >= 0
+        ? AppState.projectGroups.map((group, itemIndex) => itemIndex === index ? result : group)
+        : [...AppState.projectGroups, result];
+      this.closeProjectGroupDialog();
+      if (this.contentCollectionKind() === 'projects') await this.renderProjectsView(false);
+      this._showStatusMessage(`已保存项目组“${result.name}”`, 'success');
+    } catch (error) {
+      if (feedback) feedback.textContent = error?.message || String(error);
+    } finally {
+      if (saveButton) saveButton.disabled = false;
+    }
+  },
+
+  async deleteProjectGroup(groupId) {
+    const group = (AppState.projectGroups || []).find(item => item?.groupId === groupId);
+    if (!group || !confirm(`删除项目组“${group.name}”？不会删除其中的项目或文件。`)) return;
+    try {
+      await window.gitFinder.projectGroups.delete(groupId);
+      AppState.projectGroups = AppState.projectGroups.filter(item => item.groupId !== groupId);
+      if (this.contentCollectionKind() === 'projects') await this.renderProjectsView(false);
+      this._showStatusMessage(`已删除项目组“${group.name}”`, 'success');
+    } catch (error) {
+      this._showStatusMessage(`删除项目组失败：${error?.message || String(error)}`, 'error');
+    }
+  },
+
   async renderProjectsView(forceRefresh = false) {
     const contentArea = document.getElementById('content-area');
     const emptyState = document.getElementById('empty-state');
@@ -4591,6 +4744,12 @@ const App = {
         project,
         modifiedTime: project.modifiedTime
       }));
+      const projectsToolbar = `
+        <div class="local-project-view-toolbar">
+          <div><h2>本地项目</h2><p>每个项目保留自己的目录身份；项目组用于管理多个子项目。</p></div>
+          <button class="btn btn-primary" data-app-action="create-project-group" type="button">新建项目组</button>
+        </div>`;
+      const projectGroups = this.renderProjectGroups(projects);
       if (!projects.length) {
         const emptyActions = query
           ? '<button class="btn" data-app-action="refresh-local-projects" type="button">重新扫描</button>'
@@ -4598,7 +4757,7 @@ const App = {
               <button class="btn btn-primary" data-app-action="choose-local-project" type="button">选择文件夹并设为项目…</button>
               <button class="btn" data-app-action="open-settings" type="button">打开应用设置</button>
             </div>`;
-        contentArea.innerHTML = `
+        contentArea.innerHTML = `${projectsToolbar}${projectGroups}
           <div class="local-project-empty">
             <div class="empty-icon">📁</div>
             <strong>${query ? '没有匹配的项目' : '尚未设置本地项目'}</strong>
@@ -4609,7 +4768,7 @@ const App = {
         this.updateStatusBar();
         return;
       }
-      contentArea.innerHTML = `<div class="local-project-grid">${projects.map(project => {
+      contentArea.innerHTML = `${projectsToolbar}${projectGroups}<div class="local-project-section-heading">全部项目（${projects.length}）</div><div class="local-project-grid">${projects.map(project => {
         const projectItem = { isProject: true, project };
         const lifecycle = window.FileBrowser.projectLifecycleLabel(projectItem);
         const repositories = (project.repositories || []).slice(0, 6);

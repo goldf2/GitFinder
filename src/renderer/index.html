@@ -876,6 +876,48 @@
     </section>
   </div>
 
+  <div class="modal-overlay" id="project-group-modal" style="display:none;">
+    <section class="modal project-group-modal" role="dialog" aria-modal="true" aria-labelledby="project-group-title">
+      <header class="modal-header">
+        <div>
+          <h3 id="project-group-title">新建项目组</h3>
+          <div class="external-import-description">项目组只管理项目关系，不会移动或修改项目目录。</div>
+        </div>
+        <button class="modal-close" id="project-group-close-btn" type="button" aria-label="关闭项目组设置">×</button>
+      </header>
+      <div class="modal-body project-group-form">
+        <div class="form-group">
+          <label for="project-group-name">项目组名称</label>
+          <input type="text" id="project-group-name" maxlength="160" autocomplete="off" placeholder="例如：AI 工具链">
+        </div>
+        <div class="form-group">
+          <label for="project-group-description">简介</label>
+          <textarea id="project-group-description" rows="3" maxlength="2000" placeholder="这个项目组用于管理哪些子项目？"></textarea>
+        </div>
+        <div class="form-group">
+          <label for="project-group-color">标记颜色</label>
+          <select id="project-group-color">
+            <option value="purple">紫色</option><option value="blue">蓝色</option><option value="green">绿色</option>
+            <option value="orange">橙色</option><option value="yellow">黄色</option><option value="red">红色</option>
+            <option value="pink">粉色</option><option value="gray">灰色</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="project-group-projects">选择子项目</label>
+          <select id="project-group-projects" multiple size="8" aria-describedby="project-group-projects-hint"></select>
+          <div class="file-operation-hint" id="project-group-projects-hint">按住 ⌘（Windows/Linux 使用 Ctrl）可多选；同一个项目可以属于多个项目组。</div>
+        </div>
+      </div>
+      <footer class="modal-footer">
+        <span id="project-group-feedback" role="status" aria-live="polite"></span>
+        <div>
+          <button class="btn" id="project-group-cancel-btn" type="button">取消</button>
+          <button class="btn btn-primary" id="project-group-save-btn" type="button">创建项目组</button>
+        </div>
+      </footer>
+    </section>
+  </div>
+
   <div class="modal-overlay" id="external-import-modal" style="display:none;">
     <section class="modal external-import-modal" role="dialog" aria-modal="true" aria-labelledby="external-import-title" aria-describedby="external-import-description">
       <header class="modal-header">
@@ -1314,6 +1356,7 @@
   <script src="../shared/relationshipProjectGalaxyLayout.js"></script>
   <script src="../shared/panelTopologyProjection.js"></script>
   <script src="../shared/projectShortcuts.js"></script>
+  <script src="../shared/projectGroups.js"></script>
   <script src="../shared/batchRename.js"></script>
   <script src="scripts/contentQuery.js"></script>
   <script src="scripts/smartCollections.js"></script>

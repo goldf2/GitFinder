@@ -6,6 +6,7 @@ const { execSync } = require('child_process');
 const { app } = require('electron');
 const SemanticColors = require('../../shared/semanticColors');
 const ProjectShortcuts = require('../../shared/projectShortcuts');
+const ProjectGroups = require('../../shared/projectGroups');
 
 const MAX_CONFIG_TRANSACTION_BYTES = 16 * 1024 * 1024;
 const MAX_DIRECTORY_PATH_LENGTH = 32768;
@@ -29,6 +30,7 @@ const RENDERER_PREFERENCE_KEYS = new Set([
   'sidebarNavigationMode',
   'smartCollections',
   'projectShortcuts',
+  'projectGroups',
   'projectShortcutPreferences',
   'sidebarWidth',
   'detailPanelWidth',
@@ -367,6 +369,7 @@ class ConfigService {
       treeRoots: [],
       smartCollections: { version: 1, collections: [] },
       projectShortcuts: ProjectShortcuts.defaultStore(),
+      projectGroups: ProjectGroups.defaultStore(),
       projectShortcutPreferences: ProjectShortcuts.defaultPreferences(),
       relationshipDynamicLayouts: { version: 1, boards: {} }
     };
@@ -402,7 +405,8 @@ class ConfigService {
         ? SemanticColors.normalizeProfile(parsed)
         : (key === 'projectShortcuts'
             ? ProjectShortcuts.normalizeStore(parsed)
-            : (key === 'projectShortcutPreferences' ? ProjectShortcuts.normalizePreferences(parsed) : parsed))
+            : (key === 'projectShortcutPreferences' ? ProjectShortcuts.normalizePreferences(parsed)
+              : (key === 'projectGroups' ? ProjectGroups.normalizeStore(parsed) : parsed)))
     );
   }
 

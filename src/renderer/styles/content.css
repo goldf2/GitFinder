@@ -48,6 +48,160 @@
   max-height: min(780px, 90vh);
 }
 
+.project-group-modal {
+  width: min(620px, 92vw);
+  max-height: min(780px, 90vh);
+}
+
+.project-group-form {
+  overflow: auto;
+}
+
+.project-group-form select {
+  width: 100%;
+}
+
+.project-group-form select[multiple] {
+  min-height: 180px;
+  padding: 6px;
+}
+
+.local-project-view-toolbar,
+.project-group-card header,
+.project-group-card-actions {
+  display: flex;
+  align-items: center;
+}
+
+.local-project-view-toolbar {
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 18px 4px;
+}
+
+.local-project-view-toolbar h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.local-project-view-toolbar p {
+  margin: 4px 0 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.local-project-section-heading {
+  padding: 14px 18px 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.project-group-section {
+  padding: 14px 18px 0;
+}
+
+.project-group-section-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.project-group-section-heading strong {
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.project-group-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.project-group-card {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--border-light);
+  border-left: 3px solid var(--project-group-accent, var(--accent-primary));
+  border-radius: 10px;
+  background: var(--bg-primary);
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--shadow-overlay) 10%, transparent);
+}
+
+.project-group-card header {
+  gap: 8px;
+}
+
+.project-group-card h3 {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+}
+
+.project-group-card p {
+  min-height: 34px;
+  margin: 10px 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.project-group-card-count {
+  color: var(--text-tertiary);
+  font-size: 11px;
+}
+
+.project-group-card-actions {
+  gap: 4px;
+  margin-left: auto;
+}
+
+.project-group-projects {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-height: 28px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.project-group-project {
+  max-width: 100%;
+  padding: 4px 8px;
+  overflow: hidden;
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-group-project:hover {
+  border-color: var(--accent-primary);
+  background: var(--accent-bg);
+}
+
+.project-group-empty {
+  color: var(--text-tertiary);
+  font-size: 11px;
+}
+
+.project-group-unassigned {
+  margin-top: 16px;
+}
+
 .local-project-form {
   overflow: auto;
 }

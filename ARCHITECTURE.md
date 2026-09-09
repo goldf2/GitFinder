@@ -111,6 +111,7 @@ flowchart LR
 | `content.js` | 文本预览、缩略图、搜索和索引 |
 | `git.js` | Git 状态、分支、远程、提交和变更操作 |
 | `localProjects.js` | 本地项目身份与项目内仓库发现 |
+| `projectGroups.js` | 项目组与子项目关系的本机配置 |
 | `projectTasks.js` | 项目任务投影、Git 证据和受控回写 |
 | `panel.js` | 直接 Coolify 连接、缓存拓扑和部署关联；`panel:*` 是兼容命名 |
 | `relationshipBoards.js` | 关系白板读取、保存、导入和导出 |

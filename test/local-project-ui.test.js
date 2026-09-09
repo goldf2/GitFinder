@@ -9,6 +9,7 @@ const appSource = fs.readFileSync(path.join(projectRoot, 'src/renderer/scripts/a
 const selectionDetailSource = fs.readFileSync(path.join(projectRoot, 'src/renderer/scripts/fileSelectionDetailController.js'), 'utf8');
 const preload = fs.readFileSync(path.join(projectRoot, 'preload.js'), 'utf8');
 const main = fs.readFileSync(path.join(projectRoot, 'main.js'), 'utf8');
+const projectGroups = fs.readFileSync(path.join(projectRoot, 'src/shared/projectGroups.js'), 'utf8');
 
 test('项目与仓库作为内容筛选而不是顶层工作区入口', () => {
   assert.doesNotMatch(html, /class="view-btn[^>]+data-view="projects"/);
@@ -48,6 +49,20 @@ test('保存项目先完成局部界面更新，再后台刷新项目扫描', ()
   assert.match(appSource, /upsertLocalProject\?\.\(result\)/);
   assert.match(appSource, /const backgroundProjectRefresh = this\.refreshProjectShortcuts\(true\)\.catch/);
   assert.match(appSource, /void backgroundProjectRefresh/);
+});
+
+test('项目页支持创建项目组并选择多个子项目，项目组不修改项目目录', () => {
+  assert.match(html, /id="project-group-modal"/);
+  assert.match(html, /id="project-group-projects"[^>]+multiple/);
+  assert.match(appSource, /loadProjectGroups\(\)/);
+  assert.match(appSource, /data-app-action="create-project-group"/);
+  assert.match(appSource, /data-app-action="edit-project-group"/);
+  assert.match(appSource, /data-app-action="delete-project-group"/);
+  assert.match(appSource, /项目组用于管理多个子项目/);
+  assert.match(preload, /projectGroups:\s*\{/);
+  assert.match(preload, /ipcRenderer\.invoke\('projectGroups:create'/);
+  assert.match(main, /registerProjectGroupsIPC\(\)/);
+  assert.match(projectGroups, /MAX_PROJECTS_PER_GROUP/);
 });
 
 test('目录页包含 Finder 风格右键菜单、剪切和重复副本快捷动作', () => {

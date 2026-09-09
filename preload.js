@@ -115,6 +115,13 @@ contextBridge.exposeInMainWorld('gitFinder', {
     update: (directoryPath, values) => ipcRenderer.invoke('localProjects:update', directoryPath, values)
   },
 
+  projectGroups: {
+    list: () => ipcRenderer.invoke('projectGroups:list'),
+    create: values => ipcRenderer.invoke('projectGroups:create', values),
+    update: (groupId, values) => ipcRenderer.invoke('projectGroups:update', groupId, values),
+    delete: groupId => ipcRenderer.invoke('projectGroups:delete', groupId)
+  },
+
   relationshipBoards: {
     createDocument: request => ipcRenderer.invoke('whiteboards:create', request),
     pickFiles: imagesOnly => ipcRenderer.invoke('whiteboards:pickFiles', imagesOnly),
