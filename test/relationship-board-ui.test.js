@@ -295,7 +295,7 @@ test('解除仓库关联通过本机 IPC 保存，不修改白板事实且失败
 test('资源库直接显示分类搜索，不再显示范围切换按钮或外层标题', () => {
   assert.deepEqual(
     RESOURCE_CATEGORY_DEFINITIONS.map(category => category.id),
-    ['whiteboard', 'project', 'repository', 'architecture', 'server', 'deployment', 'endpoint', 'other']
+    ['whiteboard', 'project', 'repository', 'server', 'deployment', 'endpoint', 'other']
   );
   assert.doesNotMatch(controllerSource, /data-resource-scope=/);
   assert.match(resourceViewSource, /data-resource-section/);
@@ -386,13 +386,112 @@ test('项目仓库、Panel 主机部署和访问端点归入稳定资源分类',
   };
 
   const catalog = controller._resourceCatalog();
-  assert.deepEqual(catalog.map(resource => resource.kind).sort(), ['deployment', 'endpoint', 'project', 'repository', 'server']);
+  assert.deepEqual(catalog.map(resource => resource.kind).sort(), ['endpoint', 'project', 'repository', 'server']);
   const resourceSections = controller._resourceSections(catalog);
   assert.equal(resourceSections.find(section => section.id === 'server').items[0].name, 'Con01');
   assert.equal(resourceSections.find(section => section.id === 'deployment').label, '站点与部署');
   assert.equal(resourceSections.find(section => section.id === 'endpoint').label, '访问端点');
 
   assert.deepEqual(resourceSections.flatMap(section => section.items.filter(item => item.placed).map(item => item.name)), []);
+});
+
+test('资源库按主机逐级显示 Project、部署和访问点，不把实时部署平铺在根层', () => {
+  const controller = new Controller({ bridge: {} });
+  controller.resources = [];
+  controller.store = {
+    schemaVersion: 1,
+    activeBoardId: 'board_hierarchy01',
+    entities: [], relationships: [],
+    boards: [{ id: 'board_hierarchy01', name: '本机工作区', viewport: { x: 0, y: 0, zoom: 1 }, view: RelationshipGraphModel.defaultBoardView(), placements: [] }]
+  };
+  const server = { id: 'entity_h_server', type: 'server', name: 'Con01', details: {}, transient: true, runtime: { dynamicKind: 'panel-server' } };
+  const project = { id: 'entity_h_project', type: 'project', refId: 'project_h', name: 'MES', details: {}, transient: true };
+  const repository = { id: 'entity_h_repo', type: 'repository', refId: 'repo_h', name: 'mes-lite', details: {}, transient: true };
+  const deployment = { id: 'entity_h_deploy', type: 'deployment', name: '生产部署', details: {}, transient: true, runtime: { dynamicKind: 'panel-deployment', projectIds: ['project_h'] } };
+  const endpoint = { id: 'entity_h_endpoint', type: 'endpoint', name: 'mes.example.com', details: {}, transient: true, runtime: { dynamicKind: 'panel-endpoint' } };
+  controller.panelProjection = {
+    entities: [server, project, repository, deployment, endpoint],
+    relationships: [
+      { id: 'r_h_runs', type: 'runs_on', sourceId: deployment.id, targetId: server.id },
+      { id: 'r_h_contains', type: 'contains', sourceId: project.id, targetId: repository.id },
+      { id: 'r_h_source', type: 'source_of', sourceId: repository.id, targetId: deployment.id },
+      { id: 'r_h_exposes', type: 'exposes', sourceId: deployment.id, targetId: endpoint.id }
+    ],
+    placements: [server, project, repository, deployment, endpoint].map((entity, index) => ({ entityId: entity.id, x: index * 10, y: 0, dynamic: true })),
+    metadata: { state: 'ready' }
+  };
+
+  let catalog = controller._resourceCatalog();
+  const host = catalog.find(item => item.entityId === server.id);
+  assert.ok(host?.expandable);
+  assert.equal(catalog.some(item => item.entityId === deployment.id), false);
+  controller.expandedResourceKeys.add(host.key);
+  catalog = controller._resourceCatalog();
+  const nestedProject = catalog.find(item => item.key === host.key)?.children[0];
+  assert.equal(nestedProject?.entityId, project.id);
+  assert.ok(nestedProject?.expandable);
+  controller.expandedResourceKeys.add(nestedProject.key);
+  catalog = controller._resourceCatalog();
+  const nestedDeployment = catalog.find(item => item.key === host.key)?.children[0]?.children[0];
+  assert.equal(nestedDeployment?.entityId, deployment.id);
+  assert.ok(nestedDeployment?.expandable);
+  controller.expandedResourceKeys.add(nestedDeployment.key);
+  const finalHost = controller._resourceCatalog().find(item => item.key === host.key);
+  assert.equal(finalHost.children[0].children[0].children[0].entityId, endpoint.id);
+});
+
+test('主机卡片的显示层级只收窄该主机的运行资源', () => {
+  const controller = new Controller({ bridge: {} });
+  const serverOne = { id: 'entity_level_server01', type: 'server', name: 'Con01', details: {}, transient: true };
+  const serverTwo = { id: 'entity_level_server02', type: 'server', name: 'AL03', details: {}, transient: true };
+  const projectOne = { id: 'entity_level_project01', type: 'project', name: 'MES', refId: 'project_level', details: {}, transient: true };
+  const repoOne = { id: 'entity_level_repo01', type: 'repository', name: 'mes-lite', refId: 'repo_level', details: {}, transient: true };
+  const deployOne = { id: 'entity_level_deploy01', type: 'deployment', name: 'MES', details: {}, transient: true, runtime: { projectIds: ['project_level'] } };
+  const endpointOne = { id: 'entity_level_endpoint01', type: 'endpoint', name: 'mes.example.com', details: {}, transient: true };
+  controller.store = { schemaVersion: 1, activeBoardId: 'board_level01', entities: [], relationships: [], boards: [{ id: 'board_level01', name: '工作区', viewport: { x: 0, y: 0, zoom: 1 }, view: RelationshipGraphModel.defaultBoardView(), placements: [] }] };
+  controller.panelProjection = {
+    entities: [serverOne, serverTwo, projectOne, repoOne, deployOne, endpointOne],
+    relationships: [
+      { type: 'runs_on', sourceId: deployOne.id, targetId: serverOne.id },
+      { type: 'contains', sourceId: projectOne.id, targetId: repoOne.id },
+      { type: 'source_of', sourceId: repoOne.id, targetId: deployOne.id },
+      { type: 'exposes', sourceId: deployOne.id, targetId: endpointOne.id }
+    ],
+    placements: [serverOne, serverTwo, projectOne, repoOne, deployOne, endpointOne].map((entity, index) => ({ entityId: entity.id, x: index, y: 0, dynamic: true })), metadata: {}
+  };
+  controller.panelProjection.placements[0].resourceDisplayLevel = 'host';
+  const visible = controller._applyResourceDisplayPreferences(controller.panelProjection.placements,
+    new Set(controller.panelProjection.placements.map(item => item.entityId)), controller.panelProjection.relationships);
+  assert.deepEqual([...visible].sort(), [serverOne.id, serverTwo.id].sort());
+  controller.panelProjection.placements[1].resourceDisplayLevel = 'host';
+  const bothHostOnly = controller._applyResourceDisplayPreferences(controller.panelProjection.placements,
+    new Set(controller.panelProjection.placements.map(item => item.entityId)), controller.panelProjection.relationships);
+  assert.deepEqual([...bothHostOnly].sort(), [serverOne.id, serverTwo.id].sort());
+});
+
+test('本机工作区的卡片显示层级会按偏好注入当前主机下级资源', () => {
+  const controller = new Controller({ bridge: {} });
+  const server = { id: 'entity_pref_server01', type: 'server', name: 'AL03', details: {}, transient: true };
+  const project = { id: 'entity_pref_project01', type: 'project', refId: 'project_pref', name: 'Casdoor', details: {}, transient: true };
+  const deployment = { id: 'entity_pref_deploy01', type: 'deployment', name: 'casdoor', details: {}, transient: true, runtime: { projectIds: ['project_pref'] } };
+  const endpoint = { id: 'entity_pref_endpoint01', type: 'endpoint', name: 'casdoor.example.com', details: {}, transient: true };
+  controller.store = { schemaVersion: 1, activeBoardId: 'board_pref01', entities: [], relationships: [], boards: [{
+    id: 'board_pref01', name: '本机工作区', viewport: { x: 0, y: 0, zoom: 1 }, view: RelationshipGraphModel.defaultBoardView(),
+    placements: [{ entityId: server.id, x: 0, y: 0, resourceDisplayLevel: 'deployment' }]
+  }] };
+  controller.localWorkspaceMode = true;
+  controller.panelProjection = {
+    entities: [server, project, deployment, endpoint],
+    relationships: [
+      { type: 'runs_on', sourceId: deployment.id, targetId: server.id },
+      { type: 'exposes', sourceId: deployment.id, targetId: endpoint.id }
+    ],
+    placements: [server, project, deployment, endpoint].map((entity, index) => ({ entityId: entity.id, x: index * 40, y: 0, dynamic: true })),
+    metadata: { state: 'ready' }
+  };
+  assert.deepEqual(controller._filteredGraph().placements.map(item => item.entityId).sort(), [server.id, project.id, deployment.id].sort());
+  controller.store.boards[0].placements[0].resourceDisplayLevel = 'host';
+  assert.deepEqual(controller._filteredGraph().placements.map(item => item.entityId), [server.id]);
 });
 
 test('本机工作区把 Coolify 资源作为可组合来源，加入后才标记为已放置', () => {

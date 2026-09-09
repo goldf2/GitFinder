@@ -34,14 +34,14 @@ test('资源目录统一投影受管资源、白板实体和白板文件', () =>
   });
 
   assert.deepEqual(ResourceView.RESOURCE_CATEGORY_DEFINITIONS.map(category => category.id),
-    ['whiteboard', 'project', 'repository', 'architecture', 'server', 'deployment', 'endpoint', 'other']);
+    ['whiteboard', 'project', 'repository', 'server', 'deployment', 'endpoint', 'other']);
   assert.equal(items.find(item => item.key === 'project:p1').name, '显示:项目别名');
   assert.equal(items.find(item => item.key === 'project:p1').placed, true);
   assert.equal(items.find(item => item.entityId === 'entity_endpoint').category, 'endpoint');
   assert.equal(items.find(item => item.entityId === 'entity_text').category, 'other');
   assert.equal(items.find(item => item.key === 'whiteboard:doc1').secondary, '4 个元素');
   assert.equal(items.find(item => item.key === 'whiteboard:doc2').secondary, '文件缺失 · 可移除记录');
-  assert.deepEqual(ResourceView.sections(items).map(section => section.items.length), [2, 1, 1, 0, 0, 0, 1, 1]);
+  assert.deepEqual(ResourceView.sections(items).map(section => section.items.length), [2, 1, 1, 0, 0, 1, 1]);
 });
 
 test('资源目录标记定位、添加、拖动、折叠并转义可变内容', () => {
@@ -58,6 +58,7 @@ test('资源目录标记定位、添加、拖动、折叠并转义可变内容',
   assert.match(html, /class="relationship-resource-section-items" hidden/);
   assert.match(html, /draggable="true"[^>]+data-resource-key="project:p1"/);
   assert.match(html, /data-add-resource="project:p1"/);
+  assert.match(html, /data-resource-settings="project:p1"/);
   assert.match(html, /&lt;项目&amp;&gt;/);
   assert.doesNotMatch(html, /<项目&>/);
   assert.match(html, /data-locate-resource="entity:e1"/);
@@ -71,6 +72,22 @@ test('资源目录标记定位、添加、拖动、折叠并转义可变内容',
   assert.doesNotMatch(filtered, /relationship-resource-section-items" hidden/);
   assert.equal(ResourceView.render({ items, query: '不存在', escapeHtml, panelMoveControls: () => '' }),
     '<div class="relationship-resource-empty">没有匹配的资源</div>');
+});
+
+test('资源项支持主机到项目、部署和访问点的逐级展开', () => {
+  const items = [{ key: 'entity:server', kind: 'server', category: 'server', name: 'Con01', secondary: '主机', expandable: true, expanded: true, children: [
+    { key: 'entity:project', kind: 'project', category: 'project', name: 'MES', secondary: 'Project', expandable: true, expanded: true, children: [
+      { key: 'entity:deployment', kind: 'deployment', category: 'deployment', name: '生产部署', secondary: 'production', expandable: true, expanded: true, children: [
+        { key: 'entity:endpoint', kind: 'endpoint', category: 'endpoint', name: 'mes.example.com', secondary: 'HTTPS' }
+      ] }
+    ] }
+  ] }];
+  const html = ResourceView.render({ items, escapeHtml, typeIcons: {}, panelMoveControls: () => '' });
+  assert.match(html, /data-expand-resource="entity:server" aria-expanded="true"/);
+  assert.match(html, /data-resource-children="entity:server"/);
+  assert.match(html, /data-resource-children="entity:project"/);
+  assert.match(html, /data-resource-children="entity:deployment"/);
+  assert.match(html, /data-add-resource="entity:endpoint"/);
 });
 
 test('正式页面与全部白板夹具均先加载资源视图再加载控制器', () => {

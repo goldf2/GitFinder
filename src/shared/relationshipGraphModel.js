@@ -40,6 +40,7 @@
   const BOARD_LAYERS = Object.freeze(['runtime', 'architecture']);
   const TOPOLOGY_SCOPE_MODES = Object.freeze(['board', 'all', 'server', 'project', 'deployment', 'repository']);
   const ARCHITECTURE_SCOPE_MODES = Object.freeze(['snapshot', 'boundary', 'component']);
+  const RESOURCE_DISPLAY_LEVELS = Object.freeze(['host', 'project', 'deployment', 'endpoint']);
   const BOARD_LAYOUTS = Object.freeze(['free', 'compact', 'lanes', 'right', 'down', 'bilateral', 'radial', 'galaxy']);
   const BOARD_SNAP_MODES = Object.freeze(['off', 'grid', 'smart']);
   const BOARD_CARD_APPEARANCES = Object.freeze(['elevated', 'flat']);
@@ -642,7 +643,7 @@
     if (groupId && group && group.type !== 'group') issues.push(`${prefix}.groupId 必须引用分组节点`);
     if (strict) {
       for (const key of Object.keys(raw)) {
-        if (!['entityId', 'x', 'y', 'groupId', 'groupBackground', 'groupBorder', 'groupLayout', 'groupWidth', 'groupHeight', 'groupShape', 'groupAppearance', 'titleMode', 'titleText', 'titleSource', 'statusVisibility', 'iconKey', 'labels', 'note', 'todos', 'locked', 'expanded', 'archived', 'moveWithDescendants', 'endpointView'].includes(key)) issues.push(`${prefix}.${key} 不是允许的字段`);
+        if (!['entityId', 'x', 'y', 'groupId', 'groupBackground', 'groupBorder', 'groupLayout', 'groupWidth', 'groupHeight', 'groupShape', 'groupAppearance', 'titleMode', 'titleText', 'titleSource', 'statusVisibility', 'iconKey', 'labels', 'note', 'todos', 'locked', 'expanded', 'archived', 'moveWithDescendants', 'endpointView', 'resourceDisplayLevel'].includes(key)) issues.push(`${prefix}.${key} 不是允许的字段`);
       }
       if (!Number.isFinite(Number(raw.x)) || !Number.isFinite(Number(raw.y))) {
         issues.push(`${prefix} 坐标必须是有限数字`);
@@ -662,6 +663,11 @@
     if (raw.endpointView != null) {
       if (entity?.type !== 'endpoint' || !['card', 'web'].includes(raw.endpointView)) issues.push(`${prefix}.endpointView 必须是访问点的 card 或 web`);
       else if (raw.endpointView === 'web') placement.endpointView = 'web';
+    }
+    if (raw.resourceDisplayLevel != null) {
+      if (!['server', 'project', 'deployment', 'repository'].includes(entity?.type) || !RESOURCE_DISPLAY_LEVELS.includes(raw.resourceDisplayLevel)) {
+        issues.push(`${prefix}.resourceDisplayLevel 必须是资源卡片的 host、project、deployment 或 endpoint`);
+      } else placement.resourceDisplayLevel = raw.resourceDisplayLevel;
     }
     if (raw.archived === true) {
       if (entity?.type !== 'deployment') issues.push(`${prefix}.archived 仅适用于部署`);
@@ -922,6 +928,7 @@
     BOARD_LAYERS,
     TOPOLOGY_SCOPE_MODES,
     ARCHITECTURE_SCOPE_MODES,
+    RESOURCE_DISPLAY_LEVELS,
     BOARD_LAYOUTS,
     boardOrganization,
     BOARD_SNAP_MODES,

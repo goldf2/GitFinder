@@ -103,7 +103,7 @@ test('架构范围可按边界或组件邻接关系缩小，并可隐藏边界�
   assert.equal(controller._filteredGraph().placements.some(item => item.groupId), false);
 });
 
-test('菜单按运行拓扑和代码架构分别提供显示与范围控件', () => {
+test('主菜单只负责来源可见性，资源范围下沉到卡片快捷设置', () => {
   const controller = runtimeFixture();
   controller.store.boards[0].view.topologyScopeMode = 'project';
   controller.store.boards[0].view.topologyScopeId = 'entity_scope_project';
@@ -111,12 +111,13 @@ test('菜单按运行拓扑和代码架构分别提供显示与范围控件', ()
   assert.doesNotMatch(runtimeMenu, /数据层|合并视图|data-board-layer="merged"/);
   assert.match(runtimeMenu, /data-board-topology-visible/);
   assert.match(runtimeMenu, /data-board-architecture-visible/);
-  assert.match(runtimeMenu, /data-topology-scope-mode/);
-  assert.match(runtimeMenu, /data-topology-scope-id/);
+  assert.doesNotMatch(runtimeMenu, /data-topology-scope-mode/);
+  assert.doesNotMatch(runtimeMenu, /data-topology-scope-id/);
+  assert.match(runtimeMenu, /选中的主机、Project 或部署卡片上打开“显示设置”/);
   controller.store.boards[0].view.showArchitecture = true;
   controller.architectureProjection = { entities: [{ id: 'entity_arch_scope', type: 'architecture', name: '入口', details: {} }], relationships: [], placements: [{ entityId: 'entity_arch_scope', x: 0, y: 0 }], metadata: { componentCount: 1, boundaryCount: 0, connectionCount: 0 } };
   const architectureMenu = controller._layoutMenuHtml();
-  assert.match(architectureMenu, /data-architecture-scope-mode/);
+  assert.doesNotMatch(architectureMenu, /data-architecture-scope-mode/);
   assert.match(architectureMenu, /data-architecture-show-boundaries/);
 });
 

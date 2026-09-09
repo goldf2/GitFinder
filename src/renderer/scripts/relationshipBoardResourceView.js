@@ -7,7 +7,6 @@
     Object.freeze({ id: 'whiteboard', label: '白板文件', icon: '▧' }),
     Object.freeze({ id: 'project', label: '项目', icon: '▣' }),
     Object.freeze({ id: 'repository', label: '仓库', icon: '⑂' }),
-    Object.freeze({ id: 'architecture', label: '代码架构', icon: '⌘' }),
     Object.freeze({ id: 'server', label: '主机', icon: '▰' }),
     Object.freeze({ id: 'deployment', label: '站点与部署', icon: '◆' }),
     Object.freeze({ id: 'endpoint', label: '访问端点', icon: '↗' }),
@@ -35,7 +34,8 @@
     for (const entity of entities) {
       if (representedIds.has(entity.id)) continue;
       items.push({ key: `entity:${entity.id}`, kind: entity.type, category: categoryFor(entity.type, categories), entityId: entity.id,
-        name: displayName(entity), path: '', secondary: displaySubtitle(entity), transient: entity.transient === true, placed: placedIds.has(entity.id) });
+        name: displayName(entity), path: '', secondary: displaySubtitle(entity), transient: entity.transient === true, placed: placedIds.has(entity.id),
+        ...(entity.resourceOnly ? { sourceEntity: entity } : {}) });
     }
     items.push(...documents.map(item => ({ ...item, key: `whiteboard:${item.id}`, kind: 'whiteboard', category: 'whiteboard',
       secondary: item.missing ? '文件缺失 · 可移除记录' : `${item.nodeCount} 个元素`, path: item.path })));
@@ -52,7 +52,7 @@
     const filtered = items.filter(resource => !normalizedQuery
       || `${resource.name} ${resource.path} ${resource.secondary}`.toLocaleLowerCase('zh-CN').includes(normalizedQuery));
     if (normalizedQuery && !filtered.length) return '<div class="relationship-resource-empty">没有匹配的资源</div>';
-    const itemHtml = resource => {
+    const itemHtml = (resource, depth = 0) => {
       if (resource.kind === 'whiteboard') return `<article class="relationship-resource-item whiteboard-library-item" data-resource-key="${escape(resource.key)}" data-resource-kind="whiteboard">
         <button type="button" class="whiteboard-library-open" data-open-document="${escape(resource.id)}" title="${escape(resource.path)}"><strong>▧ ${escape(resource.name)}</strong><small>${escape(resource.secondary)}</small></button>
         <button type="button" data-remove-document="${escape(resource.id)}" title="仅从资源库移除" aria-label="移除 ${escape(resource.name)} 的资源库记录">×</button>
@@ -62,10 +62,25 @@
       const action = canLocate
         ? `data-locate-resource="${escape(resource.key)}" title="在白板中定位" aria-label="在白板中定位 ${escape(resource.name)}">⌖`
         : `data-add-resource="${escape(resource.key)}" title="添加到白板" aria-label="将 ${escape(resource.name)} 添加到白板">＋`;
-      return `<article class="relationship-resource-item" draggable="${canDrag}" data-resource-key="${escape(resource.key)}" data-resource-kind="${escape(resource.kind)}">
+      const children = Array.isArray(resource.children) ? resource.children : [];
+      const expandable = resource.expandable === true || children.length > 0;
+      const expanded = resource.expanded === true;
+      const expandButton = expandable
+        ? `<button type="button" class="relationship-resource-expand" data-expand-resource="${escape(resource.key)}" aria-expanded="${expanded}" aria-label="${expanded ? '收起' : '展开'} ${escape(resource.name)} 下一级" title="${expanded ? '收起' : '展开'}下一级">${expanded ? '⌄' : '›'}</button>`
+        : '';
+      const settingsButton = ['project', 'repository'].includes(resource.kind)
+        ? `<button type="button" class="relationship-resource-settings" data-resource-settings="${escape(resource.key)}" aria-label="为 ${escape(resource.name)} 设置显示" title="代码架构与显示设置">⌘</button>`
+        : '';
+      const childMarkup = expanded && children.length
+        ? `<div class="relationship-resource-children" data-resource-children="${escape(resource.key)}">${children.map(child => itemHtml(child, depth + 1)).join('')}</div>`
+        : '';
+      const itemMarkup = `<article class="relationship-resource-item${depth ? ' is-nested' : ''}" draggable="${canDrag}" data-resource-depth="${depth}" data-resource-key="${escape(resource.key)}" data-resource-kind="${escape(resource.kind)}">
         <span class="relationship-resource-icon" data-kind="${escape(resource.kind)}">${typeIcons[resource.kind] || '•'}</span>
         <span class="relationship-resource-copy"><strong>${escape(resource.name)}</strong><small title="${escape(resource.path || resource.secondary)}">${escape(resource.path || resource.secondary)}</small></span>
+        ${expandButton}
+        ${settingsButton}
         <button type="button" ${action}</button></article>`;
+      return `${itemMarkup}${childMarkup}`;
     };
     return sections(filtered, categories).filter(section => !normalizedQuery || section.items.length).map(section => {
       const isCollapsed = !normalizedQuery && collapsed.has(section.key);

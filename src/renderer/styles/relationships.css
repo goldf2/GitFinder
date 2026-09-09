@@ -1127,7 +1127,7 @@
 
 .relationship-resource-item {
   display: grid;
-  grid-template-columns: 24px minmax(0, 1fr) 22px;
+  grid-template-columns: 24px minmax(0, 1fr) 22px 22px 22px;
   align-items: center;
   gap: 6px;
   box-sizing: border-box;
@@ -1135,6 +1135,17 @@
   padding: 2px 4px;
   border-radius: 7px;
   user-select: none;
+}
+
+.relationship-resource-item.is-nested {
+  margin-left: 8px;
+  padding-left: 6px;
+  border-left: 1px solid color-mix(in srgb, var(--accent-primary) 22%, transparent);
+}
+
+.relationship-resource-children {
+  margin: 0 0 2px 10px;
+  padding-left: 5px;
 }
 
 .relationship-resource-item:hover {
@@ -1202,6 +1213,11 @@
   color: var(--text-secondary);
   background: transparent;
   font-size: 17px;
+}
+
+.relationship-resource-item > .relationship-resource-expand {
+  color: var(--text-tertiary);
+  font-size: 16px;
 }
 
 .relationship-resource-item > button:hover,

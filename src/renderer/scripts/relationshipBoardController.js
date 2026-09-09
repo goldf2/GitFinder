@@ -159,6 +159,7 @@
     ],
     group: [{ key: 'notes', label: '备注', maxLength: 1000, multiline: true }]
   });
+  const RESOURCE_DISPLAY_LEVELS = Object.freeze(['host', 'project', 'deployment', 'endpoint']);
 
   function clone(value) {
     return JSON.parse(JSON.stringify(value));
@@ -206,7 +207,8 @@
       ...(value.locked === true ? { locked: true } : {}), ...(value.expanded === true ? { expanded: true } : {}),
       ...(value.endpointView === 'web' ? { endpointView: 'web' } : {}),
       ...(typeof value.moveWithDescendants === 'boolean' ? { moveWithDescendants: value.moveWithDescendants } : {}),
-      ...(value.archived === true ? { archived: true } : {})
+      ...(value.archived === true ? { archived: true } : {}),
+      ...(RESOURCE_DISPLAY_LEVELS.includes(value.resourceDisplayLevel) ? { resourceDisplayLevel: value.resourceDisplayLevel } : {})
     };
   }
 
@@ -308,7 +310,8 @@
       this.displayLayoutEdit = null;
       this.resourcePanelVisible = true;
       this.resourcePanelPosition = { x: 12, y: 12 };
-      this.collapsedResourceSections = new Set(['repository', 'architecture', 'server', 'deployment', 'endpoint', 'other']);
+      this.collapsedResourceSections = new Set(['repository', 'server', 'deployment', 'endpoint', 'other']);
+      this.expandedResourceKeys = new Set();
       this.importInFlight = false;
       this.exportInFlight = false;
       this.documentRecord = null;
@@ -1257,12 +1260,8 @@
         <div class="relationship-layout-menu" data-layout-panel="${key}" role="menu" aria-label="${label}" hidden>
           <header><strong>${label}</strong><small>当前：${escapeHtml(current)}</small></header>${content}
         </div></div>`;
-      const topologyScopeMode = Model.TOPOLOGY_SCOPE_MODES.includes(view.topologyScopeMode) ? view.topologyScopeMode : 'board';
-      const topologyScopeOptions = this._topologyScopeOptions(topologyScopeMode);
-      const topologyScopeIdSelect = topologyScopeOptions.length ? `<label class="relationship-scope-select"><span>对象</span><select data-topology-scope-id>${topologyScopeOptions.map(option => `<option value="${escapeHtml(option.id)}"${option.id === view.topologyScopeId ? ' selected' : ''}>${escapeHtml(option.label)} · ${escapeHtml(option.detail)}</option>`).join('')}</select></label>` : '';
-      const topologyScopeModes = [['board', '当前白板', '只显示已经放入此白板的运行资源（默认）'], ['all', '全部运行资源', '显式加载所有已同步资源，可能很多'], ['server', '单台主机', '主机及一跳关联的部署、仓库和访问点'], ['project', '单个 Project', '单个 Coolify Project 容器及其成员'], ['deployment', '单个部署', '部署及一跳关联的仓库、主机和访问点'], ['repository', '单个 Git 仓库', '仓库及一跳关联的部署和项目']];
       const topologyCurrent = `${view.showTopology === false ? '已隐藏' : '显示'} · ${structures.find(([key]) => key === view.structure)?.[1] || '资源关系'}`;
-      const topologyMenu = `<p>运行拓扑是白板中的一种元素来源。它可以和代码架构同时显示；这里设置运行资源的显示、结构和范围。</p>
+      const topologyMenu = `<p>运行拓扑是白板中的一种元素来源。它可以和代码架构同时显示。具体显示层级请在选中的主机、Project 或部署卡片上打开“显示设置”。</p>
         <button type="button" role="menuitemcheckbox" aria-checked="${view.showTopology !== false}" data-board-topology-visible="${view.showTopology === false ? 'true' : 'false'}">${view.showTopology === false ? '○ 显示运行拓扑' : '✓ 显示运行拓扑'}</button>
         <div class="relationship-menu-separator" role="separator"></div>
         <p>结构只影响运行拓扑中的层级和群组成员，并应用所选布局；自由摆放保留原位置。</p>
@@ -1271,9 +1270,6 @@
           <button type="button" role="menuitemcheckbox" aria-checked="${view.projectGroupIncludesEndpoints}" data-relationship-action="project-endpoints">${view.projectGroupIncludesEndpoints ? '✓' : '○'} 项目组包含访问点</button>
           <button type="button" role="menuitemcheckbox" aria-checked="${view.showRepositoryRelations}" data-relationship-action="repository-relations">${view.showRepositoryRelations ? '✓' : '○'} 显示仓库相关性</button>` : ''}
         <div class="relationship-menu-separator" role="separator"></div>
-        <fieldset class="relationship-scope-options"><legend>拓扑范围</legend>${topologyScopeModes.map(([key, label, hint]) => `<label><input type="radio" name="relationship-topology-scope-mode" value="${key}" data-topology-scope-mode${topologyScopeMode === key ? ' checked' : ''}><span><b>${label}</b><small>${hint}</small></span></label>`).join('')}</fieldset>
-        ${topologyScopeIdSelect}<small class="relationship-scope-count">当前范围：${this._scopePlacements(this._unarchivedPlacements()).filter(item => this._isTopologyEntity(this._allEntitiesById().get(item.entityId))).length} 个运行节点</small>
-        ${!this.documentRecord && topologyScopeMode !== 'board' ? '<button type="button" role="menuitem" data-relationship-action="add-topology-scope">将当前范围加入本机工作区</button><small>把在线预览的节点、关系和布局固化到当前白板；不会修改 Coolify。</small>' : ''}
         <div class="relationship-menu-separator" role="separator"></div>
         <button type="button" role="menuitem" data-relationship-action="deployment-archive">归档的部署（${this._combinedPlacements().filter(item => item.archived).length}）</button>`;
       const layoutMenu = `<p>只改变位置、方向和间距，不改变结构，也不创建副本。</p>
@@ -1281,17 +1277,11 @@
         <div class="relationship-menu-separator" role="separator"></div>
         <p>卡片间距在“显示”中调整；关闭组内自动排列的群组整体移动。</p>
         <button type="button" role="menuitem" data-relationship-action="reset-dynamic-layout">整理布局</button>`;
-      const architectureScopeMode = Model.ARCHITECTURE_SCOPE_MODES.includes(view.architectureScopeMode) ? view.architectureScopeMode : 'snapshot';
-      const architectureScopeOptions = this._architectureScopeOptions(architectureScopeMode);
-      const architectureScopeIdSelect = architectureScopeOptions.length ? `<label class="relationship-scope-select"><span>${architectureScopeMode === 'boundary' ? '边界' : '组件'}</span><select data-architecture-scope-id>${architectureScopeOptions.map(option => `<option value="${escapeHtml(option.id)}"${option.id === view.architectureScopeId ? ' selected' : ''}>${escapeHtml(option.label)} · ${escapeHtml(option.detail)}</option>`).join('')}</select></label>` : '';
-      const architectureScopeModes = [['snapshot', '当前快照', '显示所选仓库快照的全部组件'], ['boundary', '单个边界', '只显示一个目录 / 模块边界及其成员'], ['component', '组件及邻接关系', '只显示一个组件和直接连接的组件']];
       const selectedSnapshot = this.architectureSnapshotCatalog.find(snapshot => snapshot.snapshotId === view.architectureSnapshotId);
       const architectureCurrent = `${view.showArchitecture === true ? '显示' : '已隐藏'} · ${selectedSnapshot?.repositoryName || '未选择快照'}`;
-      const architectureMenu = `<p>代码架构是白板中的另一种元素来源。它不会替换运行拓扑，可以与运行拓扑同时放置和连线。</p>
+      const architectureMenu = `<p>代码架构是基于项目文件夹或 Git 仓库生成的只读视图。请在资源库选中项目/仓库后打开“显示设置”，再导入或更新架构快照；它不会混入运行资源。</p>
         <button type="button" role="menuitemcheckbox" aria-checked="${view.showArchitecture === true}" data-board-architecture-visible="${view.showArchitecture === true ? 'false' : 'true'}">${view.showArchitecture === true ? '✓ 隐藏代码架构' : '○ 显示代码架构'}</button>
-        <label class="relationship-scope-select"><span>代码快照</span><select data-architecture-snapshot>${this.architectureSnapshotCatalog.length ? this.architectureSnapshotCatalog.map(snapshot => `<option value="${escapeHtml(snapshot.snapshotId)}"${snapshot.snapshotId === view.architectureSnapshotId ? ' selected' : ''}>${escapeHtml(snapshot.repositoryName || '仓库')} · ${escapeHtml(snapshot.title || snapshot.diagramType || '架构快照')}</option>`).join('') : '<option value="">暂无 Archify 快照</option>'}</select></label>
-        <fieldset class="relationship-scope-options"><legend>架构范围</legend>${architectureScopeModes.map(([key, label, hint]) => `<label><input type="radio" name="relationship-architecture-scope-mode" value="${key}" data-architecture-scope-mode${architectureScopeMode === key ? ' checked' : ''}><span><b>${label}</b><small>${hint}</small></span></label>`).join('')}</fieldset>
-        ${architectureScopeIdSelect}<label class="relationship-scope-check"><input type="checkbox" data-architecture-show-boundaries${view.architectureShowBoundaries !== false ? ' checked' : ''}><span>显示目录 / 模块边界</span></label><small class="relationship-scope-count">当前快照：${this.architectureProjection?.metadata?.componentCount || 0} 个组件 · ${this.architectureProjection?.metadata?.boundaryCount || 0} 个边界 · ${this.architectureProjection?.metadata?.connectionCount || 0} 条连接</small>`;
+        <label class="relationship-scope-check"><input type="checkbox" data-architecture-show-boundaries${view.architectureShowBoundaries !== false ? ' checked' : ''}><span>显示目录 / 模块边界</span></label><small class="relationship-scope-count">当前快照：${this.architectureProjection?.metadata?.componentCount || 0} 个组件 · ${this.architectureProjection?.metadata?.boundaryCount || 0} 个边界 · ${this.architectureProjection?.metadata?.connectionCount || 0} 条连接</small>`;
       return menu('topology', '运行拓扑', topologyCurrent, topologyMenu)
         + menu('architecture', '代码架构', architectureCurrent, architectureMenu)
         + menu('layout', '布局', layouts.find(([key]) => key === view.layout)?.[1], layoutMenu);
@@ -1743,12 +1733,256 @@
           }
         }
       }
-      return ResourceView.catalog({ resources: this.resources, entities: this._combinedEntities(), placements: boardPlacements,
+      const entities = this._combinedEntities().filter(entity => !this._isArchitectureEntity(entity)
+        && !(entity.type === 'group' && String(entity.runtime?.dynamicKind || '').startsWith('coolify-')));
+      const projectRefs = new Set(entities.filter(entity => entity.type === 'project').flatMap(entity => [entity.id, entity.refId].filter(Boolean).map(String)));
+      for (const deployment of this.panelProjection?.entities || []) {
+        const runtime = deployment.runtime || {};
+        const projectRef = String(runtime.projectUuid || '').trim();
+        if (deployment.type !== 'deployment' || !projectRef || projectRef === 'project_unknown' || projectRefs.has(projectRef)) continue;
+        const providerId = String(runtime.providerId || 'panel').replace(/[^a-zA-Z0-9_-]/g, '_');
+        const suffix = projectRef.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 48);
+        const project = {
+          id: `entity_panel_project_${providerId}_${suffix}`.slice(0, 80),
+          type: 'project', refId: projectRef,
+          name: runtime.projectName || `Project ${projectRef}`,
+          details: {}, source: 'observed', transient: true, resourceOnly: true,
+          runtime: { providerId: runtime.providerId || '', providerLabel: runtime.providerLabel || '', projectUuid: projectRef, dynamicKind: 'panel-project' }
+        };
+        entities.push(project); projectRefs.add(projectRef); projectRefs.add(project.id);
+      }
+      const catalog = ResourceView.catalog({ resources: this.resources, entities, placements: boardPlacements,
         documents: this.documentLibrary, displayName: entity => this._entityDisplayName(entity), displaySubtitle: entity => {
           const fallback = this._entitySubtitle(entity, null, false) || TYPE_LABELS[entity.type];
           return this._entityDisplaySubtitle(entity, fallback);
         }
       });
+      const entityById = new Map(entities.map(entity => [entity.id, entity]));
+      const relationships = this._resourceRelationships();
+      const hierarchy = this._resourceHierarchy(entities, relationships);
+      const itemsByEntityId = new Map();
+      for (const item of catalog) {
+        if (!item.entityId || itemsByEntityId.has(item.entityId)) continue;
+        itemsByEntityId.set(item.entityId, item);
+      }
+      const query = String(this.resourceSearch || '').trim().toLocaleLowerCase('zh-CN');
+      const roots = catalog.filter(item => {
+        const entity = item.entityId ? entityById.get(item.entityId) : null;
+        // Live deployments and endpoints are available from their parent
+        // resource. Keeping them out of the root prevents the library from
+        // becoming a second, flat copy of the whole Coolify topology.
+        if (['deployment', 'endpoint'].includes(item.kind) && item.transient && !item.placed
+          && (!query || !`${item.name} ${item.path || ''} ${item.secondary || ''}`.toLocaleLowerCase('zh-CN').includes(query))) return false;
+        if (item.kind === 'architecture') return false;
+        return true;
+      });
+      const decorate = (item, ancestry = new Set()) => {
+        const nextAncestry = new Set(ancestry).add(item.key);
+        const childItems = this._resourceChildren(item, entityById, itemsByEntityId, hierarchy)
+          .filter(child => !nextAncestry.has(child.key));
+        const expanded = this.expandedResourceKeys.has(item.key);
+        return {
+          ...item,
+          expandable: childItems.length > 0,
+          expanded,
+          children: expanded ? childItems.map(child => decorate(child, nextAncestry)) : []
+        };
+      };
+      return roots.map(item => decorate(item));
+    }
+
+    _resourceRelationships() {
+      const sources = [this.store?.relationships || []];
+      if (this._topologyVisible()) sources.push(this.panelProjection?.relationships || []);
+      const seen = new Set();
+      return sources.flat().filter(relationship => {
+        if (!relationship?.sourceId || !relationship?.targetId) return false;
+        const key = `${relationship.type}\u0000${relationship.sourceId}\u0000${relationship.targetId}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    }
+
+    _resourceHierarchy(entities = [], relationships = []) {
+      const byId = new Map(entities.map(entity => [entity.id, entity]));
+      const projectsByRepository = new Map();
+      const repositoriesByDeployment = new Map();
+      const deploymentsByServer = new Map();
+      const endpointsByDeployment = new Map();
+      const projectsByDeployment = new Map();
+      const add = (map, key, value) => {
+        if (!key || !value || !byId.has(value)) return;
+        if (!map.has(key)) map.set(key, new Set());
+        map.get(key).add(value);
+      };
+      for (const relationship of relationships) {
+        const source = byId.get(relationship.sourceId), target = byId.get(relationship.targetId);
+        if (!source || !target) continue;
+        if (relationship.type === 'contains' && source.type === 'project' && target.type === 'repository') add(projectsByRepository, target.id, source.id);
+        if (relationship.type === 'belongs_to' && source.type === 'repository' && target.type === 'project') add(projectsByRepository, source.id, target.id);
+        if (relationship.type === 'source_of' && source.type === 'repository' && target.type === 'deployment') add(repositoriesByDeployment, target.id, source.id);
+        if (relationship.type === 'deployed_from' && source.type === 'deployment' && target.type === 'repository') add(repositoriesByDeployment, source.id, target.id);
+        if (relationship.type === 'runs_on' && source.type === 'deployment' && target.type === 'server') add(deploymentsByServer, target.id, source.id);
+        if (relationship.type === 'hosts' && source.type === 'server' && target.type === 'deployment') add(deploymentsByServer, source.id, target.id);
+        if (relationship.type === 'exposes' && source.type === 'deployment' && target.type === 'endpoint') add(endpointsByDeployment, source.id, target.id);
+        if (relationship.type === 'exposed_by' && source.type === 'endpoint' && target.type === 'deployment') add(endpointsByDeployment, target.id, source.id);
+      }
+      const projectByReference = new Map(entities.filter(entity => entity.type === 'project').flatMap(entity => [
+        [entity.id, entity], ...(entity.refId ? [[String(entity.refId), entity]] : [])
+      ]));
+      for (const deployment of entities.filter(entity => entity.type === 'deployment')) {
+        const projectRefs = [...(deployment.runtime?.projectIds || []), deployment.runtime?.projectUuid].filter(Boolean);
+        for (const projectRef of projectRefs) {
+          const project = projectByReference.get(String(projectRef));
+          if (project) add(projectsByDeployment, deployment.id, project.id);
+        }
+        for (const repositoryId of repositoriesByDeployment.get(deployment.id) || []) {
+          for (const projectId of projectsByRepository.get(repositoryId) || []) add(projectsByDeployment, deployment.id, projectId);
+        }
+      }
+      const deploymentsByProject = new Map();
+      for (const [deploymentId, projectIds] of projectsByDeployment) {
+        for (const projectId of projectIds) add(deploymentsByProject, projectId, deploymentId);
+      }
+      const projectsByServer = new Map();
+      for (const [serverId, deploymentIds] of deploymentsByServer) {
+        for (const deploymentId of deploymentIds) {
+          for (const projectId of projectsByDeployment.get(deploymentId) || []) add(projectsByServer, serverId, projectId);
+        }
+      }
+      return { projectsByRepository, repositoriesByDeployment, deploymentsByServer, endpointsByDeployment, projectsByDeployment, deploymentsByProject, projectsByServer };
+    }
+
+    _resourceChildren(resource, entitiesById, itemsByEntityId, hierarchy) {
+      const entity = entitiesById.get(resource.entityId);
+      if (!entity) return [];
+      const childIds = entity.type === 'server' ? hierarchy.projectsByServer.get(entity.id)
+        : entity.type === 'project' ? hierarchy.deploymentsByProject.get(entity.id)
+          : entity.type === 'deployment' ? hierarchy.endpointsByDeployment.get(entity.id) : null;
+      if (!childIds?.size) return [];
+      return [...childIds].map(id => itemsByEntityId.get(id)).filter(Boolean)
+        .sort((left, right) => left.name.localeCompare(right.name, 'zh-CN') || left.key.localeCompare(right.key));
+    }
+
+    _resourceDisplayScopeIds(topologyPlacements, relationships, boardIds = new Set()) {
+      const preferences = topologyPlacements.filter(item => RESOURCE_DISPLAY_LEVELS.includes(item.resourceDisplayLevel));
+      const ids = new Set(boardIds);
+      if (!preferences.length) return ids;
+      const entities = this._allEntitiesById();
+      const hierarchy = this._resourceHierarchy([...entities.values()], relationships);
+      const add = entityId => { if (entityId) ids.add(entityId); };
+      const repositoriesByProject = new Map();
+      for (const [repositoryId, projectIds] of hierarchy.projectsByRepository) {
+        for (const projectId of projectIds) {
+          if (!repositoriesByProject.has(projectId)) repositoriesByProject.set(projectId, new Set());
+          repositoriesByProject.get(projectId).add(repositoryId);
+        }
+      }
+      for (const placement of preferences) {
+        const entity = entities.get(placement.entityId);
+        if (!entity) continue;
+        add(entity.id);
+        if (entity.type === 'server') {
+          for (const projectId of hierarchy.projectsByServer.get(entity.id) || []) {
+            add(projectId);
+            for (const repositoryId of repositoriesByProject.get(projectId) || []) add(repositoryId);
+          }
+          for (const deploymentId of hierarchy.deploymentsByServer.get(entity.id) || []) {
+            add(deploymentId);
+            for (const repositoryId of hierarchy.repositoriesByDeployment.get(deploymentId) || []) add(repositoryId);
+            for (const endpointId of hierarchy.endpointsByDeployment.get(deploymentId) || []) add(endpointId);
+          }
+        } else if (entity.type === 'project') {
+          for (const repositoryId of repositoriesByProject.get(entity.id) || []) add(repositoryId);
+          for (const deploymentId of hierarchy.deploymentsByProject.get(entity.id) || []) {
+            add(deploymentId);
+            for (const endpointId of hierarchy.endpointsByDeployment.get(deploymentId) || []) add(endpointId);
+          }
+        } else if (entity.type === 'deployment') {
+          for (const endpointId of hierarchy.endpointsByDeployment.get(entity.id) || []) add(endpointId);
+        }
+      }
+      // A generated Project container must stay in the visible set whenever a
+      // newly materialized child is selected by a card preference.
+      let changed = true;
+      while (changed) {
+        changed = false;
+        for (const placement of topologyPlacements) {
+          if (placement.groupId && ids.has(placement.entityId) && !ids.has(placement.groupId)) {
+            ids.add(placement.groupId); changed = true;
+          }
+        }
+      }
+      return ids;
+    }
+
+    _applyResourceDisplayPreferences(topologyPlacements, visibleIds, relationships) {
+      const entities = this._allEntitiesById();
+      const hierarchy = this._resourceHierarchy([...entities.values()], relationships);
+      const rank = { host: 0, project: 1, deployment: 2, endpoint: 3 };
+      const preferences = new Map(topologyPlacements
+        .filter(placement => Model.RESOURCE_DISPLAY_LEVELS?.includes(placement.resourceDisplayLevel))
+        .map(placement => [placement.entityId, placement.resourceDisplayLevel]));
+      if (!preferences.size) return visibleIds;
+      const requirements = new Map();
+      const require = (entityId, rootId, threshold) => {
+        if (!entityId || !requirements.has(entityId)) requirements.set(entityId, []);
+        requirements.get(entityId).push({ rootId, threshold });
+      };
+      for (const [rootId, level] of preferences) {
+        const entity = entities.get(rootId);
+        if (!entity) continue;
+        if (entity.type === 'server') {
+          for (const projectId of hierarchy.projectsByServer.get(rootId) || []) require(projectId, rootId, 1);
+          for (const deploymentId of hierarchy.deploymentsByServer.get(rootId) || []) require(deploymentId, rootId, 2);
+          for (const deploymentId of hierarchy.deploymentsByServer.get(rootId) || []) {
+            for (const repositoryId of hierarchy.repositoriesByDeployment.get(deploymentId) || []) require(repositoryId, rootId, 1);
+            for (const endpointId of hierarchy.endpointsByDeployment.get(deploymentId) || []) require(endpointId, rootId, 3);
+          }
+        } else if (entity.type === 'project') {
+          for (const deploymentId of hierarchy.deploymentsByProject.get(rootId) || []) {
+            require(deploymentId, rootId, 2);
+            for (const endpointId of hierarchy.endpointsByDeployment.get(deploymentId) || []) require(endpointId, rootId, 3);
+          }
+        } else if (entity.type === 'deployment') {
+          for (const endpointId of hierarchy.endpointsByDeployment.get(rootId) || []) require(endpointId, rootId, 3);
+        }
+        // A project/deployment preference uses its own level names; a host
+        // preference follows the complete host → project → deployment chain.
+        if (entity.type === 'server' && level === 'host') continue;
+      }
+      const next = new Set(visibleIds);
+      for (const [entityId, entries] of requirements) {
+        if (entries.length && entries.every(entry => rank[preferences.get(entry.rootId)] < entry.threshold)) next.delete(entityId);
+      }
+      // Generated Project containers are only useful while at least one of
+      // their members remains visible.
+      for (const placement of topologyPlacements) {
+        const entity = entities.get(placement.entityId);
+        if (entity?.type !== 'group' || !String(entity.runtime?.dynamicKind || '').startsWith('coolify-')) continue;
+        const members = topologyPlacements.filter(item => item.groupId === placement.entityId);
+        if (members.length && !members.some(item => next.has(item.entityId))) next.delete(placement.entityId);
+      }
+      return next;
+    }
+
+    _toggleResourceExpansion(key) {
+      const catalog = this._resourceCatalog();
+      const find = items => {
+        for (const item of items) {
+          if (item.key === key) return item;
+          const nested = find(item.children || []);
+          if (nested) return nested;
+        }
+        return null;
+      };
+      const resource = find(catalog);
+      if (!resource?.expandable) return false;
+      if (this.expandedResourceKeys.has(key)) this.expandedResourceKeys.delete(key);
+      else this.expandedResourceKeys.add(key);
+      this._renderResources();
+      return true;
     }
 
     _resourceSections(catalog = this._resourceCatalog()) {
@@ -1853,8 +2087,9 @@
       // The local workspace is a persistent composition surface, not a live
       // Coolify snapshot. Keep online topology as a preview only when the
       // user explicitly chooses a scope other than “当前白板”.
+      const hasDisplayPreferences = (board?.placements || []).some(item => RESOURCE_DISPLAY_LEVELS.includes(item.resourceDisplayLevel));
       const runtimePlacements = topologyVisible && !this.documentRecord
-        && (!this.localWorkspaceMode || topologyScopeMode !== 'board')
+        && ((!this.localWorkspaceMode || topologyScopeMode !== 'board') || hasDisplayPreferences)
         ? (this.panelProjection?.placements || []) : [];
       for (const placement of runtimePlacements) {
         if (ids.has(placement.entityId)) {
@@ -1992,10 +2227,12 @@
 
       const topologyMode = Model.TOPOLOGY_SCOPE_MODES.includes(view.topologyScopeMode)
         ? view.topologyScopeMode : 'board';
+      const displayRelationships = this._combinedRelationships(topologyPlacements);
       let topologyVisibleIds = new Set(topologyPlacements.map(item => item.entityId));
       if (topologyMode === 'board') {
         const boardIds = new Set((activeBoard(this.store)?.placements || []).map(item => item.entityId));
         topologyVisibleIds = new Set(topologyPlacements.filter(item => boardIds.has(item.entityId)).map(item => item.entityId));
+        for (const entityId of this._resourceDisplayScopeIds(topologyPlacements, displayRelationships, boardIds)) topologyVisibleIds.add(entityId);
       } else if (topologyMode !== 'all') {
         const rootId = String(view.topologyScopeId || '');
         topologyVisibleIds = new Set(rootId ? [rootId] : []);
@@ -2021,6 +2258,7 @@
           }
         }
       }
+      topologyVisibleIds = this._applyResourceDisplayPreferences(topologyPlacements, topologyVisibleIds, displayRelationships);
       const visibleTopology = topologyPlacements.filter(item => topologyVisibleIds.has(item.entityId));
       const visibleIds = new Set([
         ...canvasPlacements.map(item => item.entityId),
@@ -3619,6 +3857,20 @@
         const editable = this.store.relationships.some(item => item.id === this.selectedRelationshipId);
         items.push(context(editable ? '编辑关系…' : '查看关系详情', 'inspector'));
         if (editable) items.push(command('反转方向', 'reverse-relationship'), context('删除关系', 'delete'));
+      } else if (kind === 'resource-settings') {
+        const entity = [...this._entitySelectionIds()].map(id => this._allEntitiesById().get(id)).find(Boolean);
+        const current = entity ? this._placementForEntity(entity.id)?.resourceDisplayLevel : '';
+        const levels = entity?.type === 'server'
+          ? [['host', '仅显示主机'], ['project', '显示到 Project'], ['deployment', '显示到部署'], ['endpoint', '显示到访问点']]
+          : entity?.type === 'project'
+            ? [['project', '仅显示当前 Project'], ['deployment', '显示下级部署'], ['endpoint', '显示部署与访问点']]
+            : entity?.type === 'deployment'
+              ? [['deployment', '仅显示当前部署'], ['endpoint', '显示访问点']]
+              : [];
+        items.push(...levels.map(([level, label]) => context(`${current === level ? '✓ ' : '○ '}${label}`, `resource-display:${level}`)));
+        if (['repository', 'project'].includes(entity?.type)) {
+          items.push(null, context('导入 / 更新代码架构快照…', 'architecture-import'));
+        }
       } else if (kind === 'node') {
         const entities = this._allEntitiesById();
         const selected = [...this._entitySelectionIds()].map(id => entities.get(id)).filter(Boolean);
@@ -3627,6 +3879,7 @@
         if (single && ['text', 'image', 'attachment'].includes(single.type)) items.push(context('编辑内容 / 名称…', 'edit-element'));
         else if (single) items.push(context(single.type === 'group' ? '重命名群组…' : '重命名 / 显示别名…', 'rename'), context('备注、标签与待办…', 'annotations'));
         if (single && !(single.type === 'group' && single.transient)) items.push(command('围绕我布局', 'arrange-around-selection'));
+        if (['server', 'project', 'deployment', 'repository'].includes(single?.type)) items.push(command('显示设置…', 'resource-settings'));
         if (single?.type === 'deployment') items.push(command('归档部署（仅当前白板）', 'archive-selected-deployment'));
         items.push(null, command('将所选卡片组成群组…', 'create-group-from-selection', this._selectedMemberPlacements().length < 2));
         if (this._selectedMemberPlacements().some(item => item.groupId)) items.push(command('移出所属群组', 'remove-selection-group'));
@@ -3656,6 +3909,15 @@
 
     _runContextAction(action) {
       this._closeContextMenu(true);
+      if (String(action || '').startsWith('resource-display:')) return this._setResourceDisplayLevel(String(action).split(':')[1]);
+      if (action === 'resource-settings') {
+        const entity = [...this._entitySelectionIds()].map(id => this._allEntitiesById().get(id)).find(Boolean);
+        return entity ? this._openResourceSettingsMenu(entity) : false;
+      }
+      if (action === 'architecture-import') {
+        const entity = [...this._entitySelectionIds()].map(id => this._allEntitiesById().get(id)).find(Boolean);
+        return this._importArchitectureForResource(entity);
+      }
       if (action === 'edit-element') return this._editCanvasElement([...this._entitySelectionIds()][0]);
       if (action === 'delete') return this._deleteSelection();
       if (action === 'select-all') {
@@ -3683,6 +3945,77 @@
       if (details) details.open = true;
       field?.scrollIntoView({ block: 'nearest' });
       field?.focus({ preventScroll: true });
+    }
+
+    _resourceDisplayLevelLabel(level) {
+      return ({ host: '仅主机', project: '显示到 Project', deployment: '显示到部署', endpoint: '显示到访问点' })[level] || '未设置';
+    }
+
+    _openResourceSettingsMenu(entity) {
+      if (!entity?.id) return false;
+      this._selectOnlyEntity(entity.id);
+      const canvas = this.root?.querySelector('.relationship-canvas');
+      const rect = canvas?.getBoundingClientRect?.();
+      this._openFlowContextMenu('resource-settings', entity, {
+        clientX: Math.max(24, Math.round((rect?.left || 0) + 120)),
+        clientY: Math.max(24, Math.round((rect?.top || 0) + 96))
+      });
+      return true;
+    }
+
+    _openResourceSettingsForResource(resource) {
+      if (!resource) return false;
+      const source = resource.entityId ? this._allSourceEntitiesById().get(resource.entityId) : null;
+      if (source && this._placementForEntity(source.id)) return this._openResourceSettingsMenu(source);
+      if (['project', 'repository'].includes(resource.kind)) return this._importArchitectureForResource(resource);
+      this.notify('请先将该资源添加到白板，再设置它的显示层级', 'info');
+      return false;
+    }
+
+    _setResourceDisplayLevel(level) {
+      const next = String(level || '');
+      if (!Model.RESOURCE_DISPLAY_LEVELS?.includes(next)) return false;
+      const entity = [...this._entitySelectionIds()].map(id => this._allEntitiesById().get(id)).find(item => item && ['server', 'project', 'deployment', 'repository'].includes(item.type));
+      const placement = entity ? this._placementForEntity(entity.id) : null;
+      if (!entity || !placement) return false;
+      this._recordMutation();
+      placement.resourceDisplayLevel = next;
+      if (placement.dynamic) this._saveDynamicPlacementOverrides([entity.id]);
+      else this._persistSoon(0);
+      this._closeContextMenu();
+      this.render();
+      this.notify(`${entity.name}：${this._resourceDisplayLevelLabel(next)}`, 'success');
+      return true;
+    }
+
+    async _importArchitectureForResource(entity) {
+      const type = entity?.type || entity?.kind;
+      if (!entity || !['repository', 'project'].includes(type)) return false;
+      const refId = String(entity.refId || '');
+      const source = type === 'repository'
+        ? (this.panelRepositories || []).find(item => String(item.id || '') === refId)
+        : (this.panelProjects || []).find(item => String(item.projectId || '') === refId);
+      const repositoryPath = source?.path || entity.path || '';
+      if (!repositoryPath) {
+        this.notify('请先将该文件夹登记为项目或 Git 仓库，再生成代码架构', 'info');
+        return false;
+      }
+      const api = this.bridge?.architectureSnapshots;
+      if (!api?.import) {
+        this.notify('当前环境暂不支持导入代码架构快照', 'warning');
+        return false;
+      }
+      try {
+        const result = await api.import(repositoryPath);
+        if (result?.cancelled) return false;
+        await this._refreshArchitectureSnapshots();
+        await this._setArchitectureVisibility(true);
+        this.notify(`已从 ${source?.name || entity.name} 更新代码架构快照`, 'success');
+        return true;
+      } catch (error) {
+        this.notify(`代码架构快照导入失败：${error?.message || String(error)}`, 'error');
+        return false;
+      }
     }
 
     _hideInspector() {
@@ -3921,7 +4254,14 @@
       const list = this._panelElement('.relationship-resource-list');
       if (!list) return;
       const catalog = this._resourceCatalog();
-      this.resourceMap = new Map(catalog.map(resource => [resource.key, resource]));
+      this.resourceMap = new Map();
+      const indexResources = resources => {
+        for (const resource of resources || []) {
+          this.resourceMap.set(resource.key, resource);
+          indexResources(resource.children);
+        }
+      };
+      indexResources(catalog);
       const total = this._panelElement('[data-resource-total]');
       if (total) total.textContent = String(catalog.length);
       for (const dock of this._panelDocks()) dock?.querySelectorAll(':scope > [data-resource-section]').forEach(item => item.remove());
@@ -4028,7 +4368,7 @@
     }
 
     _openFlowContextMenu(kind, value, point = {}) {
-      if (kind === 'node' && value?.id) this._selectOnlyEntity(value.id);
+      if (['node', 'resource-settings'].includes(kind) && value?.id) this._selectOnlyEntity(value.id);
       else if (kind === 'relationship' && value?.id) {
         this._clearEntitySelection();
         this.selectedRelationshipId = value.id;
@@ -4076,6 +4416,7 @@
         if (url) void this.bridge.panel?.openExternal?.(url).catch(error => this.notify(`无法打开网页：${error?.message || error}`, 'error'));
         return;
       }
+      if (action === 'resource-settings' && value?.id) return this._openResourceSettingsMenu(value);
       if (action === 'context-node') return this._openFlowContextMenu('node', value, point);
       if (action === 'context-edge') return this._openFlowContextMenu('relationship', value, point);
       if (action === 'context-pane') return this._openFlowContextMenu('canvas', null, point);
@@ -5589,7 +5930,7 @@
         // board so the resource can be composed with other sources and still
         // be available when Coolify is offline.
         const existingEntity = this.store.entities.find(candidate => candidate.id === resource.entityId);
-        const sourceEntity = this._allSourceEntitiesById().get(resource.entityId);
+        const sourceEntity = this._allSourceEntitiesById().get(resource.entityId) || resource.sourceEntity;
         const portableEntity = existingEntity || (sourceEntity ? this._portableEntity(sourceEntity) : null);
         const projectedPlacement = this._combinedPlacements().find(candidate => candidate.entityId === resource.entityId);
         if (resource.kind === 'architecture' && projectedPlacement && !portableEntity) {

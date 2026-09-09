@@ -448,6 +448,16 @@ test('访问点可按单张卡片保存卡片或网页预览模式', () => {
   assert.throws(() => RelationshipGraphModel.assertValidStore(store), /endpointView/);
 });
 
+test('资源卡片可保存受控的显示层级偏好', () => {
+  const entity = { id: 'entity_level_model', type: 'server', name: 'Con01', details: {} };
+  const store = RelationshipGraphModel.assertValidStore({ schemaVersion: 1, activeBoardId: 'board_level_model', entities: [entity], relationships: [], boards: [{
+    id: 'board_level_model', name: '显示层级', viewport: { x: 0, y: 0, zoom: 1 }, view: RelationshipGraphModel.defaultBoardView(),
+    placements: [{ entityId: entity.id, x: 0, y: 0, resourceDisplayLevel: 'deployment' }]
+  }] });
+  assert.equal(store.boards[0].placements[0].resourceDisplayLevel, 'deployment');
+  assert.throws(() => RelationshipGraphModel.assertValidStore({ ...store, boards: [{ ...store.boards[0], placements: [{ ...store.boards[0].placements[0], resourceDisplayLevel: 'invalid' }] }] }), /resourceDisplayLevel/);
+});
+
 test('事实来源和验证时间使用受控值并规范化为 ISO 时间', () => {
   const store = validStore();
   store.relationships[2].source = 'observed';

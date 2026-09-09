@@ -155,6 +155,9 @@ const RelationshipCard = memo(function RelationshipCard({ id, data, selected }) 
     <ConnectionHandles nodeId={id} handles={data.connectionHandles} />
     <NodeToolbar isVisible={selected} className="gf-flow-node-toolbar" position={Position.Bottom} offset={12}>
       <ToolbarButton data={data} action="details" entity={entity}>详情</ToolbarButton>
+      {['server', 'project', 'deployment', 'repository'].includes(entity.type)
+        ? <ToolbarButton data={data} action="resource-settings" entity={entity} aria-label={`${entity.name} 显示设置`} title="按此资源设置显示层级">显示设置</ToolbarButton>
+        : null}
       <ToolbarButton
         data={data}
         action="toggle-descendants"

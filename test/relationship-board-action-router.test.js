@@ -45,6 +45,7 @@ test('直接动作复用参数路由且排列后不再额外整页重绘', () =>
 
 test('运行拓扑范围加入白板动作映射到控制器', () => {
   assert.deepEqual(ActionRouter.resolve('add-topology-scope'), ['_addTopologyScopeToBoard']);
+  assert.equal(typeof Controller.prototype._toggleResourceExpansion, 'function');
 });
 
 test('控制器只保留兼容入口，DOM 事件由动作路由统一分发', () => {
@@ -107,6 +108,44 @@ test('资源按钮从完整资源目录解析动态实体键和已放置项目�
   });
 
   assert.deepEqual(calls, [['add', 'entity_deployment_1'], ['locate', 'entity_project_1'], ['add', 'entity_deployment_1']]);
+});
+
+test('资源库下一级按钮只切换层级，不触发添加或全量拓扑动作', () => {
+  const controller = new Controller({ bridge: {} });
+  const calls = [];
+  controller._closeContextMenu = () => {};
+  controller._toggleResourceExpansion = key => calls.push(key);
+  ActionRouter.handleClick(controller, { target: {
+    closest: selector => selector.includes('[data-expand-resource]')
+      ? { dataset: { expandResource: 'entity:server' } } : null
+  } });
+  assert.deepEqual(calls, ['entity:server']);
+});
+
+test('资源卡片提供按卡片设置显示层级的快捷入口', () => {
+  assert.match(fs.readFileSync(path.join(__dirname, '../src/renderer/relationship-canvas/index.jsx'), 'utf8'), /action="resource-settings"/);
+  const controller = new Controller({ bridge: {} });
+  controller.selectedEntityIds = new Set(['entity_server_settings']);
+  controller.store = { activeBoardId: 'board_settings', entities: [], relationships: [], boards: [{ id: 'board_settings', placements: [], view: RelationshipGraphModel.defaultBoardView() }] };
+  controller._allEntitiesById = () => new Map([['entity_server_settings', { id: 'entity_server_settings', type: 'server', name: 'Con01', details: {} }]]);
+  controller._placementForEntity = () => ({ resourceDisplayLevel: 'project' });
+  const labels = controller._contextMenuItems('resource-settings').map(item => item?.label).filter(Boolean);
+  assert.ok(labels.some(label => label.includes('仅显示主机')));
+  assert.ok(labels.some(label => label.includes('显示到访问点')));
+  assert.ok(controller._contextMenuItems('node').some(item => item?.label === '显示设置…'));
+});
+
+test('资源库项目/仓库设置按钮路由到架构入口', () => {
+  const controller = new Controller({ bridge: {} });
+  const calls = [];
+  controller._closeContextMenu = () => {};
+  controller._resourceCatalog = () => [{ key: 'repository:r1', kind: 'repository', refId: 'r1', name: 'repo' }];
+  controller._openResourceSettingsForResource = resource => calls.push(resource?.key);
+  ActionRouter.handleClick(controller, { target: {
+    closest: selector => selector.includes('[data-resource-settings]')
+      ? { dataset: { resourceSettings: 'repository:r1' } } : null
+  } });
+  assert.deepEqual(calls, ['repository:r1']);
 });
 
 test('变更、输入和提交事件复用同一动作路由边界', () => {

@@ -45,7 +45,7 @@
     '[data-resource-key]', '[data-board-layer]', '[data-board-topology-visible]', '[data-board-architecture-visible]',
     '[data-panel-open-external]', '[data-panel-reveal-repository]', '[data-panel-open-repository]',
     '[data-panel-system-repository]', '[data-panel-association-action]', '[data-add-node-type]',
-    '[data-add-resource]', '[data-locate-resource]'
+    '[data-add-resource]', '[data-locate-resource]', '[data-expand-resource]', '[data-resource-settings]'
   ].join(',');
 
   function resolve(action) {
@@ -56,9 +56,15 @@
     let catalogResource = null;
     try {
       const catalog = controller._resourceCatalog?.();
-      catalogResource = Array.isArray(catalog)
-        ? catalog.find(resource => resource.key === key)
-        : null;
+      const find = resources => {
+        for (const resource of resources || []) {
+          if (resource.key === key) return resource;
+          const nested = find(resource.children);
+          if (nested) return nested;
+        }
+        return null;
+      };
+      catalogResource = Array.isArray(catalog) ? find(catalog) : null;
     } catch (_) {
       // The resource catalog is unavailable while the board is loading; the
       // registry fallback still handles project/repository actions.
@@ -413,6 +419,8 @@
       controller._createManualEntity(data.addNodeType, contextPoint); return;
     }
     if (data.addResource) return controller._addResource(resourceByKey(controller, data.addResource));
+    if (data.expandResource) return controller._toggleResourceExpansion(data.expandResource);
+    if (data.resourceSettings) return controller._openResourceSettingsForResource(resourceByKey(controller, data.resourceSettings));
     if (data.locateResource) {
       const resource = resourceByKey(controller, data.locateResource);
       if (resource?.entityId) controller._focusEntityOnBoard(resource.entityId);
