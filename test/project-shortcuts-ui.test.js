@@ -10,12 +10,14 @@ const controllerSource = fs.readFileSync(path.join(projectRoot, 'src/renderer/sc
 const navigationSource = fs.readFileSync(path.join(projectRoot, 'src/renderer/scripts/directoryNavigationController.js'), 'utf8');
 const css = fs.readFileSync(path.join(projectRoot, 'src/renderer/styles/sidebar.css'), 'utf8');
 
-test('左侧项目区是快捷导航而不是项目分类或一级视图', () => {
+test('左侧项目区承载快捷入口和项目组，不提升为一级视图', () => {
   assert.match(html, /id="project-shortcuts-sidebar-section"[^>]+data-section-id="projects"[^>]+hidden/);
   assert.match(html, /<span class="sidebar-title-text">项目<\/span>/);
   assert.doesNotMatch(html, /<span class="sidebar-title-text">项目分类<\/span>/);
   assert.doesNotMatch(html, /class="view-btn[^>]+data-view="projects"/);
   assert.match(controllerSource, /data-project-shortcut-all[\s\S]*?applyContentPreset\('all-projects'\)/);
+  assert.match(controllerSource, /项目类型/);
+  assert.match(controllerSource, /data-project-types-toggle/);
   assert.match(html, /id="sidebar-navigation"[^>]*role="tablist"/);
   assert.match(html, /data-sidebar-navigation="projects"/);
   assert.match(html, /data-sidebar-navigation="repositories"/);

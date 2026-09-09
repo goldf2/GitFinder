@@ -880,19 +880,19 @@
     <section class="modal project-group-modal" role="dialog" aria-modal="true" aria-labelledby="project-group-title">
       <header class="modal-header">
         <div>
-          <h3 id="project-group-title">新建项目组</h3>
-          <div class="external-import-description">项目组只管理项目关系，不会移动或修改项目目录。</div>
+          <h3 id="project-group-title">新建项目类型</h3>
+          <div class="external-import-description">项目类型仅用于分类筛选；父子项目关系由真实目录决定，不移动或修改项目目录。</div>
         </div>
-        <button class="modal-close" id="project-group-close-btn" type="button" aria-label="关闭项目组设置">×</button>
+        <button class="modal-close" id="project-group-close-btn" type="button" aria-label="关闭项目类型设置">×</button>
       </header>
       <div class="modal-body project-group-form">
         <div class="form-group">
-          <label for="project-group-name">项目组名称</label>
+          <label for="project-group-name">项目类型名称</label>
           <input type="text" id="project-group-name" maxlength="160" autocomplete="off" placeholder="例如：AI 工具链">
         </div>
         <div class="form-group">
           <label for="project-group-description">简介</label>
-          <textarea id="project-group-description" rows="3" maxlength="2000" placeholder="这个项目组用于管理哪些子项目？"></textarea>
+          <textarea id="project-group-description" rows="3" maxlength="2000" placeholder="例如：内容创作与生成工具"></textarea>
         </div>
         <div class="form-group">
           <label for="project-group-color">标记颜色</label>
@@ -903,16 +903,17 @@
           </select>
         </div>
         <div class="form-group">
-          <label for="project-group-projects">选择子项目</label>
+          <label for="project-group-projects">选择此类型包含的项目</label>
           <select id="project-group-projects" multiple size="8" aria-describedby="project-group-projects-hint"></select>
-          <div class="file-operation-hint" id="project-group-projects-hint">按住 ⌘（Windows/Linux 使用 Ctrl）可多选；同一个项目可以属于多个项目组。</div>
+          <div class="file-operation-hint" id="project-group-projects-hint">按住 ⌘（Windows/Linux 使用 Ctrl）可多选；同一个项目可以属于多个类型，这不是父子项目关系。</div>
         </div>
       </div>
       <footer class="modal-footer">
         <span id="project-group-feedback" role="status" aria-live="polite"></span>
         <div>
           <button class="btn" id="project-group-cancel-btn" type="button">取消</button>
-          <button class="btn btn-primary" id="project-group-save-btn" type="button">创建项目组</button>
+          <button class="btn" id="project-type-delete-btn" type="button" hidden>删除类型</button>
+          <button class="btn btn-primary" id="project-group-save-btn" type="button">创建项目类型</button>
         </div>
       </footer>
     </section>

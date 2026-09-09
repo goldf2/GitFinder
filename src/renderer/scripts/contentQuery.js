@@ -22,6 +22,7 @@
       projectOnly: false,
       repositoryOnly: false,
       repositoryCategory: 'all',
+      projectType: '',
       lifecycles: [],
       gitStatuses: [],
       extensions: [],
@@ -166,6 +167,7 @@
       projectOnly: value.projectOnly === true,
       repositoryOnly: value.repositoryOnly === true,
       repositoryCategory: normalizeRepositoryCategory(value.repositoryCategory),
+      projectType: /^project_group_[0-9a-f-]{36}$/i.test(value.projectType) || value.projectType === 'unclassified' ? value.projectType : '',
       lifecycles: normalizeStringList(value.lifecycles, normalizeLifecycle, VALID_LIFECYCLES.size),
       gitStatuses: normalizeStringList(value.gitStatuses, normalizeGitStatus, VALID_GIT_STATUSES.size),
       extensions: normalizeStringList(value.extensions, normalizeExtension, 12),
@@ -217,6 +219,7 @@
     if (!(query.scope === 'all' && query.repositoryOnly && !query.projectOnly)) {
       query.repositoryCategory = 'all';
     }
+    if (!(query.scope === 'all' && query.projectOnly)) query.projectType = '';
     return query;
   }
 
@@ -228,6 +231,7 @@
       && a.projectOnly === b.projectOnly
       && a.repositoryOnly === b.repositoryOnly
       && a.repositoryCategory === b.repositoryCategory
+      && a.projectType === b.projectType
       && a.modifiedWithinDays === b.modifiedWithinDays
       && a.modifiedFrom === b.modifiedFrom
       && a.modifiedTo === b.modifiedTo

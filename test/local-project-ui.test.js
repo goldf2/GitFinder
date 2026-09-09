@@ -55,10 +55,10 @@ test('项目页支持创建项目组并选择多个子项目，项目组不修�
   assert.match(html, /id="project-group-modal"/);
   assert.match(html, /id="project-group-projects"[^>]+multiple/);
   assert.match(appSource, /loadProjectGroups\(\)/);
-  assert.match(appSource, /data-app-action="create-project-group"/);
-  assert.match(appSource, /data-app-action="edit-project-group"/);
-  assert.match(appSource, /data-app-action="delete-project-group"/);
-  assert.match(appSource, /项目组用于管理多个子项目/);
+  assert.match(appSource, /applyProjectType\(projectType\)/);
+  assert.match(appSource, /项目类型用于筛选/);
+  assert.doesNotMatch(appSource, /project-group-grid|project-group-card/);
+  assert.match(html, /id="project-type-delete-btn"/);
   assert.match(preload, /projectGroups:\s*\{/);
   assert.match(preload, /ipcRenderer\.invoke\('projectGroups:create'/);
   assert.match(main, /registerProjectGroupsIPC\(\)/);

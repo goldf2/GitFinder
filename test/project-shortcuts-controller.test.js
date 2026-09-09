@@ -44,6 +44,7 @@ function createHarness() {
     localProjects: [project],
     projectShortcuts: ProjectShortcuts.defaultStore(),
     projectShortcutPreferences: ProjectShortcuts.defaultPreferences(),
+    projectGroups: [],
     allRepos: [{ name: 'Alpha repo', path: '/workspace/alpha/repo' }]
   };
   const controller = new Controller({
@@ -110,6 +111,32 @@ test('项目树显示全部项目，展开后显示现有关联仓库并可打�
   assert.equal(controller.toggleExpandedProject(project.projectId), true);
   assert.doesNotMatch(container.innerHTML, /data-project-repository-path/);
   assert.equal(controller.toggleExpandedProject('missing'), false);
+});
+
+test('项目类型默认为一个折叠入口，类型不替代项目目录树', async () => {
+  const { controller, state, container } = createHarness();
+  state.projectGroups = [{ groupId: 'project_group_22222222-2222-4222-8222-222222222222', name: '创作类', projectIds: [project.projectId] }];
+  await controller.load();
+  assert.match(container.innerHTML, /项目类型/);
+  assert.doesNotMatch(container.innerHTML, /data-project-type="/);
+  assert.match(container.innerHTML, /data-project-shortcut-id="/);
+  controller.projectTypesExpanded = true;
+  controller.render();
+  assert.match(container.innerHTML, /data-project-type="project_group_22222222-2222-4222-8222-222222222222"/);
+  assert.match(container.innerHTML, /data-project-type="unclassified"/);
+  assert.match(container.innerHTML, /项目目录/);
+  assert.doesNotMatch(container.innerHTML, /data-project-group-toggle/);
+});
+
+test('嵌套项目只在父项目展开后出现，不把分类成员当子项目', async () => {
+  const { controller, state, container } = createHarness();
+  const child = { ...project, projectId: 'project_22222222-2222-4222-8222-222222222222', name: 'Child', path: '/workspace/alpha/repo', repositories: [] };
+  state.localProjects.push(child);
+  await controller.load();
+  assert.doesNotMatch(container.innerHTML, /data-project-shortcut-id="project_22222222/);
+  controller.toggleExpandedProject(project.projectId);
+  assert.match(container.innerHTML, /data-project-shortcut-id="project_22222222/);
+  assert.doesNotMatch(container.innerHTML, /data-project-repository-path="\/workspace\/alpha\/repo"/);
 });
 
 test('目录访问记录不重绘项目快捷列表，避免最近排序在点击时跳动', async () => {

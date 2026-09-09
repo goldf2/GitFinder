@@ -152,6 +152,23 @@
       .sort((left, right) => normalizeComparablePath(right.path, platform).length - normalizeComparablePath(left.path, platform).length)[0] || null;
   }
 
+  function projectChildren(projects, parentId = null, platform = '') {
+    return projects.filter(project => {
+      const parent = projects.filter(candidate => candidate.projectId !== project.projectId
+        && pathIsWithin(project.path, candidate.path, platform)
+        && !pathIsWithin(candidate.path, project.path, platform))
+        .sort((a, b) => b.path.length - a.path.length)[0];
+      return (parent?.projectId || null) === parentId;
+    });
+  }
+
+  function projectsForType(projects, groups, type) {
+    if (!type) return projects;
+    const ids = new Set((type === 'unclassified' ? groups : groups.filter(group => group.groupId === type))
+      .flatMap(group => group.projectIds || []));
+    return projects.filter(project => type === 'unclassified' ? !ids.has(project.projectId) : ids.has(project.projectId));
+  }
+
   function resolveDisplay(store, projects) {
     const current = normalizeStore(store);
     const projectMap = new Map((Array.isArray(projects) ? projects : [])
@@ -183,6 +200,8 @@
     normalizePreferences,
     normalizeStore,
     pathIsWithin,
+    projectChildren,
+    projectsForType,
     resolveDisplay,
     setPinned,
     storesEqual,
