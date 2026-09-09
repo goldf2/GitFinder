@@ -183,18 +183,39 @@
         this.platform
       );
       if (!project) {
-        this.render();
+        this.syncActiveState();
         return false;
       }
       const next = ProjectShortcuts.touchProject(this.state.projectShortcuts, project);
       if (ProjectShortcuts.storesEqual(next, this.state.projectShortcuts)) {
-        this.render();
+        this.syncActiveState();
         return false;
       }
       this.state.projectShortcuts = next;
-      this.render();
+      // 目录导航会频繁触发访问记录。只更新活动状态，避免“最近”排序重绘
+      // 把整段侧栏列表重新排列，导致用户点击目录时视线跳动。
+      this.syncActiveState();
       await this.bridge.config.set('projectShortcuts', next);
       return true;
+    }
+
+    syncActiveState() {
+      const container = this.element('project-shortcuts-list');
+      if (!container?.querySelectorAll) return;
+      const activeProject = ProjectShortcuts.findProjectForPath(
+        this.state.localProjects,
+        this.state.currentPath,
+        this.platform
+      );
+      const contentCollection = this.app.isContentCollection?.() === true;
+      container.querySelectorAll('.project-shortcut-row').forEach(row => {
+        const shortcut = row.querySelector?.('[data-project-shortcut-id]');
+        const projectId = shortcut?.dataset?.projectShortcutId || '';
+        const active = !contentCollection
+          && Boolean(activeProject?.projectId)
+          && activeProject.projectId === projectId;
+        row.classList.toggle?.('active', active);
+      });
     }
 
     async togglePinned(projectId) {

@@ -112,6 +112,21 @@ test('项目树显示全部项目，展开后显示现有关联仓库并可打�
   assert.equal(controller.toggleExpandedProject('missing'), false);
 });
 
+test('目录访问记录不重绘项目快捷列表，避免最近排序在点击时跳动', async () => {
+  const { controller, container, writes } = createHarness();
+  await controller.load();
+  const before = container.innerHTML;
+  let renderCount = 0;
+  controller.render = () => { renderCount += 1; };
+
+  const changed = await controller.recordVisit(project.path);
+
+  assert.equal(changed, true);
+  assert.equal(renderCount, 0);
+  assert.equal(container.innerHTML, before);
+  assert.ok(writes.some(([key]) => key === 'projectShortcuts'));
+});
+
 test('修改项目区偏好立即更新侧边栏，清除最近记录保留其他数据', async () => {
   const { controller, state, section, container, writes } = createHarness();
   await controller.load();
