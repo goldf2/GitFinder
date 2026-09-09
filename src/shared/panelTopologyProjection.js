@@ -567,6 +567,7 @@
     const visible = new Set(placements.filter(p => {
       const type = byId.get(p.entityId)?.type;
       return !['repository', 'project'].includes(type) && (type !== 'group' || groups.has(p.entityId)
+        || byId.get(p.entityId)?.runtime?.dynamicKind === 'coolify-project-group'
         || (p.entityId !== 'entity_panel_shared_resources' && !byId.get(p.entityId)?.transient));
     }).map(p => p.entityId));
     const correlations = new Map(), repositoryNames = new Map(), repositoryMembers = new Map();

@@ -643,7 +643,7 @@
     if (groupId && group && group.type !== 'group') issues.push(`${prefix}.groupId 必须引用分组节点`);
     if (strict) {
       for (const key of Object.keys(raw)) {
-        if (!['entityId', 'x', 'y', 'groupId', 'groupBackground', 'groupBorder', 'groupLayout', 'groupWidth', 'groupHeight', 'groupShape', 'groupAppearance', 'titleMode', 'titleText', 'titleSource', 'statusVisibility', 'iconKey', 'labels', 'note', 'todos', 'locked', 'expanded', 'archived', 'moveWithDescendants', 'endpointView', 'resourceDisplayLevel'].includes(key)) issues.push(`${prefix}.${key} 不是允许的字段`);
+        if (!['entityId', 'x', 'y', 'groupId', 'groupBackground', 'groupBorder', 'groupLayout', 'groupWidth', 'groupHeight', 'groupShape', 'groupAppearance', 'titleMode', 'titleText', 'titleSource', 'statusVisibility', 'iconKey', 'labels', 'note', 'todos', 'locked', 'expanded', 'archived', 'moveWithDescendants', 'endpointView', 'resourceDisplayLevel', 'resourceDisplayLevels'].includes(key)) issues.push(`${prefix}.${key} 不是允许的字段`);
       }
       if (!Number.isFinite(Number(raw.x)) || !Number.isFinite(Number(raw.y))) {
         issues.push(`${prefix} 坐标必须是有限数字`);
@@ -664,8 +664,18 @@
       if (entity?.type !== 'endpoint' || !['card', 'web'].includes(raw.endpointView)) issues.push(`${prefix}.endpointView 必须是访问点的 card 或 web`);
       else if (raw.endpointView === 'web') placement.endpointView = 'web';
     }
+    if (raw.resourceDisplayLevels != null) {
+      const levels = Array.isArray(raw.resourceDisplayLevels)
+        ? [...new Set(raw.resourceDisplayLevels.map(value => String(value)).filter(value => RESOURCE_DISPLAY_LEVELS.includes(value)))]
+        : [];
+      if (!Array.isArray(raw.resourceDisplayLevels)
+        || !['server', 'project', 'deployment', 'repository', 'group'].includes(entity?.type)
+        || raw.resourceDisplayLevels.some(value => !RESOURCE_DISPLAY_LEVELS.includes(String(value)))) {
+        issues.push(`${prefix}.resourceDisplayLevels 必须是资源卡片的 host、project、deployment 或 endpoint 数组`);
+      } else placement.resourceDisplayLevels = levels;
+    }
     if (raw.resourceDisplayLevel != null) {
-      if (!['server', 'project', 'deployment', 'repository'].includes(entity?.type) || !RESOURCE_DISPLAY_LEVELS.includes(raw.resourceDisplayLevel)) {
+      if (!['server', 'project', 'deployment', 'repository', 'group'].includes(entity?.type) || !RESOURCE_DISPLAY_LEVELS.includes(raw.resourceDisplayLevel)) {
         issues.push(`${prefix}.resourceDisplayLevel 必须是资源卡片的 host、project、deployment 或 endpoint`);
       } else placement.resourceDisplayLevel = raw.resourceDisplayLevel;
     }

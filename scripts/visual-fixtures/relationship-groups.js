@@ -112,7 +112,7 @@ document.querySelector('#check-toolbar').addEventListener('click', async event =
 document.querySelector('#load-tree').addEventListener('click', () => {
   groupController.store = window.RelationshipGraphModel.assertValidStore({ schemaVersion: 1, activeBoardId: 'board_treepreview', entities: [], relationships: [],
     boards: [{ id: 'board_treepreview', name: '服务器项目树', placements: [], viewport: { x: 0, y: 0, zoom: 1 },
-      view: { structure: 'server-tree', layout: 'bilateral' } }] });
+      view: { structure: 'server-tree', layout: 'bilateral', topologyScopeMode: 'all' } }] });
   groupController.dynamicLayoutStore = { version: 1, boards: {} };
   fixtureRepositories = Array.from({ length: 7 }, (_, i) => ({ id: `repo_layout${i}`, name: `source-${i}`, path: `/synthetic/source-${i}`, originUrl: `https://github.com/example/source-${i}.git` }));
   groupController.panelRepositories = copyGroups(fixtureRepositories);

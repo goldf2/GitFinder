@@ -225,6 +225,8 @@ const RelationshipGroup = memo(function RelationshipGroup({ id, data, selected }
       <button type="button" className="gf-flow-group-title-button nodrag nopan" onClick={() => data.onAction?.('select-group', entity)}><strong>{entity.name}</strong></button>
       <span>{data.memberCount || 0} 个成员</span>
       {selected ? <span className="gf-flow-group-actions" role="toolbar" aria-label={`${entity.name} 快捷操作`}>
+        {entity.runtime?.dynamicKind === 'coolify-project-group'
+          ? <ToolbarButton data={data} action="resource-settings" entity={entity}>显示设置</ToolbarButton> : null}
         <ToolbarButton data={data} action="arrange-group" entity={entity}>自动排列</ToolbarButton>
         <ToolbarButton
           data={data}
