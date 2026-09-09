@@ -216,9 +216,9 @@
 
 - 内容：修复点击项目目录后“最近”快捷列表立即重绘并按访问时间重排，改为只更新活动状态；访问记录仍持久化，显式刷新、设置变更和重启仍按最近记录整理。
 - 门禁：相关目录快捷入口回归通过；`npm run check` 通过 1100/1100 测试、252 个 JavaScript 文件语法检查；`npm run pack` 通过 development/ad-hoc 产物门禁。
-- 制品：`/Volumes/project/项目/gitfinder-2/dist/GitFinder-2-2.0.0-alpha.133-arm64-mac.zip`，SHA-256 `4abde640d7687a7e4098de8085aed307b0880077ecd46a846bb8475e5d352467`；`latest-mac.yml` 与 `release-verification.json` 同步生成。
+- 制品：`/Volumes/project/项目/gitfinder-2/dist/GitFinder-2-2.0.0-alpha.133-arm64-mac.zip`，SHA-256 `7ea74d9668131d298ad748572788ee16cdf55817d97ceef5fc226fd7e7326646`；`latest-mac.yml` 与 `release-verification.json` 同步生成，报告绑定提交 `4b1631c`。
 - 安装：`/Applications/GitFinder 2 Alpha133.app`，`CFBundleShortVersionString=2.0.0-alpha.133`，`codesign --verify --deep --strict` 通过；启动后主界面可见，旧 alpha.132 保留未覆盖。
-- 提交：`53fc107` 已推送 `origin/main`；开发包为 ad-hoc 签名，不具备正式分发资格。
+- 提交：`53fc107`（功能）和 `4b1631c`（发布记录）已推送 `origin/main`；开发包为 ad-hoc 签名，不具备正式分发资格。
 # 2026-09-08 21:10 +0800 · alpha.123
 
 - 状态：构建中，修复实时 Coolify 预览的超大 Project 容器和离屏坐标。
