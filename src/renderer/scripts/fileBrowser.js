@@ -232,10 +232,10 @@
   function constrainPanelWidths(viewportWidth, sidebarWidth, detailWidth, options = {}) {
     const minContentWidth = Number(options.minContentWidth) || 320;
     const handleWidth = Number(options.handleWidth) || 10;
-    const minSidebarWidth = Number(options.minSidebarWidth) || 180;
-    const maxSidebarWidth = Number(options.maxSidebarWidth) || 500;
-    const minDetailWidth = Number(options.minDetailWidth) || 240;
-    const maxDetailWidth = Number(options.maxDetailWidth) || 700;
+    const minSidebarWidth = options.sidebarHidden ? 0 : Number(options.minSidebarWidth) || 180;
+    const maxSidebarWidth = options.sidebarHidden ? 0 : Number(options.maxSidebarWidth) || 500;
+    const minDetailWidth = options.detailPanelHidden ? 0 : Number(options.minDetailWidth) || 240;
+    const maxDetailWidth = options.detailPanelHidden ? 0 : Number(options.maxDetailWidth) || 700;
     const clamp = (value, minimum, maximum) => Math.max(minimum, Math.min(maximum, Number(value) || minimum));
     let sidebar = clamp(sidebarWidth, minSidebarWidth, maxSidebarWidth);
     let detail = clamp(detailWidth, minDetailWidth, maxDetailWidth);

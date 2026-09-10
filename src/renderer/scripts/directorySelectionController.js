@@ -47,21 +47,22 @@
     }
 
     bindCardEvents(container) {
-      this.bindCardElements([...container.querySelectorAll('.repo-card, .repo-list-item')]);
+      this.bindCardElements([...container.querySelectorAll('.repo-card, .repo-list-item, .local-project-card')]);
     }
 
     bindCardElements(elements) {
       elements.forEach(element => {
         this.app.bindFileDragSource(element);
         element.addEventListener('click', event => {
+          if (event.target?.closest?.('button, input, select, textarea, a')) return;
           const path = element.dataset.path;
           const isGit = element.dataset.isGit === 'true';
-          if (this.app.isFileBrowsingContext()) {
+          if (this.app.isFileBrowsingContext() || element.classList.contains('local-project-card')) {
             this.handleFileSelectionClick(event, element);
             this.state.fileKeyboardFocusPath = path;
             element.focus({ preventScroll: true });
             const selectedItems = this.app.getSelectedFileItems();
-            if (isGit && selectedItems.length === 1 && selectedItems[0].path === path) this.app.selectRepo(path);
+            if (isGit && !element.classList.contains('local-project-card') && selectedItems.length === 1 && selectedItems[0].path === path) this.app.selectRepo(path);
             else this.app.showFileSelectionDetail(selectedItems);
           } else {
             this.document.querySelectorAll('.repo-card.selected, .repo-list-item.selected')
@@ -84,7 +85,20 @@
           this.syncFileSelectionUI();
         });
 
-        element.addEventListener('dblclick', () => {
+        element.addEventListener('keydown', event => {
+          if (!element.classList.contains('local-project-card') || event.target !== element) return;
+          if (event.key === ' ' || event.key === 'Enter') {
+            event.preventDefault();
+            if (event.key === 'Enter') this.app.openLocalProject(element.dataset.path);
+            else element.click();
+          }
+        });
+        element.addEventListener('dblclick', event => {
+          if (event.target?.closest?.('button, input, select, textarea, a')) return;
+          if (element.classList.contains('local-project-card')) {
+            this.app.openLocalProject(element.dataset.path);
+            return;
+          }
           if (!this.app.isFileBrowsingContext()) return;
           this.app.activateFileItem({ path: element.dataset.path, type: element.dataset.type });
         });
@@ -221,15 +235,16 @@
 
     syncFileSelectionUI() {
       this.reconcileFileKeyboardFocus();
-      this.document.querySelectorAll('#content-area .repo-card, #content-area .repo-list-item')
+      this.document.querySelectorAll('#content-area .repo-card, #content-area .repo-list-item, #content-area .local-project-card')
         .forEach(element => this.syncFileItemElement(element));
     }
 
     syncFileItemElement(element) {
-      const selected = this.app.isFileBrowsingContext() && this.state.selectedPaths.has(element.dataset.path);
+      const projectCard = element.classList.contains('local-project-card');
+      const selected = (this.app.isFileBrowsingContext() || projectCard) && this.state.selectedPaths.has(element.dataset.path);
       element.classList.toggle('selected', selected);
       element.setAttribute('aria-selected', selected ? 'true' : 'false');
-      element.tabIndex = element.dataset.path === this.state.fileKeyboardFocusPath ? 0 : -1;
+      element.tabIndex = projectCard || element.dataset.path === this.state.fileKeyboardFocusPath ? 0 : -1;
     }
 
     clearFileSelection() {

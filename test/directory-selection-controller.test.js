@@ -97,6 +97,33 @@ function createHarness(overrides = {}) {
   return { app, calls, controller, document, elements, state };
 }
 
+test('项目集合卡片可选择、多选并显示项目详情，按钮点击不劫持选择', () => {
+  const h = createHarness({ app: { isFileBrowsingContext: () => false } });
+  const events = h.elements.map(element => {
+    element.classList.toggle('local-project-card', true);
+    const handlers = {};
+    element.addEventListener = (name, handler) => { handlers[name] = handler; };
+    return handlers;
+  });
+  h.controller.bindCardEvents({ querySelectorAll: () => h.elements });
+  const event = { target: { closest: () => null } };
+  events[0].click(event);
+  assert.deepEqual([...h.state.selectedPaths], ['/workspace/a']);
+  assert.equal(h.elements[0].getAttribute('aria-selected'), 'true');
+  assert.deepEqual(h.calls.at(-1), ['detail', ['/workspace/a']]);
+  events[1].click({ ...event, metaKey: true });
+  assert.equal(h.state.selectedPaths.size, 2);
+  events[2].click({ target: { closest: () => ({}) } });
+  assert.equal(h.state.selectedPaths.size, 2);
+});
+
+test('收起面板宽度为零且不压缩另一侧，恢复保留首选宽度', () => {
+  const { constrainPanelWidths } = require('../src/renderer/scripts/fileBrowser');
+  assert.deepEqual(constrainPanelWidths(1200, 300, 400, { sidebarHidden: true }), { sidebarWidth: 0, detailWidth: 400 });
+  assert.deepEqual(constrainPanelWidths(1200, 300, 400, { sidebarHidden: true, detailPanelHidden: true }), { sidebarWidth: 0, detailWidth: 0 });
+  assert.deepEqual(constrainPanelWidths(1200, 300, 400), { sidebarWidth: 300, detailWidth: 400 });
+});
+
 test('焦点回退优先保留可见焦点、范围锚点和已选项', () => {
   const items = [{ path: '/a' }, { path: '/b' }, { path: '/c' }];
   assert.equal(resolveFocusPath(items, '/b', '/c', ['/a']), '/b');

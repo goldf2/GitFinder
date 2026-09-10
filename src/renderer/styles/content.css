@@ -69,6 +69,7 @@
 .local-project-view-toolbar {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .local-project-view-toolbar {
@@ -122,10 +123,24 @@
 
 .local-project-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--project-card-width, 310px)), 1fr));
+  align-content: start;
+  align-items: start;
   gap: 14px;
   padding: 18px;
 }
+
+.local-project-grid[data-size="small"] { --project-card-width: 240px; gap: 10px; }
+.local-project-grid[data-size="large"] { --project-card-width: 400px; }
+.local-project-grid[data-size="small"] .local-project-card { gap: 8px; padding: 10px; }
+.local-project-grid[data-size="small"] .local-project-repositories { display: none; }
+.local-project-card.selected { border-color: var(--accent-primary); background: var(--accent-bg); }
+.local-project-card:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 2px; }
+.local-project-size-control { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.main-container.sidebar-hidden #sidebar,
+.main-container.sidebar-hidden #resize-handle-left,
+.main-container.detail-panel-hidden #detail-panel,
+.main-container.detail-panel-hidden #resize-handle-right { display: none; }
 
 .local-project-card {
   display: flex;

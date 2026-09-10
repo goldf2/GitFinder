@@ -2939,12 +2939,32 @@ const App = {
       const constrained = window.FileBrowser.constrainPanelWidths(
         document.querySelector('.main-container')?.clientWidth || window.innerWidth,
         preferred.sidebarWidth,
-        preferred.detailWidth
+        preferred.detailWidth,
+        { sidebarHidden: this._sidebarHidden, detailPanelHidden: this._detailPanelHidden }
       );
       sidebar.style.width = `${constrained.sidebarWidth}px`;
       detailPanel.style.width = `${constrained.detailWidth}px`;
     };
     this._applyConstrainedColumnWidths = applyConstrainedWidths;
+    const applyVisibility = () => {
+      const container = document.querySelector('.main-container');
+      container.classList.toggle('sidebar-hidden', this._sidebarHidden === true);
+      container.classList.toggle('detail-panel-hidden', this._detailPanelHidden === true);
+      for (const [id, hidden] of [['toggle-sidebar', this._sidebarHidden], ['toggle-detail-panel', this._detailPanelHidden]]) {
+        const button = document.getElementById(id);
+        button.setAttribute('aria-expanded', String(!hidden));
+        button.title = `${hidden ? '展开' : '收起'}${id === 'toggle-sidebar' ? '左侧栏' : '详情栏'}`;
+      }
+      applyConstrainedWidths();
+    };
+    this._applyPanelVisibility = applyVisibility;
+    for (const [id, field, key] of [['toggle-sidebar', '_sidebarHidden', 'sidebarHidden'], ['toggle-detail-panel', '_detailPanelHidden', 'detailPanelHidden']]) {
+      document.getElementById(id)?.addEventListener('click', () => {
+        this[field] = !this[field];
+        applyVisibility();
+        window.gitFinder.config.set(key, this[field]);
+      });
+    }
     window.addEventListener('resize', applyConstrainedWidths);
 
     const makeResizable = (handle, element, side, minW, maxW) => {
@@ -2973,8 +2993,7 @@ const App = {
         }
         newW = Math.max(minW, Math.min(maxW, newW));
         this._preferredColumnWidths = {
-          sidebarWidth: sidebar.offsetWidth,
-          detailWidth: detailPanel.offsetWidth,
+          ...this._preferredColumnWidths,
           ...(side === 'left' ? { sidebarWidth: newW } : { detailWidth: newW })
         };
         applyConstrainedWidths();
@@ -2988,11 +3007,11 @@ const App = {
         document.body.style.userSelect = '';
         // 保存宽度
         this._preferredColumnWidths = {
-          sidebarWidth: sidebar.offsetWidth,
-          detailWidth: detailPanel.offsetWidth
+          sidebarWidth: this._sidebarHidden ? this._preferredColumnWidths.sidebarWidth : sidebar.offsetWidth,
+          detailWidth: this._detailPanelHidden ? this._preferredColumnWidths.detailWidth : detailPanel.offsetWidth
         };
-        window.gitFinder.config.set('sidebarWidth', sidebar.offsetWidth);
-        window.gitFinder.config.set('detailPanelWidth', detailPanel.offsetWidth);
+        window.gitFinder.config.set('sidebarWidth', this._preferredColumnWidths.sidebarWidth);
+        window.gitFinder.config.set('detailPanelWidth', this._preferredColumnWidths.detailWidth);
       });
     };
 
@@ -3008,11 +3027,13 @@ const App = {
   async loadColumnWidths() {
     const sidebarW = await window.gitFinder.config.get('sidebarWidth');
     const detailW = await window.gitFinder.config.get('detailPanelWidth');
+    this._sidebarHidden = await window.gitFinder.config.get('sidebarHidden') === true;
+    this._detailPanelHidden = await window.gitFinder.config.get('detailPanelHidden') === true;
     this._preferredColumnWidths = {
       sidebarWidth: sidebarW || document.getElementById('sidebar').offsetWidth,
       detailWidth: detailW || document.getElementById('detail-panel').offsetWidth
     };
-    this._applyConstrainedColumnWidths?.();
+    this._applyPanelVisibility?.();
   },
 
   async loadSidebarData() {
@@ -4716,9 +4737,12 @@ const App = {
       }));
       const activeType = AppState.projectGroups.find(group => group.groupId === AppState.contentQuery.projectType);
       const typeLabel = activeType?.name || (AppState.contentQuery.projectType ? '未分类' : '所有项目');
+      const storedSize = await window.gitFinder.config.get('projectCardSize');
+      const cardSize = ['small', 'medium', 'large'].includes(storedSize) ? storedSize : 'medium';
       const projectsToolbar = `
         <div class="local-project-view-toolbar">
           <div><h2>${this.escapeHtml(typeLabel)}（${projects.length}）</h2><p>项目类型用于筛选；项目与子项目按真实目录层级显示。</p></div>
+          <label class="local-project-size-control">卡片大小 <select id="project-card-size" aria-label="项目卡片大小">${[['small', '小'], ['medium', '中'], ['large', '大']].map(([value, label]) => `<option value="${value}"${cardSize === value ? ' selected' : ''}>${label}</option>`).join('')}</select></label>
           <button class="btn" data-app-action="choose-local-project" type="button">选择文件夹并设为项目…</button>
         </div>`;
       if (!projects.length) {
@@ -4739,7 +4763,9 @@ const App = {
         this.updateStatusBar();
         return;
       }
-      contentArea.innerHTML = `${projectsToolbar}<div class="local-project-grid">${projects.map(project => {
+      AppState.fileDisplayOrder = projects.map(project => project.path);
+      AppState.selectedPaths = new Set([...AppState.selectedPaths].filter(path => AppState.fileDisplayOrder.includes(path)));
+      contentArea.innerHTML = `${projectsToolbar}<div class="local-project-grid" data-size="${cardSize}" role="listbox" aria-label="项目" aria-multiselectable="true">${projects.map(project => {
         const projectItem = { isProject: true, project };
         const lifecycle = window.FileBrowser.projectLifecycleLabel(projectItem);
         const repositories = (project.repositories || []).slice(0, 6);
@@ -4764,6 +4790,19 @@ const App = {
             </footer>
           </article>`;
       }).join('')}</div>`;
+      contentArea.querySelectorAll('.local-project-card').forEach(card => {
+        card.setAttribute('role', 'option');
+        card.setAttribute('aria-label', card.querySelector('h3').textContent);
+      });
+      this.bindCardEvents(contentArea);
+      this.syncFileSelectionUI();
+      this.showFileSelectionDetail(this.getSelectedFileItems());
+      contentArea.querySelector('#project-card-size').addEventListener('change', event => {
+        const size = event.target.value;
+        if (!['small', 'medium', 'large'].includes(size)) return;
+        contentArea.querySelector('.local-project-grid').dataset.size = size;
+        window.gitFinder.config.set('projectCardSize', size);
+      });
       this.updateDirectoryTypeFilterUI();
       this.updateStatusBar();
     } catch (error) {
