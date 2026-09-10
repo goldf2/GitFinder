@@ -390,13 +390,13 @@
       const renderProjectGroup = group => {
         const accent = this.app.projectGroupAccent?.(group.color) || '#8e8e93';
         return `
-          <div class="sidebar-shortcut-row">
+          <div class="project-type-row">
             <button class="sidebar-item sidebar-shortcut-open ${this.state.contentQuery?.projectType === group.groupId && this.app.isContentCollection() ? 'active' : ''}" data-project-type="${this.app.escapeHtml(group.groupId)}" type="button" title="筛选：${this.app.escapeHtml(group.name)}">
               <span class="project-group-tree-icon" style="--project-group-color:${accent}" aria-hidden="true"></span>
               <span class="sidebar-item-name">${this.app.escapeHtml(group.name)}</span>
               <span class="badge">${group.projects.length}</span>
             </button>
-            <button class="project-shortcut-pin" data-project-type-edit="${this.app.escapeHtml(group.groupId)}" type="button" aria-label="编辑项目类型 ${this.app.escapeHtml(group.name)}">⋯</button>
+            <button class="project-type-edit" data-project-type-edit="${this.app.escapeHtml(group.groupId)}" type="button" title="修改名称、成员或删除此类型" aria-label="编辑项目类型 ${this.app.escapeHtml(group.name)}">编辑</button>
           </div>`;
       };
       const allProjectsActive = this.app.contentCollectionKind() === 'projects' && !this.state.contentQuery?.projectType;

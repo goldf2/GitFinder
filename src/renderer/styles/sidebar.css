@@ -248,6 +248,39 @@
   padding-left: 4px;
 }
 
+.project-type-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 40px;
+  align-items: center;
+  gap: 2px;
+  margin: 1px 4px;
+}
+
+.project-type-row > .sidebar-shortcut-open {
+  width: 100%;
+  min-height: 28px;
+  margin: 0;
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+.project-type-edit {
+  height: 26px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.project-type-edit:hover,
+.project-type-edit:focus-visible {
+  background: var(--accent-bg);
+  color: var(--accent-primary);
+}
+
 .project-group-tree-children .project-shortcut-row {
   grid-template-columns: 22px minmax(0, 1fr) 24px;
 }

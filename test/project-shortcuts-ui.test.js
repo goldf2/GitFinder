@@ -10,6 +10,16 @@ const controllerSource = fs.readFileSync(path.join(projectRoot, 'src/renderer/sc
 const navigationSource = fs.readFileSync(path.join(projectRoot, 'src/renderer/scripts/directoryNavigationController.js'), 'utf8');
 const css = fs.readFileSync(path.join(projectRoot, 'src/renderer/styles/sidebar.css'), 'utf8');
 
+test('类型行紧凑横排，编辑按钮常显且类型设置保留新增和删除入口', () => {
+  assert.match(controllerSource, /class="project-type-row"/);
+  assert.match(css, /\.project-type-row\s*\{[\s\S]*?display: grid;[\s\S]*?grid-template-columns: minmax\(0, 1fr\) 40px;/);
+  assert.match(controllerSource, /class="project-type-edit"[^>]+data-project-type-edit/);
+  assert.doesNotMatch(controllerSource, /class="project-shortcut-pin"[^>]+data-project-type-edit/);
+  assert.match(controllerSource, /新建项目类型/);
+  assert.match(html, /id="project-type-delete-btn"/);
+  assert.match(appSource, /project-type-delete-btn'\)\?\.addEventListener\('click', \(\) => this.deleteProjectGroup/);
+});
+
 test('左侧项目区承载快捷入口和项目组，不提升为一级视图', () => {
   assert.match(html, /id="project-shortcuts-sidebar-section"[^>]+data-section-id="projects"[^>]+hidden/);
   assert.match(html, /<span class="sidebar-title-text">项目<\/span>/);
