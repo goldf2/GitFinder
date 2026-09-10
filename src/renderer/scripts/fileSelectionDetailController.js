@@ -1,8 +1,8 @@
 (function exposeFileSelectionDetailController(root, factory) {
-  const api = factory();
+  const api = factory(typeof module !== 'undefined' && module.exports ? require('../../shared/projectShortcuts') : root.ProjectShortcuts);
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) root.FileSelectionDetailController = api;
-})(typeof window !== 'undefined' ? window : globalThis, function createFileSelectionDetailControllerApi() {
+})(typeof window !== 'undefined' ? window : globalThis, function createFileSelectionDetailControllerApi(ProjectShortcuts) {
   class Controller {
     constructor(options = {}) {
       this.app = options.app;
@@ -43,6 +43,10 @@
     }
 
     show(items = []) {
+      if (items.length === 1 && items[0].isProject) {
+        const known = this.state.localProjects?.find(project => project.path === items[0].path);
+        items = [{ ...items[0], project: { ...items[0].project, ...known } }];
+      }
       const single = items.length === 1 ? items[0] : null;
       if (single?.isGitRepo && !single.isProject) {
         this.setContext(single, 'repository');
@@ -58,6 +62,7 @@
       if (!empty || !content) return;
       content.style.display = 'none';
       empty.style.display = 'flex';
+      empty.classList?.toggle('project-detail-view', single?.isProject === true);
       if (!items.length) {
         empty.innerHTML = '<div class="detail-empty-icon">📋</div><div class="detail-empty-text">选择文件或仓库查看详情</div>';
         return;
@@ -80,6 +85,7 @@
           ${item.isProject || item.isGitRepo ? `<button class="btn btn-small" data-detail-action="show-relationship-resource" data-relationship-kind="${item.isProject ? 'project' : 'repository'}" data-relationship-ref="${this.app.escapeHtml(item.isProject ? item.project?.projectId || '' : '')}" data-relationship-path="${this.app.escapeHtml(item.path)}">关系白板</button>` : ''}
         </div>` : ''}
       `;
+      if (item.isProject) empty.innerHTML = this.projectMarkup(item, lifecycle, summary);
       empty.querySelector('[data-app-action="file-project-settings"]')?.addEventListener('click', event => {
         const button = event.currentTarget;
         this.app.openLocalProjectDialog(button.dataset.projectPath || item.path);
@@ -93,6 +99,30 @@
         });
       });
       this.app.panelDeploymentController?.showDirectory(item);
+      empty.querySelectorAll?.('[data-detail-repo-path]').forEach(button => {
+        button.addEventListener('click', () => this.app.selectRepo(button.dataset.detailRepoPath));
+      });
+      empty.querySelectorAll?.('[data-detail-child-path]').forEach(button => {
+        button.addEventListener('click', () => this.app.openLocalProject(button.dataset.detailChildPath));
+      });
+    }
+
+    projectMarkup(item, lifecycle, summary) {
+      const escape = value => this.app.escapeHtml(String(value || ''));
+      const project = item.project || {};
+      const repositories = Array.isArray(project.repositories) ? project.repositories : [];
+      const children = project.projectId ? ProjectShortcuts.projectChildren(this.state.localProjects || [], project.projectId) : [];
+      return `<header class="detail-header">
+        <div class="detail-header-top"><span class="detail-empty-icon-semantic">${this.app.getItemKindIconHtml(item, 'detail-empty-kind-icon')}</span><h3>${escape(item.name)}</h3></div>
+        <div class="detail-path">${escape(item.path)}</div>
+        <div class="detail-status"><span class="detail-status-badge">${escape(lifecycle ? `${lifecycle} · ${summary}` : summary)}</span></div>
+        <div class="detail-header-toolbar">
+          <button class="btn btn-small" data-app-action="file-project-settings" data-project-path="${escape(item.path)}">项目设置</button>
+          <button class="btn btn-small" data-detail-action="show-relationship-resource" data-relationship-kind="project" data-relationship-ref="${escape(project.projectId)}" data-relationship-path="${escape(item.path)}">关系白板</button>
+        </div></header>
+        <section class="project-detail-section"><h4>项目简介</h4><p>${escape(project.description || '暂无项目简介，可在“项目设置”中补充。')}</p></section>
+        <section class="project-detail-section"><h4>内部仓库（${repositories.length}）</h4><div class="project-detail-links">${repositories.length ? repositories.map(repo => `<button class="btn btn-small" data-detail-repo-path="${escape(repo.path)}">⑂ ${escape(repo.relativePath === '.' ? '项目根目录' : repo.relativePath || repo.path)}</button>`).join('') : '<p>尚未发现 Git 仓库</p>'}</div></section>
+        <section class="project-detail-section"><h4>子项目（${children.length}）</h4><div class="project-detail-links">${children.length ? children.map(child => `<button class="btn btn-small" data-detail-child-path="${escape(child.path)}">${escape(child.name)}</button>`).join('') : '<p>暂无子项目</p>'}</div></section>`;
     }
 
     _element(id) {

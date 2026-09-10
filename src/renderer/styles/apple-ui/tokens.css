@@ -55,6 +55,7 @@ textarea {
   .toolbar button,
   .workspace-tab-strip button,
   .sidebar-navigation button,
+  .detail-identity-tabs button,
   .sidebar-add-btn,
   .tree-node-toggle,
   .btn,
@@ -91,7 +92,7 @@ textarea {
 
 :is(.nav-btn, .finder-toolbar-button, .finder-menu-trigger, .search-scope-btn,
   .workspace-new-tab, .sidebar-add-btn, .tree-node-toggle, .btn,
-  .sidebar-navigation button, .app-settings-page button:not(.app-settings-navigation-item),
+  .sidebar-navigation button, .detail-identity-tabs button, .app-settings-page button:not(.app-settings-navigation-item),
   .relationship-toolbar button, .gf-flow-node-toolbar button,
   .gf-flow-group-actions button):focus-visible {
   outline: none;
@@ -104,6 +105,7 @@ textarea {
     .workspace-tab-strip button,
     .workspace-tab,
     .sidebar-navigation button,
+    .detail-identity-tabs button,
     .sidebar-add-btn,
     .tree-node-toggle,
     .btn,
@@ -122,6 +124,7 @@ textarea {
     .toolbar button,
     .workspace-tab-strip button,
     .sidebar-navigation button,
+    .detail-identity-tabs button,
     .sidebar-add-btn,
     .tree-node-toggle,
     .btn,

@@ -11,6 +11,8 @@ class FakeElement {
     this.innerHTML = '';
     this.projectButton = null;
     this.relationshipButton = null;
+    this.classes = new Set();
+    this.classList = { toggle: (key, on) => on ? this.classes.add(key) : this.classes.delete(key) };
   }
 
   querySelector(selector) {
@@ -148,6 +150,34 @@ test('普通文件使用同一文件类型图标且不显示文件夹动作', ()
   assert.match(harness.empty.innerHTML, /data-kind="file"/);
   assert.match(harness.empty.innerHTML, /12 KB/);
   assert.doesNotMatch(harness.empty.innerHTML, /添加到收藏夹|设为项目|关系白板/);
+});
+
+test('项目详情使用顶部内容布局、真实简介和最近层级子项目；空选择恢复空状态', () => {
+  const h = createHarness();
+  h.state.localProjects = [
+    { projectId: 'parent', path: '/p', name: '父项目', description: '<script>示例</script>', repositories: [{ path: '/p', relativePath: '.' }] },
+    { projectId: 'child', path: '/p/modules/a', name: '直接子项目' },
+    { projectId: 'grandchild', path: '/p/modules/a/nested', name: '孙项目' }
+  ];
+  h.controller.show([{ path: '/p', name: '父项目', isProject: true, type: 'directory' }]);
+  assert.ok(h.empty.classes.has('project-detail-view'));
+  assert.match(h.empty.innerHTML, /项目简介/);
+  assert.match(h.empty.innerHTML, /&lt;script&gt;示例&lt;\/script&gt;/);
+  assert.match(h.empty.innerHTML, /内部仓库（1）/);
+  assert.match(h.empty.innerHTML, /data-detail-repo-path="\/p"/);
+  assert.match(h.empty.innerHTML, /子项目（1）/);
+  assert.match(h.empty.innerHTML, /直接子项目/);
+  assert.doesNotMatch(h.empty.innerHTML, /孙项目/);
+  h.controller.show([]);
+  assert.equal(h.empty.classes.has('project-detail-view'), false);
+});
+
+test('左右页签共享分段控件样式，详情页不再单独使用蓝色选中块', () => {
+  const css = fs.readFileSync(path.join(__dirname, '../src/renderer/styles/apple-ui/app-shell.css'), 'utf8');
+  const detail = fs.readFileSync(path.join(__dirname, '../src/renderer/styles/detail.css'), 'utf8');
+  assert.match(css, /\.sidebar-navigation button\[aria-selected="true"\],\s*\.detail-identity-tabs button\[aria-selected="true"\]/);
+  assert.match(detail, /\.detail-empty\.project-detail-view\s*\{[^}]*justify-content: flex-start/);
+  assert.doesNotMatch(detail, /\.detail-identity-tabs button\[aria-selected="true"\]/);
 });
 
 test('目录详情中的设为项目按钮会打开对应路径的项目对话框', () => {
