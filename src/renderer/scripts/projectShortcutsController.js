@@ -412,8 +412,8 @@
         </button>
         ${this.projectTypesExpanded ? `<div class="project-group-tree-children" id="project-type-options" role="group" aria-label="项目类型筛选">
           ${projectGroups.map(renderProjectGroup).join('')}
-          <button class="sidebar-item" data-project-type="unclassified" type="button">未分类 <span class="badge">${sortedProjects.length - groupedProjectIds.size}</span></button>
-          <button class="sidebar-item" data-project-type-edit="" type="button">＋ 新建项目类型</button>
+          <button class="sidebar-item sidebar-shortcut-open" data-project-type="unclassified" type="button">未分类 <span class="badge">${sortedProjects.length - groupedProjectIds.size}</span></button>
+          <button class="sidebar-item sidebar-shortcut-open" data-project-type-edit="" type="button">＋ 新建项目类型</button>
         </div>` : ''}
         ${pinned.length ? `<div class="sidebar-shortcut-heading project-shortcut-heading">已固定</div>${pinned.map(entry => renderEntry(entry, true)).join('')}` : ''}
         ${recent.length ? `<div class="sidebar-shortcut-heading project-shortcut-heading">最近</div>${recent.map(entry => renderEntry(entry, false)).join('')}` : ''}

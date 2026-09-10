@@ -4,6 +4,21 @@ const Projects = require('../src/shared/projectShortcuts');
 const Query = require('../src/renderer/scripts/contentQuery');
 const type = 'project_group_11111111-1111-4111-8111-111111111111';
 
+test('异步目录渲染完成后无选择时显示当前项目，选中文件优先', () => {
+  const fs = require('node:fs');
+  const vm = require('node:vm');
+  const source = fs.readFileSync(require('node:path').join(__dirname, '../src/renderer/scripts/app.js'), 'utf8');
+  const body = source.match(/  directoryDetailItems\(\) \{([\s\S]*?)\n  \},/)[1];
+  const project = { projectId: 'parent', name: '父项目', path: '/work/app' };
+  const state = { currentPath: '/work/app', localProjects: [project] };
+  const getDetails = vm.runInNewContext(`(function() {${body}})`, { AppState: state });
+  assert.equal(getDetails.call({ getSelectedFileItems: () => [] })[0].project, project);
+  const file = { path: '/work/app/readme.md' };
+  assert.equal(getDetails.call({ getSelectedFileItems: () => [file] })[0], file);
+  state.currentPath = '/work/app/docs';
+  assert.equal(getDetails.call({ getSelectedFileItems: () => [] }).length, 0);
+});
+
 test('项目类型查询可保存重开、区分相邻类型，并在返回目录时清除', () => {
   const query = Query.normalize({ ...Query.queryForPreset('all-projects'), projectType: type });
   assert.equal(query.projectType, type);

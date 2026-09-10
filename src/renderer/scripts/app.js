@@ -4468,7 +4468,7 @@ const App = {
         this.renderContent();
       });
       this.updateFileActionBar();
-      this.showFileSelectionDetail([]);
+      this.showFileSelectionDetail(this.directoryDetailItems());
       this.directoryPerformanceController.setStrategy(context, items, AppState.cardStyle, 'empty');
       this.directoryPerformanceController.markFirstDom(context, contentArea);
       this.directoryPerformanceController.complete(context, contentArea);
@@ -4490,7 +4490,7 @@ const App = {
     if (!this.isDirectoryRenderContextCurrent(context)) return;
     this.syncFileSelectionUI();
     this.updateFileActionBar();
-    this.showFileSelectionDetail(this.getSelectedFileItems());
+    this.showFileSelectionDetail(this.directoryDetailItems());
     this.directoryPerformanceController.complete(context, contentArea);
     this.updateStatusBar();
   },
@@ -6691,6 +6691,14 @@ const App = {
     this.openLocalProjectDialog(items[0].path);
   },
 
+  directoryDetailItems() {
+    const selected = this.getSelectedFileItems();
+    if (selected.length) return selected;
+    const project = AppState.localProjects.find(item => item.path === AppState.currentPath);
+    return project ? [{ type: 'directory', path: project.path, name: project.name,
+      isProject: true, isGitRepo: project.rootIsGitRepo === true, project }] : [];
+  },
+
   openLocalProject(projectPath) {
     if (!projectPath) return;
     AppState.currentMode = 'tree';
@@ -6698,11 +6706,6 @@ const App = {
     AppState.searchScope = 'current';
     this.updateModeUI();
     this.navigateTo(projectPath);
-    const project = AppState.localProjects.find(item => item.path === projectPath);
-    if (project && AppState.currentPath === projectPath) this.showFileSelectionDetail([{
-      type: 'directory', path: project.path, name: project.name,
-      isProject: true, isGitRepo: project.rootIsGitRepo === true, project
-    }]);
   },
 
   async showResourceInRelationshipBoard(options = {}) {
