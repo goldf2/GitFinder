@@ -19,6 +19,20 @@
 
     async select(repoPath) {
       const requestId = ++this.selectionRequestId;
+      const project = this.state.localProjects?.find(item => item.path === repoPath);
+      this.app.fileSelectionDetailController?.setContext({
+        path: repoPath, name: project?.name || repoPath.split(/[\\/]/).pop(), type: 'directory',
+        isProject: Boolean(project), project, isGitRepo: true
+      }, 'repository');
+      this.app.panelDeploymentController?.cancel();
+      this.state.selectedRepo = null;
+      const empty = this._element('detail-empty');
+      const content = this._element('detail-content');
+      if (content) content.style.display = 'none';
+      if (empty) {
+        empty.style.display = 'flex';
+        empty.innerHTML = '<div class="detail-empty-text">正在读取 Git 仓库详情…</div>';
+      }
       try {
         const [info, status, readme, tags, controlFiles, markdownDocs, savedSelections, savedDocSelections, localProject, architectureSnapshots] = await Promise.all([
           this.bridge.fs.getFileInfo(repoPath),
@@ -38,6 +52,12 @@
           this.app.loadMarkdownDocuments(repoPath, markdownDocs, savedDocSelections?.[repoPath])
         ]);
         if (requestId !== this.selectionRequestId) return false;
+
+        this.app.fileSelectionDetailController?.setContext({
+          ...info, path: repoPath, type: 'directory', isGitRepo: true,
+          name: localProject.project?.name || info.name,
+          isProject: localProject.isProject, project: localProject.project
+        }, 'repository');
 
         this.state.controlSlot = 'progress';
         this.state.documentMode = 'preview';

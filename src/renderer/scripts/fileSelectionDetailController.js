@@ -9,9 +9,47 @@
       this.state = options.state;
       this.document = options.document || null;
       this.fileBrowser = options.fileBrowser;
+      this.item = null;
+      this.activeTab = 'project';
+    }
+
+    setContext(item, activeTab = 'project') {
+      this.item = item;
+      this.activeTab = activeTab;
+      const tabs = this._element('detail-identity-tabs');
+      if (!tabs) return;
+      tabs.hidden = !item || (!item.isProject && !item.isGitRepo);
+      for (const [kind, available] of [['project', item?.isProject], ['repository', item?.isGitRepo]]) {
+        const button = this._element(`detail-${kind}-tab`);
+        button.hidden = !available;
+        button.setAttribute('aria-selected', String(activeTab === kind));
+        button.tabIndex = activeTab === kind ? 0 : -1;
+        button.onclick = () => this.switchTab(kind);
+        button.onkeydown = event => {
+          if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key) || !this.item?.isProject || !this.item?.isGitRepo) return;
+          event.preventDefault();
+          const next = event.key === 'Home' ? 'project' : event.key === 'End' ? 'repository' : kind === 'project' ? 'repository' : 'project';
+          this.switchTab(next);
+          this._element(`detail-${next}-tab`).focus();
+        };
+      }
+    }
+
+    switchTab(kind) {
+      const item = this.item;
+      if (!item || kind === this.activeTab) return;
+      if (kind === 'project' && item.isProject) this.show([item]);
+      if (kind === 'repository' && item.isGitRepo) this.app.selectRepo(item.path);
     }
 
     show(items = []) {
+      const single = items.length === 1 ? items[0] : null;
+      if (single?.isGitRepo && !single.isProject) {
+        this.setContext(single, 'repository');
+        this.app.selectRepo(single.path);
+        return;
+      }
+      this.setContext(single, 'project');
       this.app.cancelRepoSelection?.();
       this.app.panelDeploymentController?.cancel();
       this.state.selectedRepo = null;

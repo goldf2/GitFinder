@@ -89,6 +89,20 @@ function createHarness(overrides = {}) {
   return { controller, app, state, bridge, document, empty, content, terminal, calls };
 }
 
+test('异步仓库读取被项目切换取消后不得覆盖选项卡上下文', async () => {
+  const pending = deferred();
+  const contexts = [];
+  const h = createHarness({ bridge: { git: { getStatus: () => pending.promise } }, app: {
+    fileSelectionDetailController: { setContext: (item, tab) => contexts.push([item.path, tab]) }
+  } });
+  const selection = h.controller.select('/repo/a');
+  h.controller.cancel();
+  pending.resolve({ branch: 'main' });
+  assert.equal(await selection, false);
+  assert.equal(contexts.length, 1);
+  assert.equal(h.state.selectedRepo, null);
+});
+
 test('选择仓库并行读取详情，只有完整结果才更新状态和终端目录', async () => {
   const { controller, state, calls } = createHarness();
 

@@ -72,6 +72,30 @@ function createHarness() {
   return { app, calls, content, controller, document, empty, state };
 }
 
+test('同目录的项目和 Git 选项卡共享目标，项目切换会取消仓库加载', () => {
+  const h = createHarness();
+  const elements = Object.fromEntries(['detail-identity-tabs', 'detail-project-tab', 'detail-repository-tab'].map(id => [id, {
+    hidden: false, attrs: {}, setAttribute(k, v) { this.attrs[k] = v; }, focus() {}
+  }]));
+  const originalGet = h.document.getElementById.bind(h.document);
+  h.document.getElementById = id => elements[id] || originalGet(id);
+  h.app.selectRepo = path => { h.calls.push(['repo', path]); h.controller.setContext(h.controller.item, 'repository'); };
+  const item = { path: '/both', name: '双重身份', type: 'directory', isProject: true, isGitRepo: true };
+  h.controller.show([item]);
+  assert.equal(elements['detail-identity-tabs'].hidden, false);
+  assert.equal(elements['detail-project-tab'].attrs['aria-selected'], 'true');
+  elements['detail-repository-tab'].onclick();
+  assert.deepEqual(h.calls.at(-1), ['repo', '/both']);
+  assert.equal(elements['detail-repository-tab'].attrs['aria-selected'], 'true');
+  elements['detail-project-tab'].onclick();
+  assert.equal(h.controller.item.path, '/both');
+  assert.deepEqual(h.calls.at(-1), ['cancel-repo']);
+  h.controller.show([{ path: '/project', name: '仅项目', isProject: true }]);
+  assert.equal(elements['detail-repository-tab'].hidden, true);
+  h.controller.show([]);
+  assert.equal(elements['detail-identity-tabs'].hidden, true);
+});
+
 test('空选择和多选继续显示简洁的 Finder 状态', () => {
   const harness = createHarness();
   harness.controller.show([]);

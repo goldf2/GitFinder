@@ -20,6 +20,33 @@
   text-align: center;
 }
 
+.detail-identity-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 10px;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  flex-shrink: 0;
+  background: var(--bg-primary);
+  border-bottom: 1px solid var(--border-light);
+}
+.detail-identity-tabs[hidden], .detail-identity-tabs button[hidden] { display: none; }
+.detail-identity-tabs button {
+  flex: 1;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 6px;
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+  cursor: pointer;
+}
+.detail-identity-tabs button[aria-selected="true"] {
+  color: var(--accent-primary);
+  background: var(--accent-bg);
+}
+.detail-identity-tabs button:focus-visible { outline: 2px solid var(--accent-primary); }
+
 .detail-empty-icon {
   font-size: 48px;
   opacity: 0.4;
