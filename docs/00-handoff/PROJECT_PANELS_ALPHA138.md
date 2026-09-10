@@ -10,4 +10,12 @@
 
 配置：projectCardSize、sidebarHidden、detailPanelHidden；无数据迁移，不更改项目清单或类型。
 
-验证与发布：正在执行自动检查、从提交打包及安装版交互验收；尚未推送。
+验证：`npm run check` 1119/1119 测试通过，258 个 JS 文件语法通过。安装版隔离配置中原生点击项目，aria-selected=true、selectedPaths 与右侧项目详情一致；切换小/中/大有效（小高度 155px，中高度 223px，大宽度 632px）。两栏与拖动柄隐藏宽度均为 0，主区从 710px 增至 1280px。正常退出重开后小尺寸、双侧隐藏仍保持；恢复面板宽度为原 240px/320px。
+
+打包源码提交 `db73e39`；安装 `/Applications/GitFinder 2 Alpha138.app`，codesign 严格验证通过，安装 ASAR 与构建逐字节一致。旧 alpha.137 保留，可恢复。
+
+制品：`/Volumes/project/制品与备份/gitfinder-2/2.0.0-alpha.138/GitFinder-2-2.0.0-alpha.138-arm64-mac.zip`；SHA256 `294bfab16fc5696e73a6b14aae0183da98b0f8a359333a6094e43979dcb9f2da`；同目录 release-verification.json。开发包为 ad-hoc 签名。
+
+原用户配置：78 项目已恢复；原生点击“冲床模具回收利用实施项目”，选中高亮、selectedPaths 与右侧名称/路径一致。首次启动观察曾停在扫描前；只读诊断重开约半分钟完成扫描，无控制台报错，未修改扫描逻辑。关闭诊断实例后再次无参数普通启动，最终截图确认 alpha.138、78 项目、选中高亮、右侧详情及尺寸/左右栏控制均正常。AX 树在启动阶段可能滞后，最终以实际窗口截图验收。
+
+验收完成，发布记录随 main 推送；下一步等待用户确认日常效果，确认后按规则归档修复报告。
