@@ -374,12 +374,12 @@
 
 .relationship-display-popover {
   position: fixed;
-  top: 50%;
+  top: 16px;
   left: 50%;
   width: min(880px, calc(100vw - 32px));
   max-height: min(760px, calc(100vh - 32px));
   overflow: hidden;
-  transform: translate(-50%, -50%);
+  transform: translateX(-50%);
   z-index: 80;
 }
 

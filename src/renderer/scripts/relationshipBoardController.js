@@ -3605,6 +3605,8 @@
     }
 
     render() {
+      const openDisplay = this.root?.querySelector('.relationship-display-popover:not([hidden])');
+      const displayScroll = openDisplay?.querySelector('.relationship-display-sections')?.scrollTop || 0;
       this._closeContextMenu();
       const board = activeBoard(this.store);
       if (!this.container || !board) return;
@@ -3719,6 +3721,11 @@
           <div class="relationship-context-menu" role="menu" aria-label="白板右键菜单" hidden></div>
         </section>`;
       this.root = this.container.querySelector('.relationship-workspace');
+      if (openDisplay) {
+        this.root.querySelector('.relationship-display-popover')?.replaceWith(openDisplay);
+        this.root.querySelector('.relationship-display-trigger')?.setAttribute('aria-expanded', 'true');
+        openDisplay.querySelector('.relationship-display-sections').scrollTop = displayScroll;
+      }
       this.root.classList.add('uses-react-flow');
       this.panelSidebarRoot = this.root.ownerDocument.querySelector('#relationship-resource-sidebar-content');
       if (this.panelSidebarRoot) {
@@ -3730,7 +3737,8 @@
         }
       }
       this._bindRootEvents();
-      this.root.querySelector('.relationship-display-popover')?.addEventListener('wheel', event => this._handleDisplayWheel(event), { passive: true });
+      const displayDialog = this.root.querySelector('.relationship-display-popover');
+      if (displayDialog) displayDialog.onwheel = event => this._handleDisplayWheel(event);
       this._applyViewMode();
       this._renderResources();
       this._renderGraph();
