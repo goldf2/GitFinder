@@ -205,7 +205,7 @@ test('正式页面和全部白板夹具均先加载动作路由再加载控制�
 });
 
 test('大型显示设置打开后聚焦可循环控件并支持 Tab 与 Escape', () => {
-  assert.match(actionRouterSource, /queueMicrotask\(\(\) => popover\.querySelector\('\[data-relationship-action="close-display-settings"\]'\)\?\.focus\(\)\)/);
+  assert.match(actionRouterSource, /focus\(\{ preventScroll: true \}\)/);
   assert.match(actionRouterSource, /if \(event\.key === 'Tab'\)[\s\S]*?focusable\.at\(-1\)/);
   assert.match(actionRouterSource, /if \(event\.key === 'Escape'\)[\s\S]*?_closeDisplayPopover\(true\)/);
   assert.doesNotMatch(actionRouterSource, /queueMicrotask\(\(\) => popover\.querySelector\('#relationship-display-title'\)/);

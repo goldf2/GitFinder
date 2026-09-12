@@ -354,7 +354,8 @@
       popover.hidden = !popover.hidden; trigger.setAttribute('aria-expanded', popover.hidden ? 'false' : 'true');
       if (!popover.hidden) {
         controller._closeFilterPopover(); controller._closeAddMenu(); controller._syncDisplayForm();
-        queueMicrotask(() => popover.querySelector('[data-relationship-action="close-display-settings"]')?.focus());
+        controller._fitDisplayPopover();
+        queueMicrotask(() => popover.querySelector('[data-relationship-action="close-display-settings"]')?.focus({ preventScroll: true }));
       }
       return;
     }

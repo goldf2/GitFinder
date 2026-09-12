@@ -2,6 +2,12 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 globalThis.RelationshipGraphModel = require('../src/shared/relationshipGraphModel');
 const { Controller, normalizeDynamicLayoutStore } = require('../src/renderer/scripts/relationshipBoardController');
+test('显示弹窗按白板可见底边限制高度', () => {
+  const popover = { style: {}, getBoundingClientRect: () => ({ top: 140 }) };
+  const root = { querySelector: () => popover, getBoundingClientRect: () => ({ bottom: 740 }), ownerDocument: { defaultView: { innerHeight: 800 } } };
+  Controller.prototype._fitDisplayPopover.call({ root });
+  assert.equal(popover.style.maxHeight, '584px');
+});
 
 test('显示弹窗滚动释放原控件焦点但不阻止默认滚动', () => {
   let blurred = 0;

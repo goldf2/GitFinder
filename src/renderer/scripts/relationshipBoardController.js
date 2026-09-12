@@ -3747,6 +3747,7 @@
       this._updatePanelStatus();
       this._applyResourcePanelPosition();
       this._placePanelComponents();
+      this._fitDisplayPopover();
       this._scheduleTaskReminders();
     }
 
@@ -4184,6 +4185,13 @@
       if (popover) popover.hidden = true;
       trigger?.setAttribute('aria-expanded', 'false');
       if (restoreFocus) trigger?.focus();
+    }
+
+    _fitDisplayPopover() {
+      const popover = this.root?.querySelector('.relationship-display-popover:not([hidden])');
+      if (!popover) return;
+      const bottom = Math.min(this.root.getBoundingClientRect().bottom, this.root.ownerDocument.defaultView.innerHeight);
+      popover.style.maxHeight = `${Math.max(160, Math.min(760, bottom - popover.getBoundingClientRect().top - 16))}px`;
     }
 
     _handleDisplayWheel(event) {
