@@ -257,6 +257,7 @@
           x: Math.round(x),
           y: Math.round(y),
           ...(placement.dissolved === true ? { dissolved: true } : {}),
+          ...(placement.positionVersion === 1 ? { positionVersion: 1 } : {}),
           ...(/^entity_[a-zA-Z0-9_-]{1,220}$/.test(placement.groupId || '') ? { groupId: placement.groupId } : {}),
           ...(Model.PROJECT_GROUP_SHAPES.includes(placement.groupShape) ? { groupShape: placement.groupShape } : {}),
           ...(Model.GROUP_APPEARANCES.includes(placement.groupAppearance) ? { groupAppearance: placement.groupAppearance } : {}),
@@ -986,7 +987,7 @@
         delete placement.groupId;
         return override ? {
           ...placement,
-          ...(!runtimePreviewLayout || (!liveProjectGroup && !liveProjectMember) ? { x: override.x, y: override.y } : {}),
+          ...(override.positionVersion === 1 || !runtimePreviewLayout || (!liveProjectGroup && !liveProjectMember) ? { x: override.x, y: override.y } : {}),
           // Live Project containers are derived from the current Coolify
           // snapshot. Never reapply a stale persisted frame size: the display
           // geometry will measure the current members on the next render.
@@ -1030,6 +1031,7 @@
       for (const placement of this.panelProjection?.placements || []) {
         if (!placement.dynamic || !ids.has(placement.entityId)) continue;
         boardLayout[placement.entityId] = {
+          positionVersion: 1,
           x: Math.round(placement.x),
           y: Math.round(placement.y),
           ...(Number.isFinite(placement.groupWidth) ? { groupWidth: Math.round(placement.groupWidth) } : {}),

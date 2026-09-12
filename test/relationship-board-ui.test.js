@@ -2555,6 +2555,16 @@ test('采样容器不可解散，旧解散标记在刷新和重开时恢复', ()
   assert.equal(controller._placementForEntity(member.entityId).groupId, group.id);
   const count = controller.panelProjection.entities.filter(item => item.type !== 'group').length;
   controller._selectOnlyEntity(group.id);
+  member.x = 777;
+  member.y = 888;
+  controller._saveDynamicPlacementOverrides([member.entityId]);
+  controller._setPanelTopology(controller.panelTopologyResult);
+  assert.equal(controller._placementForEntity(member.entityId).x, 777);
+  assert.equal(controller._placementForEntity(member.entityId).y, 888);
+  member.x = position.x;
+  member.y = position.y;
+  Object.assign(controller._placementForEntity(member.entityId), position);
+  controller._saveDynamicPlacementOverrides([member.entityId]);
   assert.equal(controller._contextMenuItems('node').some(item => item?.contextAction === 'delete'), false);
   controller._deleteSelection();
   controller._dynamicLayoutForActiveBoard()[group.id] = { dissolved: true };
