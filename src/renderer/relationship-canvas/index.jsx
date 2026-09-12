@@ -232,7 +232,7 @@ const RelationshipGroup = memo(function RelationshipGroup({ id, data, selected }
       handleClassName="gf-flow-resize-handle"
     />
     <NodeToolbar isVisible className={`gf-flow-group-title-toolbar${zoom < 0.6 ? ' is-overview' : ''}`} position={Position.Top} offset={4}
-      style={{ '--group-title-scale': Math.min(1, Math.max(0.45, zoom)), '--group-title-max-width': `${Math.max(72, Math.min(280, Number(data.placement.width || 320) * zoom))}px` }}>
+      style={{ '--group-title-scale': Math.min(1, Math.max(0.45, zoom)), '--group-title-max-width': `${Math.max(72, Math.min(280, Number(data.placement.groupWidth || 640) * zoom))}px` }}>
       <button type="button" title={entity.name} className="gf-flow-group-title-button nodrag nopan" onClick={() => data.onAction?.('select-group', entity)}><strong>{entity.name}</strong></button>
       {zoom >= 0.6 || selected ? <span>{data.memberCount || 0} 个成员</span> : null}
       {selected ? <span className="gf-flow-group-actions" role="toolbar" aria-label={`${entity.name} 快捷操作`}>

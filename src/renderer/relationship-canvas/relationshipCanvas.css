@@ -263,6 +263,9 @@
 .gf-flow-group-title-toolbar strong {
   font-size: max(10px, calc(var(--relationship-group-title-font-size, 20px) * var(--group-title-scale, 1)));
   display: block;
+}
+
+.gf-flow-group-title-toolbar.is-overview strong {
   max-width: var(--group-title-max-width, 280px);
   overflow: hidden;
   text-overflow: ellipsis;

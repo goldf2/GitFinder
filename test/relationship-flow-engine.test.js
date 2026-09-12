@@ -30,7 +30,7 @@ test('动态端点变化后主动刷新 React Flow 节点内部信息，避免�
 });
 
 test('服务器树摘要线没有交互命中区、箭头、右键菜单或程序化选择', () => {
-  assert.match(source, /interactionWidth=\{data\?\.visualOnly \? 0 : 18\}/);
+  assert.match(source, /interactionWidth=\{data\?\.visualOnly \? 0 : 18 \/ scale\}/);
   assert.match(source, /!edge\.data\?\.visualOnly \? \{ markerEnd:/);
   assert.match(source, /if \(edge\.data\?\.visualOnly\) return;/);
   assert.match(source, /selected: edge\.data\?\.visualOnly \? false : edge\.id === selectedRelationshipId/);
@@ -129,8 +129,9 @@ test('文字、图片和附件由新引擎直接渲染并保留编辑入口', ()
   assert.match(controllerSource, /this\._editCanvasElement\(value\.id\)/);
 });
 
-test('Project 标题使用 React Flow 屏幕空间工具条，缩放时保持统一字号', () => {
-  assert.match(source, /<NodeToolbar isVisible className="gf-flow-group-title-toolbar"/);
+test('Project 标题保留屏幕空间工具条，概览时缩小', () => {
+  assert.match(source, /<NodeToolbar isVisible className=\{`gf-flow-group-title-toolbar/);
+  assert.match(source, /zoom < 0.6 \? ' is-overview'/);
   assert.doesNotMatch(source, /className="gf-flow-group-title"/);
 });
 
