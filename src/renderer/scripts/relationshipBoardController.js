@@ -979,6 +979,12 @@
         if (liveProjectGroup) {
           delete annotations.groupWidth;
           delete annotations.groupHeight;
+          if (this._boardView().layout === 'project-columns' && override?.positionVersion === 1) {
+            // Saved member positions define a compact column frame. A fresh
+            // projection's default size must not enlarge it on cold startup.
+            delete placement.groupWidth;
+            delete placement.groupHeight;
+          }
         }
         const groupId = runtimePreviewLayout && liveProjectMember
           ? placement.groupId

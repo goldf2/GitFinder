@@ -4,11 +4,11 @@ const Model = require('../src/shared/relationshipGraphModel');
 globalThis.RelationshipGraphModel = Model;
 const { Controller } = require('../src/renderer/scripts/relationshipBoardController');
 
-test('真实画布尺寸下纵向列表收紧主机联动的历史 Project，显示层、重复排列及刷新不重新扩框', () => {
+for (const topologyScopeMode of ['board', 'all']) test(`真实画布尺寸下纵向列表收紧主机联动的历史 Project，刷新与冷启动不重新扩框：${topologyScopeMode}`, () => {
   const c = new Controller({ bridge: {} });
   c.store = Model.assertValidStore({ schemaVersion: 1, activeBoardId: 'board_columns_display', entities: [], relationships: [],
     boards: [{ id: 'board_columns_display', name: '纵向列表显示回归', placements: [], viewport: { x: 0, y: 0, zoom: 1 },
-      view: { structure: 'server-tree', layout: 'free' } }] });
+      view: { structure: 'server-tree', layout: 'free', topologyScopeMode } }] });
   const canvas = { clientWidth: 1080, clientHeight: 600, getBoundingClientRect: () => ({ width: 1080, height: 600 }) };
   c.root = { querySelector: selector => selector === '.relationship-canvas' ? canvas : null };
   for (const name of ['render', '_renderGraph', '_refreshHistoryButtons', '_persistSoon', '_persistDynamicLayoutsSoon', '_updateSummary']) c[name] = () => {};
@@ -61,10 +61,21 @@ test('真实画布尺寸下纵向列表收紧主机联动的历史 Project，显
   assert.ok(a.y + a.height < b.y, '真实显示层保留名称顺序及组间留白');
   assert.ok(viewports.at(-1)?.zoom >= 0.32, '纵向布局保持可读缩放');
 
-  const geometry = () => [...c._displayGeometryMap(c._unarchivedPlacements())]
+  const geometry = (controller = c) => [...controller._displayGeometryMap(controller._unarchivedPlacements())]
     .map(([id, rect]) => [id, ...['x', 'y', 'width', 'height'].map(key => Math.round(rect[key]))])
     .sort((left, right) => left[0].localeCompare(right[0]));
   const first = geometry();
+  const serialized = JSON.stringify({ store: c.store, dynamicLayoutStore: c.dynamicLayoutStore });
+  const saved = JSON.parse(serialized);
+  const reopened = new Controller({ bridge: {} });
+  reopened.store = Model.assertValidStore(saved.store);
+  reopened.dynamicLayoutStore = saved.dynamicLayoutStore;
+  reopened.root = { querySelector: selector => selector === '.relationship-canvas' ? canvas : null };
+  for (const name of ['render', '_renderGraph', '_refreshHistoryButtons', '_persistSoon', '_persistDynamicLayoutsSoon', '_updateSummary']) reopened[name] = () => {};
+  reopened._setPanelTopology(structuredClone(topology));
+  assert.deepEqual(geometry(reopened).map(([id, x, y]) => [id, x, y]), first.map(([id, x, y]) => [id, x, y]),
+    '冷启动恢复已保存节点坐标');
+  assert.deepEqual(geometry(reopened), first, '序列化后全新控制器冷启动须恢复已收紧的显示边界');
   c._setLayout('project-columns');
   assert.deepEqual(geometry(), first, '重复切换不重新扩框或改变显示坐标');
   c._setPanelTopology(topology);
