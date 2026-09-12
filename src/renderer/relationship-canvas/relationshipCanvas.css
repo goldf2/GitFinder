@@ -35,6 +35,60 @@
 .gf-flow-card.is-warning { --tone: var(--gf-flow-red); }
 .gf-flow-card.is-inactive { --tone: var(--gf-flow-gray); }
 
+/* Type is expressed by silhouette; status continues to use the existing tones. */
+.gf-flow-card.resource-server {
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  box-shadow: none;
+}
+.gf-flow-server-device { position: relative; width: 100%; height: 100%; }
+[data-effective-mode="dark"] .gf-flow-server-device {
+  --server-case: #354153;
+  --server-frame: #8d9bb0;
+  --server-bay: #202b3b;
+}
+.gf-flow-server-device > svg { display: block; width: 100%; height: calc(100% - 30px); }
+.gf-flow-server-device > .gf-flow-more { position: absolute; right: 14px; top: 28px; }
+.gf-flow-server-name {
+  display: block;
+  margin-top: 5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+  font-size: var(--relationship-title-font-size, 17px);
+  color: var(--text-primary, #172033);
+}
+.gf-flow-card.resource-deployment { border-radius: 16px; }
+.gf-flow-card.resource-deployment .gf-flow-card-icon { border-radius: 10px; }
+.gf-flow-card.resource-deployment .gf-flow-card-icon svg { width: 30px; height: 30px; }
+.gf-flow-card.is-endpoint-label {
+  border-radius: 32px;
+  padding: 10px 14px;
+  box-shadow: 0 3px 8px rgb(50 67 93 / 10%);
+  background: var(--ui-material-control, #fff);
+}
+.gf-flow-card.is-endpoint-label .gf-flow-card-accent { display: none; }
+.gf-flow-card.is-endpoint-label .gf-flow-card-icon {
+  border-radius: 50%;
+  background: transparent;
+  color: var(--tone);
+  width: 30px;
+  height: 30px;
+}
+.gf-flow-card.is-endpoint-label .gf-flow-card-subtitle { margin: 4px 0 0 42px; }
+.gf-flow-card.is-endpoint-label .gf-flow-status { padding: 4px; font-size: 0; gap: 0; }
+.gf-flow-card.is-overview .gf-flow-card-subtitle,
+.gf-flow-card.is-overview .gf-flow-deployment-signals,
+.gf-flow-card.is-overview footer { visibility: hidden; }
+.gf-flow-card.is-overview .gf-flow-status { font-size: 0; padding: 4px; gap: 0; }
+.gf-flow-card .gf-flow-more { opacity: 0; }
+.gf-flow-card:hover .gf-flow-more,
+.gf-flow-card.is-selected .gf-flow-more,
+.gf-flow-card:focus-within .gf-flow-more { opacity: 1; }
+
 .gf-flow-card.is-selected,
 .gf-flow-canvas-element.is-selected {
   outline: 3px solid #3978ff;

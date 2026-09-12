@@ -4818,6 +4818,11 @@
     _entityCardIcon(entity) {
       const annotations = normalizePlacementAnnotations(this._placementForEntity(entity?.id) || {});
       if (annotations.iconKey) return annotations.iconKey;
+      const configured = this._displayViewSettings().cardIcons[entity?.type];
+      if (!configured || configured === Model.DEFAULT_CARD_ICONS[entity?.type]) {
+        if (entity?.type === 'deployment' && entity.runtime?.type === 'database') return 'database';
+        if (entity?.type === 'deployment' && entity.runtime?.type === 'service') return 'service';
+      }
       return this._displayViewSettings().cardIcons[entity?.type]
         || Model.DEFAULT_CARD_ICONS[entity?.type]
         || 'service';

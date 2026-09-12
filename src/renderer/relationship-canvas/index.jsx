@@ -159,13 +159,17 @@ function ToolbarButton({ data, action, entity, children, className = '', ...prop
 
 const RelationshipCard = memo(function RelationshipCard({ id, data, selected }) {
   const { openId } = useContext(ActionMenuContext);
+  const { zoom } = useViewport();
   const { entity, tone } = data;
   const subtitle = entitySubtitle(entity);
   const endpointUrl = entity.runtime?.url || entity.details?.url || entity.details?.urlLabel;
   const showsEndpointPreview = entity.type === 'endpoint' && data.placement.endpointView === 'web' && endpointUrl;
+  const compactEndpoint = entity.type === 'endpoint' && !showsEndpointPreview;
   const isCanvasElement = ['text', 'image', 'attachment'].includes(entity.type);
   const deploymentMeta = deploymentSignals(entity);
-  const iconKey = entity.iconKey || defaultCardIcon(entity.type);
+  const portEndpoint = entity.type === 'endpoint' && /^(tcp|udp)(:|$)/i.test(entity.details?.protocol || endpointUrl || '');
+  const iconKey = portEndpoint && (!entity.iconKey || entity.iconKey === 'endpoint') ? 'port' : entity.iconKey || defaultCardIcon(entity.type);
+  const serverDevice = entity.type === 'server' && iconKey === 'server';
   if (isCanvasElement) return <article className={`gf-flow-canvas-element is-${entity.type}${selected ? ' is-selected' : ''}`}>
     <ConnectionHandles nodeId={id} handles={data.connectionHandles} />
     <MoreActions id={id} entity={entity} />
@@ -176,7 +180,7 @@ const RelationshipCard = memo(function RelationshipCard({ id, data, selected }) 
     <CanvasElementContent data={data} entity={entity} />
   </article>;
   const snapClass = data.snapState ? `${data.snapState.x ? ' is-snap-x' : ''}${data.snapState.y ? ' is-snap-y' : ''}` : '';
-  return <article className={`gf-flow-card is-${tone}${showsEndpointPreview ? ' is-endpoint-preview' : ''}${selected ? ' is-selected' : ''}${data.filterState ? ` is-filter-${data.filterState}` : ''}${snapClass}`}>
+  return <article className={`gf-flow-card resource-${entity.type === 'server' && !serverDevice ? 'custom' : entity.type} is-${tone}${compactEndpoint ? ' is-endpoint-label' : ''}${zoom < 0.45 ? ' is-overview' : ''}${showsEndpointPreview ? ' is-endpoint-preview' : ''}${selected ? ' is-selected' : ''}${data.filterState ? ` is-filter-${data.filterState}` : ''}${snapClass}`}>
     <ConnectionHandles nodeId={id} handles={data.connectionHandles} />
     <NodeToolbar isVisible={openId === id} className="gf-flow-node-toolbar" position={Position.Bottom} offset={6}>
       <ToolbarButton data={data} action="details" entity={entity}>详情</ToolbarButton>
@@ -195,7 +199,23 @@ const RelationshipCard = memo(function RelationshipCard({ id, data, selected }) 
       {entity.type === 'endpoint' && endpointUrl
         ? <ToolbarButton data={data} action="toggle-endpoint-view" entity={entity}>{showsEndpointPreview ? '卡片' : '网页'}</ToolbarButton>
         : null}
+      {entity.type === 'endpoint' && endpointUrl
+        ? <ToolbarButton data={data} action="open-endpoint" entity={entity}>访问</ToolbarButton> : null}
     </NodeToolbar>
+    {serverDevice ? <div className="gf-flow-server-device">
+      <svg viewBox="0 0 280 110" role="img" aria-label="服务器机架" preserveAspectRatio="none">
+        <path d="M2 18 20 2h240l18 16v84H2Z" fill="var(--server-case, #c5ceda)" stroke="var(--server-frame, #66758a)" strokeWidth="2" />
+        <path d="M2 18h276M20 2l12 16M260 2l-12 16" fill="none" stroke="var(--server-frame, #66758a)" strokeWidth="2" />
+        {[26, 60].map(y => <g key={y}>
+          <rect x="12" y={y} width="256" height="28" rx="4" fill="var(--server-bay, #f0f3f7)" stroke="var(--server-frame, #66758a)" />
+          <circle cx="25" cy={y + 14} r="4" fill={data.showRuntimeStatus ? 'var(--tone)' : 'var(--server-frame, #66758a)'} />
+          <path d={`M42 ${y + 9}h120M42 ${y + 14}h120M42 ${y + 19}h120M182 ${y + 7}v14M189 ${y + 7}v14M196 ${y + 7}v14`} stroke="var(--server-frame, #66758a)" strokeWidth="2" />
+        </g>)}
+        <path d="M18 103v5h28v-5M234 103v5h28v-5" fill="var(--server-frame, #66758a)" />
+      </svg>
+      <MoreActions id={id} entity={entity} />
+      <strong className="gf-flow-server-name" title={entity.name}>{entity.name}</strong>
+    </div> : <>
     <div className="gf-flow-card-accent" />
     <header>
       {iconKey !== 'none' ? <span className="gf-flow-card-icon" aria-hidden="true"><CardIcon name={iconKey} /></span> : null}
@@ -215,7 +235,7 @@ const RelationshipCard = memo(function RelationshipCard({ id, data, selected }) 
       sandbox="allow-scripts allow-forms"
       referrerPolicy="no-referrer"
     /> : null}
-    <footer>
+    {!compactEndpoint ? <footer>
       <span>{entityUpdatedLabel(entity)}</span>
       {entity.type === 'endpoint' && endpointUrl
         ? <span className="gf-flow-endpoint-actions">
@@ -223,7 +243,8 @@ const RelationshipCard = memo(function RelationshipCard({ id, data, selected }) 
           <ToolbarButton data={data} action="open-endpoint" entity={entity}>访问</ToolbarButton>
         </span>
         : <ToolbarButton data={data} action="details" entity={entity}>详情</ToolbarButton>}
-    </footer>
+    </footer> : null}
+    </>}
   </article>;
 });
 

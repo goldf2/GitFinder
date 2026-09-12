@@ -5,7 +5,8 @@ const source = fs.readFileSync(require('node:path').join(__dirname, '../src/rend
 test('explicit more button opens only one toolbar independently of selection', () => {
   assert.match(source, /const \[openId, setOpenId\] = useState\(null\)/);
   assert.match(source, /setOpenId\(current => current === id \? null : id\)/);
-  assert.equal((source.match(/<MoreActions id=\{id\} entity=\{entity\} \/>/g) || []).length, 3);
+  assert.equal((source.match(/<MoreActions id=\{id\} entity=\{entity\} \/>/g) || []).length, 4);
+  assert.match(source, /serverDevice \? <div className="gf-flow-server-device"/);
   assert.doesNotMatch(source, /<NodeToolbar isVisible=\{selected\}/);
   assert.match(source, /openId === id \? <span className="gf-flow-group-actions"/);
   assert.match(source, /event.key === 'Escape'/);

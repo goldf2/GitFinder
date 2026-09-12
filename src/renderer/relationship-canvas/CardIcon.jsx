@@ -9,6 +9,7 @@ export function defaultCardIcon(type) {
 
 export default function CardIcon({ name }) {
   if (name === 'none') return null;
+  if (name === 'port') return <svg viewBox="0 0 24 24" data-card-icon="port" {...common}><path d="M4 5h16v11h-5v4H9v-4H4Z M8 5v5m4-5v5m4-5v5" /></svg>;
   if (name === 'server') return <svg viewBox="0 0 24 24" data-card-icon={name} {...common}><rect x="3" y="4" width="18" height="6" rx="2"/><rect x="3" y="14" width="18" height="6" rx="2"/><path d="M7 7h.01M7 17h.01M11 7h6M11 17h6"/></svg>;
   if (name === 'deployment') return <svg viewBox="0 0 24 24" data-card-icon={name} {...common}><path d="m12 3 8 6-8 6-8-6 8-6Z"/><path d="m4 13 8 6 8-6"/></svg>;
   if (name === 'endpoint') return <svg viewBox="0 0 24 24" data-card-icon={name} {...common}><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18"/></svg>;

@@ -49,7 +49,8 @@
     };
     return {
       width: Number(placement.cardWidth) || Number(options.cardWidth) || DEFAULT_CARD.width,
-      height: Number(placement.cardHeight) || Number(options.cardHeight) || DEFAULT_CARD.height
+      height: (Number(placement.cardHeight) || Number(options.cardHeight) || DEFAULT_CARD.height)
+        * (entity.type === 'endpoint' ? 0.6 : 1)
     };
   }
 

@@ -383,9 +383,22 @@ test('斜向关系比较全部边缘锚点并选择实际最短组合', () => {
   const endpoint = graph.placements.find(item => item.entityId === 'endpoint');
   endpoint.x = 760;
   endpoint.y = 620;
+  endpoint.cardHeight = 143 / 0.6; // Keep the original routing geometry despite compact endpoint presentation.
   const result = Adapter.toFlowModel(graph, { cardWidth: 280, cardHeight: 143 });
   assert.equal(result.edges[0].sourceSide, 'bottom');
   assert.equal(result.edges[0].targetSide, 'left');
+});
+
+test('访问点标签缩短高度，网页预览仍使用完整尺寸且不修改存储', () => {
+  const graph = fixture();
+  const before = structuredClone(graph);
+  const node = Adapter.toFlowModel(graph).nodes.find(item => item.id === 'endpoint');
+  assert.equal(node.style.height, 143 * 0.6);
+  assert.equal(node.style.width, 280);
+  assert.deepEqual(graph, before);
+  graph.placements.find(item => item.entityId === 'endpoint').endpointView = 'web';
+  const web = Adapter.toFlowModel(graph).nodes.find(item => item.id === 'endpoint');
+  assert.ok(web.style.height >= 340);
 });
 
 test('同一节点同侧的多条关系复用一个中心连接点', () => {
