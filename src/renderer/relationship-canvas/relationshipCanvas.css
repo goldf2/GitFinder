@@ -304,17 +304,25 @@
 .gf-flow-node-toolbar {
   z-index: 1000;
   display: flex;
-  gap: 6px;
-  padding: 7px;
+  gap: 4px;
+  padding: 4px;
+  font-size: 12px;
+  line-height: 16px;
   border: 1px solid rgb(210 216 228 / 90%);
-  border-radius: 13px;
+  border-radius: 8px;
   background: rgb(255 255 255 / 96%);
-  box-shadow: 0 10px 28px rgb(37 48 69 / 16%);
+  box-shadow: 0 3px 10px rgb(37 48 69 / 12%);
   pointer-events: auto;
 }
 
 .gf-flow-node-toolbar button {
-  padding: 7px 10px;
+  box-sizing: border-box;
+  min-height: 28px;
+  padding: 4px 8px;
+  border-radius: 5px;
+  font-size: 12px;
+  line-height: 18px;
+  white-space: nowrap;
   pointer-events: auto;
 }
 .gf-flow-node-toolbar button.is-active,

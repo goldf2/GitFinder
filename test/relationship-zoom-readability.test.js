@@ -2,6 +2,13 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const source = fs.readFileSync(require('node:path').join(__dirname, '../src/renderer/relationship-canvas/index.jsx'), 'utf8');
+test('node popup actions use compact typography instead of inheriting canvas type size', () => {
+  const css = fs.readFileSync(require('node:path').join(__dirname, '../src/renderer/relationship-canvas/relationshipCanvas.css'), 'utf8');
+  const rule = css.match(/\.gf-flow-node-toolbar button \{([^}]+)\}/)[1];
+  assert.match(rule, /font-size: 12px/);
+  assert.match(rule, /min-height: 28px/);
+  assert.match(rule, /padding: 4px 8px/);
+});
 test('edges limit compensation and become lighter in distant overview', () => {
   assert.match(source, /vectorEffect: 'none'/);
   assert.match(source, /compensationScale = Math.max\(0.5, scale\)/);
