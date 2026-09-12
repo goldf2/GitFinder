@@ -249,8 +249,9 @@ const RelationshipGroup = memo(function RelationshipGroup({ id, data, selected }
       lineClassName="gf-flow-resize-line"
       handleClassName="gf-flow-resize-handle"
     />
-    <NodeToolbar isVisible className={`gf-flow-group-title-toolbar${zoom < 0.6 ? ' is-overview' : ''}`} position={Position.Top} offset={4}
+    <NodeToolbar isVisible position={Position.Top} offset={4}
       style={{ '--group-title-scale': Math.pow(Math.min(1, Math.max(0.03, zoom)), data.titleZoomStrength ?? 0.5), '--group-title-max-width': `${Math.max(72, Math.min(280, Number(data.placement.groupWidth || 640) * zoom))}px` }}>
+      <div className={`gf-flow-group-title-toolbar${zoom < 0.6 ? ' is-overview' : ''}`}>
       <button type="button" title={entity.name} className="gf-flow-group-title-button nodrag nopan" onClick={() => data.onAction?.('select-group', entity)}><strong>{entity.name}</strong></button>
       {zoom >= 0.6 || selected ? <span>{data.memberCount || 0} 个成员</span> : null}
       <MoreActions id={id} entity={entity} />
@@ -271,6 +272,7 @@ const RelationshipGroup = memo(function RelationshipGroup({ id, data, selected }
         {!entity.transient && entity.runtime?.dynamicKind !== 'coolify-project-group'
           ? <ToolbarButton data={data} action="delete-group" entity={entity} className="is-danger">解散容器</ToolbarButton> : null}
       </span> : null}
+      </div>
     </NodeToolbar>
   </section>;
 });

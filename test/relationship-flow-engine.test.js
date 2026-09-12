@@ -130,7 +130,9 @@ test('文字、图片和附件由新引擎直接渲染并保留编辑入口', ()
 });
 
 test('Project 标题保留屏幕空间工具条，概览时缩小', () => {
-  assert.match(source, /<NodeToolbar isVisible className=\{`gf-flow-group-title-toolbar/);
+  assert.match(source, /<NodeToolbar isVisible position=\{Position.Top\}/);
+  assert.match(source, /<div className=\{`gf-flow-group-title-toolbar/);
+  assert.doesNotMatch(source, /<NodeToolbar[^>]*className=\{`gf-flow-group-title-toolbar/);
   assert.match(source, /zoom < 0.6 \? ' is-overview'/);
   assert.doesNotMatch(source, /className="gf-flow-group-title"/);
 });
