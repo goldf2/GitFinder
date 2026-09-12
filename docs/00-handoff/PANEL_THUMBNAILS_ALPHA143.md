@@ -14,4 +14,8 @@
 
 - 新路径测试先复现失败，实现后通过；包含固定来源、路径校验、字段传递、两种布局、异步更新及主题约束。
 - npm run check：1135 项测试、265 个 JS 语法检查通过；实际 Casdoor 远端截图 GET 返回 200 image/webp、2112 字节。待已安装版实际图片验收；目标 2.0.0-alpha.143。
+- 源码 f05b248 已从独立 worktree /tmp/gitfinder-thumbnail-build.L3k4ps 打包成功。已安装 /Applications/GitFinder 2 Alpha143.app，Alpha142 原路径保留。
+- 安装版正常启动，版本 alpha.143 可见。搜索 heqing-memorial，表格和卡片均显示实际远端网页快照；另验证 panel.xiangshu.me 卡片显示网站截图。截图已目视检查。恢复完整 38 / 38 表格，缩略图列及无图占位可见，沿用用户当前主题。
+- codesign --verify --deep --strict 通过，安装/构建 ASAR SHA256 一致：5e9c8a58653cbb268f425fb24140c5c7152f23b8f4eddc4b92447417530bc4b1。
+- 制品 /Volumes/project/制品与备份/gitfinder-2/2.0.0-alpha.143/GitFinder-2-2.0.0-alpha.143-arm64-mac.zip，SHA256 58cbd2c3c7ae7e5bc64deaebcdddca68b95ebf8c604493a72336f78dc6109f3a；同目录 release-verification.json。ad-hoc 开发签名。
 - 用户确认显示有效后再提交支持文档/修复报告归档。
