@@ -2,6 +2,15 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const source = fs.readFileSync(require('node:path').join(__dirname, '../src/renderer/relationship-canvas/index.jsx'), 'utf8');
+test('explicit more button opens only one toolbar independently of selection', () => {
+  assert.match(source, /const \[openId, setOpenId\] = useState\(null\)/);
+  assert.match(source, /setOpenId\(current => current === id \? null : id\)/);
+  assert.equal((source.match(/<MoreActions id=\{id\} entity=\{entity\} \/>/g) || []).length, 3);
+  assert.doesNotMatch(source, /<NodeToolbar isVisible=\{selected\}/);
+  assert.match(source, /openId === id \? <span className="gf-flow-group-actions"/);
+  assert.match(source, /event.key === 'Escape'/);
+  assert.match(source, /addEventListener\('pointerdown', closeOutside, true\)/);
+});
 test('node popup actions use compact typography instead of inheriting canvas type size', () => {
   const css = fs.readFileSync(require('node:path').join(__dirname, '../src/renderer/relationship-canvas/relationshipCanvas.css'), 'utf8');
   const rule = css.match(/\.gf-flow-node-toolbar button \{([^}]+)\}/)[1];

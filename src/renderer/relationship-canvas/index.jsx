@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { createContext, useContext, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   applyEdgeChanges,
@@ -131,7 +131,18 @@ function CanvasElementContent({ data, entity }) {
   return null;
 }
 
+const ActionMenuContext = createContext({ openId: null, setOpenId: () => {} });
+
+function MoreActions({ id, entity }) {
+  const { openId, setOpenId } = useContext(ActionMenuContext);
+  return <button type="button" className="gf-flow-more nodrag nopan" aria-label={`${entity.name} 更多操作`}
+    aria-expanded={openId === id} title="更多操作"
+    onPointerDown={event => event.stopPropagation()} onMouseDown={event => event.stopPropagation()}
+    onClick={event => { event.stopPropagation(); setOpenId(current => current === id ? null : id); }}>⋯</button>;
+}
+
 function ToolbarButton({ data, action, entity, children, className = '', ...props }) {
+  const { setOpenId } = useContext(ActionMenuContext);
   return <button
     type="button"
     className={`nodrag nopan${className ? ` ${className}` : ''}`}
@@ -139,6 +150,7 @@ function ToolbarButton({ data, action, entity, children, className = '', ...prop
     onMouseDown={event => event.stopPropagation()}
     onClick={event => {
       event.stopPropagation();
+      setOpenId(null);
       data.onAction?.(action, action === 'toggle-descendants' ? (data.placement?.entityId || entity?.id) : entity);
     }}
     {...props}
@@ -146,6 +158,7 @@ function ToolbarButton({ data, action, entity, children, className = '', ...prop
 }
 
 const RelationshipCard = memo(function RelationshipCard({ id, data, selected }) {
+  const { openId } = useContext(ActionMenuContext);
   const { entity, tone } = data;
   const subtitle = entitySubtitle(entity);
   const endpointUrl = entity.runtime?.url || entity.details?.url || entity.details?.urlLabel;
@@ -155,7 +168,8 @@ const RelationshipCard = memo(function RelationshipCard({ id, data, selected }) 
   const iconKey = entity.iconKey || defaultCardIcon(entity.type);
   if (isCanvasElement) return <article className={`gf-flow-canvas-element is-${entity.type}${selected ? ' is-selected' : ''}`}>
     <ConnectionHandles nodeId={id} handles={data.connectionHandles} />
-    <NodeToolbar isVisible={selected} className="gf-flow-node-toolbar" position={Position.Bottom} offset={12}>
+    <MoreActions id={id} entity={entity} />
+    <NodeToolbar isVisible={openId === id} className="gf-flow-node-toolbar" position={Position.Bottom} offset={6}>
       <ToolbarButton data={data} action="edit-canvas-element" entity={entity}>编辑</ToolbarButton>
       <ToolbarButton data={data} action="details" entity={entity}>属性</ToolbarButton>
     </NodeToolbar>
@@ -164,7 +178,7 @@ const RelationshipCard = memo(function RelationshipCard({ id, data, selected }) 
   const snapClass = data.snapState ? `${data.snapState.x ? ' is-snap-x' : ''}${data.snapState.y ? ' is-snap-y' : ''}` : '';
   return <article className={`gf-flow-card is-${tone}${showsEndpointPreview ? ' is-endpoint-preview' : ''}${selected ? ' is-selected' : ''}${data.filterState ? ` is-filter-${data.filterState}` : ''}${snapClass}`}>
     <ConnectionHandles nodeId={id} handles={data.connectionHandles} />
-    <NodeToolbar isVisible={selected} className="gf-flow-node-toolbar" position={Position.Bottom} offset={12}>
+    <NodeToolbar isVisible={openId === id} className="gf-flow-node-toolbar" position={Position.Bottom} offset={6}>
       <ToolbarButton data={data} action="details" entity={entity}>详情</ToolbarButton>
       {['server', 'project', 'deployment', 'repository'].includes(entity.type)
         ? <ToolbarButton data={data} action="resource-settings" entity={entity} aria-label={`${entity.name} 显示设置`} title="按此资源设置显示层级">显示设置</ToolbarButton>
@@ -190,6 +204,7 @@ const RelationshipCard = memo(function RelationshipCard({ id, data, selected }) 
         <strong title={entity.name}>{entity.name}</strong>
       </span>
       {data.showRuntimeStatus ? <span className="gf-flow-status"><i />{tone === 'healthy' ? '正常' : tone === 'warning' ? '预警' : '停止/未知'}</span> : null}
+      <MoreActions id={id} entity={entity} />
     </header>
     <p className="gf-flow-card-subtitle" title={subtitle}>{subtitle || '暂无详细信息'}</p>
     {deploymentMeta.length ? <div className="gf-flow-deployment-signals">{deploymentMeta.map(signal => <span key={signal}>{signal}</span>)}</div> : null}
@@ -213,6 +228,7 @@ const RelationshipCard = memo(function RelationshipCard({ id, data, selected }) 
 });
 
 const RelationshipGroup = memo(function RelationshipGroup({ id, data, selected }) {
+  const { openId } = useContext(ActionMenuContext);
   const { zoom } = useViewport();
   const entity = data.entity;
   const requestedShape = data.placement.groupShape || data.placement.projectGroupShape || 'rounded';
@@ -237,7 +253,8 @@ const RelationshipGroup = memo(function RelationshipGroup({ id, data, selected }
       style={{ '--group-title-scale': Math.min(1, Math.max(0.45, zoom)), '--group-title-max-width': `${Math.max(72, Math.min(280, Number(data.placement.groupWidth || 640) * zoom))}px` }}>
       <button type="button" title={entity.name} className="gf-flow-group-title-button nodrag nopan" onClick={() => data.onAction?.('select-group', entity)}><strong>{entity.name}</strong></button>
       {zoom >= 0.6 || selected ? <span>{data.memberCount || 0} 个成员</span> : null}
-      {selected ? <span className="gf-flow-group-actions" role="toolbar" aria-label={`${entity.name} 快捷操作`}>
+      <MoreActions id={id} entity={entity} />
+      {openId === id ? <span className="gf-flow-group-actions" role="toolbar" aria-label={`${entity.name} 快捷操作`}>
         {entity.runtime?.dynamicKind === 'coolify-project-group'
           ? <ToolbarButton data={data} action="resource-settings" entity={entity}>显示设置</ToolbarButton> : null}
         <ToolbarButton data={data} action="arrange-group" entity={entity}>自动排列</ToolbarButton>
@@ -276,6 +293,20 @@ function Canvas({
   groupTitleFontSize = 20,
   fitView = true
 }) {
+  const [openId, setOpenId] = useState(null);
+  const menuContext = useMemo(() => ({ openId, setOpenId }), [openId]);
+  useEffect(() => {
+    const closeOutside = event => {
+      if (!event.target.closest?.('.gf-flow-more, .gf-flow-node-toolbar, .gf-flow-group-actions')) setOpenId(null);
+    };
+    const closeOnEscape = event => { if (event.key === 'Escape') setOpenId(null); };
+    window.addEventListener('pointerdown', closeOutside, true);
+    window.addEventListener('keydown', closeOnEscape);
+    return () => {
+      window.removeEventListener('pointerdown', closeOutside, true);
+      window.removeEventListener('keydown', closeOnEscape);
+    };
+  }, []);
   const dispatchAction = useCallback((action, value, point) => {
     const result = onAction?.(action, value, point);
     if (action === 'toggle-descendants' && typeof result === 'boolean') {
@@ -372,7 +403,7 @@ function Canvas({
     setEdges(current => applyEdgeChanges(changes, current));
   }, []);
 
-  return <ReactFlow
+  return <ActionMenuContext.Provider value={menuContext}><ReactFlow
     nodes={displayedNodes}
     edges={edges.map(edge => ({ ...edge, ...(!edge.data?.visualOnly ? { markerEnd: {
       type: MarkerType.ArrowClosed,
@@ -444,7 +475,7 @@ function Canvas({
       nodeStrokeWidth={3}
       nodeColor={node => node.type === 'relationshipGroup' ? '#edeaff' : ({ healthy: '#dff3e8', warning: '#fde6e8', inactive: '#edf0f4' }[node.data?.tone] || '#edf0f4')}
     />
-  </ReactFlow>;
+  </ReactFlow></ActionMenuContext.Provider>;
 }
 
 function mount(container, options = {}) {
