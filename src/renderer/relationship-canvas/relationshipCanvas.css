@@ -261,8 +261,14 @@
 }
 
 .gf-flow-group-title-toolbar strong {
-  font-size: var(--relationship-group-title-font-size, 20px);
+  font-size: max(10px, calc(var(--relationship-group-title-font-size, 20px) * var(--group-title-scale, 1)));
+  display: block;
+  max-width: var(--group-title-max-width, 280px);
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
+
+.gf-flow-group-title-toolbar.is-overview { padding: 1px 4px; gap: 4px; box-shadow: none; border-radius: 4px; }
 
 .gf-flow-group-title-button {
   flex: 0 0 auto;

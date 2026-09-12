@@ -16,7 +16,8 @@ import {
   Position,
   ReactFlow,
   SelectionMode,
-  useUpdateNodeInternals
+  useUpdateNodeInternals,
+  useViewport
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import './relationshipCanvas.css';
@@ -33,11 +34,19 @@ const HANDLE_POSITIONS = {
 const RelationshipEdge = memo(function RelationshipEdge({
   id, data, label, markerEnd, style, sourceX, sourceY, targetX, targetY
 }) {
+  const { zoom } = useViewport();
+  const scale = Math.max(0.01, zoom);
+  const screenStyle = {
+    ...style,
+    vectorEffect: 'none',
+    strokeWidth: `calc(max(2px, ${style?.strokeWidth || 'var(--relationship-edge-width, 1.7px)'}) / ${scale})`,
+    ...(style?.strokeDasharray ? { strokeDasharray: String(style.strokeDasharray).split(/[ ,]+/).map(value => Number(value) / scale).join(' ') } : {})
+  };
   const path = data?.routedPath || `M ${sourceX} ${sourceY} L ${targetX} ${targetY}`;
   const labelX = Number(data?.labelX);
   const labelY = Number(data?.labelY);
   return <>
-    <BaseEdge id={id} path={path} markerEnd={markerEnd} style={style} interactionWidth={data?.visualOnly ? 0 : 18} />
+    <BaseEdge id={id} path={path} markerEnd={markerEnd} style={screenStyle} interactionWidth={data?.visualOnly ? 0 : 18 / scale} />
     {label && Number.isFinite(labelX) && Number.isFinite(labelY) ? <EdgeLabelRenderer>
       <span className="gf-flow-edge-label" style={{ transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)` }}>{label}</span>
     </EdgeLabelRenderer> : null}
@@ -202,6 +211,7 @@ const RelationshipCard = memo(function RelationshipCard({ id, data, selected }) 
 });
 
 const RelationshipGroup = memo(function RelationshipGroup({ id, data, selected }) {
+  const { zoom } = useViewport();
   const entity = data.entity;
   const requestedShape = data.placement.groupShape || data.placement.projectGroupShape || 'rounded';
   const shape = requestedShape === 'polygon' ? 'polygon' : 'rounded';
@@ -221,9 +231,10 @@ const RelationshipGroup = memo(function RelationshipGroup({ id, data, selected }
       lineClassName="gf-flow-resize-line"
       handleClassName="gf-flow-resize-handle"
     />
-    <NodeToolbar isVisible className="gf-flow-group-title-toolbar" position={Position.Top} offset={8}>
-      <button type="button" className="gf-flow-group-title-button nodrag nopan" onClick={() => data.onAction?.('select-group', entity)}><strong>{entity.name}</strong></button>
-      <span>{data.memberCount || 0} 个成员</span>
+    <NodeToolbar isVisible className={`gf-flow-group-title-toolbar${zoom < 0.6 ? ' is-overview' : ''}`} position={Position.Top} offset={4}
+      style={{ '--group-title-scale': Math.min(1, Math.max(0.45, zoom)), '--group-title-max-width': `${Math.max(72, Math.min(280, Number(data.placement.width || 320) * zoom))}px` }}>
+      <button type="button" title={entity.name} className="gf-flow-group-title-button nodrag nopan" onClick={() => data.onAction?.('select-group', entity)}><strong>{entity.name}</strong></button>
+      {zoom >= 0.6 || selected ? <span>{data.memberCount || 0} 个成员</span> : null}
       {selected ? <span className="gf-flow-group-actions" role="toolbar" aria-label={`${entity.name} 快捷操作`}>
         {entity.runtime?.dynamicKind === 'coolify-project-group'
           ? <ToolbarButton data={data} action="resource-settings" entity={entity}>显示设置</ToolbarButton> : null}
