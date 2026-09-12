@@ -1052,7 +1052,7 @@
       if (!activeBoard(this.store)) return false;
       this._recordMutation();
       this._arrangeCurrentLayout();
-      this.render(); this.fitContent(); this._refreshHistoryButtons();
+      this.render(); this._fitArrangedLayout(); this._refreshHistoryButtons();
       this.notify('已整理当前布局，结构与群组成员保持不变', 'success');
       return true;
     }
@@ -1075,11 +1075,12 @@
         style: this._boardView().layout === 'free' ? 'compact' : this._boardView().layout,
         projectGroupIncludesEndpoints: this._boardView().projectGroupIncludesEndpoints,
         preserveGroupContents: true,
+        shrinkAutoProjectGroups: this._boardView().layout === 'project-columns',
         compactEndpoints: this._boardView().layout !== 'lanes',
         viewportAspectRatio: canvas?.clientWidth / canvas?.clientHeight || 1.6
       };
       const groupTitleScreenHeight = Math.max(GROUP_TITLE_SPACE, options.groupTitleFontSize + 20);
-      let groupTitleSpace = groupTitleScreenHeight, arranged;
+      let groupTitleSpace = options.shrinkAutoProjectGroups ? Math.ceil(groupTitleScreenHeight / 0.32) : groupTitleScreenHeight, arranged;
       // Fitting the result can zoom out further than the current viewport. Size
       // the title allowance for that resulting zoom, starting from the same
       // measured rectangles each pass so repeated tidy never accumulates gaps.
@@ -1092,7 +1093,7 @@
         if (this._boardView().layout !== 'galaxy') {
           this._separateAutoProjectGroups(result.placements, entities, Math.max(48, options.horizontalSpacing / 2));
         }
-        if (!(canvas?.clientWidth > 120 && canvas?.clientHeight > 120) || !result.placements.length
+        if (options.shrinkAutoProjectGroups || !(canvas?.clientWidth > 120 && canvas?.clientHeight > 120) || !result.placements.length
           || !result.placements.some(item => entities.get(item.entityId)?.type === 'group')) break;
         const rects = result.placements.map(item => ({ ...item,
           width: item.groupWidth || item.width || options.width, height: item.groupHeight || item.height || options.height }));
@@ -1173,7 +1174,7 @@
         this._persistSoon(0);
       }
       this.render();
-      if (style !== 'free') this.fitContent();
+      if (style !== 'free') this._fitArrangedLayout();
       this._refreshHistoryButtons();
       return true;
     }
@@ -3216,9 +3217,9 @@
       this._saveDynamicPlacementOverrides(items.filter(item => item.dynamic).map(item => item.entityId));
       this._finishBoardMutation();
       if (enabled && arrangeBoard && this._boardView().layout !== 'free') {
-        this.fitContent();
-        queueMicrotask(() => this.fitContent());
-        setTimeout(() => this.fitContent(), 0);
+        this._fitArrangedLayout();
+        queueMicrotask(() => this._fitArrangedLayout());
+        setTimeout(() => this._fitArrangedLayout(), 0);
       }
     }
 
@@ -6414,12 +6415,24 @@
       this.render();
     }
 
+    _fitArrangedLayout() {
+      if (this._boardView().layout !== 'project-columns') return this.fitContent();
+      const canvas = this.root?.querySelector('.relationship-canvas');
+      if (!canvas || !this.flowCanvas?.setViewport) return;
+      const rects = [...this._displayGeometryMap(this._unarchivedPlacements()).values()];
+      if (!rects.length) return;
+      const left = Math.min(...rects.map(r => r.x)), top = Math.min(...rects.map(r => r.y));
+      const width = Math.max(...rects.map(r => r.x + r.width)) - left;
+      const zoom = Math.min(0.75, Math.max(0.32, (canvas.clientWidth - 96) / Math.max(1, width)));
+      void this.flowCanvas.setViewport({ x: 48 - left * zoom, y: 72 - top * zoom, zoom }, { duration: 180 });
+    }
+
     fitContent(options = {}) {
       if (!this.flowCanvas?.fitView) return;
       const minZoom = Number.isFinite(Number(options.minZoom))
         ? Math.min(1, Math.max(Model.MIN_VIEWPORT_ZOOM, Number(options.minZoom)))
-        : Model.MIN_VIEWPORT_ZOOM;
-      void this.flowCanvas.fitView({ padding: 0.16, minZoom: Math.min(0.03, minZoom), maxZoom: 1.5, duration: 180 });
+        : Math.min(0.03, Model.MIN_VIEWPORT_ZOOM);
+      void this.flowCanvas.fitView({ padding: 0.16, minZoom, maxZoom: 1.5, duration: 180 });
     }
 
     _handleKeydown(event) {

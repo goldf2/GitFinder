@@ -751,6 +751,8 @@
     }
     const byId = new Map(graph.placements.map(item => [item.entityId, item]));
     const types = new Map(graph.entities.map(entity => [entity.id, entity.type]));
+    const projectIds = new Set(graph.entities.filter(entity => entity.type === 'group'
+      && (entity.runtime?.dynamicKind === 'coolify-project-group' || entity.id.startsWith('entity_panel_projectgroup_'))).map(entity => entity.id));
     const children = new Map();
     for (const item of graph.placements) {
       const owner = byId.has(item.groupId) && types.get(item.groupId) === 'group' ? item.groupId : '';
@@ -794,7 +796,7 @@
           const width = Math.max(...column.map(item => item.width));
           let y = 80;
           for (const item of column) {
-            item.x = x + (width - item.width) / 2;
+            item.x = types.get(item.entityId) === 'server' ? x + (width - item.width) / 2 : x;
             item.y = y;
             y += item.height + layout.verticalSpacing;
             assigned.add(item.entityId);
@@ -813,20 +815,22 @@
       } else arrangeTreeUnits(targets, links, layout, currentStyle);
       targets.forEach((target, i) => shift(units[i], target.x - units[i].x, target.y + titleSpace[i] - units[i].y));
     };
-    const build = (item, ancestors = new Set()) => {
+    const build = (item, ancestors = new Set(), ancestorLocked = false) => {
       const unit = { entityId: item.entityId, x: item.x, y: item.y,
         width: Number(item.width) || layout.width, height: Number(item.height) || layout.height, members: [item] };
       if (types.get(item.entityId) !== 'group' || ancestors.has(item.entityId)) return unit;
-      const nested = (children.get(item.entityId) || []).map(child => build(child, new Set([...ancestors, item.entityId])));
+      const nested = (children.get(item.entityId) || []).map(child => build(child, new Set([...ancestors, item.entityId]), ancestorLocked || item.locked));
       if (!nested.length) return { ...unit, width: item.groupWidth || unit.width, height: item.groupHeight || unit.height };
-      if (!options.preserveGroupContents && item.groupLayout === 'auto' && !item.locked && !nested.some(child => child.members.some(p => p.locked))) {
-        arrange(nested, ['bilateral', 'radial', 'project-columns'].includes(style) ? 'right' : style);
+      const shrinkProject = options.shrinkAutoProjectGroups === true && projectIds.has(item.entityId)
+        && item.groupLayout === 'auto' && !ancestorLocked && !item.locked && !nested.some(child => child.members.some(p => p.locked));
+      if (shrinkProject || (!options.preserveGroupContents && item.groupLayout === 'auto' && !ancestorLocked && !item.locked && !nested.some(child => child.members.some(p => p.locked)))) {
+        arrange(nested, shrinkProject ? 'compact' : ['bilateral', 'radial', 'project-columns'].includes(style) ? 'right' : style);
       }
       unit.x = Math.min(...nested.map(child => child.x)) - 28;
       unit.y = Math.min(...nested.map(child => child.y)) - 54;
       unit.width = Math.max(...nested.map(child => child.x + child.width)) + 28 - unit.x;
       unit.height = Math.max(...nested.map(child => child.y + child.height)) + 28 - unit.y;
-      if (options.preserveGroupContents || item.groupLayout !== 'auto' || item.locked || nested.some(child => child.members.some(p => p.locked))) {
+      if (!shrinkProject && (options.preserveGroupContents || item.groupLayout !== 'auto' || ancestorLocked || item.locked || nested.some(child => child.members.some(p => p.locked)))) {
         const right = Math.max(unit.x + unit.width, item.x + (item.groupWidth || unit.width));
         const bottom = Math.max(unit.y + unit.height, item.y + (item.groupHeight || unit.height));
         unit.x = Math.min(unit.x, item.x); unit.y = Math.min(unit.y, item.y);
