@@ -36,11 +36,13 @@ const RelationshipEdge = memo(function RelationshipEdge({
 }) {
   const { zoom } = useViewport();
   const scale = Math.max(0.01, zoom);
+  const compensationScale = Math.max(0.5, scale);
   const screenStyle = {
     ...style,
     vectorEffect: 'none',
-    strokeWidth: `calc(max(2px, ${style?.strokeWidth || 'var(--relationship-edge-width, 1.7px)'}) / ${scale})`,
-    ...(style?.strokeDasharray ? { strokeDasharray: String(style.strokeDasharray).split(/[ ,]+/).map(value => Number(value) / scale).join(' ') } : {})
+    strokeWidth: `calc(${style?.strokeWidth || 'var(--relationship-edge-width, 1.7px)'} / ${compensationScale})`,
+    opacity: (style?.opacity ?? 1) * Math.min(1, Math.max(0.25, scale / 0.4)),
+    ...(style?.strokeDasharray ? { strokeDasharray: String(style.strokeDasharray).split(/[ ,]+/).map(value => Number(value) / compensationScale).join(' ') } : {})
   };
   const path = data?.routedPath || `M ${sourceX} ${sourceY} L ${targetX} ${targetY}`;
   const labelX = Number(data?.labelX);
