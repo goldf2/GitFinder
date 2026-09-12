@@ -21,6 +21,7 @@
       try { saved = JSON.parse(localStorage.getItem('gitfinder.native-panel.v1') || '{}'); } catch (_) {}
       this.filters = U.normalizeFilterState(saved.filters);
       this.layout = U.normalizeLayoutMode(saved.layout);
+      this.sidebarHidden = saved.sidebarHidden === true;
       this.build();
     }
     button(text, action) {
@@ -41,18 +42,38 @@
       toolbar.append(this.search);
       this.layoutButton = this.button('', () => { this.layout = this.layout === 'table' ? 'cards' : 'table'; this.save(); this.render(); });
       this.refreshButton = this.button('同步资源', () => this.load(true));
-      toolbar.append(this.layoutButton, this.refreshButton, this.button('读取远端结果', () => this.loadRemote()), this.button('连接设置', () => this.openSettings()));
+      this.sidebarButton = this.button('筛选', () => { this.sidebarHidden = !this.sidebarHidden; this.syncSidebar(); this.save(); });
+      this.sidebarButton.setAttribute('aria-controls', 'native-panel-sidebar');
+      this.count = element('span', 'native-panel-count');
+      toolbar.append(this.count, this.layoutButton, this.refreshButton, this.sidebarButton);
       this.filterBar = element('div', 'native-panel-filters');
       const legend = element('p', 'native-panel-legend', '部署：Coolify 状态 · 本机：手动 HTTP 检测 · 远端：网站已有检测批次。绿：正常；红：异常；黄：检测中、需授权或已过期；灰：未知。结果有效期 5 分钟。');
       this.status = element('div', 'native-panel-status');
       this.status.setAttribute('role', 'status');
       this.remoteStatus = element('div', 'native-panel-status');
       this.remoteStatus.setAttribute('role', 'status');
+      const help = element('details', 'native-panel-help');
+      help.append(element('summary', '', '状态灯说明'), legend, element('p', 'native-panel-legend', '远端结果最多每分钟读取一次，不触发强制扫描；时间为检测批次时间。'));
+      this.sidebar = element('aside', 'native-panel-sidebar');
+      this.sidebar.id = 'native-panel-sidebar';
+      this.sidebar.setAttribute('aria-label', '面板筛选与同步状态');
+      const sync = element('section', 'native-panel-sync');
+      sync.append(element('strong', '', '同步状态'), this.status, this.remoteStatus,
+        this.button('更新远端结果', () => this.loadRemote()), this.button('连接设置', () => this.openSettings()), help);
+      this.sidebar.append(element('strong', 'native-panel-sidebar-title', '筛选资源'), this.filterBar, sync);
       this.content = element('div', 'native-panel-content');
-      this.container.replaceChildren(toolbar, this.filterBar, legend, this.status, this.remoteStatus, this.content);
+      const body = element('div', 'native-panel-body');
+      body.append(this.sidebar, this.content);
+      this.container.replaceChildren(toolbar, body);
+      this.syncSidebar();
+    }
+    syncSidebar() {
+      this.sidebar.hidden = this.sidebarHidden;
+      this.sidebarButton.setAttribute('aria-expanded', String(!this.sidebarHidden));
+      this.sidebarButton.textContent = this.sidebarHidden ? '显示筛选' : '收起筛选';
     }
     save() {
-      try { localStorage.setItem('gitfinder.native-panel.v1', JSON.stringify({ filters: this.filters, layout: this.layout })); } catch (_) {}
+      try { localStorage.setItem('gitfinder.native-panel.v1', JSON.stringify({ filters: this.filters, layout: this.layout, sidebarHidden: this.sidebarHidden })); } catch (_) {}
     }
     open() {
       if (this.active) return;
@@ -84,7 +105,7 @@
       this.remoteStatus.textContent = '正在读取远端已有检测结果…';
       try {
         this.remote = await this.api.getRemoteObservations();
-        this.remoteStatus.textContent = this.remote.error || `远端批次：${new Date(this.remote.checkedAt).toLocaleString()} · panel.xiangshu.me（最多每分钟读取一次，不触发强制扫描）`;
+        this.remoteStatus.textContent = this.remote.error || `远端检测：${new Date(this.remote.checkedAt).toLocaleString()}`;
       } catch (_) {
         this.remote = { checks: (this.remote?.checks || []).map(check => ({ ...check, stale: true })) };
         this.remoteStatus.textContent = '远端结果暂不可读取；不影响本地资源显示。';
@@ -93,8 +114,9 @@
     buildFilters() {
       this.filterBar.replaceChildren();
       const all = M.rows(this.snapshot);
-      for (const [key, field, label] of [['nodes', 'node', '主机'], ['projects', 'project', '项目'], ['types', 'type', '类型']]) {
+      for (const [key, field, label] of [['nodes', 'node', '主机'], ['projects', 'project', 'Coolify 项目'], ['types', 'type', '资源类型']]) {
         const details = element('details', 'native-panel-filter');
+        details.open = true;
         const summary = element('summary', '', `${label}（多选）`);
         details.append(summary);
         const choices = element('div', 'native-panel-choices');
@@ -112,8 +134,6 @@
         this.filterBar.append(details);
       }
       this.filterBar.append(this.button('清除筛选', () => { this.filters = U.normalizeFilterState({}); this.search.value = ''; this.save(); this.buildFilters(); this.render(); }));
-      this.count = element('span', 'native-panel-count');
-      this.filterBar.append(this.count);
     }
     rowChecks(row) {
       return [row.deploymentCheck,
@@ -179,7 +199,11 @@
       const sortField = this.filters.sort.startsWith('node') ? 'node' : this.filters.sort.startsWith('project') ? 'project' : 'name';
       rows.sort((a, b) => String(a[sortField] || '').localeCompare(String(b[sortField] || ''), 'zh-CN', { numeric: true }) * (this.filters.sort.endsWith('desc') ? -1 : 1));
       this.layoutButton.textContent = this.layout === 'table' ? '切换卡片' : '切换表格';
-      if (this.count) this.count.textContent = `${rows.length} / ${all.length} 条访问点与无网址资源`;
+      if (this.count) {
+        const countDeployments = items => new Set(items.map(row => `${row.providerId}:${row.resourceUuid}`)).size;
+        this.count.textContent = `${countDeployments(rows)} / ${countDeployments(all)} 个部署`;
+        this.count.title = `当前显示 ${rows.filter(row => row.url).length} 个访问点；同一部署的多个访问点分别列出`;
+      }
       this.content.replaceChildren();
       this.lamps = [];
       this.thumbnails = [];

@@ -37,9 +37,20 @@ test('controller is reused across renders and stopped on view exit', () => {
 test('native panel surfaces and lights use the shared theme instead of website colors', () => {
   const css = read('src/renderer/styles/content.css').split('#xiangshu-panel-view:not([hidden])')[1];
   assert.match(css, /background: var\(--bg-secondary\)/);
-  assert.match(css, /box-shadow: var\(--ui-shadow-floating\)/);
+  assert.match(css, /native-panel-sidebar[^}]*background: var\(--bg-primary\)/);
   for (const token of ['status-clean', 'status-dirty', 'status-ahead', 'status-none']) assert.ok(css.includes(`var(--${token})`));
   assert.doesNotMatch(css, /#[0-9a-fA-F]{3,8}\b/);
+});
+
+test('panel filters and sync details move to a collapsible side area with deployment counts', () => {
+  const controller = read('src/renderer/scripts/nativePanelController.js');
+  assert.match(controller, /body.append\(this.sidebar, this.content\)/);
+  assert.match(controller, /this.sidebar.append\([\s\S]*this.filterBar, sync\)/);
+  assert.match(controller, /help.append\(element\('summary', '', '状态灯说明'\)/);
+  assert.match(controller, /sidebarHidden: this.sidebarHidden/);
+  assert.match(controller, /Coolify 项目/);
+  assert.match(controller, /countDeployments\(rows\)/);
+  assert.doesNotMatch(controller, /条访问点与无网址资源/);
 });
 
 test('thumbnails render in both layouts and update when remote observations arrive', () => {
