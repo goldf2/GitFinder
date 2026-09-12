@@ -4398,6 +4398,7 @@ const App = {
       AppState.fileDisplayOrder = [];
       emptyState.style.display = 'none';
       this.openXiangshuPanel();
+      this.updateStatusBar();
       return;
     }
 
@@ -7883,6 +7884,9 @@ const App = {
     if (AppState.currentMode === 'settings') {
       leftText = '应用设置';
       rightText = '本机偏好 · 不写入项目配置';
+    } else if (AppState.currentMode === 'panel') {
+      leftText = '象数面板';
+      rightText = 'panel.xiangshu.me · 网站独立视图';
     } else if (AppState.currentMode === 'relationships') {
       const summary = AppState.relationshipSummary;
       leftText = summary ? `关系白板：${summary.boardName}` : '关系白板';

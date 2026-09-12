@@ -13,6 +13,8 @@ test('象数面板与白板并列，使用不带本地权限的独立 iframe', (
   assert.match(html, /id="xiangshu-panel-frame"[^>]*sandbox="allow-scripts allow-same-origin allow-forms allow-popups"/);
   assert.doesNotMatch(html.match(/<iframe id="xiangshu-panel-frame"[^>]*>/)[0], /src=|allow-top-navigation|preload/);
   assert.match(source, /\['tree', 'dashboard', 'tasks', 'relationships', 'panel'\]\.includes\(view\)/);
+  assert.match(source, /this\.openXiangshuPanel\(\);\s*this\.updateStatusBar\(\)/);
+  assert.match(source, /rightText = 'panel\.xiangshu\.me · 网站独立视图'/);
 });
 
 test('面板标签保存、重开和恢复关闭标签后不退回文件浏览', () => {
