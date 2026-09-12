@@ -2538,7 +2538,7 @@ test('单个容器可从快捷工具条覆盖形状和显示样式，多边形�
   assert.equal(controller.undoStack.length, 3);
 });
 
-test('解散自动群组只移除组框，刷新和重开保持，撤销可恢复', () => {
+test('采样容器不可解散，旧解散标记在刷新和重开时恢复', () => {
   const { controller } = nestedGroupFixture();
   controller._setPanelTopology({ state: 'ready', provider: { providerId: 'coolify_test', label: 'Demo' }, topology: {
     servers: [{ nodeId: 'host1', name: '主机' }],
@@ -2550,23 +2550,20 @@ test('解散自动群组只移除组框，刷新和重开保持，撤销可恢�
   const position = { x: member.x, y: member.y };
   const count = controller.panelProjection.entities.filter(item => item.type !== 'group').length;
   controller._selectOnlyEntity(group.id);
-  assert.ok(controller._contextMenuItems('node').some(item => item?.contextAction === 'delete'));
+  assert.equal(controller._contextMenuItems('node').some(item => item?.contextAction === 'delete'), false);
   controller._deleteSelection();
+  controller._dynamicLayoutForActiveBoard()[group.id] = { dissolved: true };
   controller._setPanelTopology(controller.panelTopologyResult);
-  assert.equal(controller._allEntitiesById().has(group.id), false);
-  assert.equal(controller._placementForEntity(member.entityId).groupId, undefined);
+  assert.equal(controller._allEntitiesById().has(group.id), true);
+  assert.equal(controller._placementForEntity(member.entityId).groupId, group.id);
+  assert.equal(controller._dynamicLayoutForActiveBoard()[group.id]?.dissolved, undefined);
   assert.deepEqual({ x: member.x, y: member.y }, position);
   assert.equal(controller.panelProjection.entities.filter(item => item.type !== 'group').length, count);
   const reopened = new Controller({ bridge: {} });
   reopened.store = JSON.parse(JSON.stringify(controller.store));
   reopened.dynamicLayoutStore = JSON.parse(JSON.stringify(controller.dynamicLayoutStore));
   reopened._setPanelTopology(controller.panelTopologyResult);
-  assert.equal(reopened._allEntitiesById().has(group.id), false);
-  controller.undo();
-  assert.ok(controller._allEntitiesById().has(group.id));
-  assert.equal(controller._placementForEntity(member.entityId).groupId, group.id);
-  controller.redo();
-  assert.equal(controller._allEntitiesById().has(group.id), false);
+  assert.equal(reopened._allEntitiesById().has(group.id), true);
 });
 
 test('面板组件独立停靠和折叠只保存本机偏好，不修改白板关系', async () => {

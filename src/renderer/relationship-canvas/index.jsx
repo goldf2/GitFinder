@@ -268,7 +268,8 @@ const RelationshipGroup = memo(function RelationshipGroup({ id, data, selected }
           title={data.placement.moveWithDescendants ? '解除固定下级' : '固定下级'}
         >{data.placement.moveWithDescendants ? '解除固定' : '固定下级'}</ToolbarButton>
         <ToolbarButton data={data} action="edit-group" entity={entity}>编辑</ToolbarButton>
-        <ToolbarButton data={data} action="delete-group" entity={entity} className="is-danger">删除</ToolbarButton>
+        {!entity.transient && entity.runtime?.dynamicKind !== 'coolify-project-group'
+          ? <ToolbarButton data={data} action="delete-group" entity={entity} className="is-danger">解散容器</ToolbarButton> : null}
       </span> : null}
     </NodeToolbar>
   </section>;

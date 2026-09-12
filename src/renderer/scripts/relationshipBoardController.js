@@ -954,12 +954,12 @@
       if (this.documentRecord) return;
       const boardLayout = this._dynamicLayoutForActiveBoard();
       if (!boardLayout || !this.panelProjection?.placements) return;
-      // Dissolve only local visual frames; live deployments/hosts are never deleted.
-      const dissolved = new Set(this.panelProjection.entities
-        .filter(item => item.type === 'group' && item.transient && boardLayout[item.id]?.dissolved)
-        .map(item => item.id));
-      this.panelProjection.entities = this.panelProjection.entities.filter(item => !dissolved.has(item.id));
-      this.panelProjection.placements = this.panelProjection.placements.filter(item => !dissolved.has(item.entityId));
+      // Sampled containers are restored from topology, never locally dissolved.
+      for (const entity of this.panelProjection.entities) {
+        if (entity.type === 'group' && entity.transient && boardLayout[entity.id]?.dissolved) {
+          delete boardLayout[entity.id].dissolved;
+        }
+      }
       const groupIds = new Set(this._combinedEntities().filter(item => item.type === 'group').map(item => item.id));
       const placedIds = new Set(this._combinedPlacements().map(item => item.entityId));
       const liveEntities = new Map(this.panelProjection.entities.map(item => [item.id, item]));
@@ -3943,7 +3943,7 @@
         items.push(null, command('将所选卡片组成群组…', 'create-group-from-selection', this._selectedMemberPlacements().length < 2));
         if (this._selectedMemberPlacements().some(item => item.groupId)) items.push(command('移出所属群组', 'remove-selection-group'));
         // Live topology is read-only: never offer a partially effective mixed-selection deletion.
-        if (selected.every(item => item.type === 'group' || !item.transient && activeBoard(this.store).placements.some(placement => placement.entityId === item.id))) items.push(context(selected.every(item => item.type === 'group') ? '解散群组（保留成员）' : '从白板移除', 'delete'));
+        if (selected.every(item => !item.transient && item.runtime?.dynamicKind !== 'coolify-project-group' && activeBoard(this.store).placements.some(placement => placement.entityId === item.id))) items.push(context(selected.every(item => item.type === 'group') ? '解散群组（保留成员）' : '从白板移除', 'delete'));
       } else {
         items.push(context('全选当前可见节点', 'select-all'), null,
           { label: '添加文字…', nodeType: 'text' },
@@ -6283,19 +6283,14 @@
         const board = activeBoard(this.store);
         const selectedIds = this._entitySelectionIds();
         const entities = this._allEntitiesById();
-        if ([...selectedIds].some(id => entities.get(id)?.transient && entities.get(id)?.type !== 'group')) {
-          this.notify('实时资源不可删除；可单独选中群组并解散，成员将保留', 'info');
+        if ([...selectedIds].some(id => entities.get(id)?.transient || entities.get(id)?.runtime?.dynamicKind === 'coolify-project-group')) {
+          this.notify('采样资源及其 Project 容器不可删除或解散，请使用显示设置控制可见内容', 'info');
           return;
         }
         const selected = this._combinedPlacements().filter(item => selectedIds.has(item.entityId));
         if (!selected.length) return;
         this._recordMutation();
         const dynamicLayout = this._dynamicLayoutForActiveBoard();
-        for (const placement of selected) {
-          if (entities.get(placement.entityId)?.transient) {
-            dynamicLayout[placement.entityId] = { ...placement, dissolved: true };
-          }
-        }
         board.placements = board.placements.filter(item => !selectedIds.has(item.entityId));
         const changedDynamicIds = [];
         for (const placement of this._combinedPlacements(board)) {
