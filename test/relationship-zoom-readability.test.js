@@ -31,7 +31,7 @@ test('edges limit compensation and become lighter in distant overview', () => {
 });
 test('group overview titles shrink, truncate and hide member explanation unless selected', () => {
   assert.match(source, /zoom >= 0.6 \|\| selected/);
-  assert.match(source, /'--group-title-scale': Math.min\(1, Math.max\(0.45, zoom\)\)/);
+  assert.match(source, /'--group-title-scale': Math.pow\(Math.min\(1, Math.max\(0.03, zoom\)\), data.titleZoomStrength \?\? 0.5\)/);
   assert.match(source, /title=\{entity.name\}/);
   const css = fs.readFileSync(require('node:path').join(__dirname, '../src/renderer/relationship-canvas/relationshipCanvas.css'), 'utf8');
   assert.match(css, /max-width: var\(--group-title-max-width/);

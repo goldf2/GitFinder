@@ -47,7 +47,7 @@
     return categories.map(category => ({ ...category, key: category.id, items: items.filter(resource => resource.category === category.id) }));
   }
 
-  function render({ items, query = '', collapsed = new Set(), categories = RESOURCE_CATEGORY_DEFINITIONS, typeIcons = {}, escapeHtml: escape, panelMoveControls }) {
+  function render({ items, nestedCounts = {}, query = '', collapsed = new Set(), categories = RESOURCE_CATEGORY_DEFINITIONS, typeIcons = {}, escapeHtml: escape, panelMoveControls }) {
     const normalizedQuery = query.trim().toLocaleLowerCase('zh-CN');
     const filtered = items.filter(resource => !normalizedQuery
       || `${resource.name} ${resource.path} ${resource.secondary}`.toLocaleLowerCase('zh-CN').includes(normalizedQuery));
@@ -87,9 +87,9 @@
       return `<section class="relationship-resource-section relationship-dock-component" data-panel-id="resource:${escape(section.key)}" data-resource-section="${escape(section.key)}">
         <div class="relationship-resource-component-heading"><button class="relationship-resource-section-trigger" type="button" data-resource-section-toggle="${escape(section.key)}" aria-expanded="${!isCollapsed}">
           <span class="relationship-resource-section-disclosure" aria-hidden="true">⌄</span><span class="relationship-resource-section-icon" aria-hidden="true">${section.icon}</span>
-          <span class="relationship-resource-section-copy"><strong>${escape(section.label)}</strong></span><span class="relationship-resource-section-count">${section.items.length}</span>
+          <span class="relationship-resource-section-copy"><strong>${escape(section.label)}</strong></span><span class="relationship-resource-section-count">${normalizedQuery ? section.items.length : Math.max(section.items.length, nestedCounts[section.key] || 0)}</span>
         </button>${panelMoveControls(`resource:${section.key}`, section.label)}</div>
-        <div class="relationship-resource-section-items"${isCollapsed ? ' hidden' : ''}>${section.items.length ? section.items.map(itemHtml).join('') : '<div class="relationship-resource-section-empty">暂无资源</div>'}</div>
+        <div class="relationship-resource-section-items"${isCollapsed ? ' hidden' : ''}>${section.items.length ? section.items.map(itemHtml).join('') : `<div class="relationship-resource-section-empty">${!normalizedQuery && nestedCounts[section.key] ? '资源位于主机下级，请展开主机 → Project 查看' : '暂无资源'}</div>`}</div>
       </section>`;
     }).join('');
   }

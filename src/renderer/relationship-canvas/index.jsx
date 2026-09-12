@@ -250,7 +250,7 @@ const RelationshipGroup = memo(function RelationshipGroup({ id, data, selected }
       handleClassName="gf-flow-resize-handle"
     />
     <NodeToolbar isVisible className={`gf-flow-group-title-toolbar${zoom < 0.6 ? ' is-overview' : ''}`} position={Position.Top} offset={4}
-      style={{ '--group-title-scale': Math.min(1, Math.max(0.45, zoom)), '--group-title-max-width': `${Math.max(72, Math.min(280, Number(data.placement.groupWidth || 640) * zoom))}px` }}>
+      style={{ '--group-title-scale': Math.pow(Math.min(1, Math.max(0.03, zoom)), data.titleZoomStrength ?? 0.5), '--group-title-max-width': `${Math.max(72, Math.min(280, Number(data.placement.groupWidth || 640) * zoom))}px` }}>
       <button type="button" title={entity.name} className="gf-flow-group-title-button nodrag nopan" onClick={() => data.onAction?.('select-group', entity)}><strong>{entity.name}</strong></button>
       {zoom >= 0.6 || selected ? <span>{data.memberCount || 0} 个成员</span> : null}
       <MoreActions id={id} entity={entity} />
@@ -292,6 +292,7 @@ function Canvas({
   horizontalSpacing = 64,
   verticalSpacing = 36,
   groupTitleFontSize = 20,
+  titleZoomStrength = 0.5,
   edgeZoomMode = 'adaptive',
   maxZoom = 8,
   fitView = true
@@ -352,7 +353,7 @@ function Canvas({
     return counts;
   }, new Map()), [nodes]);
   const displayedNodes = useMemo(() => nodes.map(node => node.type === 'relationshipGroup'
-    ? { ...node, data: { ...node.data, memberCount: memberCounts.get(node.id) || 0 } } : node), [nodes, memberCounts]);
+    ? { ...node, data: { ...node.data, titleZoomStrength, memberCount: memberCounts.get(node.id) || 0 } } : node), [nodes, memberCounts, titleZoomStrength]);
 
   const handleNodesChange = useCallback(changes => {
     setNodes(current => {

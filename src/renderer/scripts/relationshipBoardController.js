@@ -2825,6 +2825,9 @@
         cardHeight: normalizedNumber(view.cardHeight, defaults.cardHeight, 143, 420),
         textScale: Number.isFinite(textScale) ? Math.min(1.3, Math.max(0.85, textScale)) : defaults.textScale,
         groupTitleFontSize: normalizedNumber(view.groupTitleFontSize, defaults.groupTitleFontSize, 14, 36),
+        titleZoomStrength: normalizedNumber(view.titleZoomStrength, 0.5, 0, 1),
+        edgeLabelFontSize: normalizedNumber(view.edgeLabelFontSize, 10, 8, 24),
+        memberLabelFontSize: normalizedNumber(view.memberLabelFontSize, 12, 8, 24),
         edgeWidth: normalizedNumber(view.edgeWidth, defaults.edgeWidth, 0.8, 5),
         edgeZoomMode: ['adaptive', 'follow', 'fixed'].includes(view.edgeZoomMode) ? view.edgeZoomMode : 'adaptive',
         maxZoom: normalizedNumber(view.maxZoom, 8, 1, 8),
@@ -3509,6 +3512,7 @@
     }
 
     _canJoinGroup(entityId, groupId, context = {}) {
+      if (this._hasSampledOwnership(entityId)) return false;
       if (!groupId) return true;
       const entities = context.entities || this._allEntitiesById();
       if (activeBoard(this.store)?.placements.some(item => item.entityId === entityId)
@@ -4214,6 +4218,12 @@
       form.elements.namedItem('textScale').value = String(display.textScale);
       form.elements.namedItem('groupTitleFontSize').value = String(display.groupTitleFontSize);
       form.elements.namedItem('edgeWidth').value = String(display.edgeWidth);
+      for (const [key, selector, unit] of [['titleZoomStrength', 'title-zoom-strength', '%'], ['edgeLabelFontSize', 'edge-label-size', ' px'], ['memberLabelFontSize', 'member-label-size', ' px']]) {
+        const field = form.elements.namedItem(key);
+        if (field) field.value = String(display[key]);
+        const output = form.querySelector(`[data-display-${selector}]`);
+        if (output) output.textContent = `${Math.round(display[key] * (unit === '%' ? 100 : 1))}${unit}`;
+      }
       for (const key of ['edgeZoomMode', 'maxZoom']) {
         const field = form.elements.namedItem(key);
         if (field) field.value = String(display[key]);
@@ -4286,6 +4296,9 @@
         cardHeight: displayNumber('cardHeight', currentDisplay.cardHeight, 143, 420),
         textScale: Number.isFinite(textScale) ? Math.min(1.3, Math.max(0.85, textScale)) : 1,
         groupTitleFontSize: displayNumber('groupTitleFontSize', currentDisplay.groupTitleFontSize, 14, 36),
+        titleZoomStrength: displayNumber('titleZoomStrength', currentDisplay.titleZoomStrength, 0, 1),
+        edgeLabelFontSize: displayNumber('edgeLabelFontSize', currentDisplay.edgeLabelFontSize, 8, 24),
+        memberLabelFontSize: displayNumber('memberLabelFontSize', currentDisplay.memberLabelFontSize, 8, 24),
         edgeWidth: displayNumber('edgeWidth', currentDisplay.edgeWidth, 0.8, 5),
         edgeZoomMode: ['adaptive', 'follow', 'fixed'].includes(data.get('edgeZoomMode')) ? data.get('edgeZoomMode') : 'adaptive',
         maxZoom: displayNumber('maxZoom', currentDisplay.maxZoom, 1, 8),
@@ -4389,10 +4402,12 @@
         }
       };
       indexResources(catalog);
+      const nestedCounts = Object.fromEntries(['deployment', 'endpoint'].map(kind => [kind,
+        this._combinedEntities().filter(entity => entity.type === kind).length]));
       const total = this._panelElement('[data-resource-total]');
-      if (total) total.textContent = String(catalog.length);
+      if (total) total.textContent = String(catalog.length + Object.entries(nestedCounts).reduce((sum, [kind, count]) => sum + Math.max(0, count - catalog.filter(item => item.kind === kind).length), 0));
       for (const dock of this._panelDocks()) dock?.querySelectorAll(':scope > [data-resource-section]').forEach(item => item.remove());
-      list.innerHTML = ResourceView.render({ items: catalog, query: this.resourceSearch, collapsed: this.collapsedResourceSections,
+      list.innerHTML = ResourceView.render({ items: catalog, nestedCounts, query: this.resourceSearch, collapsed: this.collapsedResourceSections,
         typeIcons: TYPE_ICONS, escapeHtml, panelMoveControls: (key, label) => this._panelMoveControls(key, label) });
       this._placePanelComponents();
     }
@@ -4632,6 +4647,7 @@
         horizontalSpacing: display.horizontalSpacing,
         verticalSpacing: display.verticalSpacing,
         groupTitleFontSize: display.groupTitleFontSize,
+        titleZoomStrength: display.titleZoomStrength,
         edgeZoomMode: display.edgeZoomMode,
         maxZoom: display.maxZoom,
         onModelChange: next => this._handleFlowModelChange(next),
@@ -5882,6 +5898,8 @@
         this.root.style.setProperty('--relationship-meta-font-size', `${Math.round(metaBaseSize * display.textScale * 10) / 10}px`);
         this.root.style.setProperty('--relationship-group-title-font-size', `${Math.round(display.groupTitleFontSize)}px`);
         this.root.style.setProperty('--relationship-edge-width', `${display.edgeWidth}px`);
+        this.root.style.setProperty('--relationship-edge-label-size', `${display.edgeLabelFontSize}px`);
+        this.root.style.setProperty('--relationship-member-label-size', `${display.memberLabelFontSize}px`);
         this.root.style.setProperty('--relationship-filter-context-opacity', String(display.filterContextOpacity));
         this.root.style.setProperty('--relationship-filter-muted-opacity', String(display.filterMutedOpacity));
         this.root.style.setProperty('--relationship-filter-muted-saturation', String(display.filterMutedSaturation));
@@ -6190,6 +6208,7 @@
       const placements = this._combinedPlacements();
       const byId = new Map(placements.map(item => [item.entityId, item]));
       return placements.filter(placement => {
+        if (this._hasSampledOwnership(placement.entityId)) return false;
         if (!selectedIds.has(placement.entityId)) return false;
         const seen = new Set([placement.entityId]);
         let parent = placement.groupId;
@@ -6200,6 +6219,14 @@
         }
         return true;
       });
+    }
+
+    _hasSampledOwnership(entityId) {
+      const entities = this._allEntitiesById();
+      const entity = entities.get(entityId);
+      const placement = this._combinedPlacements().find(item => item.entityId === entityId);
+      return entity?.runtime?.dynamicKind === 'coolify-project-group'
+        || entities.get(placement?.groupId)?.runtime?.dynamicKind === 'coolify-project-group';
     }
 
     async _createGroupFromSelection() {

@@ -260,6 +260,8 @@
 }
 
 .gf-flow-group-title-toolbar {
+  scale: var(--group-title-scale, 1);
+  transform-origin: center bottom;
   position: relative;
   z-index: 1000;
   display: flex;
@@ -276,7 +278,7 @@
 }
 
 .gf-flow-group-title-toolbar strong {
-  font-size: max(10px, calc(var(--relationship-group-title-font-size, 20px) * var(--group-title-scale, 1)));
+  font-size: var(--relationship-group-title-font-size, 20px);
   display: block;
 }
 
@@ -287,6 +289,8 @@
 }
 
 .gf-flow-group-title-toolbar.is-overview { padding: 1px 4px; gap: 4px; box-shadow: none; border-radius: 4px; }
+
+.gf-flow-group-title-toolbar:has(.gf-flow-group-actions) { scale: 1; }
 
 .gf-flow-group-title-button {
   flex: 0 0 auto;
@@ -300,7 +304,7 @@
 .gf-flow-group-title-toolbar span {
   flex: 0 0 auto;
   color: #8a94a6;
-  font-size: 12px;
+  font-size: var(--relationship-member-label-size, 12px);
 }
 
 .gf-flow-group-actions {
@@ -400,7 +404,7 @@
   border-radius: 5px;
   background: rgb(255 255 255 / 88%);
   color: #727d90;
-  font-size: 10px;
+  font-size: var(--relationship-edge-label-size, 10px);
   line-height: 1;
   pointer-events: none;
   white-space: nowrap;

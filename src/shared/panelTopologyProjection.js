@@ -931,7 +931,7 @@
     const entityIds = new Set();
     const relationshipIds = new Set();
     const addEntity = (entity, placement) => {
-      if (!entityIds.has(entity.id) && (entity.type === 'endpoint' || !existingEntities.some(item => item.id === entity.id))) {
+      if (!entityIds.has(entity.id)) {
         entityIds.add(entity.id);
         entities.push(entity);
       }

@@ -39,7 +39,7 @@
     const nameWidth = [...name].reduce((sum, character) => sum
       + (/[^\u0000-\u00ff]/.test(character) ? 20 : (character === ' ' ? 6 : 11)), 0) * scale;
     const countWidth = String(memberCount).length * 7 + 42;
-    return Math.max(120, nameWidth + countWidth + 18);
+    return Math.max(120, nameWidth + countWidth + 54);
   }
 
   function visualObstacles(nodes = [], geometry = new Map(), options = {}) {

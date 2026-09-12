@@ -2548,6 +2548,11 @@ test('采样容器不可解散，旧解散标记在刷新和重开时恢复', ()
   const group = controller.panelProjection.entities.find(item => item.type === 'group' && item.name.includes('MES'));
   const member = controller.panelProjection.placements.find(item => item.groupId === group.id);
   const position = { x: member.x, y: member.y };
+  controller._selectOnlyEntity(member.entityId);
+  assert.equal(controller._selectedMemberPlacements().length, 0);
+  assert.equal(controller._removeSelectionFromGroups(), false);
+  assert.equal(controller._canJoinGroup(member.entityId, ''), false);
+  assert.equal(controller._placementForEntity(member.entityId).groupId, group.id);
   const count = controller.panelProjection.entities.filter(item => item.type !== 'group').length;
   controller._selectOnlyEntity(group.id);
   assert.equal(controller._contextMenuItems('node').some(item => item?.contextAction === 'delete'), false);
@@ -2564,6 +2569,33 @@ test('采样容器不可解散，旧解散标记在刷新和重开时恢复', ()
   reopened.dynamicLayoutStore = JSON.parse(JSON.stringify(controller.dynamicLayoutStore));
   reopened._setPanelTopology(controller.panelTopologyResult);
   assert.equal(reopened._allEntitiesById().has(group.id), true);
+});
+
+test('保存采样节点后仍保留实时投影，不误报资源缺失', () => {
+  const { controller } = nestedGroupFixture();
+  const result = { state: 'ready', provider: { providerId: 'coolify_test', label: 'Demo' }, topology: {
+    servers: [{ nodeId: 'host1', name: '主机' }],
+    deployments: [{ resourceUuid: 'app1', nodeId: 'host1', projectUuid: 'proj1', name: '部署' }]
+  } };
+  controller._setPanelTopology(result);
+  const live = controller.panelProjection.entities.filter(item => ['server', 'deployment'].includes(item.type));
+  for (const entity of live) controller.store.entities.push(controller._portableEntity(entity));
+  controller._setPanelTopology(result);
+  for (const entity of live) {
+    assert.ok(controller.panelProjection.entities.some(item => item.id === entity.id));
+    assert.equal(controller._entityAvailability(controller.store.entities.find(item => item.id === entity.id)).missing, false);
+    assert.ok(controller._allEntitiesById().get(entity.id).runtime);
+  }
+});
+
+test('显示设置保存标题缩放程度与两种说明字号', () => {
+  const Model = globalThis.RelationshipGraphModel;
+  const { controller } = nestedGroupFixture();
+  controller.store.boards[0].view = { ...Model.defaultBoardView(), titleZoomStrength: 0.8, edgeLabelFontSize: 15, memberLabelFontSize: 18 };
+  const reopened = Model.assertValidStore(JSON.parse(JSON.stringify(controller.store)));
+  assert.equal(reopened.boards[0].view.titleZoomStrength, 0.8);
+  assert.equal(reopened.boards[0].view.edgeLabelFontSize, 15);
+  assert.equal(reopened.boards[0].view.memberLabelFontSize, 18);
 });
 
 test('面板组件独立停靠和折叠只保存本机偏好，不修改白板关系', async () => {

@@ -137,7 +137,7 @@
         const nameWidth = [...title].reduce((sum, character) => sum
           + (/[^\u0000-\u00ff]/.test(character) ? 20 : (character === ' ' ? 6 : 11)), 0) * fontScale;
         const countWidth = String(Math.max(0, members.length - 1)).length * 7 + 42;
-        const titleWidth = Math.max(120, nameWidth + countWidth + 18) * titleScale;
+        const titleWidth = Math.max(120, nameWidth + countWidth + 54) * titleScale;
         titleRect = { item: group, title: true,
           x: group.x + groupWidth / 2 - titleWidth / 2,
           y: group.y - groupTitleSpace,
