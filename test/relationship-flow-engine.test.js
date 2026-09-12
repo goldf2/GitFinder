@@ -40,7 +40,7 @@ test('服务器树摘要线没有交互命中区、箭头、右键菜单或程�
 
 test('新画布使用更宽缩放范围，多边形容器强制等比缩放', () => {
   assert.match(source, /minZoom=\{0\.03\}/);
-  assert.match(source, /maxZoom=\{8\}/);
+  assert.match(source, /maxZoom=\{maxZoom\}/);
   assert.match(source, /keepAspectRatio=\{shape === 'polygon'\}/);
   assert.doesNotMatch(canvasCss, /\.gf-flow-group\.is-circle/);
 });

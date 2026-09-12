@@ -1,6 +1,17 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const RelationshipGraphModel = require('../src/shared/relationshipGraphModel');
+test('zoom display preferences survive strict persistence and constrain zoom bounds', () => {
+  const store = validStore();
+  store.boards[0].view = { edgeZoomMode: 'follow', maxZoom: 2 };
+  const view = RelationshipGraphModel.assertValidStore(store).boards[0].view;
+  assert.equal(view.edgeZoomMode, 'follow');
+  assert.equal(view.maxZoom, 2);
+  store.boards[0].view = { edgeZoomMode: 'invalid', maxZoom: 100 };
+  const fallback = RelationshipGraphModel.normalizeStore(store).value.boards[0].view;
+  assert.equal(fallback.edgeZoomMode, 'adaptive');
+  assert.equal(fallback.maxZoom, 8);
+});
 
 function validStore() {
   return {

@@ -36,12 +36,12 @@ const RelationshipEdge = memo(function RelationshipEdge({
 }) {
   const { zoom } = useViewport();
   const scale = Math.max(0.01, zoom);
-  const compensationScale = Math.max(0.5, scale);
+  const compensationScale = data?.edgeZoomMode === 'follow' ? 1 : data?.edgeZoomMode === 'fixed' ? scale : Math.max(0.5, scale);
   const screenStyle = {
     ...style,
     vectorEffect: 'none',
     strokeWidth: `calc(${style?.strokeWidth || 'var(--relationship-edge-width, 1.7px)'} / ${compensationScale})`,
-    opacity: (style?.opacity ?? 1) * Math.min(1, Math.max(0.25, scale / 0.4)),
+    opacity: (style?.opacity ?? 1) * (data?.edgeZoomMode === 'fixed' ? 1 : Math.min(1, Math.max(0.25, scale / 0.4))),
     ...(style?.strokeDasharray ? { strokeDasharray: String(style.strokeDasharray).split(/[ ,]+/).map(value => Number(value) / compensationScale).join(' ') } : {})
   };
   const path = data?.routedPath || `M ${sourceX} ${sourceY} L ${targetX} ${targetY}`;
@@ -291,9 +291,16 @@ function Canvas({
   horizontalSpacing = 64,
   verticalSpacing = 36,
   groupTitleFontSize = 20,
+  edgeZoomMode = 'adaptive',
+  maxZoom = 8,
   fitView = true
 }) {
   const [openId, setOpenId] = useState(null);
+  const flowInstance = useRef(null);
+  useEffect(() => {
+    const instance = flowInstance.current;
+    if (instance && instance.getViewport().zoom > maxZoom) instance.setViewport({ ...instance.getViewport(), zoom: maxZoom });
+  }, [maxZoom]);
   const menuContext = useMemo(() => ({ openId, setOpenId }), [openId]);
   useEffect(() => {
     const closeOutside = event => {
@@ -405,7 +412,7 @@ function Canvas({
 
   return <ActionMenuContext.Provider value={menuContext}><ReactFlow
     nodes={displayedNodes}
-    edges={edges.map(edge => ({ ...edge, ...(!edge.data?.visualOnly ? { markerEnd: {
+    edges={edges.map(edge => ({ ...edge, data: { ...edge.data, edgeZoomMode }, ...(!edge.data?.visualOnly ? { markerEnd: {
       type: MarkerType.ArrowClosed,
       width: 16,
       height: 16,
@@ -443,11 +450,11 @@ function Canvas({
       event.preventDefault();
       onAction?.('context-pane', null, { clientX: event.clientX, clientY: event.clientY });
     }}
-    onInit={onReady}
+    onInit={instance => { flowInstance.current = instance; onReady?.(instance); }}
     minZoom={0.03}
-    maxZoom={8}
+    maxZoom={maxZoom}
     fitView={fitView}
-    defaultViewport={initialViewport}
+    defaultViewport={initialViewport ? { ...initialViewport, zoom: Math.min(initialViewport.zoom, maxZoom) } : undefined}
     fitViewOptions={{ padding: 0.16, maxZoom: 1 }}
     panOnScroll={false}
     panOnDrag={[1, 2]}

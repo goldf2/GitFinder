@@ -20,7 +20,8 @@ test('node popup actions use compact typography instead of inheriting canvas typ
 });
 test('edges limit compensation and become lighter in distant overview', () => {
   assert.match(source, /vectorEffect: 'none'/);
-  assert.match(source, /compensationScale = Math.max\(0.5, scale\)/);
+  assert.match(source, /data\?\.edgeZoomMode === 'follow' \? 1/);
+  assert.match(source, /data\?\.edgeZoomMode === 'fixed' \? scale : Math.max\(0.5, scale\)/);
   assert.doesNotMatch(source, /max\(2px,/);
   assert.match(source, /Number\(value\) \/ compensationScale/);
   assert.match(source, /Math.min\(1, Math.max\(0.25, scale \/ 0.4\)\)/);
