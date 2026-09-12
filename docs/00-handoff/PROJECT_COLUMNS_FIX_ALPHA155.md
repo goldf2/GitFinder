@@ -20,4 +20,8 @@
 
 - 2026-09-12 +08:00：安装验收发现 `_applyDynamicLayoutOverrides` 忽略已存自动容器尺寸，却留下新投影的默认大框。纵向列表已有明确保存位置时，清除新投影默认框，按已保存成员坐标重算包裹边界；不改变归属、成员坐标或其他布局。
 - 新增序列化 store + dynamicLayoutStore 后创建全新 Controller 的回归。修复前 all 范围稳定失败：1368×639→1404×711，336×432→680×225，680×432→680×468；修复后 board/all 均通过。
-- alpha.156 最终检查、打包与安装重开验收待补记。
+- 2026-09-12 22:22 +08:00：1159 项测试、270 个 JavaScript 语法检查与 `git diff --check` 通过。源码提交 `68b1e21`，隔离构建 `/tmp/gitfinder-alpha156-build`，开发产物门禁无错误，签名为 ad-hoc。
+- 已安装 `/Applications/GitFinder 2 Alpha156.app`，Info.plist 为 2.0.0-alpha.156，`codesign --verify --deep --strict` 通过；旧 Alpha154/155 应用保留。升级包已保存至本仓库 `dist/GitFinder-2-2.0.0-alpha.156-arm64-mac.zip`，验证报告 `dist/release-verification-alpha.156.json`（忽略目录，不提交制品）。
+- 原白板/config 操作前备份 `/tmp/gitfinder-before155.DgJifK/`，只留本机，不提交配置。Alpha155 的实际重排和普通重开已执行；最终截图可见 80 节点 / 30 关系、纵向列表及 0.32 视口恢复，但容器默认边界回弹，因此不能视为最终通过。
+- alpha.156 可见验收被 Mac 锁屏阻塞：CUA 明确返回 `The Mac is locked and automatic unlock could not unlock it`。此后未尝试解锁或操作 GUI，alpha.156 尚未启动验收，未推送。
+- 唯一下一步：用户解锁后普通启动 Alpha156，点击全部自动排列、检查三列容器对齐和全图按钮，再退出重开确认容器不回弹；通过后推送当前 main。尚未得到用户有效确认，不归档“修复已确认”报告。
