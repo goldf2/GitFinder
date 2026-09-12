@@ -1,6 +1,6 @@
 # alpha.142 本地象数面板
 
-2026-09-12 17:00 +08:00（发布验收进行中，以下仅记录已验证事实）。
+2026-09-12 +08:00。
 
 ## 目标与边界
 
@@ -28,5 +28,9 @@
 
 ## 发布
 
-- 目标版本：2.0.0-alpha.142；待提交、打包、安装验收与推送。现有非本任务未提交文档和项目元数据保留。
-- 唯一下一步：从已提交源码打包并验收安装版本，随后记录结果和推送。
+- 版本：2.0.0-alpha.142；打包源码提交 b9a08c9。独立 worktree /tmp/gitfinder-native-panel-build.TMsTK4 执行 npm run pack 成功；ad-hoc 开发签名，不是商店发布。
+- 已安装 /Applications/GitFinder 2 Alpha142.app，旧版 Alpha141.app 原路径保留。正常启动恢复面板标签，显示版本 alpha.142、35 个部署及 38 条访问点/无网址资源；远端正常绿灯、异常红灯、本机未检测灰灯，部署旧缓存黄灯分别可见。
+- 安装版真实交互：casdoor 搜索得到 1 / 38；切换卡片通过；切到 project 标签后返回仍保留 casdoor 搜索与卡片布局；已清除筛选并恢复完整表格。继承用户当前浅色主题，截图确认背景、输入框与卡片一致。未点击实际服务器同步/探测按钮。
+- codesign --verify --deep --strict 通过，安装与构建 ASAR SHA256 均为 b7d12a5f61aa31ec8352f862f73cce98871ba903e31818636973eaa121b97b6b。
+- 制品：/Volumes/project/制品与备份/gitfinder-2/2.0.0-alpha.142/GitFinder-2-2.0.0-alpha.142-arm64-mac.zip；SHA256 bee2f8dcac35cc69877afd1c26514eaef4c30946c1c78d8fdc9ad285399419c1。同目录 release-verification.json。
+- 非本任务未提交文档和项目元数据保留。唯一下一步：推送已验收源码及本记录；远端未匹配条目不会按名称猜测，完整网站字段迁移仍未纳入本轮。
