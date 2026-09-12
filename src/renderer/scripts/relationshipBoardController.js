@@ -3730,6 +3730,7 @@
         }
       }
       this._bindRootEvents();
+      this.root.querySelector('.relationship-display-popover')?.addEventListener('wheel', event => this._handleDisplayWheel(event), { passive: true });
       this._applyViewMode();
       this._renderResources();
       this._renderGraph();
@@ -4177,6 +4178,13 @@
       if (restoreFocus) trigger?.focus();
     }
 
+    _handleDisplayWheel(event) {
+      const popover = event.currentTarget;
+      const focused = popover.ownerDocument.activeElement;
+      if (popover.contains(focused) && focused.matches('input, select, button')) focused.blur();
+      event.stopPropagation();
+    }
+
     _syncDisplayForm() {
       const form = this.root?.querySelector('[data-relationship-display-form]');
       if (!form) return;
@@ -4190,6 +4198,10 @@
       form.elements.namedItem('textScale').value = String(display.textScale);
       form.elements.namedItem('groupTitleFontSize').value = String(display.groupTitleFontSize);
       form.elements.namedItem('edgeWidth').value = String(display.edgeWidth);
+      for (const key of ['edgeZoomMode', 'maxZoom']) {
+        const field = form.elements.namedItem(key);
+        if (field) field.value = String(display[key]);
+      }
       form.elements.namedItem('horizontalSpacing').value = String(display.horizontalSpacing);
       form.elements.namedItem('verticalSpacing').value = String(display.verticalSpacing);
       form.elements.namedItem('cardAppearance').value = display.cardAppearance;

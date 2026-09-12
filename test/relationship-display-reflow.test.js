@@ -3,6 +3,19 @@ const assert = require('node:assert/strict');
 globalThis.RelationshipGraphModel = require('../src/shared/relationshipGraphModel');
 const { Controller, normalizeDynamicLayoutStore } = require('../src/renderer/scripts/relationshipBoardController');
 
+test('显示弹窗滚动释放原控件焦点但不阻止默认滚动', () => {
+  let blurred = 0;
+  let stopped = 0;
+  const focused = { matches: () => true, blur: () => blurred++ };
+  const popover = { ownerDocument: { activeElement: focused }, contains: target => target === focused };
+  Controller.prototype._handleDisplayWheel({ currentTarget: popover, stopPropagation: () => stopped++ });
+  assert.equal(blurred, 1);
+  assert.equal(stopped, 1);
+  popover.contains = () => false;
+  Controller.prototype._handleDisplayWheel({ currentTarget: popover, stopPropagation: () => stopped++ });
+  assert.equal(blurred, 1);
+});
+
 function fixture(layout) {
   const c = new Controller({ bridge: {} });
   const view = { ...globalThis.RelationshipGraphModel.defaultBoardView(), layout: 'compact', cardWidth: 280, horizontalSpacing: 64, verticalSpacing: 40 };

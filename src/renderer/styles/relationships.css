@@ -417,6 +417,7 @@
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   max-height: inherit;
+  height: min(760px, calc(100dvh - 32px));
 }
 
 .relationship-display-header {
@@ -482,6 +483,9 @@
   gap: 12px;
   padding: 14px;
   overflow: auto;
+  overscroll-behavior: contain;
+  overflow-anchor: none;
+  scrollbar-gutter: stable;
   background: var(--bg-secondary);
 }
 
