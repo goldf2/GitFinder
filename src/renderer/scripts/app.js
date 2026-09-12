@@ -1695,7 +1695,7 @@ const App = {
   },
 
   updateToolbarMenuState() {
-    const viewLabels = { tree: '文件浏览', dashboard: '仪表盘', tasks: '开发任务', relationships: '关系白板', settings: '设置' };
+    const viewLabels = { tree: '文件浏览', dashboard: '仪表盘', tasks: '开发任务', relationships: '关系白板', panel: '象数面板', settings: '设置' };
     const sortLabels = { name: '名称', path: '路径', dir: '目录', status: 'Git 状态', time: '修改时间', size: '大小', branch: '分支' };
     const viewLabel = document.getElementById('view-menu-label');
     if (viewLabel) viewLabel.textContent = viewLabels[AppState.currentMode] || '文件浏览';
@@ -2008,19 +2008,19 @@ const App = {
     container.innerHTML = session.tabs.map(tab => {
       const active = tab.id === session.activeTabId;
       const collectionKind = window.ContentQuery.collectionKind(tab.contentQuery);
-      const icon = tab.mode === 'tasks'
+      const icon = tab.mode === 'panel' ? '▦' : tab.mode === 'tasks'
         ? '✓'
         : (tab.mode === 'dashboard' ? '▦' : (collectionKind === 'projects'
           ? '◆'
           : (collectionKind === 'repositories' ? '⑂' : (collectionKind === 'project-repositories' ? '◆⑂' : '📁'))));
-      const title = tab.mode === 'tasks'
+      const title = tab.mode === 'panel' ? '象数面板' : tab.mode === 'tasks'
         ? '开发任务'
         : (collectionKind === 'projects'
           ? '所有项目'
           : (collectionKind === 'repositories'
             ? '所有仓库'
             : (collectionKind === 'project-repositories' ? '项目 + Git' : tab.title)));
-      const tabHelp = tab.mode === 'tasks'
+      const tabHelp = tab.mode === 'panel' ? 'panel.xiangshu.me' : tab.mode === 'tasks'
         ? '开发任务 · Local Project Manager 权威任务工作台'
         : (collectionKind === 'projects'
           ? '所有受管位置 · 项目筛选'
@@ -3732,7 +3732,7 @@ const App = {
   },
 
   switchView(view) {
-    if (!['tree', 'dashboard', 'tasks', 'relationships'].includes(view)) return;
+    if (!['tree', 'dashboard', 'tasks', 'relationships', 'panel'].includes(view)) return;
     this.closeQuickLook();
     this.clearFileSelection();
     AppState.currentMode = view;
@@ -3797,6 +3797,7 @@ const App = {
 
     const tasksMode = AppState.currentMode === 'tasks';
     const relationshipsMode = AppState.currentMode === 'relationships';
+    const panelMode = AppState.currentMode === 'panel';
     const collectionKind = this.contentCollectionKind();
     const projectsMode = ['projects', 'project-repositories'].includes(collectionKind);
     const collectionMode = Boolean(collectionKind);
@@ -3811,11 +3812,12 @@ const App = {
     if (categoryFilter) categoryFilter.style.display = repositoryMetadataContext ? '' : 'none';
     document.querySelector('.main-container')?.classList.toggle('tasks-mode', tasksMode);
     document.querySelector('.main-container')?.classList.toggle('relationships-mode', relationshipsMode);
+    document.querySelector('.main-container')?.classList.toggle('panel-mode', panelMode);
     document.querySelector('.main-container')?.classList.toggle('settings-mode', settingsMode);
     document.getElementById('content-scroll')?.classList.toggle('tasks-content-scroll', tasksMode);
     document.getElementById('btn-settings')?.classList.toggle('active', settingsMode);
     const toolbarCenter = document.querySelector('.toolbar-center');
-    if (toolbarCenter) toolbarCenter.style.display = settingsMode || relationshipsMode ? 'none' : '';
+    if (toolbarCenter) toolbarCenter.style.display = settingsMode || relationshipsMode || panelMode ? 'none' : '';
     this.updateSearchScopeUI();
     this.updateNavButtons();
 
@@ -3831,7 +3833,7 @@ const App = {
     if (directoryTypeDivider) directoryTypeDivider.style.display = showDirectoryTypeFilter && showDirectorySortMenu ? '' : 'none';
     if (directorySortMenuHost) directorySortMenuHost.style.display = showDirectorySortMenu ? '' : 'none';
     this.updateDirectoryTypeFilterUI();
-    if (tasksMode || settingsMode || relationshipsMode) {
+    if (tasksMode || settingsMode || relationshipsMode || panelMode) {
       sortBar.style.display = 'none';
       if (fileActionBar) fileActionBar.style.display = 'none';
       if (filterBar) filterBar.style.display = 'none';
@@ -4346,6 +4348,31 @@ const App = {
     }, options);
   },
 
+  openXiangshuPanel() {
+    const frame = document.getElementById('xiangshu-panel-frame');
+    if (!frame || frame.getAttribute('src')) return;
+    const url = 'https://panel.xiangshu.me/';
+    const status = document.getElementById('xiangshu-panel-status');
+    const load = () => {
+      status.textContent = '正在打开网页…';
+      frame.src = url;
+    };
+    frame.addEventListener('load', () => {
+      // 跨域 iframe 的 load 事件不代表面板内部数据同步成功。
+      status.textContent = '页面异常时可重新加载或在浏览器打开';
+    });
+    frame.addEventListener('error', () => {
+      status.textContent = '网页加载失败，请重试或在浏览器打开';
+    });
+    document.getElementById('xiangshu-panel-reload').addEventListener('click', load);
+    document.getElementById('xiangshu-panel-external').addEventListener('click', () => {
+      window.gitFinder.panel.openExternal(url).catch(() => {
+        status.textContent = '无法打开浏览器，请手动访问 panel.xiangshu.me';
+      });
+    });
+    load();
+  },
+
   async renderContent() {
     this.cancelDirectoryItemRendering('view-changed');
     AppState.galleryPreviewRequestId += 1;
@@ -4355,6 +4382,8 @@ const App = {
     const contentArea = document.getElementById('content-area');
     const emptyState = document.getElementById('empty-state');
     if (AppState.currentMode !== 'relationships') this.relationshipBoardController?.close();
+    const panelView = document.getElementById('xiangshu-panel-view');
+    if (panelView) panelView.hidden = AppState.currentMode !== 'panel';
     const treeStyle = this.isFileBrowsingContext() && !this.isGlobalSearchActive()
       ? AppState.cardStyle
       : '';
@@ -4363,6 +4392,13 @@ const App = {
     if (treeStyle !== 'gallery') {
       AppState.galleryPreviewRequestId += 1;
       this.galleryThumbnailLoader?.disconnect();
+    }
+
+    if (AppState.currentMode === 'panel') {
+      AppState.fileDisplayOrder = [];
+      emptyState.style.display = 'none';
+      this.openXiangshuPanel();
+      return;
     }
 
     if (AppState.currentMode === 'settings') {

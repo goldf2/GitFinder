@@ -9,7 +9,7 @@
   const MAX_TABS = 20;
   const MAX_HISTORY = 50;
   const MAX_CLOSED_TABS = 10;
-  const VALID_MODES = new Set(['tree', 'dashboard', 'tasks', 'relationships']);
+  const VALID_MODES = new Set(['tree', 'dashboard', 'tasks', 'relationships', 'panel']);
   const VALID_SEARCH_TYPES = new Set(['all', 'repository', 'directory', 'file']);
   const VALID_SEARCH_MODES = new Set(['metadata', 'content']);
 

@@ -207,6 +207,10 @@
         container.textContent = '关系白板';
         return;
       }
+      if (this.state.currentMode === 'panel') {
+        container.textContent = '象数面板';
+        return;
+      }
       const collectionKind = this.state.currentMode === 'tree'
         ? this.contentQuery?.collectionKind(this.state.contentQuery)
         : '';
@@ -311,7 +315,7 @@
     }
 
     _navigationBlocked() {
-      return ['tasks', 'settings', 'relationships'].includes(this.state.currentMode);
+      return ['tasks', 'settings', 'relationships', 'panel'].includes(this.state.currentMode);
     }
   }
 

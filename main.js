@@ -154,7 +154,19 @@ function createWindow(options = {}) {
     if (!isMainFrame) return;
     writeStartupError('did-fail-load', { errorCode, errorDescription, validatedURL });
   });
-  browserWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  browserWindow.webContents.setWindowOpenHandler(({ url, referrer }) => {
+    // 面板访问点交给系统浏览器；远程网页永远不获得应用 preload。
+    try {
+      const source = new URL(referrer?.url || '');
+      const target = new URL(url);
+      if (source.origin === 'https://panel.xiangshu.me'
+        && ['https:', 'http:'].includes(target.protocol)
+        && !target.username && !target.password) {
+        void shell.openExternal(target.href).catch(() => {});
+      }
+    } catch (_) {}
+    return { action: 'deny' };
+  });
 
   browserWindow.loadFile(path.join(__dirname, 'src', 'renderer', 'index.html'));
 

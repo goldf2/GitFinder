@@ -67,6 +67,9 @@
             <button class="view-btn finder-menu-item" id="btn-relationships" data-view="relationships" role="menuitemradio" aria-checked="false" type="button">
               <span class="finder-menu-check" aria-hidden="true">✓</span><span>关系白板</span><small>项目、部署与服务器拓扑</small>
             </button>
+            <button class="view-btn finder-menu-item" id="btn-xiangshu-panel" data-view="panel" role="menuitemradio" aria-checked="false" type="button">
+              <span class="finder-menu-check" aria-hidden="true">✓</span><span>象数面板</span><small>panel.xiangshu.me</small>
+            </button>
           </div>
         </div>
         <div class="current-path" id="current-path"></div>
@@ -317,6 +320,15 @@
           </div>
         </div>
         <div class="content-scroll" id="content-scroll">
+          <section id="xiangshu-panel-view" aria-label="象数面板" hidden>
+            <div class="xiangshu-panel-toolbar">
+              <span>panel.xiangshu.me</span>
+              <span id="xiangshu-panel-status" role="status"></span>
+              <button id="xiangshu-panel-reload" class="btn btn-small" type="button">重新加载</button>
+              <button id="xiangshu-panel-external" class="btn btn-small" type="button">浏览器打开</button>
+            </div>
+            <iframe id="xiangshu-panel-frame" title="象数面板网站" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" referrerpolicy="no-referrer"></iframe>
+          </section>
           <div id="content-area"></div>
           <div class="empty-state" id="empty-state" style="display:none;">
             <div class="empty-icon">📂</div>
