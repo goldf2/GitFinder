@@ -1,5 +1,5 @@
 const SOURCE = 'https://panel.xiangshu.me/api/overview';
-const { urlKey } = require('../../shared/nativePanelModel');
+const { urlKey, thumbnailUrl } = require('../../shared/nativePanelModel');
 
 // Read the server's existing batch only. No remote credentials or force-scan calls.
 class RemotePanelObservationService {
@@ -38,6 +38,7 @@ class RemotePanelObservationService {
       const checks = data.resources.flatMap(resource => (Array.isArray(resource.webChecks) ? resource.webChecks : []).map(check => ({
         resourceUuid: String(resource.originalId || resource.id || '').slice(0, 200),
         nodeUrl: urlKey(resource.nodeUrl), url: urlKey(check.url),
+        screenshotUrl: thumbnailUrl(check.screenshotUrl),
         status: String(check.status || '').slice(0, 40), httpStatus: Number(check.statusCode) || null,
         latencyMs: Number.isFinite(check.latencyMs) ? check.latencyMs : null,
         checkedAt: data.checkedAt, stale: Boolean(data.cache?.stale || data.demo || (data.nodes || []).some(node => node.id === resource.nodeId && node.status !== 'online')),

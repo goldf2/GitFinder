@@ -41,3 +41,14 @@ test('native panel surfaces and lights use the shared theme instead of website c
   for (const token of ['status-clean', 'status-dirty', 'status-ahead', 'status-none']) assert.ok(css.includes(`var(--${token})`));
   assert.doesNotMatch(css, /#[0-9a-fA-F]{3,8}\b/);
 });
+
+test('thumbnails render in both layouts and update when remote observations arrive', () => {
+  const controller = read('src/renderer/scripts/nativePanelController.js');
+  assert.match(controller, /\['网页缩略图'\]/);
+  assert.match(controller, /item\.append\(preview, name/);
+  assert.match(controller, /this.remoteLoading = false; this.updateLamps\(\); this.updateThumbnails\(\)/);
+  assert.match(controller, /M.thumbnailUrl\(check\?\.screenshotUrl\)/);
+  assert.match(controller, /缩略图暂不可用/);
+  assert.match(controller, /image.loading = 'lazy'/);
+  assert.match(read('src/renderer/index.html'), /img-src 'self' data: https:\/\/panel.xiangshu.me\/api\/thumbnails\//);
+});

@@ -88,7 +88,7 @@
       } catch (_) {
         this.remote = { checks: (this.remote?.checks || []).map(check => ({ ...check, stale: true })) };
         this.remoteStatus.textContent = '远端结果暂不可读取；不影响本地资源显示。';
-      } finally { this.remoteLoading = false; this.updateLamps(); }
+      } finally { this.remoteLoading = false; this.updateLamps(); this.updateThumbnails(); }
     }
     buildFilters() {
       this.filterBar.replaceChildren();
@@ -119,6 +119,24 @@
       return [row.deploymentCheck,
         this.checks.find(check => check.providerId === row.providerId && M.urlKey(check.url) === M.urlKey(row.url)),
         M.remoteCheck(row, this.remote)];
+    }
+    updateThumbnails() {
+      for (const { image, placeholder, row } of this.thumbnails || []) {
+        const check = M.remoteCheck(row, this.remote);
+        const url = M.thumbnailUrl(check?.screenshotUrl);
+        if (!url) {
+          image.hidden = true;
+          image.removeAttribute('src');
+          placeholder.hidden = false;
+          placeholder.textContent = row.url ? '暂无网页缩略图' : '无公开访问点';
+        } else if (image.getAttribute('src') !== url) {
+          image.hidden = false;
+          placeholder.hidden = false;
+          placeholder.textContent = '缩略图加载中…';
+          image.title = `${row.name || '网页'} · 远端缓存快照（不代表实时可访问状态）`;
+          image.src = url;
+        }
+      }
     }
     updateLamps() {
       for (const { node, row, index } of this.lamps || []) {
@@ -164,13 +182,14 @@
       if (this.count) this.count.textContent = `${rows.length} / ${all.length} 条访问点与无网址资源`;
       this.content.replaceChildren();
       this.lamps = [];
+      this.thumbnails = [];
       if (!rows.length) { this.content.append(element('p', 'native-panel-empty', all.length ? '没有符合筛选条件的资源，可清除筛选。' : '暂无缓存资源。请配置 Coolify 连接后点击“同步资源”。')); return; }
       const target = element(this.layout === 'table' ? 'table' : 'div', `native-panel-${this.layout}`);
       let body = target;
       if (this.layout === 'table') {
         const head = element('thead');
         const tr = element('tr');
-        for (const [label, column] of [['服务', 'service'], ['主机', 'node'], ['项目', 'project'], ['访问点'], ['检测状态'], ['操作']]) {
+        for (const [label, column] of [['网页缩略图'], ['服务', 'service'], ['主机', 'node'], ['项目', 'project'], ['访问点'], ['检测状态'], ['操作']]) {
           const th = element('th');
           if (column) {
             const direction = U.columnSortDirection(column, this.filters.sort);
@@ -184,6 +203,18 @@
       for (const row of rows) {
         const item = element(this.layout === 'table' ? 'tr' : 'article', 'native-panel-resource');
         const cell = text => element(this.layout === 'table' ? 'td' : 'div', '', text);
+        const preview = cell();
+        const frame = element('div', 'native-panel-thumbnail');
+        const placeholder = element('span', '', '暂无网页缩略图');
+        const image = element('img');
+        image.alt = `${row.name || '网页'}缩略图`;
+        image.loading = 'lazy';
+        image.referrerPolicy = 'no-referrer';
+        image.hidden = true;
+        image.addEventListener('load', () => { placeholder.hidden = true; });
+        image.addEventListener('error', () => { image.hidden = true; placeholder.hidden = false; placeholder.textContent = '缩略图暂不可用'; });
+        frame.append(image, placeholder); preview.append(frame);
+        this.thumbnails.push({ image, placeholder, row });
         const name = cell(); name.append(element('strong', '', row.name || row.resourceUuid), element('small', '', row.type || '资源'));
         const url = cell(row.url || '无公开访问点'); url.className = 'native-panel-url';
         const lights = cell(); lights.className = 'native-panel-lights';
@@ -194,10 +225,11 @@
         const probe = this.button('检测本机', () => this.probe(row)); probe.disabled = !row.url;
         const open = this.button('打开', () => this.api.openExternal(row.url).catch(() => { this.status.textContent = '访问点无法打开，请检查连接设置。'; })); open.disabled = !row.url;
         actions.append(probe, open);
-        item.append(name, cell(row.node), cell(row.project), url, lights, actions); body.append(item);
+        item.append(preview, name, cell(row.node), cell(row.project), url, lights, actions); body.append(item);
       }
       this.content.append(target);
       this.updateLamps();
+      this.updateThumbnails();
     }
   }
   root.NativePanelController = NativePanelController;

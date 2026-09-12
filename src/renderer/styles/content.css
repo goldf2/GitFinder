@@ -7270,3 +7270,8 @@ body.file-drag-active.file-drag-copy {
 .native-panel-cards .native-panel-resource { background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 8px; font-size: 12px; }
 .native-panel-cards .native-panel-url { max-width: none; }
 .native-panel-empty { padding: 50px 16px; text-align: center; color: var(--text-secondary); }
+.native-panel-thumbnail { position: relative; width: 128px; aspect-ratio: 16 / 9; overflow: hidden; border: 1px solid var(--border-color); border-radius: var(--ui-radius-control); background: var(--bg-secondary); }
+.native-panel-thumbnail img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.native-panel-thumbnail span { position: absolute; inset: 0; display: grid; place-items: center; padding: 8px; color: var(--text-secondary); font-size: 11px; text-align: center; }
+.native-panel-thumbnail [hidden] { display: none; }
+.native-panel-cards .native-panel-thumbnail { width: 100%; }

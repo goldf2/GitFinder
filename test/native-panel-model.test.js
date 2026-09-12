@@ -1,8 +1,15 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { lamp, rows, remoteCheck } = require('../src/shared/nativePanelModel');
+const { lamp, rows, remoteCheck, thumbnailUrl } = require('../src/shared/nativePanelModel');
 const now = Date.parse('2026-09-12T00:00:00Z');
 const checkedAt = new Date(now).toISOString();
+
+test('remote screenshots resolve against the panel, never target servers or arbitrary URLs', () => {
+  const path = '/api/thumbnails/' + 'a'.repeat(40) + '.webp';
+  assert.equal(thumbnailUrl(path), 'https://panel.xiangshu.me' + path);
+  assert.equal(thumbnailUrl('https://panel.xiangshu.me' + path), 'https://panel.xiangshu.me' + path);
+  for (const bad of ['https://evil.test' + path, 'https://panel-al02.xiangshu.me' + path, '/undefined', 'data:image/svg+xml,x', path + '?token=x', '/api/thumbnails/../config']) assert.equal(thumbnailUrl(bad), '');
+});
 
 test('three sources distinguish unknown, checking, stale, HTTP failures and auth restrictions', () => {
   assert.equal(lamp(null, now).color, 'gray');

@@ -4,6 +4,10 @@
   if (root) root.NativePanelModel = api;
 })(typeof window !== 'undefined' ? window : globalThis, function() {
   const FRESH_MS = 5 * 60 * 1000;
+  function thumbnailUrl(value) {
+    const path = String(value || '').replace(/^https:\/\/panel\.xiangshu\.me(?=\/)/, '');
+    return /^\/api\/thumbnails\/[a-f0-9]{40}\.webp$/.test(path) ? 'https://panel.xiangshu.me' + path : '';
+  }
   function urlKey(value) {
     try {
       const url = new URL(value);
@@ -47,5 +51,5 @@
       && urlKey(check.nodeUrl) === urlKey(row.baseUrl) && urlKey(check.url) === urlKey(row.url));
     return matches.length === 1 ? matches[0] : null;
   }
-  return { FRESH_MS, urlKey, lamp, rows, remoteCheck };
+  return { FRESH_MS, urlKey, lamp, rows, remoteCheck, thumbnailUrl };
 });
