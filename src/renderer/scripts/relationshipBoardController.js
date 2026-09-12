@@ -1073,6 +1073,7 @@
         style: this._boardView().layout === 'free' ? 'compact' : this._boardView().layout,
         projectGroupIncludesEndpoints: this._boardView().projectGroupIncludesEndpoints,
         preserveGroupContents: true,
+        compactEndpoints: this._boardView().layout !== 'lanes',
         viewportAspectRatio: canvas?.clientWidth / canvas?.clientHeight || 1.6
       };
       const groupTitleScreenHeight = Math.max(GROUP_TITLE_SPACE, options.groupTitleFontSize + 20);
@@ -3169,7 +3170,7 @@
       button.classList.toggle('is-active', enabled);
       button.title = !groups.length ? '当前白板没有可排列的未锁定群组'
         : galaxyProjects ? `重新排列全部 ${groups.filter(group => this._isProjectGroup(group.entityId)).length} 个 Project，容器适应内容；可撤销`
-        : enabled ? '关闭全部群组自动排列，保留当前位置和尺寸；可撤销'
+        : enabled ? '重新排列全部群组和关联访问点；可撤销'
           : `开启全部 ${groups.length} 个未锁定群组自动排列，容器适应内容，间距跟随显示设置；可撤销`;
     }
 
@@ -3183,7 +3184,7 @@
         this._setCanvasAnnouncement('已重新排列全部 Project 与访问点');
         return;
       }
-      this._setGroupLayouts(groups, !groups.every(group => group.groupLayout === 'auto'), true);
+      this._setGroupLayouts(groups, true, true);
     }
 
     _setGroupLayouts(groups, enabled, arrangeBoard = false) {

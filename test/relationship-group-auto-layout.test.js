@@ -54,12 +54,12 @@ test('全部自动排列处理混合状态与隐藏群组，一次撤销，不�
   assert.deepEqual(c.store, original);
 });
 
-test('一键关闭自动排列固定屏幕位置与尺寸，保存重开不跳回旧坐标', () => {
+test('重复点击全部自动排列仍然整理，保存重开不跳回旧坐标', () => {
   const c = fixture();
   c._toggleAllGroupLayouts();
   const before = c._displayGeometryMap(c._combinedPlacements());
   c._toggleAllGroupLayouts();
-  assert.ok(c._autoLayoutGroups().every(group => group.groupLayout === 'manual'));
+  assert.ok(c._autoLayoutGroups().every(group => group.groupLayout === 'auto'));
   c.store = structuredClone(c.store);
   const after = c._displayGeometryMap(c._combinedPlacements());
   for (const [id, rect] of before) for (const key of ['x', 'y', 'width', 'height']) assert.equal(after.get(id)[key], rect[key], `${id}.${key}`);

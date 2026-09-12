@@ -815,11 +815,55 @@
     const units = (children.get('') || []).map(item => build(item));
     // Locked groups and descendants stay fixed, including their container bounds.
     const fixed = units.filter(unit => unit.members.some(item => item.locked));
-    const movable = units.filter(unit => !unit.members.some(item => item.locked));
+    // Root access points are satellites of their deployments, not another
+    // global tree column whose width is dictated by the largest Project.
+    const endpointOwners = new Map();
+    for (const edge of graph.relationships) {
+      const endpointId = edge.type === 'exposes' ? edge.targetId : edge.type === 'exposed_by' ? edge.sourceId : '';
+      const deploymentId = edge.type === 'exposes' ? edge.sourceId : edge.type === 'exposed_by' ? edge.targetId : '';
+      if (types.get(endpointId) !== 'endpoint' || types.get(deploymentId) !== 'deployment' || !byId.has(deploymentId)) continue;
+      if (!endpointOwners.has(endpointId)) endpointOwners.set(endpointId, new Set());
+      endpointOwners.get(endpointId).add(deploymentId);
+    }
+    const satellites = units.filter(unit => options.compactEndpoints === true && types.get(unit.entityId) === 'endpoint'
+      && endpointOwners.has(unit.entityId) && !unit.members.some(item => item.locked));
+    const satelliteIds = new Set(satellites.map(unit => unit.entityId));
+    const movable = units.filter(unit => !unit.members.some(item => item.locked) && !satelliteIds.has(unit.entityId));
     arrange(movable, style);
     if (fixed.length && movable.length) {
       const dx = Math.max(...fixed.map(unit => unit.x + unit.width)) + layout.horizontalSpacing - Math.min(...movable.map(unit => unit.x));
       for (const unit of movable) shift(unit, dx, 0);
+    }
+    const occupied = units.filter(unit => !satelliteIds.has(unit.entityId)).map(unit => {
+      const title = types.get(unit.entityId) === 'group' ? Math.max(0, Number(options.groupTitleSpace) || 0) : 0;
+      return { x: unit.x, y: unit.y - title, width: unit.width, height: unit.height + title };
+    });
+    for (const unit of satellites.sort((a, b) => a.entityId.localeCompare(b.entityId))) {
+      const owners = [...endpointOwners.get(unit.entityId)].map(id => byId.get(id));
+      const centers = owners.map(item => ({ x: item.x + (Number(item.width) || layout.width) / 2,
+        y: item.y + (Number(item.height) || layout.height) / 2 }));
+      const center = { x: centers.reduce((sum, p) => sum + p.x, 0) / centers.length,
+        y: centers.reduce((sum, p) => sum + p.y, 0) / centers.length };
+      const gapX = layout.horizontalSpacing, gapY = layout.verticalSpacing;
+      const candidates = [];
+      for (let ring = 1; ring <= occupied.length + 2; ring++) {
+        for (let step = -ring; step <= ring; step++) {
+          for (const [dx, dy] of [[ring, step], [-ring, step], [step, ring], [step, -ring]]) {
+            const candidate = { x: center.x - unit.width / 2 + dx * (unit.width + gapX),
+              y: center.y - unit.height / 2 + dy * (unit.height + gapY) };
+            if (occupied.some(rect => candidate.x < rect.x + rect.width + gapX / 2
+              && candidate.x + unit.width + gapX / 2 > rect.x
+              && candidate.y < rect.y + rect.height + gapY / 2
+              && candidate.y + unit.height + gapY / 2 > rect.y)) continue;
+            candidates.push({ ...candidate, cost: centers.reduce((sum, p) => sum
+              + Math.hypot(candidate.x + unit.width / 2 - p.x, candidate.y + unit.height / 2 - p.y), 0) });
+          }
+        }
+        if (candidates.length) break;
+      }
+      const best = candidates.sort((a, b) => a.cost - b.cost || a.x - b.x || a.y - b.y)[0];
+      if (best) shift(unit, best.x - unit.x, best.y - unit.y);
+      occupied.push({ x: unit.x, y: unit.y, width: unit.width, height: unit.height });
     }
     for (const item of graph.placements) { item.x = Math.round(item.x); item.y = Math.round(item.y); }
     return graph;
