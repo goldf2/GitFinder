@@ -1275,6 +1275,7 @@
       const view = this._boardView();
       const layouts = [
         ['free', '自由摆放', '保持手工位置', 'M7 7H12V12H7ZM20 20H25V25H20Z'],
+        ['project-columns', 'Project 纵向列表', '每台主机一列，Project 按名称纵向排列', 'M4 3H14V8H4ZM4 12H14V19H4ZM4 23H14V30H4ZM20 3H30V8H20ZM20 12H30V19H20Z'],
         ['right', '向右树状', '从左向右展开现有关系', 'M5 16H14M14 6V26M14 6H26M14 16H26M14 26H26'],
         ['down', '向下树状', '从上向下展开现有关系', 'M16 4V13M5 13H27M5 13V26M16 13V26M27 13V26'],
         ['bilateral', '左右分叉', '现有分支向两侧展开', 'M16 16H23M23 7V25M23 7H29M23 25H29M16 16H9M9 7V25M9 7H3M9 25H3'],

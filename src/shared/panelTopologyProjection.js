@@ -778,6 +778,30 @@
         const ordered = orderByTopologyAndPosition(targets, links);
         const positions = packRegions(ordered, layout.viewportAspectRatio, Math.max(layout.horizontalSpacing, layout.verticalSpacing));
         ordered.forEach((item, i) => Object.assign(item, positions[i]));
+      } else if (currentStyle === 'project-columns') {
+        const names = new Map(graph.entities.map(entity => [entity.id, entity.name || entity.id]));
+        const compare = (a, b) => names.get(a.entityId).localeCompare(names.get(b.entityId), 'zh-CN', { numeric: true })
+          || a.entityId.localeCompare(b.entityId);
+        const hosts = targets.filter(item => types.get(item.entityId) === 'server').sort(compare);
+        const assigned = new Set();
+        let x = 80;
+        for (const host of [...hosts, null]) {
+          const related = new Set(host ? links.filter(link => link.sourceId === host.entityId).map(link => link.targetId) : []);
+          const column = targets.filter(item => types.get(item.entityId) !== 'server' && !assigned.has(item.entityId)
+            && (!host || related.has(item.entityId))).sort(compare);
+          if (host) column.unshift(host);
+          if (!column.length) continue;
+          const width = Math.max(...column.map(item => item.width));
+          let y = 80;
+          for (const item of column) {
+            item.x = x + (width - item.width) / 2;
+            item.y = y;
+            y += item.height + layout.verticalSpacing;
+            assigned.add(item.entityId);
+          }
+          // Leave room beside each host column for its endpoint satellites.
+          x += width + layout.width + layout.horizontalSpacing * 2;
+        }
       } else if (currentStyle === 'lanes') {
         let x = 80;
         for (const type of ['group', 'project', 'repository', 'deployment', 'server', 'endpoint', 'text', 'image', 'attachment']) {
@@ -796,7 +820,7 @@
       const nested = (children.get(item.entityId) || []).map(child => build(child, new Set([...ancestors, item.entityId])));
       if (!nested.length) return { ...unit, width: item.groupWidth || unit.width, height: item.groupHeight || unit.height };
       if (!options.preserveGroupContents && item.groupLayout === 'auto' && !item.locked && !nested.some(child => child.members.some(p => p.locked))) {
-        arrange(nested, ['bilateral', 'radial'].includes(style) ? 'right' : style);
+        arrange(nested, ['bilateral', 'radial', 'project-columns'].includes(style) ? 'right' : style);
       }
       unit.x = Math.min(...nested.map(child => child.x)) - 28;
       unit.y = Math.min(...nested.map(child => child.y)) - 54;
