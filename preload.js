@@ -157,6 +157,7 @@ contextBridge.exposeInMainWorld('gitFinder', {
     disconnect: (providerId) => ipcRenderer.invoke('panel:disconnect', providerId),
     getCatalog: (providerId) => ipcRenderer.invoke('panel:getCatalog', providerId),
     getCachedTopology: () => ipcRenderer.invoke('panel:getCachedTopology'),
+    getRemoteObservations: () => ipcRenderer.invoke('panel:getRemoteObservations'),
     getSyncLog: () => ipcRenderer.invoke('panel:getSyncLog'),
     openSyncLog: () => ipcRenderer.invoke('panel:openSyncLog'),
     refreshTopology: (options = {}) => ipcRenderer.invoke('panel:refreshTopology', options),

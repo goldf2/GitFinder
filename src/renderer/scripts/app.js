@@ -4349,28 +4349,11 @@ const App = {
   },
 
   openXiangshuPanel() {
-    const frame = document.getElementById('xiangshu-panel-frame');
-    if (!frame || frame.getAttribute('src')) return;
-    const url = 'https://panel.xiangshu.me/';
-    const status = document.getElementById('xiangshu-panel-status');
-    const load = () => {
-      status.textContent = '正在打开网页…';
-      frame.src = url;
-    };
-    frame.addEventListener('load', () => {
-      // 跨域 iframe 的 load 事件不代表面板内部数据同步成功。
-      status.textContent = '页面异常时可重新加载或在浏览器打开';
-    });
-    frame.addEventListener('error', () => {
-      status.textContent = '网页加载失败，请重试或在浏览器打开';
-    });
-    document.getElementById('xiangshu-panel-reload').addEventListener('click', load);
-    document.getElementById('xiangshu-panel-external').addEventListener('click', () => {
-      window.gitFinder.panel.openExternal(url).catch(() => {
-        status.textContent = '无法打开浏览器，请手动访问 panel.xiangshu.me';
-      });
-    });
-    load();
+    if (!this.nativePanelController) this.nativePanelController = new window.NativePanelController(
+      document.getElementById('xiangshu-panel-view'), window.gitFinder.panel,
+      () => this.openSettingsPage()
+    );
+    this.nativePanelController.open();
   },
 
   async renderContent() {
@@ -4382,6 +4365,7 @@ const App = {
     const contentArea = document.getElementById('content-area');
     const emptyState = document.getElementById('empty-state');
     if (AppState.currentMode !== 'relationships') this.relationshipBoardController?.close();
+    if (AppState.currentMode !== 'panel') this.nativePanelController?.close();
     const panelView = document.getElementById('xiangshu-panel-view');
     if (panelView) panelView.hidden = AppState.currentMode !== 'panel';
     const treeStyle = this.isFileBrowsingContext() && !this.isGlobalSearchActive()
@@ -7886,7 +7870,7 @@ const App = {
       rightText = '本机偏好 · 不写入项目配置';
     } else if (AppState.currentMode === 'panel') {
       leftText = '象数面板';
-      rightText = 'panel.xiangshu.me · 网站独立视图';
+      rightText = '本地面板 · 部署 / 本机 / 远端独立状态';
     } else if (AppState.currentMode === 'relationships') {
       const summary = AppState.relationshipSummary;
       leftText = summary ? `关系白板：${summary.boardName}` : '关系白板';

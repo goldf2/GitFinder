@@ -3,6 +3,8 @@ const { registerTrustedHandler } = require('./security');
 const localProjectService = require('../services/localProjectService');
 const configService = require('../services/configService');
 const { CoolifyProviderService } = require('../services/coolifyProviderService');
+const { RemotePanelObservationService } = require('../services/remotePanelObservationService');
+let remoteObservations = null;
 
 let defaultService = null;
 
@@ -69,6 +71,10 @@ function registerPanelIPC(options = {}) {
   registerTrustedHandler('panel:disconnect', async (event, providerId = '') => service.disconnect(providerId));
   registerTrustedHandler('panel:getCatalog', async (event, providerId = '') => service.getCatalog(providerId));
   registerTrustedHandler('panel:getCachedTopology', async () => service.getCachedTopology());
+  registerTrustedHandler('panel:getRemoteObservations', async () => {
+    if (!remoteObservations) remoteObservations = new RemotePanelObservationService();
+    return remoteObservations.get();
+  });
   registerTrustedHandler('panel:getSyncLog', async () => {
     if (typeof service.getSyncLog !== 'function') return { state: 'unavailable', runs: [], path: '' };
     return service.getSyncLog();
