@@ -1,5 +1,11 @@
 # GitFinder 2 当前状态
 
+## 2026-09-13 · alpha.159 主机仅容器显示（已安装验收）
+
+- 服务器项目树移除单独的主机卡片，主机只作为包裹 Project/未分类部署的只读容器显示；空主机也保留最小容器。
+- 容器标题去掉主机图标，显示主机名与成员摘要，并可点击打开主机显示设置；容器边界随成员移动刷新。
+- 1161 项测试、270 个 JS 语法检查和 renderer 构建通过；alpha.159 已打包并替换启动台，重启后 AX/截图确认无服务器机架卡片、con01/AL02/AL03 容器可见。详见 [HOST_CONTAINER_ONLY_ALPHA159.md](HOST_CONTAINER_ONLY_ALPHA159.md)。
+
 ## 2026-09-13 · alpha.158 主机 Project 气泡关系（已安装验收）
 
 - 主机与 Project 改为只读气泡包裹，移除主机到 Project 的长摘要线；部署与访问点关系保持。1160 项测试通过，alpha.158 已替换启动台并完成缓存恢复后的可见验收，准备推送。详见 [HOST_PROJECT_BUBBLE_ALPHA158.md](HOST_PROJECT_BUBBLE_ALPHA158.md)。
