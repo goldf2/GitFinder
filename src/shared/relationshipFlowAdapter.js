@@ -72,48 +72,74 @@
       && isProjectGroup(entities.get(edge.targetId));
   }
 
-  function addHostBubbleNodes(nodes, relationships, entities) {
+  function hostBubbleBounds(nodes, memberIds, fallback = { x: 0, y: 0 }) {
     const absolute = absolutePositions(nodes);
     const byId = new Map(nodes.map(node => [node.id, node]));
-    const projectsByHost = new Map();
+    const rects = memberIds.map(id => {
+      const node = byId.get(id), position = absolute.get(id);
+      if (!node || !position) return null;
+      const size = nodeDimensions(node);
+      return { x: position.x, y: position.y, width: size.width, height: size.height };
+    }).filter(Boolean);
+    if (!rects.length) return { x: fallback.x - 72, y: fallback.y - 88, width: 424, height: 220 };
+    const left = Math.min(...rects.map(rect => rect.x)) - 72;
+    const top = Math.min(...rects.map(rect => rect.y)) - 88;
+    const right = Math.max(...rects.map(rect => rect.x + rect.width)) + 72;
+    const bottom = Math.max(...rects.map(rect => rect.y + rect.height)) + 64;
+    return { x: left, y: top, width: right - left, height: bottom - top };
+  }
+
+  function addHostBubbleNodes(nodes, relationships, entities, allHosts = false) {
+    const byId = new Map(nodes.map(node => [node.id, node]));
+    const membersByHost = new Map();
+    if (allHosts) for (const node of nodes) {
+      if (entities.get(node.id)?.type === 'server') membersByHost.set(node.id, new Set());
+    }
     for (const edge of relationships) {
-      if (!isHostProjectSummary(edge, entities) || !byId.has(edge.targetId)) continue;
-      if (!projectsByHost.has(edge.sourceId)) projectsByHost.set(edge.sourceId, []);
-      projectsByHost.get(edge.sourceId).push(edge.targetId);
+      const target = entities.get(edge.targetId);
+      const hostSummary = isHostProjectSummary(edge, entities)
+        || (allHosts && edge.visualOnly === true && target?.type === 'deployment');
+      if (!hostSummary || !byId.has(edge.targetId)) continue;
+      if (!membersByHost.has(edge.sourceId)) membersByHost.set(edge.sourceId, new Set());
+      membersByHost.get(edge.sourceId).add(edge.targetId);
     }
     const bubbles = [];
-    for (const [hostId, projectIds] of projectsByHost) {
-      const rects = projectIds.map(id => {
-        const node = byId.get(id), position = absolute.get(id);
-        if (!node || !position) return null;
-        const size = nodeDimensions(node);
-        return { x: position.x, y: position.y, width: size.width, height: size.height };
-      }).filter(Boolean);
+    for (const [hostId, memberSet] of membersByHost) {
       const host = entities.get(hostId);
-      if (!rects.length || !host) continue;
-      const left = Math.min(...rects.map(rect => rect.x)) - 72;
-      const top = Math.min(...rects.map(rect => rect.y)) - 88;
-      const right = Math.max(...rects.map(rect => rect.x + rect.width)) + 72;
-      const bottom = Math.max(...rects.map(rect => rect.y + rect.height)) + 64;
+      const hostNode = byId.get(hostId);
+      if (!host || !hostNode) continue;
+      const memberIds = [...memberSet];
+      const bounds = hostBubbleBounds(nodes, memberIds, hostNode.position);
       const id = `host-bubble:${hostId}`;
       bubbles.push({
         id,
         type: 'hostBubble',
-        position: { x: left, y: top },
+        position: { x: bounds.x, y: bounds.y },
         draggable: false,
         selectable: false,
         focusable: false,
         connectable: false,
         zIndex: -1,
-        style: { width: right - left, height: bottom - top },
+        style: { width: bounds.width, height: bounds.height },
         data: {
           entity: host,
-          projectCount: new Set(projectIds).size,
+          memberIds,
+          fallbackPosition: hostNode.position,
+          projectCount: memberIds.filter(memberId => isProjectGroup(entities.get(memberId))).length,
+          deploymentCount: memberIds.filter(memberId => entities.get(memberId)?.type === 'deployment').length,
           hostBubble: true
         }
       });
     }
     return bubbles;
+  }
+
+  function refreshHostBubbles(nodes) {
+    return nodes.map(node => {
+      if (node.type !== 'hostBubble') return node;
+      const bounds = hostBubbleBounds(nodes, node.data.memberIds || [], node.data.fallbackPosition);
+      return { ...node, position: { x: bounds.x, y: bounds.y }, style: { ...node.style, width: bounds.width, height: bounds.height } };
+    });
   }
 
   function projectAncestors(placement, placementById, entities) {
@@ -457,6 +483,9 @@
     });
     if (!options.linkedNodeIds) nodes = avoidGroupTitleCollisions(nodes, options);
     nodes = constrainProjectNodes(nodes);
+    const hostContainerOnly = options.hostContainerOnly === true;
+    const hostIds = hostContainerOnly ? new Set(nodes.filter(node => node.data?.entity?.type === 'server').map(node => node.id)) : new Set();
+    if (hostContainerOnly) nodes = nodes.filter(node => !hostIds.has(node.id));
     const visible = new Set(nodes.map(item => item.id));
     const edges = (graph.relationships || []).filter(edge => visible.has(edge.sourceId) && visible.has(edge.targetId)
       && !isHostProjectSummary(edge, entities))
@@ -484,7 +513,16 @@
           label: edge.label || ''
         };
       });
-    nodes = [...addHostBubbleNodes(nodes, graph.relationships || [], entities), ...nodes];
+    if (hostContainerOnly) {
+      // The host card is a physical-resource identity, so keep it only as the
+      // read-only container boundary. Its original placement remains untouched.
+      nodes = [...addHostBubbleNodes([...nodes, ...placements
+        .filter(item => hostIds.has(item.entityId))
+        .map(item => ({ id: item.entityId, position: { x: item.x || 0, y: item.y || 0 }, style: { width: DEFAULT_CARD.width, height: DEFAULT_CARD.height }, data: { entity: entities.get(item.entityId) } }))], graph.relationships || [], entities, true), ...nodes];
+      nodes = refreshHostBubbles(nodes);
+    } else {
+      nodes = [...addHostBubbleNodes(nodes, graph.relationships || [], entities), ...nodes];
+    }
     return rerouteFlowConnections(nodes, edges, {
       zoom: options.zoom,
       groupTitleFontSize: options.groupTitleFontSize
@@ -524,6 +562,7 @@
     statusTone,
     showsRuntimeStatus,
     constrainProjectNodes,
+    refreshHostBubbles,
     avoidGroupTitleCollisions,
     movementRoots,
     applyLinkedDrag,

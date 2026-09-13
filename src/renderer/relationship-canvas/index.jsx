@@ -300,8 +300,9 @@ const RelationshipGroup = memo(function RelationshipGroup({ id, data, selected }
 
 const HostBubble = memo(function HostBubble({ data }) {
   return <section className="gf-flow-host-bubble" aria-label={`${data.entity?.name || '主机'} Project 容器`}>
-    <div className="gf-flow-host-bubble-title"><CardIcon name="server" /><strong>{data.entity?.name || '主机'}</strong><span>{data.projectCount || 0} 个 Project</span></div>
-    <div className="gf-flow-host-bubble-hint">主机归属</div>
+    <button type="button" className="gf-flow-host-bubble-title nodrag nopan" onClick={() => data.onAction?.('resource-settings', data.entity)} title="主机显示设置">
+      <strong>{data.entity?.name || '主机'}</strong><span>{data.projectCount ? `${data.projectCount} 个 Project` : (data.deploymentCount ? `${data.deploymentCount} 个部署` : '主机容器')}</span>
+    </button>
   </section>;
 });
 
@@ -413,6 +414,7 @@ function Canvas({
           });
         }
         next = Adapter.constrainProjectNodes(next);
+        next = Adapter.refreshHostBubbles?.(next) || next;
         const routed = Adapter.rerouteFlowConnections(next, edges, { zoom: viewportZoom.current, groupTitleFontSize });
         next = routed.nodes;
         setEdges(routed.edges);

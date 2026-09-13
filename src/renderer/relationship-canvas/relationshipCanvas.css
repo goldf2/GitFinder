@@ -458,13 +458,15 @@
   color: #26384f;
   box-shadow: 0 3px 12px rgb(50 80 120 / 10%);
   font-size: 15px;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  pointer-events: auto;
 }
 
-.gf-flow-host-bubble-title svg { width: 18px; height: 18px; color: #5476a5; }
+.gf-flow-host-bubble-title:hover { border-color: rgb(84 118 165 / 52%); background: #fff; }
 .gf-flow-host-bubble-title strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .gf-flow-host-bubble-title span { color: #7b8ba2; font-size: 12px; white-space: nowrap; }
-.gf-flow-host-bubble-hint { margin: 10px 0 0 6px; color: #8192a8; font-size: 11px; }
-
 .gf-relationship-flow .react-flow__edge-path {
   stroke: #747fbd;
   stroke-width: var(--relationship-edge-width, 1.7px);

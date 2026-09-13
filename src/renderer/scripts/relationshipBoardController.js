@@ -4648,7 +4648,8 @@
         linkedNodeIds,
         undraggableIds,
         zoom: board.viewport.zoom,
-        groupTitleFontSize: display.groupTitleFontSize
+        groupTitleFontSize: display.groupTitleFontSize,
+        hostContainerOnly: this._isServerTree()
       });
       this.flowRenderOptions = {
         model,

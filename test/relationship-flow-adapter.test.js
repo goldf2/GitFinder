@@ -299,15 +299,47 @@ test('主机与 Project 使用气泡包裹，不绘制主机到 Project 的长�
       { id: 'runs-on', type: 'runs_on', sourceId: 'deployment', targetId: 'host' }
     ]
   };
-  const model = Adapter.toFlowModel(graph, { cardWidth: 280, cardHeight: 143 });
+  const model = Adapter.toFlowModel(graph, { cardWidth: 280, cardHeight: 143, hostContainerOnly: true });
   const bubble = model.nodes.find(node => node.type === 'hostBubble');
   assert.ok(bubble, '应生成主机气泡节点');
+  assert.equal(model.nodes.some(node => node.id === 'host'), false, '主机不应另有卡片');
   assert.equal(bubble.data.entity.id, 'host');
   assert.equal(bubble.data.projectCount, 1);
   assert.equal(model.edges.some(edge => edge.source === 'host' && edge.target === 'project'), false);
+  assert.equal(model.edges.some(edge => edge.target === 'host'), false, '隐藏主机卡片后不能留下悬空边');
   assert.equal(model.nodes.find(node => node.id === 'project').type, 'relationshipGroup');
   assert.equal(model.nodes.find(node => node.id === 'deployment').parentId, 'project');
   assert.equal(graph.placements.find(item => item.entityId === 'project').groupId, undefined, '气泡不改变 Project 原始归属');
+});
+
+test('只有未分类部署和空主机也有容器，拖动后边界跟随 Project', () => {
+  const graph = {
+    entities: [
+      { id: 'host', type: 'server', name: 'AL02' },
+      { id: 'empty', type: 'server', name: 'AL03' },
+      { id: 'deployment', type: 'deployment', name: 'web' }
+    ],
+    placements: [
+      { entityId: 'host', x: 40, y: 80 },
+      { entityId: 'empty', x: 700, y: 80 },
+      { entityId: 'deployment', x: 80, y: 240 }
+    ],
+    relationships: [
+      { id: 'host-deployment', type: 'tree_hierarchy', sourceId: 'host', targetId: 'deployment', visualOnly: true }
+    ]
+  };
+  const model = Adapter.toFlowModel(graph, { hostContainerOnly: true });
+  assert.equal(model.nodes.filter(node => node.type === 'hostBubble').length, 2);
+  assert.equal(model.nodes.some(node => node.data?.entity?.type === 'server' && node.type === 'relationshipCard'), false);
+  assert.equal(model.edges.length, 0);
+  const bubble = model.nodes.find(node => node.data.entity.id === 'host');
+  assert.ok(bubble.position.y < 240);
+  const movedNodes = Adapter.refreshHostBubbles(model.nodes.map(node => node.id === 'deployment'
+    ? { ...node, position: { x: 300, y: 300 } } : node), model.edges);
+  const moved = Adapter.rerouteFlowConnections(movedNodes, model.edges);
+  const nextBubble = moved.nodes.find(node => node.id === bubble.id);
+  assert.ok(nextBubble.position.x > bubble.position.x);
+  assert.deepEqual(Adapter.toPlacements(moved.nodes, graph.placements).find(item => item.entityId === 'host'), graph.placements[0]);
 });
 
 test('缩小视图不会把避障安全距放大到堵死 Project 内部通道', () => {
