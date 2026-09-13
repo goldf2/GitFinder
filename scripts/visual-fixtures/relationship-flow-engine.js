@@ -16,6 +16,7 @@ const base = {
     { entityId: 'api', x: 880, y: 480, groupId: 'project' }
   ],
   relationships: [
+    { id: 'host-project', sourceId: 'server', targetId: 'project', type: 'contains', visualOnly: true },
     { id: 'runs', sourceId: 'app', targetId: 'server', type: 'runs_on' },
     { id: 'exposes-web', sourceId: 'app', targetId: 'endpoint', type: 'exposes' },
     { id: 'exposes-api', sourceId: 'app', targetId: 'api', type: 'exposes' },
@@ -24,6 +25,7 @@ const base = {
 };
 
 let includeEndpoints = true;
+let fixedChildren = false;
 let shapeIndex = 0;
 let lastWheel = null;
 let graph = structuredClone(base);
@@ -43,7 +45,11 @@ root.addEventListener('wheel', event => {
 }, { capture: true, passive: true });
 
 const render = () => {
-  const model = window.RelationshipCanvasEngine.toFlowModel(graph);
+  const presentation = fixedChildren ? window.PanelTopologyProjection.fixedEndpointChildren(graph) : { placements: graph.placements, children: new Map() };
+  const projected = { ...graph, placements: presentation.placements.map(item => ({ ...item,
+    ...(presentation.children.has(item.entityId) ? { cardHeight: 230 } : {}) })),
+    entities: graph.entities.map(entity => ({ ...entity, endpointChildren: presentation.children.get(entity.id) || [] })) };
+  const model = window.RelationshipCanvasEngine.toFlowModel(projected, { hostContainerOnly: true, showRelationshipLines: !fixedChildren });
   canvas.update({ model, onModelChange: next => {
     graph.placements = window.RelationshipCanvasEngine.toPlacements(next.nodes, graph.placements);
     syncFixtureData();
@@ -66,6 +72,12 @@ const render = () => {
 const canvas = window.RelationshipCanvasEngine.mount(root, { model: window.RelationshipCanvasEngine.toFlowModel(graph) });
 syncFixtureData();
 render();
+canvas.fitView({ padding: 0.2 });
+
+document.querySelector('#toggle-children').addEventListener('click', () => {
+  fixedChildren = !fixedChildren;
+  render();
+});
 
 document.querySelector('#toggle-endpoint').addEventListener('click', () => {
   includeEndpoints = !includeEndpoints;

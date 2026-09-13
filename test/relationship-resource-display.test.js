@@ -105,3 +105,39 @@ test('复选菜单状态真实，当前卡片保留，部署选中时明确说�
   assert.equal(items[2].checked, true);
   assert.equal(items[3].checked, false);
 });
+
+test('不可选中的主机容器打开菜单后仍能应用显示设置', () => {
+  const c = fixture();
+  c.selectedEntityIds = new Set();
+  c.selectedEntityId = '';
+  c.contextMenuEntityId = 'entity_hostxx_a';
+  const opened = [];
+  c._openResourceSettingsMenu = entity => { opened.push(entity.id); return true; };
+  assert.equal(c._runContextAction('resource-settings'), true);
+  assert.deepEqual(opened, ['entity_hostxx_a']);
+  c.contextMenuEntityId = 'entity_hostxx_a';
+  assert.equal(c._runContextAction('resource-display-toggle:project'), true);
+  assert.ok(ids(c).includes('entity_groupxx_a'));
+  assert.ok(!ids(c).includes('entity_groupxx_b'));
+});
+
+test('主机自动排列只移动本主机 Project，保持其他主机与组内相对位置', () => {
+  const c = fixture();
+  c.panelProjection.entities.push(
+    { id: 'entity_groupxx_c', type: 'group', name: 'Project 0', details: {}, transient: true, runtime: { dynamicKind: 'coolify-project-group' } },
+    { id: 'entity_deployxx_c', type: 'deployment', name: '部署 c', details: {}, transient: true }
+  );
+  c.panelProjection.placements.push(
+    { entityId: 'entity_groupxx_c', x: 800, y: 900, dynamic: true, groupLayout: 'auto' },
+    { entityId: 'entity_deployxx_c', x: 830, y: 960, dynamic: true, groupId: 'entity_groupxx_c' }
+  );
+  c.panelProjection.relationships.push({ id: 'runs_c', type: 'runs_on', sourceId: 'entity_deployxx_c', targetId: 'entity_hostxx_a' });
+  c._saveDynamicPlacementOverrides = c._finishBoardMutation = c._setCanvasAnnouncement = () => {};
+  const before = new Map(c.panelProjection.placements.map(item => [item.entityId, { x: item.x, y: item.y }]));
+  assert.equal(c._arrangeHost('entity_hostxx_a'), true);
+  const after = new Map(c.panelProjection.placements.map(item => [item.entityId, { x: item.x, y: item.y }]));
+  assert.deepEqual(after.get('entity_groupxx_b'), before.get('entity_groupxx_b'));
+  assert.deepEqual(after.get('entity_deployxx_b'), before.get('entity_deployxx_b'));
+  assert.equal(after.get('entity_deployxx_c').x - after.get('entity_groupxx_c').x,
+    before.get('entity_deployxx_c').x - before.get('entity_groupxx_c').x);
+});

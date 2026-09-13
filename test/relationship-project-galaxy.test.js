@@ -329,7 +329,7 @@ test('正式控制器保存项目星系布局，外围访问点不撑大 Project
   const c = new Controller({ bridge: {} });
   c.store = Model.assertValidStore({ schemaVersion: 1, activeBoardId: 'board_galaxy_demo', entities: graph.entities,
     relationships: graph.relationships, boards: [{ id: 'board_galaxy_demo', name: '项目星系', placements: graph.placements,
-      viewport: { x: 0, y: 0, zoom: 1 }, view: { structure: 'server-tree', layout: 'galaxy', projectGroupIncludesEndpoints: false } }] });
+      viewport: { x: 0, y: 0, zoom: 1 }, view: { structure: 'server-tree', layout: 'galaxy', projectGroupIncludesEndpoints: false, showRelationshipLines: true } }] });
   for (const name of ['render', '_renderGraph', '_refreshHistoryButtons', '_persistSoon', '_persistDynamicLayoutsSoon', 'fitContent', '_updateSummary']) c[name] = () => {};
   c._arrangeCurrentLayout();
   const geometry = c._displayGeometryMap(c._unarchivedPlacements());
@@ -345,7 +345,7 @@ test('正式控制器切换“项目组包含访问点”后立即更新归属�
   const c = new Controller({ bridge: {} });
   c.store = Model.assertValidStore({ schemaVersion: 1, activeBoardId: 'board_galaxy_membership', entities: graph.entities,
     relationships: graph.relationships, boards: [{ id: 'board_galaxy_membership', name: '项目星系', placements: graph.placements,
-      viewport: { x: 0, y: 0, zoom: 1 }, view: { structure: 'server-tree', layout: 'galaxy', projectGroupIncludesEndpoints: false } }] });
+      viewport: { x: 0, y: 0, zoom: 1 }, view: { structure: 'server-tree', layout: 'galaxy', projectGroupIncludesEndpoints: false, showRelationshipLines: true } }] });
   for (const name of ['render', '_renderGraph', '_refreshHistoryButtons', '_persistSoon', '_persistDynamicLayoutsSoon', 'fitContent', '_updateSummary']) c[name] = () => {};
   const inside = () => {
     const geometry = c._displayGeometryMap(c._unarchivedPlacements());

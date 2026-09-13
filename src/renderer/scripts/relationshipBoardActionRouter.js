@@ -228,9 +228,14 @@
     if (data.panelCollapse) return controller._togglePanelCollapsed(data.panelCollapse);
     if (data.boardContextAction) return routeTarget.disabled ? undefined : controller._runContextAction(data.boardContextAction);
 
+    const contextEntityId = controller.contextMenuEntityId;
     const contextPoint = target.closest('.relationship-context-menu') ? controller.contextMenuPoint : null;
     controller._closeContextMenu(Boolean(contextPoint));
     const action = data.relationshipAction;
+    if (action === 'resource-settings') {
+      const entity = contextEntityId ? controller._allEntitiesById().get(contextEntityId) : null;
+      return entity ? controller._openResourceSettingsMenu(entity) : undefined;
+    }
     if (data.boardLayout) {
       controller._closeLayoutMenu(); controller._setLayout(data.boardLayout);
       controller.root?.querySelector('[data-layout-menu="layout"]')?.focus(); return;
@@ -364,6 +369,7 @@
       controller.resourcePanelVisible = false; controller._syncResourcePanelVisibility(); return;
     }
     if (action === 'project-endpoints') return controller._setProjectEndpoints(!controller._boardView().projectGroupIncludesEndpoints);
+    if (action === 'relationship-lines') return controller._setRelationshipLinesVisible(!controller._boardView().showRelationshipLines);
     if (action === 'repository-relations') {
       controller._recordMutation();
       const view = controller._boardView(); view.showRepositoryRelations = !view.showRepositoryRelations;

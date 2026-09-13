@@ -897,6 +897,26 @@
     return graph;
   }
 
+  // A shared endpoint can appear under each visible deployment without
+  // duplicating or changing the sampled resource record.
+  function fixedEndpointChildren(graph) {
+    const entities = new Map(graph.entities.map(entity => [entity.id, entity]));
+    const visible = new Set(graph.placements.filter(item => !item.archived).map(item => item.entityId));
+    const children = new Map(), attached = new Set();
+    for (const edge of graph.relationships || []) {
+      const pair = edge.type === 'exposes' ? [edge.sourceId, edge.targetId]
+        : edge.type === 'exposed_by' ? [edge.targetId, edge.sourceId] : null;
+      if (!pair || !pair.every(id => visible.has(id))) continue;
+      const [owner, endpoint] = pair;
+      if (entities.get(owner)?.type !== 'deployment' || entities.get(endpoint)?.type !== 'endpoint') continue;
+      if (!children.has(owner)) children.set(owner, []);
+      if (!children.get(owner).some(item => item.id === endpoint)) children.get(owner).push(entities.get(endpoint));
+      attached.add(endpoint);
+    }
+    for (const items of children.values()) items.sort((a, b) => a.id.localeCompare(b.id));
+    return { placements: graph.placements.filter(item => !attached.has(item.entityId)), children };
+  }
+
   function arrangeServerTree(graph, options = {}) {
     const tree = { ...serverTreeGraph(graph), entities: graph.entities };
     arrangeBoardLayout(tree, { ...options, style: options.style || options.treeLayout || 'right' });
@@ -1211,5 +1231,5 @@
     };
   }
 
-  return { stableHash, dynamicEntityId, dynamicRelationshipId, orderByTopologyAndPosition, routeRelationship, arrangeTopologyLanes, arrangeAroundCenters, groupTopologyByProjects, packRegions, serverTreeGraph, arrangeServerTree, arrangeBoardLayout, arrangeProjectGalaxies, arrangeProjectContainer, applyProjectEndpointMembership, endpointReuseAlerts, endpointHealthFields, selectEndpointCheck, buildProjection };
+  return { stableHash, dynamicEntityId, dynamicRelationshipId, orderByTopologyAndPosition, routeRelationship, arrangeTopologyLanes, arrangeAroundCenters, groupTopologyByProjects, packRegions, serverTreeGraph, fixedEndpointChildren, arrangeServerTree, arrangeBoardLayout, arrangeProjectGalaxies, arrangeProjectContainer, applyProjectEndpointMembership, endpointReuseAlerts, endpointHealthFields, selectEndpointCheck, buildProjection };
 });

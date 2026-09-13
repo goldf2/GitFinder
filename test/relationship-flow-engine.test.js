@@ -160,7 +160,7 @@ test('当前白板可调连线粗细，选中、告警和只读摘要继续保�
 
 test('Project 快捷操作复用标题栏，不创建第二条工具栏争抢顶部空间', () => {
   assert.match(source, /className="gf-flow-group-actions" role="toolbar"/);
-  assert.match(source, /data\.onAction\?\.\('select-group', entity\)/);
+  assert.match(source, /gf-flow-group-title-button nodrag nopan[^\n]*onClick=\{toggle\}/);
   assert.doesNotMatch(source, /gf-flow-group-title-button[^\n]*data\.onAction\?\.\('details', entity\)/);
   assert.doesNotMatch(source, /<NodeToolbar isVisible=\{selected\} className="gf-flow-node-toolbar" position=\{Position\.Top\} offset=\{52\}>/);
   assert.doesNotMatch(source, /className="gf-flow-node-toolbar gf-flow-group-action-toolbar"/);

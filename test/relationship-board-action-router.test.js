@@ -48,6 +48,18 @@ test('运行拓扑范围加入白板动作映射到控制器', () => {
   assert.equal(typeof Controller.prototype._toggleResourceExpansion, 'function');
 });
 
+test('运行拓扑菜单可以切换关系连线显示', () => {
+  const controller = new Controller({ bridge: {} });
+  controller.store = { activeBoardId: 'board_lines', entities: [], relationships: [], boards: [{ id: 'board_lines', placements: [], view: RelationshipGraphModel.defaultBoardView() }] };
+  controller.render = () => {};
+  controller._setCanvasAnnouncement = () => {};
+  controller._persistSoon = () => {};
+  controller._handleClick({ target: clickTarget('relationship-lines') });
+  assert.equal(controller._boardView().showRelationshipLines, true);
+  controller._handleClick({ target: clickTarget('relationship-lines') });
+  assert.equal(controller._boardView().showRelationshipLines, false);
+});
+
 test('控制器只保留兼容入口，DOM 事件由动作路由统一分发', () => {
   for (const [suffix, method] of Object.entries({ Click: 'handleClick', Keydown: 'handleKeydown' })) {
     const handler = controllerSource.match(new RegExp(`    _handle${suffix}\\(event\\) \\{[\\s\\S]*?\\n    \\}`))?.[0] || '';
@@ -133,6 +145,21 @@ test('资源卡片提供按卡片设置显示层级的快捷入口', () => {
   assert.ok(labels.some(label => label.includes('主机（当前卡片）')));
   assert.ok(labels.some(label => label.includes('访问点')));
   assert.ok(controller._contextMenuItems('node').some(item => item?.label === '显示设置…'));
+});
+
+test('主机容器菜单的显示设置动作保留不可选容器目标', () => {
+  const controller = new Controller({ bridge: {} });
+  const calls = [];
+  controller.contextMenuEntityId = 'entity_server_host_bubble';
+  controller.contextMenuPoint = { x: 1, y: 1 };
+  controller._allEntitiesById = () => new Map([['entity_server_host_bubble', { id: 'entity_server_host_bubble', type: 'server', name: 'AL03' }]]);
+  controller._closeContextMenu = () => { controller.contextMenuEntityId = ''; };
+  controller._openResourceSettingsMenu = entity => calls.push(entity.id);
+  ActionRouter.handleClick(controller, { target: {
+    closest: selector => selector.includes('.relationship-context-menu') || selector.includes('[data-relationship-action]')
+      ? { dataset: { relationshipAction: 'resource-settings' } } : null
+  } });
+  assert.deepEqual(calls, ['entity_server_host_bubble']);
 });
 
 test('资源库项目/仓库设置按钮路由到架构入口', () => {

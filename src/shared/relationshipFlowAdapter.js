@@ -123,6 +123,7 @@
         style: { width: bounds.width, height: bounds.height },
         data: {
           entity: host,
+          placement: { ...(hostNode.data?.placement || {}), entityId: hostId },
           memberIds,
           linkedNodeIds: [id, ...memberIds],
           fallbackPosition: hostNode.position,
@@ -439,12 +440,13 @@
   function toFlowModel(graph = {}, options = {}) {
     const entities = new Map((graph.entities || []).map(entity => [entity.id, entity]));
     const placements = (graph.placements || []).filter(item => !item.archived && entities.has(item.entityId));
-    const placementById = new Map(placements.map(item => [item.entityId, item]));
-    const geometry = new Map(placements.map(placement => {
+    const displayPlacements = placements;
+    const placementById = new Map(displayPlacements.map(item => [item.entityId, item]));
+    const geometry = new Map(displayPlacements.map(placement => {
       const entity = entities.get(placement.entityId);
       return [placement.entityId, { x: placement.x || 0, y: placement.y || 0, ...dimensions(placement, entity, options) }];
     }));
-    const placementOrder = new Map(placements.map((item, index) => [item.entityId, index]));
+    const placementOrder = new Map(displayPlacements.map((item, index) => [item.entityId, index]));
     const selectedIds = options.selectedIds instanceof Set ? options.selectedIds : new Set(options.selectedIds || []);
     const directIds = options.directIds instanceof Set ? options.directIds : new Set(options.directIds || []);
     const contextualIds = options.contextualIds instanceof Set ? options.contextualIds : new Set(options.contextualIds || []);
@@ -452,7 +454,7 @@
     const undraggableIds = options.undraggableIds instanceof Set ? options.undraggableIds : new Set(options.undraggableIds || []);
     const filterActive = options.filterActive === true;
     const visibleProjects = visibleProjectIds(graph, directIds, placementById, entities);
-    let nodes = placements.slice().sort((a, b) => depthOf(a, placementById) - depthOf(b, placementById)
+    let nodes = displayPlacements.slice().sort((a, b) => depthOf(a, placementById) - depthOf(b, placementById)
       || placementOrder.get(a.entityId) - placementOrder.get(b.entityId)).map(placement => {
       const entity = entities.get(placement.entityId);
       const parent = placement.groupId && placementById.get(placement.groupId);
@@ -519,12 +521,12 @@
       // read-only container boundary. Its original placement remains untouched.
       nodes = [...addHostBubbleNodes([...nodes, ...placements
         .filter(item => hostIds.has(item.entityId))
-        .map(item => ({ id: item.entityId, position: { x: item.x || 0, y: item.y || 0 }, style: { width: DEFAULT_CARD.width, height: DEFAULT_CARD.height }, data: { entity: entities.get(item.entityId) } }))], graph.relationships || [], entities, true), ...nodes];
+        .map(item => ({ id: item.entityId, position: { x: item.x || 0, y: item.y || 0 }, style: { width: DEFAULT_CARD.width, height: DEFAULT_CARD.height }, data: { entity: entities.get(item.entityId), placement: item } }))], graph.relationships || [], entities, true), ...nodes];
       nodes = refreshHostBubbles(nodes);
     } else {
       nodes = [...addHostBubbleNodes(nodes, graph.relationships || [], entities), ...nodes];
     }
-    return rerouteFlowConnections(nodes, edges, {
+    return rerouteFlowConnections(nodes, options.showRelationshipLines === false ? [] : edges, {
       zoom: options.zoom,
       groupTitleFontSize: options.groupTitleFontSize
     });

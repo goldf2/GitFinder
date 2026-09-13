@@ -211,6 +211,10 @@
       projection: 'facts',
       layer: 'runtime',
       showTopology: true,
+      // The canvas starts with independent resource cards. Relationship lines
+      // remain opt-in because sampled access points should not depend on a
+      // long, zoom-sensitive edge to stay discoverable.
+      showRelationshipLines: false,
       showArchitecture: false,
       architectureSnapshotId: '',
       topologyScopeMode: 'board',
@@ -287,6 +291,8 @@
     const showTopology = typeof view.showTopology === 'boolean'
       ? view.showTopology
       : rawLayer !== 'architecture';
+    const showRelationshipLines = typeof view.showRelationshipLines === 'boolean'
+      ? view.showRelationshipLines : false;
     const showArchitecture = typeof view.showArchitecture === 'boolean'
       ? view.showArchitecture
       : rawLayer === 'architecture' || rawLayer === 'merged';
@@ -334,6 +340,7 @@
     if (view.treeLayout != null && !['right', 'down', 'bilateral', 'radial'].includes(view.treeLayout)) issues.push(`${pathPrefix}.treeLayout 无效`);
     if (strict && view.projectGroupIncludesEndpoints != null && typeof view.projectGroupIncludesEndpoints !== 'boolean') issues.push(`${pathPrefix}.projectGroupIncludesEndpoints 必须是布尔值`);
     if (strict && view.showTopology != null && typeof view.showTopology !== 'boolean') issues.push(`${pathPrefix}.showTopology 必须是布尔值`);
+    if (strict && view.showRelationshipLines != null && typeof view.showRelationshipLines !== 'boolean') issues.push(`${pathPrefix}.showRelationshipLines 必须是布尔值`);
     if (strict && view.showArchitecture != null && typeof view.showArchitecture !== 'boolean') issues.push(`${pathPrefix}.showArchitecture 必须是布尔值`);
     if (!BOARD_SNAP_MODES.includes(snapMode)) issues.push(`${pathPrefix}.snapMode 无效`);
     if (!BOARD_CARD_APPEARANCES.includes(cardAppearance)) issues.push(`${pathPrefix}.cardAppearance 无效`);
@@ -364,7 +371,7 @@
     if (strict) {
       for (const key of Object.keys(view)) {
         if (['edgeZoomMode', 'maxZoom', 'titleZoomStrength', 'edgeLabelFontSize', 'memberLabelFontSize'].includes(key)) continue;
-        if (!['mode', 'projection', 'layer', 'showTopology', 'showArchitecture', 'architectureSnapshotId', 'topologyScopeMode', 'topologyScopeId', 'architectureScopeMode', 'architectureScopeId', 'architectureShowBoundaries', 'structure', 'layout', 'topologyLayout', 'treeLayout', 'projectGroupIncludesEndpoints', 'showRepositoryRelations', 'snapMode', 'cardScale', 'cardWidth', 'cardHeight', 'textScale', 'groupTitleFontSize', 'edgeWidth', 'horizontalSpacing', 'verticalSpacing', 'cardAppearance', 'showGrid', 'showEdgeLabels', 'cardTitleSource', 'deploymentTitleSource', 'endpointTitleSource', 'cardIcons', 'projectGroupShape', 'showRuntimeStatus', 'unmatchedDisplay', 'filterContextOpacity', 'filterMutedOpacity', 'filterMutedSaturation', 'filterContextEdgeOpacity', 'filterMutedEdgeOpacity', 'filterMatchHaloOpacity', 'statusTintOpacity', 'query', 'entityType', 'entityTypes', 'environment', 'verification', 'annotation', 'task', 'taskFilters', 'runtimeStates', 'label'].includes(key)) {
+        if (!['mode', 'projection', 'layer', 'showTopology', 'showRelationshipLines', 'showArchitecture', 'architectureSnapshotId', 'topologyScopeMode', 'topologyScopeId', 'architectureScopeMode', 'architectureScopeId', 'architectureShowBoundaries', 'structure', 'layout', 'topologyLayout', 'treeLayout', 'projectGroupIncludesEndpoints', 'showRepositoryRelations', 'snapMode', 'cardScale', 'cardWidth', 'cardHeight', 'textScale', 'groupTitleFontSize', 'edgeWidth', 'horizontalSpacing', 'verticalSpacing', 'cardAppearance', 'showGrid', 'showEdgeLabels', 'cardTitleSource', 'deploymentTitleSource', 'endpointTitleSource', 'cardIcons', 'projectGroupShape', 'showRuntimeStatus', 'unmatchedDisplay', 'filterContextOpacity', 'filterMutedOpacity', 'filterMutedSaturation', 'filterContextEdgeOpacity', 'filterMutedEdgeOpacity', 'filterMatchHaloOpacity', 'statusTintOpacity', 'query', 'entityType', 'entityTypes', 'environment', 'verification', 'annotation', 'task', 'taskFilters', 'runtimeStates', 'label'].includes(key)) {
           issues.push(`${pathPrefix}.${key} 不是允许的字段`);
         }
       }
@@ -374,6 +381,7 @@
       projection: BOARD_PROJECTIONS.includes(projection) ? projection : 'facts',
       layer: BOARD_LAYERS.includes(layer) ? layer : 'runtime',
       showTopology,
+      showRelationshipLines,
       showArchitecture,
       architectureSnapshotId: /^[a-f0-9]{16}$/i.test(String(view.architectureSnapshotId || '')) ? String(view.architectureSnapshotId).toLowerCase() : '',
       topologyScopeMode: TOPOLOGY_SCOPE_MODES.includes(topologyScopeMode) ? topologyScopeMode : 'board',

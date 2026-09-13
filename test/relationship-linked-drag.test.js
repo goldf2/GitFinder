@@ -19,7 +19,7 @@ function fixture(structure = 'server-tree') {
       ['exposes', 'deploy', 'exclusiveEndpoint'],
       ['source_of', 'repository', 'deploy'], ['deployed_from', 'otherdeploy', 'repository']]
       .map(([type, source, target], i) => ({ id: `relationship_link_000${i}`, type, sourceId: id(source), targetId: id(target), source: 'manual' })),
-    boards: [{ id: 'board_linked_drag', name: '联动测试', view: { structure, layout: 'free', snapMode: 'off' },
+    boards: [{ id: 'board_linked_drag', name: '联动测试', view: { structure, layout: 'free', snapMode: 'off', showRelationshipLines: true },
       viewport: { x: 0, y: 0, zoom: 1 }, placements: Object.keys(types).map((name, i) => ({
         entityId: id(name), x: i * 450, y: i * 260,
         ...(['deploy', 'sibling', 'otherdeploy', 'nested'].includes(name) ? { groupId: id('project') } : {}),

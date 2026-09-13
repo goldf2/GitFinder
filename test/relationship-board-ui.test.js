@@ -76,12 +76,16 @@ test('服务器树汇总关系进入新引擎时明确标记为只读显示线',
   assert.equal(flow.relationships.find(edge => edge.id === 'summary').visualOnly, true);
 });
 
-test('主机容器的更多按钮打开节点快捷菜单，显示设置入口保持独立', () => {
+test('主机容器与 Project 容器使用统一快捷工具条', () => {
   const hostBubble = flowCanvasSource.split('const HostBubble = ')[1]?.split('const NODE_TYPES = ')[0] || '';
-  assert.match(hostBubble, /gf-flow-host-bubble-more nodrag nopan/);
-  assert.match(hostBubble, /data\.onAction\?\.\('context-node', data\.entity, \{ clientX: event\.clientX, clientY: event\.clientY \}\)/);
-  assert.match(hostBubble, /data\.onAction\?\.\('resource-settings', data\.entity\)/);
-  assert.match(flowCanvasSource, /onNodeContextMenu=\{\(event, node\) => \{[\s\S]*?'context-node'/);
+  const header = flowCanvasSource.split('function ContainerHeader(')[1].split('const RelationshipGroup =')[0];
+  assert.match(hostBubble, /<ContainerHeader id=\{id\} data=\{data\} host/);
+  assert.match(flowCanvasSource, /<ContainerHeader id=\{id\} data=\{data\} selected/);
+  assert.match(header, /position=\{Position.Top\} align="start"/);
+  assert.match(header, /action="resource-settings"/);
+  assert.match(header, /host \? 'arrange-host' : 'arrange-group'/);
+  assert.match(header, /action="toggle-descendants"/);
+  assert.match(header, /zIndex: isOpen \? 1000 : 10/);
 });
 
 test('连续拖动和选择只更新交互状态，不重算摘要或重绘资源库', (t) => {
@@ -1326,7 +1330,7 @@ test('按类别分列会排列当前白板的本地与动态资源并保持关�
       id: 'board_lanes001',
       name: '类别分列',
       viewport: { x: 0, y: 0, zoom: 1 },
-      view: RelationshipGraphModel.defaultBoardView(),
+      view: { ...RelationshipGraphModel.defaultBoardView(), showRelationshipLines: true },
       placements: ['entity_project01', 'entity_repo0001', 'entity_deploy01', 'entity_server01', 'entity_endpoint1']
         .map(entityId => ({ entityId, x: 0, y: 0 }))
     }]
@@ -2529,6 +2533,26 @@ test('自由摆放下服务器树结构在同一白板切换，保留坐标且�
   assert.equal(controller._boardView().showRepositoryRelations, false);
   controller._restoreHistorySnapshot(controller.undoStack.at(-1));
   assert.equal(controller._boardView().showRepositoryRelations, true);
+});
+
+test('关系连线可独立关闭并将访问点切换为固定节点模式', () => {
+  const { controller } = keyboardPanFixture();
+  const board = controller.store.boards[0];
+  controller.render = () => {};
+  controller._setCanvasAnnouncement = () => {};
+  controller._persistSoon = () => {};
+  assert.equal(controller._boardView().showRelationshipLines, false);
+  assert.equal(controller._setRelationshipLinesVisible(true), true);
+  assert.equal(board.view.showRelationshipLines, true);
+  assert.equal(controller._setRelationshipLinesVisible(false), true);
+  assert.equal(board.view.showRelationshipLines, false);
+});
+
+test('运行拓扑菜单说明访问点固定于所属部署', () => {
+  const source = controllerSource;
+  assert.match(source, /data-relationship-action="relationship-lines"/);
+  assert.match(source, /访问点固定在所属部署内/);
+  assert.match(source, /PanelTopologyProjection.fixedEndpointChildren/);
 });
 
 test('单个容器可从快捷工具条覆盖形状和显示样式，多边形自动保持等宽高', () => {

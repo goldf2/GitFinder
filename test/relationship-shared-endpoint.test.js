@@ -43,7 +43,7 @@ test('旧白板中的共享访问点自动脱离容器，保留红线与警报�
   c.store = Model.assertValidStore({ schemaVersion: 1, activeBoardId: 'board_shared_endpoint',
     entities: graph.entities, relationships: graph.relationships,
     boards: [{ id: 'board_shared_endpoint', name: '共享访问点', placements: graph.placements,
-      viewport: { x: 0, y: 0, zoom: 1 }, view: { structure: 'server-tree', layout: 'free' } }] });
+      viewport: { x: 0, y: 0, zoom: 1 }, view: { structure: 'server-tree', layout: 'free', showRelationshipLines: true } }] });
   const placements = c._combinedPlacements(), endpoint = placements.find(p => p.entityId === 'entity_shared_endpoint');
   const group = placements.find(p => p.groupWidth);
   assert.equal(endpoint.groupId, undefined);

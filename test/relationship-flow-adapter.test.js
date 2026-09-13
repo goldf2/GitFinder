@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const Adapter = require('../src/shared/relationshipFlowAdapter');
 const ProjectGalaxyLayout = require('../src/shared/relationshipProjectGalaxyLayout');
+const Projection = require('../src/shared/panelTopologyProjection');
 
 function fixture() {
   return {
@@ -304,12 +305,58 @@ test('主机与 Project 使用气泡包裹，不绘制主机到 Project 的长�
   assert.ok(bubble, '应生成主机气泡节点');
   assert.equal(model.nodes.some(node => node.id === 'host'), false, '主机不应另有卡片');
   assert.equal(bubble.data.entity.id, 'host');
+  assert.equal(bubble.data.placement.entityId, 'host');
   assert.equal(bubble.data.projectCount, 1);
   assert.equal(model.edges.some(edge => edge.source === 'host' && edge.target === 'project'), false);
   assert.equal(model.edges.some(edge => edge.target === 'host'), false, '隐藏主机卡片后不能留下悬空边');
   assert.equal(model.nodes.find(node => node.id === 'project').type, 'relationshipGroup');
   assert.equal(model.nodes.find(node => node.id === 'deployment').parentId, 'project');
   assert.equal(graph.placements.find(item => item.entityId === 'project').groupId, undefined, '气泡不改变 Project 原始归属');
+});
+
+test('无连线时访问点固定为部署内容，旧的远端位置不撑大画布且事实不变', () => {
+  const graph = {
+    entities: [
+      { id: 'project', type: 'group', name: '商城', runtime: { dynamicKind: 'coolify-project-group' } },
+      { id: 'deployment', type: 'deployment', name: 'web' },
+      { id: 'endpoint', type: 'endpoint', name: 'shop.example.com' }
+    ],
+    placements: [
+      { entityId: 'project', x: 100, y: 100, groupWidth: 520, groupHeight: 300 },
+      { entityId: 'deployment', x: 180, y: 180, groupId: 'project' },
+      { entityId: 'endpoint', x: 760, y: 180, groupId: 'project' }
+    ],
+    relationships: [{ id: 'exposes', type: 'exposes', sourceId: 'deployment', targetId: 'endpoint' }]
+  };
+  const before = structuredClone(graph);
+  const presentation = Projection.fixedEndpointChildren(graph);
+  const model = Adapter.toFlowModel({ ...graph, placements: presentation.placements,
+    entities: graph.entities.map(entity => ({ ...entity, endpointChildren: presentation.children.get(entity.id) || [] })) }, {
+    cardWidth: 280,
+    cardHeight: 143,
+    showRelationshipLines: false
+  });
+  const endpoint = model.nodes.find(node => node.id === 'endpoint');
+  assert.equal(endpoint, undefined);
+  const deployment = model.nodes.find(node => node.id === 'deployment');
+  assert.equal(deployment.data.entity.endpointChildren[0].id, 'endpoint');
+  deployment.position.x += 100;
+  assert.equal(deployment.data.entity.endpointChildren[0].id, 'endpoint', '子内容随父卡片渲染，无独立世界坐标');
+  assert.equal(model.edges.length, 0);
+  assert.deepEqual(graph, before, '显示投影不应改写事实或原始归属');
+});
+
+test('共享访问点在各可见部署内复用，孤立或筛选后无父级的访问点仍显示', () => {
+  const graph = fixture();
+  graph.entities.push({ id: 'other', type: 'deployment', name: '备用部署' });
+  graph.placements.push({ entityId: 'other', x: 0, y: 0 });
+  graph.relationships.push({ type: 'exposed_by', sourceId: 'endpoint', targetId: 'other' });
+  const result = Projection.fixedEndpointChildren(graph);
+  assert.equal(result.children.get('deployment')[0].id, 'endpoint');
+  assert.equal(result.children.get('other')[0].id, 'endpoint');
+  const filtered = Projection.fixedEndpointChildren({ ...graph, placements: graph.placements.filter(item => item.entityId === 'endpoint') });
+  assert.equal(filtered.placements.length, 1);
+  assert.equal(filtered.children.size, 0);
 });
 
 test('只有未分类部署和空主机也有容器，拖动后边界跟随 Project', () => {

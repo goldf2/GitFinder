@@ -17,6 +17,8 @@ import {
   ReactFlow,
   SelectionMode,
   useUpdateNodeInternals,
+  useNodesInitialized,
+  useReactFlow,
   useViewport
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
@@ -228,6 +230,13 @@ const RelationshipCard = memo(function RelationshipCard({ id, data, selected }) 
     </header>
     <p className="gf-flow-card-subtitle" title={subtitle}>{subtitle || '暂无详细信息'}</p>
     {deploymentMeta.length ? <div className="gf-flow-deployment-signals">{deploymentMeta.map(signal => <span key={signal}>{signal}</span>)}</div> : null}
+    {entity.endpointChildren?.length ? <div className="gf-flow-endpoint-children nodrag nopan nowheel" aria-label={`${entity.name} 访问点`}>
+      {entity.endpointChildren.map(endpoint => <div key={endpoint.id} className="gf-flow-endpoint-child">
+        <span aria-hidden="true">↗</span>
+        <button type="button" title={endpoint.runtime?.url || endpoint.name} onClick={event => { event.stopPropagation(); data.onAction?.('details', endpoint); }}>{endpoint.name}</button>
+        <ToolbarButton data={data} action="open-endpoint" entity={endpoint}>访问</ToolbarButton>
+      </div>)}
+    </div> : null}
     {showsEndpointPreview ? <iframe
       className="gf-flow-endpoint-preview nodrag nopan"
       src={endpointUrl}
@@ -248,9 +257,35 @@ const RelationshipCard = memo(function RelationshipCard({ id, data, selected }) 
   </article>;
 });
 
-const RelationshipGroup = memo(function RelationshipGroup({ id, data, selected }) {
-  const { openId } = useContext(ActionMenuContext);
+function ContainerHeader({ id, data, host = false, selected }) {
+  const { openId, setOpenId } = useContext(ActionMenuContext);
   const { zoom } = useViewport();
+  const entity = data.entity;
+  const isOpen = openId === id;
+  const physical = host || entity.runtime?.dynamicKind === 'coolify-project-group';
+  const toggle = event => { event.stopPropagation(); setOpenId(current => current === id ? null : id); };
+  return <NodeToolbar isVisible position={Position.Top} align="start" offset={4}
+    style={{ zIndex: isOpen ? 1000 : 10, '--group-title-scale': Math.pow(Math.min(1, Math.max(0.03, zoom)), data.titleZoomStrength ?? 0.5), '--group-title-max-width': `${Math.max(72, Math.min(280, Number(data.placement?.groupWidth || 640) * zoom))}px` }}>
+    <div className={`gf-flow-group-title-toolbar${zoom < 0.6 ? ' is-overview' : ''}`}>
+      <button type="button" title={entity.name} className="gf-flow-group-title-button nodrag nopan" onPointerDown={event => event.stopPropagation()} onClick={toggle}><strong>{entity.name}</strong></button>
+      {zoom >= 0.6 || selected ? <span>{host ? `${data.projectCount || 0} 个 Project` : `${data.memberCount || 0} 个成员`}</span> : null}
+      <MoreActions id={id} entity={entity} />
+      {isOpen ? <span className="gf-flow-group-actions" role="toolbar" aria-label={`${entity.name} 快捷操作`}>
+        {physical ? <ToolbarButton data={data} action="resource-settings" entity={entity}>显示设置</ToolbarButton> : null}
+        <ToolbarButton data={data} action={host ? 'arrange-host' : 'arrange-group'} entity={entity}>自动排列</ToolbarButton>
+        <ToolbarButton data={data} action="toggle-descendants" entity={entity}
+          className={data.placement?.moveWithDescendants ? 'is-active' : ''}
+          aria-pressed={data.placement?.moveWithDescendants === true}>
+          {data.placement?.moveWithDescendants ? '解除固定' : '固定下级'}
+        </ToolbarButton>
+        <ToolbarButton data={data} action={host ? 'details' : 'edit-group'} entity={entity}>属性</ToolbarButton>
+        {!physical && !entity.transient ? <ToolbarButton data={data} action="delete-group" entity={entity} className="is-danger">解散容器</ToolbarButton> : null}
+      </span> : null}
+    </div>
+  </NodeToolbar>;
+}
+
+const RelationshipGroup = memo(function RelationshipGroup({ id, data, selected }) {
   const entity = data.entity;
   const requestedShape = data.placement.groupShape || data.placement.projectGroupShape || 'rounded';
   const shape = requestedShape === 'polygon' ? 'polygon' : 'rounded';
@@ -270,50 +305,25 @@ const RelationshipGroup = memo(function RelationshipGroup({ id, data, selected }
       lineClassName="gf-flow-resize-line"
       handleClassName="gf-flow-resize-handle"
     />
-    <NodeToolbar isVisible position={Position.Top} offset={4}
-      style={{ '--group-title-scale': Math.pow(Math.min(1, Math.max(0.03, zoom)), data.titleZoomStrength ?? 0.5), '--group-title-max-width': `${Math.max(72, Math.min(280, Number(data.placement.groupWidth || 640) * zoom))}px` }}>
-      <div className={`gf-flow-group-title-toolbar${zoom < 0.6 ? ' is-overview' : ''}`}>
-      <button type="button" title={entity.name} className="gf-flow-group-title-button nodrag nopan" onClick={() => data.onAction?.('select-group', entity)}><strong>{entity.name}</strong></button>
-      {zoom >= 0.6 || selected ? <span>{data.memberCount || 0} 个成员</span> : null}
-      <MoreActions id={id} entity={entity} />
-      {openId === id ? <span className="gf-flow-group-actions" role="toolbar" aria-label={`${entity.name} 快捷操作`}>
-        {entity.runtime?.dynamicKind === 'coolify-project-group'
-          ? <ToolbarButton data={data} action="resource-settings" entity={entity}>显示设置</ToolbarButton> : null}
-        <ToolbarButton data={data} action="arrange-group" entity={entity}>自动排列</ToolbarButton>
-        <ToolbarButton
-          data={data}
-          action="toggle-descendants"
-          entity={entity}
-          className={data.placement.moveWithDescendants ? 'is-active' : ''}
-          aria-pressed={data.placement.moveWithDescendants === true}
-          aria-label={data.placement.moveWithDescendants ? '解除固定下级' : '固定下级'}
-          title={data.placement.moveWithDescendants ? '解除固定下级' : '固定下级'}
-        >{data.placement.moveWithDescendants ? '解除固定' : '固定下级'}</ToolbarButton>
-        <ToolbarButton data={data} action="edit-group" entity={entity}>编辑</ToolbarButton>
-        {!entity.transient && entity.runtime?.dynamicKind !== 'coolify-project-group'
-          ? <ToolbarButton data={data} action="delete-group" entity={entity} className="is-danger">解散容器</ToolbarButton> : null}
-      </span> : null}
-      </div>
-    </NodeToolbar>
+    <ContainerHeader id={id} data={data} selected={selected} />
   </section>;
 });
 
-const HostBubble = memo(function HostBubble({ data }) {
+const HostBubble = memo(function HostBubble({ id, data }) {
   return <section className="gf-flow-host-bubble" aria-label={`${data.entity?.name || '主机'} Project 容器`}>
-    <div className="gf-flow-host-bubble-title">
-      <button type="button" className="gf-flow-host-bubble-name nodrag nopan" onClick={() => data.onAction?.('resource-settings', data.entity)} title="主机显示设置">
-        <strong>{data.entity?.name || '主机'}</strong><span>{data.projectCount ? `${data.projectCount} 个 Project` : (data.deploymentCount ? `${data.deploymentCount} 个部署` : '主机容器')}</span>
-      </button>
-      <button type="button" className="gf-flow-host-bubble-more nodrag nopan" aria-label={`${data.entity?.name || '主机'} 更多操作`} title="更多操作" onClick={event => {
-        event.stopPropagation();
-        data.onAction?.('context-node', data.entity, { clientX: event.clientX, clientY: event.clientY });
-      }}>⋯</button>
-    </div>
+    <ContainerHeader id={id} data={data} host />
   </section>;
 });
 
 const NODE_TYPES = { relationshipCard: RelationshipCard, relationshipGroup: RelationshipGroup, hostBubble: HostBubble };
 const EDGE_TYPES = { relationshipEdge: RelationshipEdge };
+
+function ViewportReady({ onReady }) {
+  const ready = useNodesInitialized();
+  const instance = useReactFlow();
+  useEffect(() => { if (ready) onReady?.(instance); }, [ready, instance, onReady]);
+  return null;
+}
 
 function Canvas({
   model,
@@ -343,7 +353,7 @@ function Canvas({
   const menuContext = useMemo(() => ({ openId, setOpenId }), [openId]);
   useEffect(() => {
     const closeOutside = event => {
-      if (!event.target.closest?.('.gf-flow-more, .gf-flow-node-toolbar, .gf-flow-group-actions')) setOpenId(null);
+      if (!event.target.closest?.('.gf-flow-more, .gf-flow-node-toolbar, .gf-flow-group-title-toolbar')) setOpenId(null);
     };
     const closeOnEscape = event => { if (event.key === 'Escape') setOpenId(null); };
     window.addEventListener('pointerdown', closeOutside, true);
@@ -389,7 +399,7 @@ function Canvas({
     if (node.parentId) counts.set(node.parentId, (counts.get(node.parentId) || 0) + 1);
     return counts;
   }, new Map()), [nodes]);
-  const displayedNodes = useMemo(() => nodes.map(node => node.type === 'relationshipGroup'
+  const displayedNodes = useMemo(() => nodes.map(node => ['relationshipGroup', 'hostBubble'].includes(node.type)
     ? { ...node, data: { ...node.data, titleZoomStrength, memberCount: memberCounts.get(node.id) || 0 } } : node), [nodes, memberCounts, titleZoomStrength]);
 
   const handleNodesChange = useCallback(changes => {
@@ -490,7 +500,7 @@ function Canvas({
       event.preventDefault();
       onAction?.('context-pane', null, { clientX: event.clientX, clientY: event.clientY });
     }}
-    onInit={instance => { flowInstance.current = instance; onReady?.(instance); }}
+    onInit={instance => { flowInstance.current = instance; }}
     minZoom={0.03}
     maxZoom={maxZoom}
     fitView={fitView}
@@ -513,6 +523,7 @@ function Canvas({
     proOptions={{ hideAttribution: true }}
     className="gf-relationship-flow"
   >
+    <ViewportReady onReady={onReady} />
     <Background variant={BackgroundVariant.Dots} gap={24} size={1.6} color="#cbd2df" />
     <Controls position="bottom-right" showInteractive={false} />
     <MiniMap
@@ -529,10 +540,16 @@ function mount(container, options = {}) {
   if (!(container instanceof Element)) throw new TypeError('Relationship canvas requires a DOM container');
   const root = createRoot(container);
   let instance = null;
+  let pendingViewport = null;
   let current = { ...options };
   const render = next => {
     current = { ...current, ...next };
-    root.render(<Canvas {...current} onReady={value => { instance = value; current.onReady?.(value); }} />);
+    root.render(<Canvas {...current} onReady={value => {
+      instance = value;
+      const pending = pendingViewport; pendingViewport = null;
+      pending?.();
+      current.onReady?.(value);
+    }} />);
   };
   render(current);
   return {
@@ -546,8 +563,8 @@ function mount(container, options = {}) {
         }))
       }
     }),
-    fitView: next => instance?.fitView(next),
-    setViewport: (viewport, next) => instance?.setViewport(viewport, next),
+    fitView: next => instance ? instance.fitView(next) : (pendingViewport = () => instance.fitView(next)),
+    setViewport: (viewport, next) => instance ? instance.setViewport(viewport, next) : (pendingViewport = () => instance.setViewport(viewport, next)),
     zoomTo: (zoom, next) => instance?.zoomTo(zoom, next),
     setCenter: (x, y, next) => instance?.setCenter(x, y, next),
     getViewport: () => instance?.getViewport(),

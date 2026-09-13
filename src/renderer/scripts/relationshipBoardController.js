@@ -319,6 +319,7 @@
       this.selectedEntityId = '';
       this.selectedEntityIds = new Set();
       this.selectedRelationshipId = '';
+      this.contextMenuEntityId = '';
       this.resourcePreview = null;
       this.flowCanvas = null;
       this.flowRenderOptions = null;
@@ -806,6 +807,20 @@
       return true;
     }
 
+    _setRelationshipLinesVisible(show) {
+      const board = activeBoard(this.store);
+      if (!board) return false;
+      const next = Boolean(show);
+      if (this._boardView().showRelationshipLines === next) return false;
+      this._recordMutation();
+      board.view = { ...this._boardView(), showRelationshipLines: next };
+      this.selectedRelationshipId = '';
+      this._persistSoon(0);
+      this.render();
+      this._setCanvasAnnouncement(next ? '已显示关系连线' : '已隐藏关系连线，访问点固定在所属部署内');
+      return true;
+    }
+
     async _setArchitectureVisibility(show) {
       const board = activeBoard(this.store);
       if (!board) return false;
@@ -1065,9 +1080,16 @@
 
     _isServerTree() { return Boolean(this.store && this._boardView().structure === 'server-tree'); }
 
+    _endpointPresentation(placements) {
+      if (!this.store || this._readBoardView().showRelationshipLines === true) return { placements, children: new Map() };
+      return PanelTopologyProjection.fixedEndpointChildren({ placements,
+        entities: this._combinedEntities(), relationships: this._combinedRelationships(placements) });
+    }
+
     _arrangeCurrentLayout() {
-      const placements = this._unarchivedPlacements();
-      const geometry = this._displayGeometryMap(placements);
+      const allPlacements = this._unarchivedPlacements();
+      const geometry = this._displayGeometryMap(allPlacements);
+      const placements = this._endpointPresentation(allPlacements).placements;
       const entities = this._allEntitiesById();
       const sized = placements.map(item => {
         const rect = geometry.get(item.entityId);
@@ -1304,6 +1326,8 @@
       const topologyCurrent = `${view.showTopology === false ? '已隐藏' : '显示'} · ${structures.find(([key]) => key === view.structure)?.[1] || '资源关系'}`;
       const topologyMenu = `<p>运行拓扑是白板中的一种元素来源。它可以和代码架构同时显示。具体显示层级请在选中的主机、Project 或部署卡片上打开“显示设置”。</p>
         <button type="button" role="menuitemcheckbox" aria-checked="${view.showTopology !== false}" data-board-topology-visible="${view.showTopology === false ? 'true' : 'false'}">${view.showTopology === false ? '○ 显示运行拓扑' : '✓ 显示运行拓扑'}</button>
+        <button type="button" role="menuitemcheckbox" aria-checked="${view.showRelationshipLines === true}" data-relationship-action="relationship-lines">${view.showRelationshipLines === true ? '✓ 隐藏关系连线' : '○ 显示关系连线'}</button>
+        ${view.showRelationshipLines === false ? '<small class="relationship-layout-note">访问点固定在所属部署内，随部署一起移动。</small>' : ''}
         <div class="relationship-menu-separator" role="separator"></div>
         <p>结构只影响运行拓扑中的层级和群组成员，并应用所选布局；自由摆放保留原位置。</p>
         <div class="relationship-structure-options">${structures.map(([key, label, hint]) => `<button type="button" role="menuitemradio" aria-checked="${view.structure === key}" data-board-structure="${key}"><span><b>${label}</b><small>${hint}</small></span><span aria-hidden="true">${view.structure === key ? '✓' : ''}</span></button>`).join('')}</div>
@@ -2810,13 +2834,13 @@
 
     _filterFreeView(options = {}) {
       const view = this._boardView();
-      const { mode, projection, layer, showTopology, showArchitecture, architectureSnapshotId, topologyScopeMode, topologyScopeId, architectureScopeMode, architectureScopeId, architectureShowBoundaries, snapMode, structure, layout, projectGroupIncludesEndpoints, showRepositoryRelations } = view;
+      const { mode, projection, layer, showTopology, showRelationshipLines, showArchitecture, architectureSnapshotId, topologyScopeMode, topologyScopeId, architectureScopeMode, architectureScopeId, architectureShowBoundaries, snapMode, structure, layout, projectGroupIncludesEndpoints, showRepositoryRelations } = view;
       return {
         ...Model.defaultBoardView(),
         ...this._displayViewSettings(view),
         mode,
         projection: options.projection ?? projection ?? 'facts',
-        layer, showTopology, showArchitecture, architectureSnapshotId, topologyScopeMode, topologyScopeId, architectureScopeMode, architectureScopeId, architectureShowBoundaries,
+        layer, showTopology, showRelationshipLines, showArchitecture, architectureSnapshotId, topologyScopeMode, topologyScopeId, architectureScopeMode, architectureScopeId, architectureShowBoundaries,
         snapMode, structure, layout, projectGroupIncludesEndpoints, showRepositoryRelations
       };
     }
@@ -2987,6 +3011,8 @@
         const geometry = this._displayGeometryMap(allPlacements);
         return new Map(placements.filter(item => geometry.has(item.entityId)).map(item => [item.entityId, geometry.get(item.entityId)]));
       }
+      const endpointPresentation = this._endpointPresentation(placements);
+      placements = endpointPresentation.placements;
       const entitiesById = this._allEntitiesById();
       const { width, height } = this._nodeDimensions();
       const spacing = this._displayViewSettings();
@@ -3007,7 +3033,8 @@
           continue;
         }
         let y = placement.y;
-        const cardHeight = height;
+        const childCount = endpointPresentation.children.get(placement.entityId)?.length || 0;
+        const cardHeight = height + (childCount ? Math.min(112, 24 + childCount * 28) : 0);
         for (const previous of resolved) {
           if (linkedBranch.has(placement.entityId)) break;
           if (placementsById.get(placement.groupId)?.groupLayout) break;
@@ -3043,6 +3070,11 @@
           // repository or nested item; leaving it at its stale coordinate lets
           // the freshly packed Project move on top of that item.
           const projectMembers = this._orderedLayoutItems(members, placements);
+          if (this._readBoardView().showRelationshipLines === false) {
+            // Attached endpoint lists give cards different heights. Sorting by
+            // their vertically centred y on every render would flip the row.
+            projectMembers.sort((a, b) => a.entityId.localeCompare(b.entityId));
+          }
           if (projectMembers.length) {
             const groupCopy = { ...group };
             const memberCopies = projectMembers.map(item => {
@@ -3269,6 +3301,60 @@
       this._saveDynamicPlacementOverrides([group, ...members].filter(item => item.dynamic).map(item => item.entityId));
       this._finishBoardMutation();
       this._setCanvasAnnouncement(`已按当前间距重新排列 ${members.length} 个 Project 成员`);
+      return true;
+    }
+
+    _arrangeHost(hostId) {
+      const host = this._allEntitiesById().get(hostId);
+      if (host?.type !== 'server' || !this._placementForEntity(hostId)) return false;
+      const placements = this._combinedPlacements();
+      const entities = this._allEntitiesById();
+      const hierarchy = this._resourceHierarchy([...entities.values()], this._combinedRelationships(placements));
+      const projectIds = new Set(hierarchy.projectsByServer.get(hostId) || []);
+      const deploymentIds = new Set(hierarchy.deploymentsByServer.get(hostId) || []);
+      // A host may contain ordinary local groups as well as sampled Coolify
+      // Project containers. The host toolbar only owns the latter; local
+      // project cards keep their own layout/menu semantics.
+      const units = placements.filter(item =>
+        (projectIds.has(item.entityId) && this._isProjectGroup(item.entityId))
+        || (deploymentIds.has(item.entityId) && !this._isProjectGroup(item.groupId)));
+      if (!units.length) return false;
+      const geometry = this._displayGeometryMap(placements);
+      const descendants = id => {
+        const result = [], queue = [id], seen = new Set();
+        while (queue.length) {
+          const current = queue.shift();
+          if (seen.has(current)) continue;
+          seen.add(current);
+          const item = placements.find(candidate => candidate.entityId === current);
+          if (item) result.push(item);
+          queue.push(...placements.filter(candidate => candidate.groupId === current).map(candidate => candidate.entityId));
+        }
+        return result;
+      };
+      if (units.some(unit => descendants(unit.entityId).some(item => item.locked))) {
+        this.notify('主机容器中有锁定成员，请先解锁再自动排列', 'warning');
+        return false;
+      }
+      const ordered = units.sort((left, right) => String(entities.get(left.entityId)?.name || '').localeCompare(
+        String(entities.get(right.entityId)?.name || ''), 'zh-CN', { numeric: true }) || left.entityId.localeCompare(right.entityId));
+      const bounds = ordered.map(item => geometry.get(item.entityId) || this._placementGeometry(item, placements));
+      const left = Math.min(...bounds.map(item => item.x));
+      let top = Math.min(...bounds.map(item => item.y));
+      const changed = new Set();
+      this._recordMutation();
+      ordered.forEach((unit, index) => {
+        const rect = bounds[index], dx = left - rect.x, dy = top - rect.y;
+        for (const item of descendants(unit.entityId)) {
+          item.x = Math.round(item.x + dx);
+          item.y = Math.round(item.y + dy);
+          changed.add(item.entityId);
+        }
+        top += rect.height + this._displayViewSettings().verticalSpacing;
+      });
+      this._saveDynamicPlacementOverrides([...changed]);
+      this._finishBoardMutation();
+      this._setCanvasAnnouncement(`已纵向排列 ${ordered.length} 个 ${host.name} 的 Project 与部署`);
       return true;
     }
 
@@ -3978,21 +4064,32 @@
       if (!menu || menu.hidden) return;
       menu.hidden = true;
       this.contextMenuPoint = null;
+      // Keep the invoking entity while a menu action is being routed. The
+      // action router closes the DOM menu before calling the controller; the
+      // next menu open or an outside dismissal replaces/clears this target.
+      if (!restoreFocus) this.contextMenuEntityId = '';
       if (restoreFocus) this.root.querySelector('.relationship-canvas')?.focus({ preventScroll: true });
     }
 
     _runContextAction(action) {
+      // Host bubbles are intentionally non-selectable. Keep the entity that
+      // opened the menu so a render/selection sync cannot make display actions
+      // lose their target before the user clicks them.
+      const contextEntity = this.contextMenuEntityId
+        ? this._allEntitiesById().get(this.contextMenuEntityId)
+        : null;
       this._closeContextMenu(true);
       if (String(action || '').startsWith('resource-display-toggle:')) {
-        const result = this._toggleResourceDisplayLevel(String(action).split(':')[1]);
-        const entity = [...this._entitySelectionIds()].map(id => this._allEntitiesById().get(id)).find(item => item && resourceDisplayOptions(item).length);
+        const result = this._toggleResourceDisplayLevel(String(action).split(':')[1], contextEntity);
+        const entity = [...this._entitySelectionIds()].map(id => this._allEntitiesById().get(id)).find(item => item && resourceDisplayOptions(item).length)
+          || (contextEntity && resourceDisplayOptions(contextEntity).length ? contextEntity : null);
         if (result && entity) this._openResourceSettingsMenu(entity);
         return result;
       }
-      if (action === 'resource-display-reset') return this._setResourceDisplayLevels([]);
+      if (action === 'resource-display-reset') return this._setResourceDisplayLevels([], contextEntity);
       if (String(action || '').startsWith('resource-display:')) return this._setResourceDisplayLevel(String(action).split(':')[1]);
       if (action === 'resource-settings') {
-        const entity = [...this._entitySelectionIds()].map(id => this._allEntitiesById().get(id)).find(Boolean);
+        const entity = [...this._entitySelectionIds()].map(id => this._allEntitiesById().get(id)).find(Boolean) || contextEntity;
         return entity ? this._openResourceSettingsMenu(entity) : false;
       }
       if (action === 'architecture-import') {
@@ -4032,8 +4129,9 @@
       return ({ host: '主机', project: 'Project 容器', deployment: '部署', endpoint: '访问点' })[level] || '未设置';
     }
 
-    _setResourceDisplayLevels(levels = []) {
-      const entity = [...this._entitySelectionIds()].map(id => this._allEntitiesById().get(id)).find(item => item && resourceDisplayOptions(item).length);
+    _setResourceDisplayLevels(levels = [], targetEntity = null) {
+      const entity = [...this._entitySelectionIds()].map(id => this._allEntitiesById().get(id)).find(item => item && resourceDisplayOptions(item).length)
+        || (targetEntity && resourceDisplayOptions(targetEntity).length ? targetEntity : null);
       const placement = entity ? this._placementForEntity(entity.id) : null;
       if (!entity || !placement) return false;
       const allowed = new Set(resourceDisplayOptions(entity).map(([level]) => level));
@@ -4058,8 +4156,10 @@
       return true;
     }
 
-    _toggleResourceDisplayLevel(level) {
-      const entity = [...this._entitySelectionIds()].map(id => this._allEntitiesById().get(id)).find(item => item && resourceDisplayOptions(item).some(option => option[0] === level));
+    _toggleResourceDisplayLevel(level, targetEntity = null) {
+      const entity = [...this._entitySelectionIds()].map(id => this._allEntitiesById().get(id)).find(item => item && resourceDisplayOptions(item).some(option => option[0] === level))
+        || (targetEntity && resourceDisplayOptions(targetEntity).some(option => option[0] === level) ? targetEntity : null)
+        || this._allEntitiesById().get(this.contextMenuEntityId);
       if (!entity) return false;
       const placement = this._placementForEntity(entity.id);
       const current = new Set(resourceDisplayLevelsFor(entity, placement || {}));
@@ -4069,7 +4169,7 @@
       current.add(anchor);
       if (current.has(level)) current.delete(level); else current.add(level);
       const order = resourceDisplayOptions(entity).map(([key]) => key);
-      return this._setResourceDisplayLevels(order.filter(key => current.has(key)));
+      return this._setResourceDisplayLevels(order.filter(key => current.has(key)), entity);
     }
 
     _openResourceSettingsMenu(entity) {
@@ -4425,7 +4525,9 @@
 
     _flowGraphInput(graph, alerts = this._topologyAlerts()) {
       const sourceEntities = this._allEntitiesById();
+      const endpointPresentation = this._endpointPresentation(graph.placements);
       const geometry = this._displayGeometryMap(graph.placements);
+      graph = { ...graph, placements: endpointPresentation.placements };
       const entities = graph.placements.map(placement => {
         const source = sourceEntities.get(placement.entityId);
         if (!source) return null;
@@ -4434,6 +4536,7 @@
           ...source,
           name: this._entityDisplayName(source),
           iconKey: this._entityCardIcon(source),
+          endpointChildren: endpointPresentation.children.get(source.id) || [],
           ...(asset?.imageData ? { details: { ...source.details, imageData: asset.imageData } } : {})
         };
       }).filter(Boolean);
@@ -4532,6 +4635,7 @@
       this._updateSelectionCss({ preserveDirtyInspector: true });
       const menu = this.root?.querySelector('.relationship-context-menu');
       if (!menu) return;
+      this.contextMenuEntityId = ['node', 'resource-settings'].includes(kind) && value?.id ? value.id : '';
       const clientX = Number(point.clientX) || 0;
       const clientY = Number(point.clientY) || 0;
       this.contextMenuPoint = this._clientToWorld(clientX, clientY);
@@ -4572,6 +4676,7 @@
         return;
       }
       if (action === 'resource-settings' && value?.id) return this._openResourceSettingsMenu(value);
+      if (action === 'arrange-host' && value?.id) return this._arrangeHost(value.id);
       if (action === 'context-node') return this._openFlowContextMenu('node', value, point);
       if (action === 'context-edge') return this._openFlowContextMenu('relationship', value, point);
       if (action === 'context-pane') return this._openFlowContextMenu('canvas', null, point);
@@ -4645,6 +4750,7 @@
         contextualIds: graph.contextualIds,
         mutedIds: graph.mutedIds,
         filterActive: graph.filterActive,
+        showRelationshipLines: view.showRelationshipLines === true,
         linkedNodeIds,
         undraggableIds,
         zoom: board.viewport.zoom,
