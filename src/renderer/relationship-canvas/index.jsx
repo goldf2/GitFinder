@@ -455,11 +455,11 @@ function Canvas({
     onNodeDragStop={handleNodeDragStop}
     onMoveEnd={(_, viewport) => {
       viewportZoom.current = Number(viewport?.zoom) || 1;
-      setNodes(current => {
-        const routed = Adapter.rerouteFlowConnections(current, edges, { zoom: viewportZoom.current, groupTitleFontSize });
-        setEdges(routed.edges);
-        return routed.nodes;
-      });
+      // Viewport zoom must not reroute board relationships. Routing is based
+      // on world-space node geometry; rerouting here made paths jump whenever
+      // the user zoomed, because title clearances were recalculated from the
+      // transient viewport scale. Edge width/opacity already follow zoom in
+      // RelationshipEdge without changing the saved path.
       onViewportChange?.(viewport);
     }}
     onNodeContextMenu={(event, node) => {
