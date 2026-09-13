@@ -314,8 +314,6 @@
 }
 
 .gf-flow-group-title-toolbar {
-  scale: var(--group-title-scale, 1);
-  transform-origin: left bottom;
   position: relative;
   z-index: 1000;
   display: flex;
@@ -332,7 +330,7 @@
 }
 
 .gf-flow-group-title-toolbar strong {
-  font-size: var(--relationship-group-title-font-size, 20px);
+  font-size: max(10px, calc(var(--relationship-group-title-font-size, 20px) * var(--group-title-scale, 1)));
   display: block;
 }
 
@@ -344,7 +342,10 @@
 
 .gf-flow-group-title-toolbar.is-overview { padding: 1px 4px; gap: 4px; box-shadow: none; border-radius: 4px; }
 
-.gf-flow-group-title-toolbar:has(.gf-flow-group-actions) { scale: 1; }
+.gf-flow-group-title-toolbar > .gf-flow-more {
+  width: max(20px, calc(28px * var(--group-title-scale, 1)));
+  height: max(20px, calc(24px * var(--group-title-scale, 1)));
+}
 
 .gf-flow-group-title-button {
   flex: 0 0 auto;
