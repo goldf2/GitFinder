@@ -264,7 +264,7 @@ function ContainerHeader({ id, data, host = false, selected }) {
   const isOpen = openId === id;
   const physical = host || entity.runtime?.dynamicKind === 'coolify-project-group';
   const toggle = event => { event.stopPropagation(); setOpenId(current => current === id ? null : id); };
-  return <NodeToolbar isVisible position={Position.Top} align="start" offset={4}
+  return <NodeToolbar isVisible position={Position.Top} align="start" className="gf-flow-group-title-node-toolbar" offset={4}
     style={{ zIndex: isOpen ? 1000 : 10, '--group-title-scale': Math.pow(Math.min(1, Math.max(0.03, zoom)), data.titleZoomStrength ?? 0.5), '--group-title-max-width': `${Math.max(72, Math.min(280, Number(data.placement?.groupWidth || 640) * zoom))}px` }}>
     <div className={`gf-flow-group-title-toolbar${zoom < 0.6 ? ' is-overview' : ''}`}>
       <button type="button" title={entity.name} className="gf-flow-group-title-button nodrag nopan" onPointerDown={event => event.stopPropagation()} onClick={toggle}><strong>{entity.name}</strong></button>
