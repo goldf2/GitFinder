@@ -334,6 +334,14 @@ test('只有未分类部署和空主机也有容器，拖动后边界跟随 Proj
   assert.equal(model.edges.length, 0);
   const bubble = model.nodes.find(node => node.data.entity.id === 'host');
   assert.ok(bubble.position.y < 240);
+  assert.equal(bubble.draggable, true);
+  const dragged = Adapter.applyLinkedDrag(model.nodes, {
+    primaryId: bubble.id,
+    linkedIds: bubble.data.linkedNodeIds,
+    startPositions: Object.fromEntries(model.nodes.map(node => [node.id, { ...node.position }])),
+    delta: { x: 180, y: 40 }
+  });
+  assert.equal(dragged.find(node => node.id === 'deployment').position.x, 260);
   const movedNodes = Adapter.refreshHostBubbles(model.nodes.map(node => node.id === 'deployment'
     ? { ...node, position: { x: 300, y: 300 } } : node), model.edges);
   const moved = Adapter.rerouteFlowConnections(movedNodes, model.edges);

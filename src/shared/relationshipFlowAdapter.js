@@ -115,7 +115,7 @@
         id,
         type: 'hostBubble',
         position: { x: bounds.x, y: bounds.y },
-        draggable: false,
+        draggable: true,
         selectable: false,
         focusable: false,
         connectable: false,
@@ -124,6 +124,7 @@
         data: {
           entity: host,
           memberIds,
+          linkedNodeIds: [id, ...memberIds],
           fallbackPosition: hostNode.position,
           projectCount: memberIds.filter(memberId => isProjectGroup(entities.get(memberId))).length,
           deploymentCount: memberIds.filter(memberId => entities.get(memberId)?.type === 'deployment').length,
