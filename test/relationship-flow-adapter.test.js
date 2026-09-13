@@ -282,6 +282,34 @@ test('服务器树摘要线只用于显示，不能被选中或触发关系操�
   }
 });
 
+test('主机与 Project 使用气泡包裹，不绘制主机到 Project 的长连线', () => {
+  const graph = {
+    entities: [
+      { id: 'host', type: 'server', name: 'con01', details: {} },
+      { id: 'project', type: 'group', name: '商城', details: {}, runtime: { dynamicKind: 'coolify-project-group' } },
+      { id: 'deployment', type: 'deployment', name: 'web', details: {} }
+    ],
+    placements: [
+      { entityId: 'host', x: 80, y: 80 },
+      { entityId: 'project', x: 420, y: 180, groupWidth: 560, groupHeight: 360 },
+      { entityId: 'deployment', x: 480, y: 270, groupId: 'project' }
+    ],
+    relationships: [
+      { id: 'host-project', type: 'tree_hierarchy', sourceId: 'host', targetId: 'project', visualOnly: true },
+      { id: 'runs-on', type: 'runs_on', sourceId: 'deployment', targetId: 'host' }
+    ]
+  };
+  const model = Adapter.toFlowModel(graph, { cardWidth: 280, cardHeight: 143 });
+  const bubble = model.nodes.find(node => node.type === 'hostBubble');
+  assert.ok(bubble, '应生成主机气泡节点');
+  assert.equal(bubble.data.entity.id, 'host');
+  assert.equal(bubble.data.projectCount, 1);
+  assert.equal(model.edges.some(edge => edge.source === 'host' && edge.target === 'project'), false);
+  assert.equal(model.nodes.find(node => node.id === 'project').type, 'relationshipGroup');
+  assert.equal(model.nodes.find(node => node.id === 'deployment').parentId, 'project');
+  assert.equal(graph.placements.find(item => item.entityId === 'project').groupId, undefined, '气泡不改变 Project 原始归属');
+});
+
 test('缩小视图不会把避障安全距放大到堵死 Project 内部通道', () => {
   const nodes = [
     { id: 'group', type: 'relationshipGroup', position: { x: 500, y: 100 }, style: { width: 500, height: 1200 }, data: { entity: { name: '项目' } } },

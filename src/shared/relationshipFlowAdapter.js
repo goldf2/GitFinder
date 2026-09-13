@@ -66,6 +66,56 @@
       || String(entity.id || '').startsWith('entity_panel_projectgroup_'));
   }
 
+  function isHostProjectSummary(edge, entities) {
+    return edge?.visualOnly === true
+      && entities.get(edge.sourceId)?.type === 'server'
+      && isProjectGroup(entities.get(edge.targetId));
+  }
+
+  function addHostBubbleNodes(nodes, relationships, entities) {
+    const absolute = absolutePositions(nodes);
+    const byId = new Map(nodes.map(node => [node.id, node]));
+    const projectsByHost = new Map();
+    for (const edge of relationships) {
+      if (!isHostProjectSummary(edge, entities) || !byId.has(edge.targetId)) continue;
+      if (!projectsByHost.has(edge.sourceId)) projectsByHost.set(edge.sourceId, []);
+      projectsByHost.get(edge.sourceId).push(edge.targetId);
+    }
+    const bubbles = [];
+    for (const [hostId, projectIds] of projectsByHost) {
+      const rects = projectIds.map(id => {
+        const node = byId.get(id), position = absolute.get(id);
+        if (!node || !position) return null;
+        const size = nodeDimensions(node);
+        return { x: position.x, y: position.y, width: size.width, height: size.height };
+      }).filter(Boolean);
+      const host = entities.get(hostId);
+      if (!rects.length || !host) continue;
+      const left = Math.min(...rects.map(rect => rect.x)) - 72;
+      const top = Math.min(...rects.map(rect => rect.y)) - 88;
+      const right = Math.max(...rects.map(rect => rect.x + rect.width)) + 72;
+      const bottom = Math.max(...rects.map(rect => rect.y + rect.height)) + 64;
+      const id = `host-bubble:${hostId}`;
+      bubbles.push({
+        id,
+        type: 'hostBubble',
+        position: { x: left, y: top },
+        draggable: false,
+        selectable: false,
+        focusable: false,
+        connectable: false,
+        zIndex: -1,
+        style: { width: right - left, height: bottom - top },
+        data: {
+          entity: host,
+          projectCount: new Set(projectIds).size,
+          hostBubble: true
+        }
+      });
+    }
+    return bubbles;
+  }
+
   function projectAncestors(placement, placementById, entities) {
     const ids = [];
     const seen = new Set([placement?.entityId]);
@@ -408,7 +458,8 @@
     if (!options.linkedNodeIds) nodes = avoidGroupTitleCollisions(nodes, options);
     nodes = constrainProjectNodes(nodes);
     const visible = new Set(nodes.map(item => item.id));
-    const edges = (graph.relationships || []).filter(edge => visible.has(edge.sourceId) && visible.has(edge.targetId))
+    const edges = (graph.relationships || []).filter(edge => visible.has(edge.sourceId) && visible.has(edge.targetId)
+      && !isHostProjectSummary(edge, entities))
       .map(edge => {
         const topologyAlert = edge.diagnostic?.severity === 'error';
         const visualOnly = edge.visualOnly === true;
@@ -433,6 +484,7 @@
           label: edge.label || ''
         };
       });
+    nodes = [...addHostBubbleNodes(nodes, graph.relationships || [], entities), ...nodes];
     return rerouteFlowConnections(nodes, edges, {
       zoom: options.zoom,
       groupTitleFontSize: options.groupTitleFontSize

@@ -49,7 +49,7 @@
       if (node.parentId) counts.set(node.parentId, (counts.get(node.parentId) || 0) + 1);
       return counts;
     }, new Map());
-    const cards = nodes.filter(node => node.type !== 'relationshipGroup').map(node => ({
+    const cards = nodes.filter(node => node.type !== 'relationshipGroup' && node.type !== 'hostBubble').map(node => ({
       id: node.id,
       kind: 'card',
       ...geometry.get(node.id)

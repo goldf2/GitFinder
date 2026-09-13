@@ -298,7 +298,14 @@ const RelationshipGroup = memo(function RelationshipGroup({ id, data, selected }
   </section>;
 });
 
-const NODE_TYPES = { relationshipCard: RelationshipCard, relationshipGroup: RelationshipGroup };
+const HostBubble = memo(function HostBubble({ data }) {
+  return <section className="gf-flow-host-bubble" aria-label={`${data.entity?.name || '主机'} Project 容器`}>
+    <div className="gf-flow-host-bubble-title"><CardIcon name="server" /><strong>{data.entity?.name || '主机'}</strong><span>{data.projectCount || 0} 个 Project</span></div>
+    <div className="gf-flow-host-bubble-hint">主机归属</div>
+  </section>;
+});
+
+const NODE_TYPES = { relationshipCard: RelationshipCard, relationshipGroup: RelationshipGroup, hostBubble: HostBubble };
 const EDGE_TYPES = { relationshipEdge: RelationshipEdge };
 
 function Canvas({
