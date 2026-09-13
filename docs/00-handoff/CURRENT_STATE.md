@@ -1,8 +1,8 @@
 # GitFinder 2 当前状态
 
-## 2026-09-13 · alpha.158 主机 Project 气泡关系（验收中）
+## 2026-09-13 · alpha.158 主机 Project 气泡关系（已安装验收）
 
-- 主机与 Project 改为只读气泡包裹，移除主机到 Project 的长摘要线；部署与访问点关系保持。1160 项测试通过，尚未完成安装版可见验收和推送。详见 [HOST_PROJECT_BUBBLE_ALPHA158.md](HOST_PROJECT_BUBBLE_ALPHA158.md)。
+- 主机与 Project 改为只读气泡包裹，移除主机到 Project 的长摘要线；部署与访问点关系保持。1160 项测试通过，alpha.158 已替换启动台并完成缓存恢复后的可见验收，准备推送。详见 [HOST_PROJECT_BUBBLE_ALPHA158.md](HOST_PROJECT_BUBBLE_ALPHA158.md)。
 
 ## 2026-09-13 · alpha.157 白板连线缩放稳定性（待安装验收）
 
