@@ -143,7 +143,7 @@ test('资源卡片提供按卡片设置显示层级的快捷入口', () => {
   controller._placementForEntity = () => ({ resourceDisplayLevel: 'project' });
   const labels = controller._contextMenuItems('resource-settings').map(item => item?.label).filter(Boolean);
   assert.ok(labels.some(label => label.includes('主机（当前卡片）')));
-  assert.ok(labels.some(label => label.includes('访问点')));
+  assert.ok(!labels.some(label => label.includes('访问点')));
   assert.ok(controller._contextMenuItems('node').some(item => item?.label === '显示设置…'));
 });
 

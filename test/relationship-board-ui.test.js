@@ -481,11 +481,11 @@ test('主机卡片的显示层级只收窄该主机的运行资源', () => {
   controller.panelProjection.placements[0].resourceDisplayLevel = 'host';
   const visible = controller._applyResourceDisplayPreferences(controller.panelProjection.placements,
     new Set(controller.panelProjection.placements.map(item => item.entityId)), controller.panelProjection.relationships);
-  assert.deepEqual([...visible].sort(), [serverOne.id, serverTwo.id].sort());
+  assert.deepEqual([...visible].sort(), [serverOne.id, serverTwo.id, repoOne.id, deployOne.id, endpointOne.id].sort());
   controller.panelProjection.placements[1].resourceDisplayLevel = 'host';
   const bothHostOnly = controller._applyResourceDisplayPreferences(controller.panelProjection.placements,
     new Set(controller.panelProjection.placements.map(item => item.entityId)), controller.panelProjection.relationships);
-  assert.deepEqual([...bothHostOnly].sort(), [serverOne.id, serverTwo.id].sort());
+  assert.deepEqual([...bothHostOnly].sort(), [serverOne.id, serverTwo.id, repoOne.id, deployOne.id, endpointOne.id].sort());
 });
 
 test('本机工作区的卡片显示层级会按偏好注入当前主机下级资源', () => {
@@ -508,9 +508,9 @@ test('本机工作区的卡片显示层级会按偏好注入当前主机下级�
     placements: [server, project, deployment, endpoint].map((entity, index) => ({ entityId: entity.id, x: index * 40, y: 0, dynamic: true })),
     metadata: { state: 'ready' }
   };
-  assert.deepEqual(controller._filteredGraph().placements.map(item => item.entityId).sort(), [server.id, project.id, deployment.id].sort());
+  assert.deepEqual(controller._filteredGraph().placements.map(item => item.entityId).sort(), [server.id, project.id, deployment.id, endpoint.id].sort());
   controller.store.boards[0].placements[0].resourceDisplayLevel = 'host';
-  assert.deepEqual(controller._filteredGraph().placements.map(item => item.entityId), [server.id]);
+  assert.deepEqual(controller._filteredGraph().placements.map(item => item.entityId), [server.id, deployment.id, endpoint.id]);
 });
 
 test('本机工作区把 Coolify 资源作为可组合来源，加入后才标记为已放置', () => {

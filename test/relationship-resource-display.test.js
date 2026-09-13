@@ -30,17 +30,11 @@ function fixture() {
 }
 const ids = c => c._filteredGraph().placements.map(p => p.entityId).sort();
 
-test('主机多选可独立显示访问点，部署自动被 Project 包裹，另一主机不变', () => {
+test('主机只控制 Project 范围，部署和访问点由 Project 控制', () => {
   const c = fixture();
-  assert.deepEqual(ids(c), ['entity_hostxx_a', 'entity_hostxx_b']);
-  c._toggleResourceDisplayLevel('endpoint');
-  assert.deepEqual(ids(c), ['entity_endpointxx_a', 'entity_hostxx_a', 'entity_hostxx_b']);
-  c._toggleResourceDisplayLevel('deployment');
-  assert.deepEqual(ids(c), ['entity_deployxx_a', 'entity_endpointxx_a', 'entity_groupxx_a', 'entity_hostxx_a', 'entity_hostxx_b']);
-  assert.equal(c._filteredGraph().placements.find(p => p.entityId === 'entity_deployxx_a').groupId, 'entity_groupxx_a');
-  c._toggleResourceDisplayLevel('endpoint');
-  assert.ok(!ids(c).includes('entity_endpointxx_a'));
-  assert.ok(ids(c).includes('entity_deployxx_a'));
+  assert.deepEqual(c._contextMenuItems('resource-settings').filter(item => item?.role === 'menuitemcheckbox').map(item => item.label), ['✓ 主机（当前卡片）', '○ Project 容器']);
+  c.selectedEntityIds = new Set(['entity_groupxx_a']);
+  assert.deepEqual(c._contextMenuItems('resource-settings').filter(item => item?.role === 'menuitemcheckbox').map(item => item.label), ['✓ Project（当前卡片）', '○ 部署', '○ 访问点']);
 });
 
 test('只显示 Project 时服务器树仍显示容器，容器有自己的下级显示设置', () => {
@@ -48,11 +42,11 @@ test('只显示 Project 时服务器树仍显示容器，容器有自己的下�
   c.store.boards[0].view.structure = 'server-tree';
   c._toggleResourceDisplayLevel('project');
   assert.ok(ids(c).includes('entity_groupxx_a'));
-  assert.ok(!ids(c).includes('entity_deployxx_a'));
+  assert.ok(ids(c).includes('entity_deployxx_a'));
   c.selectedEntityIds = new Set(['entity_groupxx_a']);
   c._toggleResourceDisplayLevel('deployment');
   assert.ok(ids(c).includes('entity_deployxx_a'));
-  assert.ok(!ids(c).includes('entity_deployxx_b'));
+  assert.ok(ids(c).includes('entity_deployxx_b'));
 });
 
 test('本机已有部署恢复实时 Project 归属，旧容器不继续占据画布', () => {
@@ -81,12 +75,12 @@ test('Project 的独立显示偏好优先于主机的默认层级', () => {
 test('多选保存重载保留数组、空数组和旧版层级兼容', () => {
   const c = fixture();
   c.store.entities = c.panelProjection.entities.map(({ id, type, name, details }) => ({ id, type, name, details }));
-  c._toggleResourceDisplayLevel('endpoint');
+  c._toggleResourceDisplayLevel('project');
   const saved = Model.assertValidStore(c.store);
-  assert.deepEqual(saved.boards[0].placements[0].resourceDisplayLevels, ['host', 'endpoint']);
+  assert.deepEqual(saved.boards[0].placements[0].resourceDisplayLevels, ['host', 'project']);
   c.store = JSON.parse(JSON.stringify(saved));
-  assert.ok(ids(c).includes('entity_endpointxx_a'));
-  assert.ok(!ids(c).includes('entity_deployxx_a'));
+  assert.ok(ids(c).includes('entity_groupxx_a'));
+  assert.ok(ids(c).includes('entity_deployxx_a'));
   delete c.store.boards[0].placements[0].resourceDisplayLevels;
   c.store.boards[0].placements[0].resourceDisplayLevel = 'deployment';
   assert.ok(ids(c).includes('entity_deployxx_a'));
@@ -96,14 +90,12 @@ test('多选保存重载保留数组、空数组和旧版层级兼容', () => {
 
 test('复选菜单状态真实，当前卡片保留，部署选中时明确说明容器必需', () => {
   const c = fixture();
-  c._toggleResourceDisplayLevel('deployment');
+  c._toggleResourceDisplayLevel('project');
   const items = c._contextMenuItems('resource-settings').filter(item => item?.role === 'menuitemcheckbox');
-  assert.equal(items.length, 4);
+  assert.equal(items.length, 2);
   assert.equal(items[0].disabled, true);
   assert.equal(items[1].checked, true);
-  assert.equal(items[1].disabled, true);
-  assert.equal(items[2].checked, true);
-  assert.equal(items[3].checked, false);
+  assert.equal(items[1].disabled, false);
 });
 
 test('不可选中的主机容器打开菜单后仍能应用显示设置', () => {
@@ -118,7 +110,7 @@ test('不可选中的主机容器打开菜单后仍能应用显示设置', () =>
   c.contextMenuEntityId = 'entity_hostxx_a';
   assert.equal(c._runContextAction('resource-display-toggle:project'), true);
   assert.ok(ids(c).includes('entity_groupxx_a'));
-  assert.ok(!ids(c).includes('entity_groupxx_b'));
+  assert.equal(c._contextMenuItems('resource-settings').filter(item => item?.role === 'menuitemcheckbox').length, 0);
 });
 
 test('主机自动排列只移动本主机 Project，保持其他主机与组内相对位置', () => {

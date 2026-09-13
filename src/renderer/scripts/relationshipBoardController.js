@@ -166,8 +166,9 @@
   }
 
   function resourceDisplayLevelsFor(entity = {}, placement = {}) {
+    const allowed = new Set(resourceDisplayOptions(entity).map(([level]) => level));
     const explicit = Array.isArray(placement.resourceDisplayLevels)
-      ? [...new Set(placement.resourceDisplayLevels.filter(level => RESOURCE_DISPLAY_LEVELS.includes(level)))]
+      ? [...new Set(placement.resourceDisplayLevels.filter(level => allowed.has(level)))]
       : [];
     if (Array.isArray(placement.resourceDisplayLevels)) return explicit;
     const legacy = RESOURCE_DISPLAY_LEVELS.includes(placement.resourceDisplayLevel)
@@ -176,12 +177,12 @@
     const type = resourceDisplayType(entity);
     const start = type === 'project' ? 1 : type === 'deployment' ? 2 : 0;
     const end = RESOURCE_DISPLAY_LEVELS.indexOf(legacy);
-    return end >= start ? RESOURCE_DISPLAY_LEVELS.slice(start, end + 1) : [legacy];
+    return (end >= start ? RESOURCE_DISPLAY_LEVELS.slice(start, end + 1) : [legacy]).filter(level => allowed.has(level));
   }
 
   function resourceDisplayOptions(entity = {}) {
     const type = resourceDisplayType(entity);
-    if (type === 'server') return [['host', '主机（当前卡片）'], ['project', 'Project 容器'], ['deployment', '部署'], ['endpoint', '访问点']];
+    if (type === 'server') return [['host', '主机（当前卡片）'], ['project', 'Project 容器']];
     if (type === 'project') return [['project', 'Project（当前卡片）'], ['deployment', '部署'], ['endpoint', '访问点']];
     if (type === 'deployment') return [['deployment', '部署（当前卡片）'], ['endpoint', '访问点']];
     return [];
@@ -1921,6 +1922,10 @@
       for (const [serverId, deploymentIds] of deploymentsByServer) {
         for (const deploymentId of deploymentIds) {
           for (const projectId of projectsByDeployment.get(deploymentId) || []) add(projectsByServer, serverId, projectId);
+          const groupId = sourcePlacements.get(deploymentId)?.groupId;
+          if (groupId && byId.get(groupId)?.runtime?.dynamicKind === 'coolify-project-group') {
+            add(projectsByServer, serverId, groupId);
+          }
         }
       }
       return { projectsByRepository, repositoriesByDeployment, deploymentsByServer, endpointsByDeployment, projectsByDeployment, deploymentsByProject, projectsByServer };
@@ -1994,6 +1999,15 @@
     _applyResourceDisplayPreferences(topologyPlacements, visibleIds, relationships) {
       const entities = this._allEntitiesById();
       const hierarchy = this._resourceHierarchy([...entities.values()], relationships);
+      const placementById = new Map([...(this.panelProjection?.placements || []), ...topologyPlacements].map(item => [item.entityId, item]));
+      const projectsByServerFallback = new Map();
+      for (const relationship of relationships) {
+        if (relationship.type !== 'runs_on') continue;
+        const server = entities.get(relationship.targetId), groupId = placementById.get(relationship.sourceId)?.groupId;
+        if (!server || server.type !== 'server' || !groupId || entities.get(groupId)?.runtime?.dynamicKind !== 'coolify-project-group') continue;
+        if (!projectsByServerFallback.has(server.id)) projectsByServerFallback.set(server.id, new Set());
+        projectsByServerFallback.get(server.id).add(groupId);
+      }
       const preferences = new Map(topologyPlacements
         .map(placement => [placement.entityId, resourceDisplayLevelsFor(entities.get(placement.entityId), placement)])
         .filter(([, levels]) => levels.length));
@@ -2007,12 +2021,12 @@
         const entity = entities.get(rootId);
         if (!entity) continue;
         if (entity.type === 'server') {
-          for (const projectId of hierarchy.projectsByServer.get(rootId) || []) require(projectId, rootId, 'project');
-          for (const deploymentId of hierarchy.deploymentsByServer.get(rootId) || []) require(deploymentId, rootId, 'deployment');
-          for (const deploymentId of hierarchy.deploymentsByServer.get(rootId) || []) {
-            for (const repositoryId of hierarchy.repositoriesByDeployment.get(deploymentId) || []) require(repositoryId, rootId, 'project');
-            for (const endpointId of hierarchy.endpointsByDeployment.get(deploymentId) || []) require(endpointId, rootId, 'endpoint');
-          }
+          const levels = preferences.get(rootId) || [];
+          // Host preferences stop at the Project boundary. A missing Project
+          // level hides the containers; Project preferences decide what lives
+          // inside each container afterwards.
+          const projectIds = new Set([...(hierarchy.projectsByServer.get(rootId) || []), ...(projectsByServerFallback.get(rootId) || [])]);
+          for (const projectId of projectIds) require(projectId, rootId, 'project');
         } else if (resourceDisplayType(entity) === 'project') {
           for (const deploymentId of hierarchy.deploymentsByProject.get(rootId) || []) {
             require(deploymentId, rootId, 'deployment');
