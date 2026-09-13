@@ -13,6 +13,12 @@ const resourceViewSource = read('src/renderer/scripts/relationshipBoardResourceV
 const toolbarViewSource = read('src/renderer/scripts/relationshipBoardToolbarView.js');
 const boardRendererSource = `${controllerSource}\n${resourceViewSource}\n${toolbarViewSource}`;
 const flowCanvasSource = read('src/renderer/relationship-canvas/index.jsx');
+
+test('容器标题保留 NodeToolbar 的节点坐标，不覆盖 portal 的变换和位置', () => {
+  const css = read('src/renderer/relationship-canvas/relationshipCanvas.css');
+  const rules = [...css.matchAll(/\.gf-flow-group-title-node-toolbar\s*\{([^}]+)\}/g)];
+  for (const [, rule] of rules) assert.doesNotMatch(rule, /(?:transform|top|left|right|bottom)\s*:/);
+});
 const selectionDetailSource = read('src/renderer/scripts/fileSelectionDetailController.js');
 const relationshipCss = read('src/renderer/styles/relationships.css');
 const contentCss = read('src/renderer/styles/content.css');

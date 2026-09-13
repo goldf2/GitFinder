@@ -329,16 +329,7 @@
   pointer-events: auto;
 }
 
-/* Keep container titles inside their own frame.  Anchoring them outside the
-   node makes adjacent project/host headers overlap even when the containers
-   themselves are laid out correctly. */
-.gf-flow-group-title-node-toolbar {
-  transform: translate(0, 0) !important;
-  top: 12px !important;
-  left: 12px !important;
-  right: auto !important;
-  bottom: auto !important;
-}
+/* NodeToolbar owns its portal coordinates and viewport transform. */
 
 .gf-flow-group-title-toolbar strong {
   font-size: max(10px, calc(var(--relationship-group-title-font-size, 20px) * var(--group-title-scale, 1)));
