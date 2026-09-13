@@ -12,6 +12,7 @@ const actionRouterSource = read('src/renderer/scripts/relationshipBoardActionRou
 const resourceViewSource = read('src/renderer/scripts/relationshipBoardResourceView.js');
 const toolbarViewSource = read('src/renderer/scripts/relationshipBoardToolbarView.js');
 const boardRendererSource = `${controllerSource}\n${resourceViewSource}\n${toolbarViewSource}`;
+const flowCanvasSource = read('src/renderer/relationship-canvas/index.jsx');
 const selectionDetailSource = read('src/renderer/scripts/fileSelectionDetailController.js');
 const relationshipCss = read('src/renderer/styles/relationships.css');
 const contentCss = read('src/renderer/styles/content.css');
@@ -73,6 +74,14 @@ test('服务器树汇总关系进入新引擎时明确标记为只读显示线',
 
   assert.equal(flow.relationships.find(edge => edge.id === 'fact').visualOnly, undefined);
   assert.equal(flow.relationships.find(edge => edge.id === 'summary').visualOnly, true);
+});
+
+test('主机容器的更多按钮打开节点快捷菜单，显示设置入口保持独立', () => {
+  const hostBubble = flowCanvasSource.split('const HostBubble = ')[1]?.split('const NODE_TYPES = ')[0] || '';
+  assert.match(hostBubble, /gf-flow-host-bubble-more nodrag nopan/);
+  assert.match(hostBubble, /data\.onAction\?\.\('context-node', data\.entity, \{ clientX: event\.clientX, clientY: event\.clientY \}\)/);
+  assert.match(hostBubble, /data\.onAction\?\.\('resource-settings', data\.entity\)/);
+  assert.match(flowCanvasSource, /onNodeContextMenu=\{\(event, node\) => \{[\s\S]*?'context-node'/);
 });
 
 test('连续拖动和选择只更新交互状态，不重算摘要或重绘资源库', (t) => {

@@ -300,9 +300,15 @@ const RelationshipGroup = memo(function RelationshipGroup({ id, data, selected }
 
 const HostBubble = memo(function HostBubble({ data }) {
   return <section className="gf-flow-host-bubble" aria-label={`${data.entity?.name || '主机'} Project 容器`}>
-    <button type="button" className="gf-flow-host-bubble-title nopan" onClick={() => data.onAction?.('resource-settings', data.entity)} title="主机显示设置">
-      <strong>{data.entity?.name || '主机'}</strong><span>{data.projectCount ? `${data.projectCount} 个 Project` : (data.deploymentCount ? `${data.deploymentCount} 个部署` : '主机容器')}</span>
-    </button>
+    <div className="gf-flow-host-bubble-title">
+      <button type="button" className="gf-flow-host-bubble-name nodrag nopan" onClick={() => data.onAction?.('resource-settings', data.entity)} title="主机显示设置">
+        <strong>{data.entity?.name || '主机'}</strong><span>{data.projectCount ? `${data.projectCount} 个 Project` : (data.deploymentCount ? `${data.deploymentCount} 个部署` : '主机容器')}</span>
+      </button>
+      <button type="button" className="gf-flow-host-bubble-more nodrag nopan" aria-label={`${data.entity?.name || '主机'} 更多操作`} title="更多操作" onClick={event => {
+        event.stopPropagation();
+        data.onAction?.('context-node', data.entity, { clientX: event.clientX, clientY: event.clientY });
+      }}>⋯</button>
+    </div>
   </section>;
 });
 
