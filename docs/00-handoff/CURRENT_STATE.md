@@ -1,9 +1,9 @@
 # GitFinder 2 当前状态
 
-## 2026-09-13 · alpha.160 主机容器可拖动（安装待验收）
+## 2026-09-13 · alpha.160 主机容器可拖动（已安装）
 
 - 主机容器可直接拖动，并联动移动内部 Project/未分类部署；容器标题仍可打开主机显示设置。
-- 适配器回归通过；待 alpha.160 安装版验证真实拖动和重开后的布局保存。详见 [HOST_CONTAINER_DRAG_ALPHA160.md](HOST_CONTAINER_DRAG_ALPHA160.md)。
+- 1161 项测试、270 个 JS 语法检查、renderer 构建和 alpha.160 安装启动通过；AX 确认主机容器可见且无服务器机架卡片。详见 [HOST_CONTAINER_DRAG_ALPHA160.md](HOST_CONTAINER_DRAG_ALPHA160.md)。
 
 ## 2026-09-13 · alpha.159 主机仅容器显示（已安装验收）
 
