@@ -312,6 +312,44 @@ test('主机与 Project 使用气泡包裹，不绘制主机到 Project 的长�
   assert.equal(model.nodes.find(node => node.id === 'project').type, 'relationshipGroup');
   assert.equal(model.nodes.find(node => node.id === 'deployment').parentId, 'project');
   assert.equal(graph.placements.find(item => item.entityId === 'project').groupId, undefined, '气泡不改变 Project 原始归属');
+  const project = model.nodes.find(node => node.id === 'project');
+  assert.equal(project.parentId, bubble.id);
+  const moved = model.nodes.map(node => node.id === 'project'
+    ? { ...node, position: { x: node.position.x + 80, y: node.position.y + 40 } } : node);
+  const beforeRefresh = Adapter.toPlacements(moved, graph.placements);
+  const refreshed = Adapter.refreshHostBubbles(moved);
+  assert.deepEqual(Adapter.toPlacements(refreshed, graph.placements), beforeRefresh,
+    '父容器包围框刷新不能再次移动子节点');
+  assert.deepEqual(Adapter.refreshHostBubbles(refreshed), refreshed, '边界刷新必须幂等');
+});
+
+test('三层容器修复旧窄框和巨大间距，空 Project 和仅访问点也保持嵌套', () => {
+  const graph = {
+    entities: [{ id: 'host', type: 'server' },
+      ...['a', 'b'].map(id => ({ id, type: 'group', runtime: { dynamicKind: 'coolify-project-group' } })),
+      { id: 'endpoint', type: 'endpoint' }],
+    placements: [{ entityId: 'host', x: 0, y: 0 },
+      { entityId: 'a', x: 100, y: 100, groupWidth: 30, groupHeight: 3000 },
+      { entityId: 'b', x: 100, y: 6000, groupWidth: 30, groupHeight: 2000 },
+      { entityId: 'endpoint', x: 5000, y: 5000, groupId: 'b' }],
+    relationships: ['a', 'b'].map(targetId => ({ sourceId: 'host', targetId, visualOnly: true }))
+  };
+  const original = structuredClone(graph);
+  const model = Adapter.toFlowModel(graph, { hostContainerOnly: true, showRelationshipLines: false });
+  const a = model.nodes.find(node => node.id === 'a'), b = model.nodes.find(node => node.id === 'b');
+  const endpoint = model.nodes.find(node => node.id === 'endpoint');
+  assert.equal(a.parentId, 'host-bubble:host');
+  assert.equal(b.parentId, a.parentId);
+  assert.equal(endpoint.parentId, 'b');
+  assert.equal(a.style.height, 136);
+  assert.ok(a.style.width >= 320);
+  assert.equal(b.position.y - (a.position.y + a.style.height), 48);
+  assert.ok(endpoint.position.x >= 16 && endpoint.position.y >= 64);
+  assert.ok(endpoint.position.x + endpoint.style.width <= b.style.width);
+  const saved = Adapter.toPlacements(model.nodes, graph.placements);
+  const reopened = Adapter.toFlowModel({ ...graph, placements: saved }, { hostContainerOnly: true, showRelationshipLines: false });
+  assert.deepEqual(Adapter.toPlacements(reopened.nodes, saved), saved, '保存重开不能再次重排');
+  assert.deepEqual(graph, original);
 });
 
 test('无连线时访问点固定为部署内容，旧的远端位置不撑大画布且事实不变', () => {

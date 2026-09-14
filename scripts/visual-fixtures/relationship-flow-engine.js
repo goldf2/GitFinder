@@ -74,6 +74,30 @@ syncFixtureData();
 render();
 canvas.fitView({ padding: 0.2 });
 
+document.querySelector('#nested-regression').addEventListener('click', () => {
+  graph = { entities: [], placements: [], relationships: [] };
+  for (let h = 0; h < 3; h++) {
+    const host = `host-${h}`;
+    graph.entities.push({ id: host, type: 'server', name: `主机 ${h + 1}` });
+    graph.placements.push({ entityId: host, x: h * 400, y: 0 });
+    for (let p = 0; p < 3; p++) {
+      const project = `${host}-project-${p}`;
+      graph.entities.push({ id: project, type: 'group', name: `Project ${p + 1}`, runtime: { dynamicKind: 'coolify-project-group' } });
+      graph.placements.push({ entityId: project, x: h * 400, y: p * 3000, groupWidth: 30, groupHeight: 2000 });
+      graph.relationships.push({ id: `${project}-host`, sourceId: host, targetId: project, visualOnly: true });
+      for (let c = 0; c < p; c++) {
+        const id = `${project}-${c}`;
+        graph.entities.push({ id, type: p === 1 ? 'endpoint' : 'deployment', name: p === 1 ? 'example.test' : `部署 ${c + 1}` });
+        graph.placements.push({ entityId: id, groupId: project, x: 5000, y: 8000 });
+      }
+    }
+  }
+  fixedChildren = true;
+  render();
+  syncFixtureData();
+  canvas.fitView({ padding: 0.15 });
+});
+
 document.querySelector('#toggle-children').addEventListener('click', () => {
   fixedChildren = !fixedChildren;
   render();

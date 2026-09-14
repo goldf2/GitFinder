@@ -72,10 +72,42 @@
       && isProjectGroup(entities.get(edge.targetId));
   }
 
+  // Rebuild the presentation from actual visible children, not stale frame
+  // dimensions. This only affects the physical server tree, never source data.
+  function fitPhysicalProjects(nodes) {
+    for (const project of nodes.filter(node => isProjectGroup(node.data?.entity))) {
+      const children = nodes.filter(node => node.parentId === project.id);
+      const size = nodeDimensions(project);
+      const invalid = size.width < 320 || children.some(child => {
+        const childSize = nodeDimensions(child);
+        return child.position.x < 16 || child.position.y < 64
+          || child.position.x + childSize.width > size.width - 16
+          || child.position.y + childSize.height > size.height - 16;
+      });
+      if (invalid) {
+        let y = 72;
+        for (let index = 0; index < children.length; index += 2) {
+          const row = children.slice(index, index + 2);
+          let x = 24;
+          for (const child of row) {
+            child.position = { x, y };
+            x += nodeDimensions(child).width + 24;
+          }
+          y += Math.max(...row.map(child => nodeDimensions(child).height)) + 24;
+        }
+      }
+      project.data.nestedContainer = true;
+      project.style = { ...project.style,
+        width: Math.max(320, ...children.map(child => child.position.x + nodeDimensions(child).width + 24)),
+        height: Math.max(136, ...children.map(child => child.position.y + nodeDimensions(child).height + 24)) };
+    }
+    return nodes;
+  }
+
   function hostBubbleBounds(nodes, memberIds, fallback = { x: 0, y: 0 }) {
     // The host title is a first-level header. Keep a dedicated header band so
     // Project headers can never occupy the same screen row.
-    const HOST_HEADER_SPACE = 156;
+    const HOST_HEADER_SPACE = 88;
     const absolute = absolutePositions(nodes);
     const byId = new Map(nodes.map(node => [node.id, node]));
     const rects = memberIds.map(id => {
@@ -116,9 +148,20 @@
       const hostNode = byId.get(hostId);
       if (!host || !hostNode) continue;
       const memberIds = [...memberSet];
+      if (allHosts) {
+        const projects = memberIds.map(memberId => byId.get(memberId)).filter(node => isProjectGroup(node?.data?.entity))
+          .sort((a, b) => a.position.y - b.position.y || a.id.localeCompare(b.id));
+        // Repair legacy tall empty columns and collisions while retaining sane
+        // manual spacing. Child positions are already relative to each Project.
+        for (let index = 1; index < projects.length; index++) {
+          const previous = projects[index - 1], current = projects[index];
+          const bottom = previous.position.y + nodeDimensions(previous).height;
+          const gap = current.position.y - bottom;
+          if (gap < 32 || gap > 160) current.position = { x: previous.position.x, y: bottom + 48 };
+        }
+      }
       const bounds = hostBubbleBounds(nodes, memberIds, hostNode.position);
       const id = `host-bubble:${hostId}`;
-      const directMembers = new Set(memberIds);
       // Reparent Project containers into the synthetic host node. Positions must
       // be converted from canvas coordinates to the host's local coordinates.
       const absolute = absolutePositions(nodes);
@@ -151,7 +194,8 @@
           fallbackPosition: hostNode.position,
           projectCount: memberIds.filter(memberId => isProjectGroup(entities.get(memberId))).length,
           deploymentCount: memberIds.filter(memberId => entities.get(memberId)?.type === 'deployment').length,
-          hostBubble: true
+          hostBubble: true,
+          nestedContainer: allHosts
         }
       });
     }
@@ -159,10 +203,16 @@
   }
 
   function refreshHostBubbles(nodes) {
-    return nodes.map(node => {
+    const shifts = new Map();
+    const resized = nodes.map(node => {
       if (node.type !== 'hostBubble') return node;
       const bounds = hostBubbleBounds(nodes, node.data.memberIds || [], node.data.fallbackPosition);
+      shifts.set(node.id, { x: node.position.x - bounds.x, y: node.position.y - bounds.y });
       return { ...node, position: { x: bounds.x, y: bounds.y }, style: { ...node.style, width: bounds.width, height: bounds.height } };
+    });
+    return resized.map(node => {
+      const shift = shifts.get(node.parentId);
+      return shift ? { ...node, position: { x: node.position.x + shift.x, y: node.position.y + shift.y } } : node;
     });
   }
 
@@ -506,7 +556,8 @@
         }
       };
     });
-    if (!options.linkedNodeIds) nodes = avoidGroupTitleCollisions(nodes, options);
+    if (options.hostContainerOnly) nodes = fitPhysicalProjects(nodes);
+    if (!options.linkedNodeIds && !options.hostContainerOnly) nodes = avoidGroupTitleCollisions(nodes, options);
     nodes = constrainProjectNodes(nodes);
     const hostContainerOnly = options.hostContainerOnly === true;
     const hostIds = hostContainerOnly ? new Set(nodes.filter(node => node.data?.entity?.type === 'server').map(node => node.id)) : new Set();
@@ -545,6 +596,22 @@
         .filter(item => hostIds.has(item.entityId))
         .map(item => ({ id: item.entityId, position: { x: item.x || 0, y: item.y || 0 }, style: { width: DEFAULT_CARD.width, height: DEFAULT_CARD.height }, data: { entity: entities.get(item.entityId), placement: item } }))], graph.relationships || [], entities, true), ...nodes];
       nodes = refreshHostBubbles(nodes);
+      const hosts = nodes.filter(node => node.type === 'hostBubble').sort((a, b) => a.position.x - b.position.x || a.id.localeCompare(b.id));
+      for (let index = 0; index < hosts.length; index++) {
+        const host = hosts[index];
+        for (const previous of hosts.slice(0, index)) {
+          const rect = { ...host.position, ...nodeDimensions(host) };
+          const other = { ...previous.position, ...nodeDimensions(previous) };
+          if (overlaps(rect, other)) {
+            const x = other.x + other.width + 80;
+            const dx = x - host.position.x;
+            for (const member of nodes.filter(node => host.data.memberIds.includes(node.id) && node.parentId !== host.id)) {
+              member.position = { ...member.position, x: member.position.x + dx };
+            }
+            host.position = { ...host.position, x };
+          }
+        }
+      }
     } else {
       nodes = [...addHostBubbleNodes(nodes, graph.relationships || [], entities), ...nodes];
     }

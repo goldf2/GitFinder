@@ -264,8 +264,7 @@ function ContainerHeader({ id, data, host = false, selected }) {
   const isOpen = openId === id;
   const physical = host || entity.runtime?.dynamicKind === 'coolify-project-group';
   const toggle = event => { event.stopPropagation(); setOpenId(current => current === id ? null : id); };
-  return <NodeToolbar isVisible position={Position.Top} align="start" className="gf-flow-group-title-node-toolbar" offset={-10}
-    style={{ zIndex: isOpen ? 1000 : 10, '--group-title-scale': Math.pow(Math.min(1, Math.max(0.03, zoom)), data.titleZoomStrength ?? 0.5), '--group-title-max-width': `${Math.max(72, Math.min(280, Number(data.placement?.groupWidth || 640) * zoom))}px` }}>
+  const header = <>
     <div className={`gf-flow-group-title-toolbar${host ? ' gf-flow-host-title-toolbar' : ''}${zoom < 0.6 ? ' is-overview' : ''}`}>
       <button type="button" title={entity.name} className="gf-flow-group-title-button nodrag nopan" onPointerDown={event => event.stopPropagation()} onClick={toggle}><strong>{entity.name}</strong></button>
       {zoom >= 0.6 || selected ? <span>{host ? `${data.projectCount || 0} 个 Project` : `${data.memberCount || 0} 个成员`}</span> : null}
@@ -283,7 +282,14 @@ function ContainerHeader({ id, data, host = false, selected }) {
         {!physical && !entity.transient ? <ToolbarButton data={data} action="delete-group" entity={entity} className="is-danger">解散容器</ToolbarButton> : null}
       </span> : null}
     </div>
-  </NodeToolbar>;
+  </>;
+  // Physical containers own their title band. Portal titles live in screen
+  // coordinates and can dwarf their frames at overview zoom, hiding children.
+  if (data.nestedContainer) return <div className="gf-flow-nested-header" style={{
+    '--group-title-scale': Math.min(1.3, Math.pow(1 / Math.max(0.03, zoom), 1 - (data.titleZoomStrength ?? 0.5)))
+  }}>{header}</div>;
+  return <NodeToolbar isVisible position={Position.Top} align="start" className="gf-flow-group-title-node-toolbar" offset={-10}
+    style={{ zIndex: isOpen ? 1000 : 10, '--group-title-scale': Math.pow(Math.min(1, Math.max(0.03, zoom)), data.titleZoomStrength ?? 0.5), '--group-title-max-width': `${Math.max(72, Math.min(280, Number(data.placement?.groupWidth || 640) * zoom))}px` }}>{header}</NodeToolbar>;
 }
 
 const RelationshipGroup = memo(function RelationshipGroup({ id, data, selected }) {

@@ -330,6 +330,10 @@
 }
 
 /* NodeToolbar owns its portal coordinates and viewport transform. */
+.gf-flow-nested-header { position: absolute; top: 14px; left: 20px; right: 20px; z-index: 10; }
+.gf-flow-nested-header .gf-flow-group-title-toolbar { width: 100%; box-sizing: border-box; box-shadow: none; }
+.gf-flow-nested-header .gf-flow-group-title-button { flex: 1 1 auto; min-width: 0; text-align: left; }
+.gf-flow-nested-header .gf-flow-group-title-button strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 
 .gf-flow-group-title-toolbar strong {
   font-size: max(10px, calc(var(--relationship-group-title-font-size, 20px) * var(--group-title-scale, 1)));
