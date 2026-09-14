@@ -1106,10 +1106,11 @@
       const canvas = this.root?.querySelector('.relationship-canvas');
       const options = {
         ...this._nodeDimensions(), ...this._displayViewSettings(),
-        style: this._boardView().layout === 'free' ? 'compact' : this._boardView().layout,
+        style: this._isServerTree() && ['lanes', 'free'].includes(this._boardView().layout) ? 'project-columns'
+          : this._boardView().layout === 'free' ? 'compact' : this._boardView().layout,
         projectGroupIncludesEndpoints: this._boardView().projectGroupIncludesEndpoints,
         preserveGroupContents: true,
-        shrinkAutoProjectGroups: this._boardView().layout === 'project-columns',
+        shrinkAutoProjectGroups: this._isServerTree() || this._boardView().layout === 'project-columns',
         compactEndpoints: this._boardView().layout !== 'lanes',
         viewportAspectRatio: canvas?.clientWidth / canvas?.clientHeight || 1.6
       };
@@ -1134,7 +1135,7 @@
         const width = Math.max(...rects.map(r => r.x + r.width)) - Math.min(...rects.map(r => r.x));
         const height = Math.max(...rects.map(r => r.y + r.height)) - Math.min(...rects.map(r => r.y));
         const zoom = Math.max(Model.MIN_VIEWPORT_ZOOM, Math.min(1, (canvas.clientWidth - 120) / Math.max(1, width), (canvas.clientHeight - 120) / Math.max(1, height)));
-        const required = Math.ceil(groupTitleScreenHeight / zoom);
+        const required = Math.min(240, Math.ceil(groupTitleScreenHeight * Math.pow(zoom, options.titleZoomStrength) / zoom));
         if (required <= groupTitleSpace + 1) break;
         groupTitleSpace = required;
       }
@@ -3309,7 +3310,7 @@
         }
         const arranged = this._displayGeometryMap(this._combinedPlacements());
         groups.forEach(group => this._materializeGroupGeometry(group.entityId, arranged));
-        if (arrangeBoard && this._boardView().layout !== 'free') this._arrangeCurrentLayout();
+        if (arrangeBoard) this._arrangeCurrentLayout();
       }
       this._saveDynamicPlacementOverrides(items.filter(item => item.dynamic).map(item => item.entityId));
       this._finishBoardMutation();
