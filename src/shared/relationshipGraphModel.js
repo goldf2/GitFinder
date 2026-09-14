@@ -662,7 +662,7 @@
     if (groupId && group && group.type !== 'group') issues.push(`${prefix}.groupId 必须引用分组节点`);
     if (strict) {
       for (const key of Object.keys(raw)) {
-        if (!['entityId', 'x', 'y', 'groupId', 'groupBackground', 'groupBorder', 'groupLayout', 'groupWidth', 'groupHeight', 'groupShape', 'groupAppearance', 'titleMode', 'titleText', 'titleSource', 'statusVisibility', 'iconKey', 'labels', 'note', 'todos', 'locked', 'expanded', 'archived', 'moveWithDescendants', 'endpointView', 'resourceDisplayLevel', 'resourceDisplayLevels'].includes(key)) issues.push(`${prefix}.${key} 不是允许的字段`);
+        if (!['entityId', 'x', 'y', 'groupId', 'groupBackground', 'groupBorder', 'groupLayout', 'groupWidth', 'groupHeight', 'groupShape', 'groupAppearance', 'titleMode', 'titleText', 'titleSource', 'statusVisibility', 'iconKey', 'labels', 'note', 'todos', 'locked', 'expanded', 'archived', 'moveWithDescendants', 'endpointView', 'resourceDisplayLevel', 'resourceDisplayLevels', 'resourceDisplayProjectEnabled'].includes(key)) issues.push(`${prefix}.${key} 不是允许的字段`);
       }
       if (!Number.isFinite(Number(raw.x)) || !Number.isFinite(Number(raw.y))) {
         issues.push(`${prefix} 坐标必须是有限数字`);
@@ -697,6 +697,10 @@
       if (!['server', 'project', 'deployment', 'repository', 'group'].includes(entity?.type) || !RESOURCE_DISPLAY_LEVELS.includes(raw.resourceDisplayLevel)) {
         issues.push(`${prefix}.resourceDisplayLevel 必须是资源卡片的 host、project、deployment 或 endpoint`);
       } else placement.resourceDisplayLevel = raw.resourceDisplayLevel;
+    }
+    if (raw.resourceDisplayProjectEnabled != null) {
+      if (entity?.type !== 'server' || typeof raw.resourceDisplayProjectEnabled !== 'boolean') issues.push(`${prefix}.resourceDisplayProjectEnabled 必须是主机布尔值`);
+      else placement.resourceDisplayProjectEnabled = raw.resourceDisplayProjectEnabled;
     }
     if (raw.archived === true) {
       if (entity?.type !== 'deployment') issues.push(`${prefix}.archived 仅适用于部署`);

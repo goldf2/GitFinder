@@ -32,7 +32,7 @@ const ids = c => c._filteredGraph().placements.map(p => p.entityId).sort();
 
 test('主机只控制 Project 范围，部署和访问点由 Project 控制', () => {
   const c = fixture();
-  assert.deepEqual(c._contextMenuItems('resource-settings').filter(item => item?.role === 'menuitemcheckbox').map(item => item.label), ['✓ 主机（当前卡片）', '○ Project 容器']);
+  assert.deepEqual(c._contextMenuItems('resource-settings').filter(item => item?.role === 'menuitemcheckbox').map(item => item.label), ['✓ 主机（当前卡片）', '○ Project 容器', '○ 部署', '○ 访问点']);
   c.selectedEntityIds = new Set(['entity_groupxx_a']);
   assert.deepEqual(c._contextMenuItems('resource-settings').filter(item => item?.role === 'menuitemcheckbox').map(item => item.label), ['✓ Project（当前卡片）', '○ 部署', '○ 访问点']);
 });
@@ -92,7 +92,7 @@ test('复选菜单状态真实，当前卡片保留，部署选中时明确说�
   const c = fixture();
   c._toggleResourceDisplayLevel('project');
   const items = c._contextMenuItems('resource-settings').filter(item => item?.role === 'menuitemcheckbox');
-  assert.equal(items.length, 2);
+  assert.equal(items.length, 4);
   assert.equal(items[0].disabled, true);
   assert.equal(items[1].checked, true);
   assert.equal(items[1].disabled, false);
@@ -111,6 +111,18 @@ test('不可选中的主机容器打开菜单后仍能应用显示设置', () =>
   assert.equal(c._runContextAction('resource-display-toggle:project'), true);
   assert.ok(ids(c).includes('entity_groupxx_a'));
   assert.equal(c._contextMenuItems('resource-settings').filter(item => item?.role === 'menuitemcheckbox').length, 0);
+});
+
+test('菜单目标优先于残留选择，主机与 Project 显示设置不会串改', () => {
+  const c = fixture();
+  c.selectedEntityIds = new Set(['entity_groupxx_a']);
+  c.selectedEntityId = 'entity_groupxx_a';
+  c.contextMenuEntityId = 'entity_hostxx_a';
+  assert.equal(c._runContextAction('resource-display-toggle:project'), true);
+  const host = c._placementForEntity('entity_hostxx_a');
+  const project = c._placementForEntity('entity_groupxx_a');
+  assert.deepEqual(host.resourceDisplayLevels, ['host', 'project']);
+  assert.equal(project.resourceDisplayLevels, undefined);
 });
 
 test('主机自动排列只移动本主机 Project，保持其他主机与组内相对位置', () => {

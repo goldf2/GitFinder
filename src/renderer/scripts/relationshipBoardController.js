@@ -182,7 +182,7 @@
 
   function resourceDisplayOptions(entity = {}) {
     const type = resourceDisplayType(entity);
-    if (type === 'server') return [['host', '主机（当前卡片）'], ['project', 'Project 容器']];
+    if (type === 'server') return [['host', '主机（当前卡片）'], ['project', 'Project 容器'], ['deployment', '部署'], ['endpoint', '访问点']];
     if (type === 'project') return [['project', 'Project（当前卡片）'], ['deployment', '部署'], ['endpoint', '访问点']];
     if (type === 'deployment') return [['deployment', '部署（当前卡片）'], ['endpoint', '访问点']];
     return [];
@@ -2026,18 +2026,31 @@
           // level hides the containers; Project preferences decide what lives
           // inside each container afterwards.
           const projectIds = new Set([...(hierarchy.projectsByServer.get(rootId) || []), ...(projectsByServerFallback.get(rootId) || [])]);
-          for (const projectId of projectIds) require(projectId, rootId, 'project');
+          const showProjects = levels.some(level => ['project', 'deployment', 'endpoint'].includes(level))
+            || placementById.get(rootId)?.resourceDisplayProjectEnabled !== false;
+          if (showProjects) for (const projectId of projectIds) require(projectId, rootId, 'project');
+          if (levels.includes('deployment') || levels.includes('endpoint')) {
+            for (const deploymentId of hierarchy.deploymentsByServer.get(rootId) || []) {
+              require(deploymentId, rootId, 'deployment');
+              if (levels.includes('endpoint')) for (const endpointId of hierarchy.endpointsByDeployment.get(deploymentId) || []) require(endpointId, rootId, 'endpoint');
+            }
+          }
         } else if (resourceDisplayType(entity) === 'project') {
-          for (const deploymentId of hierarchy.deploymentsByProject.get(rootId) || []) {
-            require(deploymentId, rootId, 'deployment');
-            for (const endpointId of hierarchy.endpointsByDeployment.get(deploymentId) || []) require(endpointId, rootId, 'endpoint');
+          const levels = preferences.get(rootId) || [];
+          const deploymentIds = new Set(hierarchy.deploymentsByProject.get(rootId) || []);
+          for (const placement of topologyPlacements) if (placement.groupId === rootId && entities.get(placement.entityId)?.type === 'deployment') deploymentIds.add(placement.entityId);
+          for (const deploymentId of deploymentIds) {
+            if (levels.includes('deployment') || levels.includes('endpoint')) require(deploymentId, rootId, 'deployment');
+            if (levels.includes('endpoint')) for (const endpointId of hierarchy.endpointsByDeployment.get(deploymentId) || []) require(endpointId, rootId, 'endpoint');
           }
         } else if (entity.type === 'deployment') {
-          for (const endpointId of hierarchy.endpointsByDeployment.get(rootId) || []) require(endpointId, rootId, 'endpoint');
+          if (preferences.get(rootId)?.includes('endpoint')) for (const endpointId of hierarchy.endpointsByDeployment.get(rootId) || []) require(endpointId, rootId, 'endpoint');
         }
       }
       const next = new Set(visibleIds);
       for (const [entityId, entries] of requirements) {
+        // A host's Project switch is the outer boundary. A Project's own
+        // preference must not resurrect it after its host excluded it.
         if (preferences.has(entityId)) continue;
         const specificity = entry => ({ server: 0, project: 1, deployment: 2 })[resourceDisplayType(entities.get(entry.rootId))] || 0;
         const closest = Math.max(...entries.map(specificity));
@@ -3326,6 +3339,22 @@
       const hierarchy = this._resourceHierarchy([...entities.values()], this._combinedRelationships(placements));
       const projectIds = new Set(hierarchy.projectsByServer.get(hostId) || []);
       const deploymentIds = new Set(hierarchy.deploymentsByServer.get(hostId) || []);
+      // Live Coolify deployments can carry their Project container through
+      // placement.groupId before the normalized hierarchy is rebuilt.
+      const placementById = new Map(placements.map(item => [item.entityId, item]));
+      for (const relationship of this._combinedRelationships(placements)) {
+        if (relationship.type !== 'runs_on' || relationship.targetId !== hostId) continue;
+        const deployment = entities.get(relationship.sourceId);
+        const groupId = placementById.get(relationship.sourceId)?.groupId;
+        if (deployment?.type === 'deployment') {
+          deploymentIds.add(deployment.id);
+          if (groupId && this._isProjectGroup(groupId)) projectIds.add(groupId);
+        }
+      }
+      for (const placement of placements) {
+        if (placement.groupId && this._isProjectGroup(placement.groupId)
+          && deploymentIds.has(placement.entityId)) projectIds.add(placement.groupId);
+      }
       // A host may contain ordinary local groups as well as sampled Coolify
       // Project containers. The host toolbar only owns the latter; local
       // project cards keep their own layout/menu semantics.
@@ -4032,13 +4061,15 @@
         const levels = resourceDisplayOptions(entity);
         const anchor = levels[0]?.[0];
         if (anchor) selectedLevels.add(anchor);
-        const projectRequired = selectedLevels.has('deployment') && entity?.type === 'server';
+        const projectRequired = (selectedLevels.has('deployment') || selectedLevels.has('endpoint')) && entity?.type === 'server';
         if (projectRequired) selectedLevels.add('project');
+        const deploymentRequired = selectedLevels.has('endpoint') && resourceDisplayType(entity) === 'project';
+        if (deploymentRequired) selectedLevels.add('deployment');
         if (levels.length) items.push(context('显示内容（可多选）', 'resource-display-heading', true));
         items.push(...levels.map(([level, label]) => context(
-          `${selectedLevels.has(level) ? '✓ ' : '○ '}${label}${level === 'project' && projectRequired ? '（包裹部署）' : ''}`,
+          `${selectedLevels.has(level) ? '✓ ' : '○ '}${label}${level === 'project' && projectRequired ? '（包裹部署）' : ''}${level === 'deployment' && deploymentRequired ? '（包裹访问点）' : ''}`,
           `resource-display-toggle:${level}`,
-          level === anchor || level === 'project' && projectRequired,
+          level === anchor || level === 'project' && projectRequired || level === 'deployment' && deploymentRequired,
           { role: 'menuitemcheckbox', checked: selectedLevels.has(level) }
         )));
         if (selectedLevels.size) items.push(context('清除显示偏好', 'resource-display-reset'));
@@ -4053,10 +4084,13 @@
         if (single && ['text', 'image', 'attachment'].includes(single.type)) items.push(context('编辑内容 / 名称…', 'edit-element'));
         else if (single) items.push(context(single.type === 'group' ? '重命名群组…' : '重命名 / 显示别名…', 'rename'), context('备注、标签与待办…', 'annotations'));
         if (single && !(single.type === 'group' && single.transient)) items.push(command('围绕我布局', 'arrange-around-selection'));
-        if (resourceDisplayOptions(single || {}).length || single?.type === 'repository') items.push(command('显示设置…', 'resource-settings'));
+        if (single?.type === 'server') items.push(command('显示设置…', 'resource-settings'));
+        else if (single?.type === 'group' && single.runtime?.dynamicKind === 'coolify-project-group') items.push(command('容器外观设置…', 'inspector'));
+        else if (single?.type === 'repository') items.push(command('显示设置…', 'resource-settings'));
         if (single?.type === 'deployment') items.push(command('归档部署（仅当前白板）', 'archive-selected-deployment'));
         items.push(null, command('将所选卡片组成群组…', 'create-group-from-selection', this._selectedMemberPlacements().length < 2));
         if (this._selectedMemberPlacements().some(item => item.groupId)) items.push(command('移出所属群组', 'remove-selection-group'));
+        if (selected.some(item => item.transient || item.runtime?.dynamicKind === 'coolify-project-group')) items.push(context('从当前白板隐藏', 'hide-resource'));
         // Live topology is read-only: never offer a partially effective mixed-selection deletion.
         if (selected.every(item => !item.transient && item.runtime?.dynamicKind !== 'coolify-project-group' && activeBoard(this.store).placements.some(placement => placement.entityId === item.id))) items.push(context(selected.every(item => item.type === 'group') ? '解散群组（保留成员）' : '从白板移除', 'delete'));
       } else {
@@ -4103,7 +4137,7 @@
       if (action === 'resource-display-reset') return this._setResourceDisplayLevels([], contextEntity);
       if (String(action || '').startsWith('resource-display:')) return this._setResourceDisplayLevel(String(action).split(':')[1]);
       if (action === 'resource-settings') {
-        const entity = [...this._entitySelectionIds()].map(id => this._allEntitiesById().get(id)).find(Boolean) || contextEntity;
+        const entity = contextEntity || [...this._entitySelectionIds()].map(id => this._allEntitiesById().get(id)).find(Boolean);
         return entity ? this._openResourceSettingsMenu(entity) : false;
       }
       if (action === 'architecture-import') {
@@ -4111,6 +4145,7 @@
         return this._importArchitectureForResource(entity);
       }
       if (action === 'edit-element') return this._editCanvasElement([...this._entitySelectionIds()][0]);
+      if (action === 'hide-resource') return this._hideResourceSelection();
       if (action === 'delete') return this._deleteSelection();
       if (action === 'select-all') {
         this._setEntitySelection(new Set(this._filteredGraph().placements.map(item => item.entityId)));
@@ -4144,8 +4179,8 @@
     }
 
     _setResourceDisplayLevels(levels = [], targetEntity = null) {
-      const entity = [...this._entitySelectionIds()].map(id => this._allEntitiesById().get(id)).find(item => item && resourceDisplayOptions(item).length)
-        || (targetEntity && resourceDisplayOptions(targetEntity).length ? targetEntity : null);
+      const entity = (targetEntity && resourceDisplayOptions(targetEntity).length ? targetEntity : null)
+        || [...this._entitySelectionIds()].map(id => this._allEntitiesById().get(id)).find(item => item && resourceDisplayOptions(item).length);
       const placement = entity ? this._placementForEntity(entity.id) : null;
       if (!entity || !placement) return false;
       const allowed = new Set(resourceDisplayOptions(entity).map(([level]) => level));
@@ -4158,6 +4193,7 @@
         delete placement.resourceDisplayLevels;
         delete placement.resourceDisplayLevel;
       }
+      if (entity.type === 'server') placement.resourceDisplayProjectEnabled = next.includes('project');
       if (placement.dynamic) this._saveDynamicPlacementOverrides([entity.id]);
       else this._persistSoon(0);
       this._closeContextMenu();
@@ -4171,8 +4207,8 @@
     }
 
     _toggleResourceDisplayLevel(level, targetEntity = null) {
-      const entity = [...this._entitySelectionIds()].map(id => this._allEntitiesById().get(id)).find(item => item && resourceDisplayOptions(item).some(option => option[0] === level))
-        || (targetEntity && resourceDisplayOptions(targetEntity).some(option => option[0] === level) ? targetEntity : null)
+      const entity = (targetEntity && resourceDisplayOptions(targetEntity).some(option => option[0] === level) ? targetEntity : null)
+        || [...this._entitySelectionIds()].map(id => this._allEntitiesById().get(id)).find(item => item && resourceDisplayOptions(item).some(option => option[0] === level))
         || this._allEntitiesById().get(this.contextMenuEntityId);
       if (!entity) return false;
       const placement = this._placementForEntity(entity.id);
@@ -6479,6 +6515,27 @@
         this._clearEntitySelection();
       } else return;
       this._finishBoardMutation();
+    }
+
+    _hideResourceSelection() {
+      const selectedIds = this._entitySelectionIds();
+      if (!selectedIds.size) return false;
+      const board = activeBoard(this.store);
+      if (!board) return false;
+      const hidden = new Set(selectedIds);
+      let changed = true;
+      while (changed) {
+        changed = false;
+        for (const placement of this._combinedPlacements(board)) {
+          if (hidden.has(placement.groupId) && !hidden.has(placement.entityId)) { hidden.add(placement.entityId); changed = true; }
+        }
+      }
+      this._recordMutation();
+      board.placements = board.placements.filter(item => !hidden.has(item.entityId));
+      this._clearEntitySelection();
+      this._finishBoardMutation();
+      this.notify(`已从当前白板隐藏 ${hidden.size} 个资源`, 'success');
+      return true;
     }
 
     _finishBoardMutation({ updateSummary = true } = {}) {
