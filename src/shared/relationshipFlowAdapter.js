@@ -103,6 +103,10 @@
       const hostSummary = isHostProjectSummary(edge, entities)
         || (allHosts && edge.visualOnly === true && target?.type === 'deployment');
       if (!hostSummary || !byId.has(edge.targetId)) continue;
+      // Deployments already owned by a Project are not direct host children.
+      // Keeping only the Project at this level produces a real three-tier tree.
+      if (allHosts && target?.type === 'deployment' && (byId.get(edge.targetId)?.parentId ||
+        [...relationships].some(relation => relation.visualOnly !== true && relation.targetId === edge.targetId && isProjectGroup(entities.get(relation.sourceId))))) continue;
       if (!membersByHost.has(edge.sourceId)) membersByHost.set(edge.sourceId, new Set());
       membersByHost.get(edge.sourceId).add(edge.targetId);
     }
@@ -114,6 +118,19 @@
       const memberIds = [...memberSet];
       const bounds = hostBubbleBounds(nodes, memberIds, hostNode.position);
       const id = `host-bubble:${hostId}`;
+      const directMembers = new Set(memberIds);
+      // Reparent Project containers into the synthetic host node. Positions must
+      // be converted from canvas coordinates to the host's local coordinates.
+      const absolute = absolutePositions(nodes);
+      for (const memberId of memberIds) {
+        const member = byId.get(memberId);
+        if (!member || !isProjectGroup(member.data?.entity)) continue;
+        if (member.parentId && member.parentId !== id) continue;
+        const position = absolute.get(memberId) || member.position || { x: 0, y: 0 };
+        member.parentId = id;
+        member.extent = 'parent';
+        member.position = { x: position.x - bounds.x, y: position.y - bounds.y };
+      }
       bubbles.push({
         id,
         type: 'hostBubble',
@@ -128,7 +145,9 @@
           entity: host,
           placement: { ...(hostNode.data?.placement || {}), entityId: hostId },
           memberIds,
-          linkedNodeIds: [id, ...memberIds],
+          // Direct (unclassified) deployments still need explicit linked drag;
+          // Project descendants move with their React Flow parent.
+          linkedNodeIds: [id, ...memberIds.filter(memberId => !isProjectGroup(entities.get(memberId)))],
           fallbackPosition: hostNode.position,
           projectCount: memberIds.filter(memberId => isProjectGroup(entities.get(memberId))).length,
           deploymentCount: memberIds.filter(memberId => entities.get(memberId)?.type === 'deployment').length,
