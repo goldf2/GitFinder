@@ -73,6 +73,9 @@
   }
 
   function hostBubbleBounds(nodes, memberIds, fallback = { x: 0, y: 0 }) {
+    // The host title is a first-level header. Keep a dedicated header band so
+    // Project headers can never occupy the same screen row.
+    const HOST_HEADER_SPACE = 156;
     const absolute = absolutePositions(nodes);
     const byId = new Map(nodes.map(node => [node.id, node]));
     const rects = memberIds.map(id => {
@@ -81,9 +84,9 @@
       const size = nodeDimensions(node);
       return { x: position.x, y: position.y, width: size.width, height: size.height };
     }).filter(Boolean);
-    if (!rects.length) return { x: fallback.x - 72, y: fallback.y - 88, width: 424, height: 220 };
+    if (!rects.length) return { x: fallback.x - 72, y: fallback.y - HOST_HEADER_SPACE, width: 424, height: 220 + HOST_HEADER_SPACE };
     const left = Math.min(...rects.map(rect => rect.x)) - 72;
-    const top = Math.min(...rects.map(rect => rect.y)) - 88;
+    const top = Math.min(...rects.map(rect => rect.y)) - HOST_HEADER_SPACE;
     const right = Math.max(...rects.map(rect => rect.x + rect.width)) + 72;
     const bottom = Math.max(...rects.map(rect => rect.y + rect.height)) + 64;
     return { x: left, y: top, width: right - left, height: bottom - top };

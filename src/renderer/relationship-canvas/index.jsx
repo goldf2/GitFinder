@@ -266,7 +266,7 @@ function ContainerHeader({ id, data, host = false, selected }) {
   const toggle = event => { event.stopPropagation(); setOpenId(current => current === id ? null : id); };
   return <NodeToolbar isVisible position={Position.Top} align="start" className="gf-flow-group-title-node-toolbar" offset={-10}
     style={{ zIndex: isOpen ? 1000 : 10, '--group-title-scale': Math.pow(Math.min(1, Math.max(0.03, zoom)), data.titleZoomStrength ?? 0.5), '--group-title-max-width': `${Math.max(72, Math.min(280, Number(data.placement?.groupWidth || 640) * zoom))}px` }}>
-    <div className={`gf-flow-group-title-toolbar${zoom < 0.6 ? ' is-overview' : ''}`}>
+    <div className={`gf-flow-group-title-toolbar${host ? ' gf-flow-host-title-toolbar' : ''}${zoom < 0.6 ? ' is-overview' : ''}`}>
       <button type="button" title={entity.name} className="gf-flow-group-title-button nodrag nopan" onPointerDown={event => event.stopPropagation()} onClick={toggle}><strong>{entity.name}</strong></button>
       {zoom >= 0.6 || selected ? <span>{host ? `${data.projectCount || 0} 个 Project` : `${data.memberCount || 0} 个成员`}</span> : null}
       <MoreActions id={id} entity={entity} />

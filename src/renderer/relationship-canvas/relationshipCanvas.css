@@ -349,6 +349,14 @@
   height: max(20px, calc(24px * var(--group-title-scale, 1)));
 }
 
+.gf-flow-host-title-toolbar {
+  border-color: rgb(84 118 165 / 42%);
+  border-radius: 14px;
+  background: rgb(248 251 255 / 98%);
+  box-shadow: 0 8px 22px rgb(50 80 120 / 16%);
+}
+.gf-flow-host-title-toolbar strong { letter-spacing: .01em; }
+
 .gf-flow-group-title-button {
   flex: 0 0 auto;
   padding: 0;
