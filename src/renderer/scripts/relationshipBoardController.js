@@ -181,6 +181,7 @@
   }
 
   function resourceDisplayOptions(entity = {}) {
+    if (entity.runtime?.dynamicKind === 'coolify-project-group') return [];
     const type = resourceDisplayType(entity);
     if (type === 'server') return [['host', '主机（当前卡片）'], ['project', 'Project 容器'], ['deployment', '部署'], ['endpoint', '访问点']];
     if (type === 'project') return [['project', 'Project（当前卡片）'], ['deployment', '部署'], ['endpoint', '访问点']];
@@ -262,6 +263,7 @@
           ...(/^entity_[a-zA-Z0-9_-]{1,220}$/.test(placement.groupId || '') ? { groupId: placement.groupId } : {}),
           ...(Model.PROJECT_GROUP_SHAPES.includes(placement.groupShape) ? { groupShape: placement.groupShape } : {}),
           ...(Model.GROUP_APPEARANCES.includes(placement.groupAppearance) ? { groupAppearance: placement.groupAppearance } : {}),
+          ...Object.fromEntries(['groupBackground', 'groupBorder'].filter(key => /^#[0-9a-f]{6}$/i.test(placement[key] || '')).map(key => [key, placement[key]])),
           ...normalizePlacementAnnotations(placement)
         };
       }
@@ -1018,6 +1020,8 @@
           ...annotations,
           ...(override.groupShape ? { groupShape: override.groupShape } : {}),
           ...(override.groupAppearance ? { groupAppearance: override.groupAppearance } : {}),
+          ...(override.groupBackground ? { groupBackground: override.groupBackground } : {}),
+          ...(override.groupBorder ? { groupBorder: override.groupBorder } : {}),
           ...(validGroup ? { groupId } : {}),
           ...(liveProjectGroup ? { groupLayout: 'auto' } : {}),
           userPositioned: true
@@ -1061,6 +1065,7 @@
           ...(placement.groupId ? { groupId: placement.groupId } : {}),
           ...(Model.PROJECT_GROUP_SHAPES.includes(placement.groupShape) ? { groupShape: placement.groupShape } : {}),
           ...(Model.GROUP_APPEARANCES.includes(placement.groupAppearance) ? { groupAppearance: placement.groupAppearance } : {}),
+          ...Object.fromEntries(['groupBackground', 'groupBorder'].filter(key => /^#[0-9a-f]{6}$/i.test(placement[key] || '')).map(key => [key, placement[key]])),
           ...normalizePlacementAnnotations(placement)
         };
         placement.userPositioned = true;
@@ -1789,7 +1794,8 @@
       // turn the resource action into “定位”; otherwise a fresh local board
       // incorrectly reports every observed deployment as already placed.
       const board = activeBoard(this.store);
-      const boardPlacements = Array.isArray(board?.placements) ? [...board.placements] : [];
+      const hidden = this._hiddenResourceIds();
+      const boardPlacements = Array.isArray(board?.placements) ? board.placements.filter(item => !hidden.has(item.entityId)) : [];
       if (this._architectureVisible()) {
         const ids = new Set(boardPlacements.map(placement => placement.entityId));
         for (const placement of this.architectureProjection?.placements || []) {
@@ -2022,18 +2028,15 @@
         if (!entity) continue;
         if (entity.type === 'server') {
           const levels = preferences.get(rootId) || [];
-          // Host preferences stop at the Project boundary. A missing Project
-          // level hides the containers; Project preferences decide what lives
-          // inside each container afterwards.
           const projectIds = new Set([...(hierarchy.projectsByServer.get(rootId) || []), ...(projectsByServerFallback.get(rootId) || [])]);
-          const showProjects = levels.some(level => ['project', 'deployment', 'endpoint'].includes(level))
-            || placementById.get(rootId)?.resourceDisplayProjectEnabled !== false;
-          if (showProjects) for (const projectId of projectIds) require(projectId, rootId, 'project');
-          if (levels.includes('deployment') || levels.includes('endpoint')) {
-            for (const deploymentId of hierarchy.deploymentsByServer.get(rootId) || []) {
-              require(deploymentId, rootId, 'deployment');
-              if (levels.includes('endpoint')) for (const endpointId of hierarchy.endpointsByDeployment.get(deploymentId) || []) require(endpointId, rootId, 'endpoint');
-            }
+          // Descendant visibility belongs to the host, including unchecked
+          // levels. Keep structural parents when an endpoint is requested.
+          if (levels.includes('endpoint') && !levels.includes('deployment')) levels.push('deployment');
+          if (levels.includes('deployment') && !levels.includes('project')) levels.push('project');
+          for (const projectId of projectIds) require(projectId, rootId, 'project');
+          for (const deploymentId of hierarchy.deploymentsByServer.get(rootId) || []) {
+            require(deploymentId, rootId, 'deployment');
+            for (const endpointId of hierarchy.endpointsByDeployment.get(deploymentId) || []) require(endpointId, rootId, 'endpoint');
           }
         } else if (resourceDisplayType(entity) === 'project') {
           const levels = preferences.get(rootId) || [];
@@ -2051,6 +2054,11 @@
       for (const [entityId, entries] of requirements) {
         // A host's Project switch is the outer boundary. A Project's own
         // preference must not resurrect it after its host excluded it.
+        const hostEntries = entries.filter(entry => entities.get(entry.rootId)?.type === 'server');
+        if (hostEntries.length) {
+          if (hostEntries.every(entry => !preferences.get(entry.rootId)?.includes(entry.threshold))) next.delete(entityId);
+          continue;
+        }
         if (preferences.has(entityId)) continue;
         const specificity = entry => ({ server: 0, project: 1, deployment: 2 })[resourceDisplayType(entities.get(entry.rootId))] || 0;
         const closest = Math.max(...entries.map(specificity));
@@ -2267,7 +2275,8 @@
 
     _unarchivedPlacements() {
       const placements = this._combinedPlacements();
-      const hidden = new Set(placements.filter(item => item.archived).map(item => item.entityId));
+      const hidden = this._hiddenResourceIds();
+      for (const item of placements) if (item.archived) hidden.add(item.entityId);
       if (!hidden.size) return placements;
       const owners = new Map();
       for (const edge of this._combinedRelationships(placements)) {
@@ -2281,6 +2290,29 @@
         if (deployments.every(id => hidden.has(id))) hidden.add(endpointId);
       }
       return placements.filter(item => !hidden.has(item.entityId));
+    }
+
+    _hiddenResourceIds() {
+      const hidden = new Set(activeBoard(this.store)?.hiddenResourceIds || []);
+      if (!hidden.size) return hidden;
+      const placements = this._combinedPlacements();
+      const hierarchy = this._resourceHierarchy([...this._allEntitiesById().values()], this._combinedRelationships(placements));
+      for (const id of [...hidden]) {
+        for (const project of hierarchy.projectsByServer.get(id) || []) hidden.add(project);
+        for (const deployment of hierarchy.deploymentsByServer.get(id) || []) hidden.add(deployment);
+      }
+      let changed = true;
+      while (changed) {
+        changed = false;
+        for (const item of placements) if (hidden.has(item.groupId) && !hidden.has(item.entityId)) { hidden.add(item.entityId); changed = true; }
+      }
+      const endpointOwners = new Map();
+      for (const [deployment, endpoints] of hierarchy.endpointsByDeployment) for (const endpoint of endpoints) {
+        if (!endpointOwners.has(endpoint)) endpointOwners.set(endpoint, []);
+        endpointOwners.get(endpoint).push(deployment);
+      }
+      for (const [endpoint, owners] of endpointOwners) if (owners.every(id => hidden.has(id))) hidden.add(endpoint);
+      return hidden;
     }
 
     _scopePlacements(placements = this._unarchivedPlacements()) {
@@ -3714,7 +3746,8 @@
       if (!board) return { placements: [], relationships: [], summaryRelationships: [], directIds: new Set(), contextualIds: new Set(), mutedIds: new Set(), filterActive: false };
       const view = this._boardView();
       const entitiesById = this._allEntitiesById();
-      const placements = this._scopePlacements(this._unarchivedPlacements());
+      const hidden = this._hiddenResourceIds();
+      const placements = this._scopePlacements(this._unarchivedPlacements()).filter(item => !hidden.has(item.entityId));
       const boardRelationships = this._combinedRelationships(placements);
       const now = this.now();
       const graph = GraphProjection.filterGraph({
@@ -3737,6 +3770,17 @@
       });
       if (this._isServerTree()) {
         const tree = PanelTopologyProjection.serverTreeGraph({ ...graph, entities: [...entitiesById.values()] }, view.showRepositoryRelations);
+        // Ownership must survive hiding all deployments of a Project.
+        // Derive it from the source topology, not the filtered cards.
+        const sourceHierarchy = this._resourceHierarchy([...entitiesById.values()], this._combinedRelationships(this._combinedPlacements()));
+        const visible = new Set(tree.placements.map(item => item.entityId));
+        for (const [hostId, projectIds] of sourceHierarchy.projectsByServer) {
+          for (const projectId of projectIds) {
+            if (!visible.has(hostId) || !visible.has(projectId)
+              || tree.summaryRelationships.some(edge => edge.sourceId === hostId && edge.targetId === projectId)) continue;
+            tree.summaryRelationships.push({ id: `tree_${hostId}:${projectId}`, type: 'tree_hierarchy', sourceId: hostId, targetId: projectId, label: 'Project' });
+          }
+        }
         return { ...graph, ...tree };
       }
       return GraphProjection.deploymentSummaryProjection({
@@ -4055,7 +4099,8 @@
         items.push(context(editable ? '编辑关系…' : '查看关系详情', 'inspector'));
         if (editable) items.push(command('反转方向', 'reverse-relationship'), context('删除关系', 'delete'));
       } else if (kind === 'resource-settings') {
-        const entity = [...this._entitySelectionIds()].map(id => this._allEntitiesById().get(id)).find(Boolean);
+        const entity = this._allEntitiesById().get(this.contextMenuEntityId)
+          || [...this._entitySelectionIds()].map(id => this._allEntitiesById().get(id)).find(Boolean);
         const placement = entity ? this._placementForEntity(entity.id) : null;
         const selectedLevels = new Set(resourceDisplayLevelsFor(entity, placement || {}));
         const levels = resourceDisplayOptions(entity);
@@ -4063,7 +4108,7 @@
         if (anchor) selectedLevels.add(anchor);
         const projectRequired = (selectedLevels.has('deployment') || selectedLevels.has('endpoint')) && entity?.type === 'server';
         if (projectRequired) selectedLevels.add('project');
-        const deploymentRequired = selectedLevels.has('endpoint') && resourceDisplayType(entity) === 'project';
+        const deploymentRequired = selectedLevels.has('endpoint') && ['server', 'project'].includes(resourceDisplayType(entity));
         if (deploymentRequired) selectedLevels.add('deployment');
         if (levels.length) items.push(context('显示内容（可多选）', 'resource-display-heading', true));
         items.push(...levels.map(([level, label]) => context(
@@ -4129,8 +4174,8 @@
       this._closeContextMenu(true);
       if (String(action || '').startsWith('resource-display-toggle:')) {
         const result = this._toggleResourceDisplayLevel(String(action).split(':')[1], contextEntity);
-        const entity = [...this._entitySelectionIds()].map(id => this._allEntitiesById().get(id)).find(item => item && resourceDisplayOptions(item).length)
-          || (contextEntity && resourceDisplayOptions(contextEntity).length ? contextEntity : null);
+        const entity = (contextEntity && resourceDisplayOptions(contextEntity).length ? contextEntity : null)
+          || [...this._entitySelectionIds()].map(id => this._allEntitiesById().get(id)).find(item => item && resourceDisplayOptions(item).length);
         if (result && entity) this._openResourceSettingsMenu(entity);
         return result;
       }
@@ -4193,7 +4238,7 @@
         delete placement.resourceDisplayLevels;
         delete placement.resourceDisplayLevel;
       }
-      if (entity.type === 'server') placement.resourceDisplayProjectEnabled = next.includes('project');
+      delete placement.resourceDisplayProjectEnabled;
       if (placement.dynamic) this._saveDynamicPlacementOverrides([entity.id]);
       else this._persistSoon(0);
       this._closeContextMenu();
@@ -4752,6 +4797,7 @@
       this._selectOnlyEntity(value.id);
       this._updateSelectionCss();
       if (action === 'delete-group') return this._deleteSelection();
+      if (action === 'hide-resource') return this._hideResourceSelection();
       if (action === 'edit-group') return this._revealInspector('[name="name"]');
       if (action === 'details') return this._revealInspector();
     }
@@ -5303,6 +5349,12 @@
       if (!placement) return false;
       try {
         const annotations = this._readPlacementAnnotations(form);
+        if (this._allEntitiesById().get(entityId)?.type === 'group') {
+          for (const field of ['groupBackground', 'groupBorder']) {
+            const value = form.querySelector(`[name="${field}"]`)?.value;
+            if (value) placement[field] = value;
+          }
+        }
         if (placement.dynamic) {
           this._writePlacementAnnotations(placement, annotations);
           this._saveDynamicPlacementOverrides([entityId]);
@@ -5619,6 +5671,7 @@
           ${content}
           <p class="relationship-inspector-boundary">动态事实直接来自 Coolify，只读显示，不写入本机白板，也不会触发部署或修改 Git。</p>
           ${selected.kind === 'entity' ? `<form class="relationship-inspector-form relationship-annotation-form" data-relationship-annotation-form data-entity-id="${escapeHtml(fact.id)}">
+            ${fact.type === 'group' ? this._groupAppearanceEditorHtml(fact.id) : ''}
             ${this._annotationEditorHtml(fact.id)}
             <p class="relationship-inspector-error" role="alert"></p>
             <div class="relationship-inspector-actions"><button class="relationship-primary-button" type="submit" data-inspector-save disabled>保存注释</button></div>
@@ -6002,7 +6055,7 @@
       const options = placements.filter(item => this._canJoinGroup(entityId, item.entityId, context))
         .map(item => `<option value="${escapeHtml(item.entityId)}" ${placement.groupId === item.entityId ? 'selected' : ''}>${escapeHtml(entities.get(item.entityId).name)}</option>`).join('');
       return `<section class="relationship-group-appearance" aria-label="群组外观与嵌套">
-        <label class="relationship-inspector-field"><span>上级群组</span><select name="parentGroup"><option value="">无（顶层）</option>${options}</select></label>
+        ${entities.get(entityId)?.runtime?.dynamicKind === 'coolify-project-group' ? '' : `<label class="relationship-inspector-field"><span>上级群组</span><select name="parentGroup"><option value="">无（顶层）</option>${options}</select></label>`}
         <div class="relationship-group-colors">
           <label class="relationship-inspector-field"><span>容器形状</span><select data-selected-group-shape="${escapeHtml(entityId)}"><option value="inherit"${placement.groupShape ? '' : ' selected'}>跟随白板（${{ rounded: '矩形', polygon: '多边形' }[inheritedShape]}）</option><option value="rounded"${placement.groupShape === 'rounded' ? ' selected' : ''}>矩形</option><option value="polygon"${placement.groupShape === 'polygon' ? ' selected' : ''}>多边形</option></select></label>
           <label class="relationship-inspector-field"><span>显示样式</span><select data-selected-group-appearance="${escapeHtml(entityId)}"><option value="soft"${!placement.groupAppearance || placement.groupAppearance === 'soft' ? ' selected' : ''}>浅色填充</option><option value="outline"${placement.groupAppearance === 'outline' ? ' selected' : ''}>仅描边</option><option value="emphasis"${placement.groupAppearance === 'emphasis' ? ' selected' : ''}>强调填充</option></select></label>
@@ -6242,6 +6295,13 @@
       }
       if (resource.entityId) {
         const board = activeBoard(this.store);
+        if (board?.hiddenResourceIds?.includes(resource.entityId)) {
+          this._recordMutation();
+          board.hiddenResourceIds = board.hiddenResourceIds.filter(id => id !== resource.entityId);
+          this._finishBoardMutation();
+          this._renderResources();
+          return;
+        }
         const placement = board?.placements?.find(candidate => candidate.entityId === resource.entityId);
         if (placement) {
           this._focusEntityOnBoard(resource.entityId);
@@ -6484,8 +6544,7 @@
         const selectedIds = this._entitySelectionIds();
         const entities = this._allEntitiesById();
         if ([...selectedIds].some(id => entities.get(id)?.transient || entities.get(id)?.runtime?.dynamicKind === 'coolify-project-group')) {
-          this.notify('采样资源及其 Project 容器不可删除或解散，请使用显示设置控制可见内容', 'info');
-          return;
+          return this._hideResourceSelection();
         }
         const selected = this._combinedPlacements().filter(item => selectedIds.has(item.entityId));
         if (!selected.length) return;
@@ -6531,9 +6590,10 @@
         }
       }
       this._recordMutation();
-      board.placements = board.placements.filter(item => !hidden.has(item.entityId));
+      board.hiddenResourceIds = [...new Set([...(board.hiddenResourceIds || []), ...selectedIds])];
       this._clearEntitySelection();
       this._finishBoardMutation();
+      this._renderResources();
       this.notify(`已从当前白板隐藏 ${hidden.size} 个资源`, 'success');
       return true;
     }

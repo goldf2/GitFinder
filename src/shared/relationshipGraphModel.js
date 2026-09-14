@@ -806,7 +806,7 @@
     }
     if (strict) {
       for (const key of Object.keys(raw)) {
-        if (!['id', 'name', 'viewport', 'placements', 'view'].includes(key)) issues.push(`${prefix}.${key} 不是允许的字段`);
+        if (!['id', 'name', 'viewport', 'placements', 'view', 'hiddenResourceIds'].includes(key)) issues.push(`${prefix}.${key} 不是允许的字段`);
       }
       for (const key of Object.keys(viewport)) {
         if (!['x', 'y', 'zoom'].includes(key)) issues.push(`${prefix}.viewport.${key} 不是允许的字段`);
@@ -821,6 +821,7 @@
         zoom: finiteNumber(viewport.zoom, 1, MIN_VIEWPORT_ZOOM, MAX_VIEWPORT_ZOOM)
       },
       view: normalizeBoardView(raw.view, issues, `${prefix}.view`, strict),
+      ...(Array.isArray(raw.hiddenResourceIds) && raw.hiddenResourceIds.length ? { hiddenResourceIds: [...new Set(raw.hiddenResourceIds.filter(id => typeof id === 'string' && ENTITY_ID_PATTERN.test(id)))] } : {}),
       placements
     };
   }

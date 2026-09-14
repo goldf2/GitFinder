@@ -481,11 +481,11 @@ test('主机卡片的显示层级只收窄该主机的运行资源', () => {
   controller.panelProjection.placements[0].resourceDisplayLevel = 'host';
   const visible = controller._applyResourceDisplayPreferences(controller.panelProjection.placements,
     new Set(controller.panelProjection.placements.map(item => item.entityId)), controller.panelProjection.relationships);
-  assert.deepEqual([...visible].sort(), [serverOne.id, serverTwo.id, repoOne.id, deployOne.id, endpointOne.id].sort());
+  assert.deepEqual([...visible].sort(), [serverOne.id, serverTwo.id, repoOne.id].sort());
   controller.panelProjection.placements[1].resourceDisplayLevel = 'host';
   const bothHostOnly = controller._applyResourceDisplayPreferences(controller.panelProjection.placements,
     new Set(controller.panelProjection.placements.map(item => item.entityId)), controller.panelProjection.relationships);
-  assert.deepEqual([...bothHostOnly].sort(), [serverOne.id, serverTwo.id, repoOne.id, deployOne.id, endpointOne.id].sort());
+  assert.deepEqual([...bothHostOnly].sort(), [serverOne.id, serverTwo.id, repoOne.id].sort());
 });
 
 test('本机工作区的卡片显示层级会按偏好注入当前主机下级资源', () => {
@@ -508,9 +508,9 @@ test('本机工作区的卡片显示层级会按偏好注入当前主机下级�
     placements: [server, project, deployment, endpoint].map((entity, index) => ({ entityId: entity.id, x: index * 40, y: 0, dynamic: true })),
     metadata: { state: 'ready' }
   };
-  assert.deepEqual(controller._filteredGraph().placements.map(item => item.entityId).sort(), [server.id, project.id, deployment.id, endpoint.id].sort());
+  assert.deepEqual(controller._filteredGraph().placements.map(item => item.entityId).sort(), [server.id, project.id, deployment.id].sort());
   controller.store.boards[0].placements[0].resourceDisplayLevel = 'host';
-  assert.deepEqual(controller._filteredGraph().placements.map(item => item.entityId), [server.id, deployment.id, endpoint.id]);
+  assert.deepEqual(controller._filteredGraph().placements.map(item => item.entityId), [server.id]);
 });
 
 test('本机工作区把 Coolify 资源作为可组合来源，加入后才标记为已放置', () => {
@@ -2668,13 +2668,14 @@ test('面板组件独立停靠和折叠只保存本机偏好，不修改白板�
   assert.equal(controller._setPanelSide('unrelated', 'right'), false);
 });
 
-test('混合选择不能通过快捷键部分删除实时资源或本地卡片', () => {
+test('混合选择通过快捷键只隐藏投影，不删除实时来源或本地卡片', () => {
   const { controller } = nestedGroupFixture();
   controller._setEntitySelection(new Set(['entity_local001', 'entity_dynamic01']));
-  const before = controller._historySnapshot();
+  const before = JSON.stringify(controller.store.entities);
   controller._deleteSelection();
-  assert.equal(controller._historySnapshot(), before);
-  assert.equal(controller.undoStack.length, 0);
+  assert.equal(JSON.stringify(controller.store.entities), before);
+  assert.deepEqual(controller.store.boards[0].hiddenResourceIds, ['entity_local001', 'entity_dynamic01']);
+  assert.equal(controller.undoStack.length, 1);
 });
 
 test('筛选切换只保留仍然可见的已选节点', () => {

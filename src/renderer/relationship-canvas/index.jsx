@@ -264,14 +264,14 @@ function ContainerHeader({ id, data, host = false, selected }) {
   const isOpen = openId === id;
   const physical = host || entity.runtime?.dynamicKind === 'coolify-project-group';
   const toggle = event => { event.stopPropagation(); setOpenId(current => current === id ? null : id); };
-  return <NodeToolbar isVisible position={Position.Top} align="start" className="gf-flow-group-title-node-toolbar" offset={4}
+  return <NodeToolbar isVisible position={Position.Top} align="start" className="gf-flow-group-title-node-toolbar" offset={-10}
     style={{ zIndex: isOpen ? 1000 : 10, '--group-title-scale': Math.pow(Math.min(1, Math.max(0.03, zoom)), data.titleZoomStrength ?? 0.5), '--group-title-max-width': `${Math.max(72, Math.min(280, Number(data.placement?.groupWidth || 640) * zoom))}px` }}>
     <div className={`gf-flow-group-title-toolbar${zoom < 0.6 ? ' is-overview' : ''}`}>
       <button type="button" title={entity.name} className="gf-flow-group-title-button nodrag nopan" onPointerDown={event => event.stopPropagation()} onClick={toggle}><strong>{entity.name}</strong></button>
       {zoom >= 0.6 || selected ? <span>{host ? `${data.projectCount || 0} 个 Project` : `${data.memberCount || 0} 个成员`}</span> : null}
       <MoreActions id={id} entity={entity} />
       {isOpen ? <span className="gf-flow-group-actions" role="toolbar" aria-label={`${entity.name} 快捷操作`}>
-        {physical ? <ToolbarButton data={data} action="resource-settings" entity={entity}>显示设置</ToolbarButton> : null}
+        {host ? <ToolbarButton data={data} action="resource-settings" entity={entity}>显示设置</ToolbarButton> : null}
         <ToolbarButton data={data} action={host ? 'arrange-host' : 'arrange-group'} entity={entity}>自动排列</ToolbarButton>
         <ToolbarButton data={data} action="toggle-descendants" entity={entity}
           className={data.placement?.moveWithDescendants ? 'is-active' : ''}
@@ -279,6 +279,7 @@ function ContainerHeader({ id, data, host = false, selected }) {
           {data.placement?.moveWithDescendants ? '解除固定' : '固定下级'}
         </ToolbarButton>
         <ToolbarButton data={data} action={host ? 'details' : 'edit-group'} entity={entity}>属性</ToolbarButton>
+        {physical ? <ToolbarButton data={data} action="hide-resource" entity={entity}>从白板隐藏</ToolbarButton> : null}
         {!physical && !entity.transient ? <ToolbarButton data={data} action="delete-group" entity={entity} className="is-danger">解散容器</ToolbarButton> : null}
       </span> : null}
     </div>
@@ -291,7 +292,9 @@ const RelationshipGroup = memo(function RelationshipGroup({ id, data, selected }
   const shape = requestedShape === 'polygon' ? 'polygon' : 'rounded';
   const style = {
     '--group-background': data.placement.groupBackground || '#7a67c7',
-    '--group-border': data.placement.groupBorder || '#7a67c7'
+    '--group-border': data.placement.groupBorder || '#7a67c7',
+    background: data.placement.groupAppearance === 'outline' ? 'transparent'
+      : data.placement.groupAppearance === 'emphasis' ? 'color-mix(in srgb, var(--group-background) 20%, transparent)' : undefined
   };
   return <section className={`gf-flow-group is-${shape}${selected ? ' is-selected' : ''}${data.filterState ? ` is-filter-${data.filterState}` : ''}`} style={style}>
     <ConnectionHandles nodeId={id} handles={data.connectionHandles} />

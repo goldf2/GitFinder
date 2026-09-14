@@ -30,23 +30,36 @@ function fixture() {
 }
 const ids = c => c._filteredGraph().placements.map(p => p.entityId).sort();
 
-test('主机只控制 Project 范围，部署和访问点由 Project 控制', () => {
+test('隐藏主机持久化且不删除来源，恢复后下级重新可见', () => {
+  const c = fixture();
+  c._setResourceDisplayLevels(['host', 'endpoint']);
+  c._finishBoardMutation = () => {};
+  c._hideResourceSelection();
+  assert.ok(!ids(c).includes('entity_groupxx_a'));
+  assert.ok(!ids(c).includes('entity_endpointxx_a'));
+  assert.equal(c.panelProjection.entities.length, 8);
+  c.store.entities = c.panelProjection.entities.map(({ id, type, name, details }) => ({ id, type, name, details }));
+  c.store = Model.assertValidStore(c.store);
+  assert.deepEqual(c.store.boards[0].hiddenResourceIds, ['entity_hostxx_a']);
+  c.store.boards[0].hiddenResourceIds = [];
+  assert.ok(ids(c).includes('entity_endpointxx_a'));
+});
+
+test('主机统一控制运行层级，采样 Project 不再提供层级菜单', () => {
   const c = fixture();
   assert.deepEqual(c._contextMenuItems('resource-settings').filter(item => item?.role === 'menuitemcheckbox').map(item => item.label), ['✓ 主机（当前卡片）', '○ Project 容器', '○ 部署', '○ 访问点']);
   c.selectedEntityIds = new Set(['entity_groupxx_a']);
-  assert.deepEqual(c._contextMenuItems('resource-settings').filter(item => item?.role === 'menuitemcheckbox').map(item => item.label), ['✓ Project（当前卡片）', '○ 部署', '○ 访问点']);
+  assert.deepEqual(c._contextMenuItems('resource-settings').filter(item => item?.role === 'menuitemcheckbox'), []);
 });
 
-test('只显示 Project 时服务器树仍显示容器，容器有自己的下级显示设置', () => {
+test('只显示 Project 时保留空容器并隐藏部署，不影响另一主机', () => {
   const c = fixture();
   c.store.boards[0].view.structure = 'server-tree';
   c._toggleResourceDisplayLevel('project');
   assert.ok(ids(c).includes('entity_groupxx_a'));
-  assert.ok(ids(c).includes('entity_deployxx_a'));
-  c.selectedEntityIds = new Set(['entity_groupxx_a']);
-  c._toggleResourceDisplayLevel('deployment');
-  assert.ok(ids(c).includes('entity_deployxx_a'));
-  assert.ok(ids(c).includes('entity_deployxx_b'));
+  assert.ok(!ids(c).includes('entity_deployxx_a'));
+  assert.ok(!ids(c).includes('entity_deployxx_b'));
+  assert.ok(c._filteredGraph().summaryRelationships.some(edge => edge.sourceId === 'entity_hostxx_a' && edge.targetId === 'entity_groupxx_a'));
 });
 
 test('本机已有部署恢复实时 Project 归属，旧容器不继续占据画布', () => {
@@ -62,12 +75,13 @@ test('本机已有部署恢复实时 Project 归属，旧容器不继续占据�
   assert.ok(deploy.x < 90000);
 });
 
-test('Project 的独立显示偏好优先于主机的默认层级', () => {
+test('历史 Project 偏好不覆盖主机，访问点始终保留部署父级', () => {
   const c = fixture();
   c._toggleResourceDisplayLevel('deployment');
-  c.selectedEntityIds = new Set(['entity_groupxx_a']);
-  c._setResourceDisplayLevels(['project', 'endpoint']);
-  assert.ok(!ids(c).includes('entity_deployxx_a'));
+  c.panelProjection.placements.find(p => p.entityId === 'entity_groupxx_a').resourceDisplayLevels = ['project', 'endpoint'];
+  assert.ok(!ids(c).includes('entity_endpointxx_a'));
+  c._setResourceDisplayLevels(['host', 'endpoint']);
+  assert.ok(ids(c).includes('entity_deployxx_a'));
   assert.ok(ids(c).includes('entity_endpointxx_a'));
   assert.ok(ids(c).includes('entity_groupxx_a'));
 });
@@ -80,7 +94,7 @@ test('多选保存重载保留数组、空数组和旧版层级兼容', () => {
   assert.deepEqual(saved.boards[0].placements[0].resourceDisplayLevels, ['host', 'project']);
   c.store = JSON.parse(JSON.stringify(saved));
   assert.ok(ids(c).includes('entity_groupxx_a'));
-  assert.ok(ids(c).includes('entity_deployxx_a'));
+  assert.ok(!ids(c).includes('entity_deployxx_a'));
   delete c.store.boards[0].placements[0].resourceDisplayLevels;
   c.store.boards[0].placements[0].resourceDisplayLevel = 'deployment';
   assert.ok(ids(c).includes('entity_deployxx_a'));
@@ -110,7 +124,7 @@ test('不可选中的主机容器打开菜单后仍能应用显示设置', () =>
   c.contextMenuEntityId = 'entity_hostxx_a';
   assert.equal(c._runContextAction('resource-display-toggle:project'), true);
   assert.ok(ids(c).includes('entity_groupxx_a'));
-  assert.equal(c._contextMenuItems('resource-settings').filter(item => item?.role === 'menuitemcheckbox').length, 0);
+  assert.equal(c._contextMenuItems('resource-settings').filter(item => item?.role === 'menuitemcheckbox').length, 4);
 });
 
 test('菜单目标优先于残留选择，主机与 Project 显示设置不会串改', () => {
