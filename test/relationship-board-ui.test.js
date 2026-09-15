@@ -29,6 +29,13 @@ test('容器标题保留 NodeToolbar 的节点坐标，不覆盖 portal 的变�
 });
 const selectionDetailSource = read('src/renderer/scripts/fileSelectionDetailController.js');
 const relationshipCss = read('src/renderer/styles/relationships.css');
+
+test('全屏禁用窗口拖拽命中区，对话框挂载在全屏元素内', () => {
+  assert.match(relationshipCss, /body:has\(\.relationship-workspace:fullscreen\) \.toolbar/);
+  assert.match(relationshipCss, /\.relationship-workspace:fullscreen \*\s*\{\s*-webkit-app-region: no-drag/);
+  assert.doesNotMatch(controllerSource, /document\.body\.appendChild\(overlay\)/);
+  assert.match(controllerSource, /\(document\.fullscreenElement \|\| document\.body\)\.appendChild\(overlay\)/);
+});
 const contentCss = read('src/renderer/styles/content.css');
 const serviceSource = read('src/main/services/relationshipBoardService.js');
 const importServiceSource = read('src/main/services/relationshipBoardImportService.js');

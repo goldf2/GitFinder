@@ -2487,7 +2487,7 @@
         const restore = event.target.closest('[data-restore-deployment]');
         if (restore) { this._setDeploymentArchived(restore.dataset.restoreDeployment, false); populate(); overlay.querySelector('[data-restore-deployment], [data-dialog-cancel]').focus(); }
       });
-      populate(); document.body.appendChild(overlay); document.addEventListener('keydown', onKeydown, true);
+      populate(); (document.fullscreenElement || document.body).appendChild(overlay); document.addEventListener('keydown', onKeydown, true);
       overlay.querySelector('[data-dialog-cancel]').focus();
     }
 
@@ -5668,7 +5668,7 @@
         const value = options.onSubmit?.(event);
         if (value !== undefined) finish(value);
       });
-      document.body.appendChild(overlay);
+      (document.fullscreenElement || document.body).appendChild(overlay);
       document.addEventListener('keydown', onKeydown, true);
       requestAnimationFrame(() => overlay.querySelector(options.focusSelector || 'input, [type="submit"]')?.focus());
     }

@@ -54,6 +54,14 @@
 .relationship-workspace:fullscreen {
   width: 100vw;
   height: 100vh;
+  -webkit-app-region: no-drag;
+}
+
+/* Electron drag hit regions can survive outside the fullscreen top layer. */
+body:has(.relationship-workspace:fullscreen) .toolbar,
+body:has(.relationship-workspace:fullscreen) .workspace-tab-strip,
+.relationship-workspace:fullscreen * {
+  -webkit-app-region: no-drag;
 }
 
 .relationship-toolbar {
