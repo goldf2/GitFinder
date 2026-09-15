@@ -352,6 +352,18 @@ test('三层容器修复旧窄框和巨大间距，空 Project 和仅访问点�
   assert.deepEqual(graph, original);
 });
 
+test('旧坐标中的远端空主机不再撑大整个三层视图', () => {
+  const graph = {
+    entities: [{ id: 'a', type: 'server' }, { id: 'b', type: 'server' }],
+    placements: [{ entityId: 'a', x: 0, y: 0 }, { entityId: 'b', x: 20000, y: -10000 }],
+    relationships: []
+  };
+  const model = Adapter.toFlowModel(graph, { hostContainerOnly: true });
+  const hosts = model.nodes.filter(node => node.type === 'hostBubble');
+  assert.ok(Math.abs(hosts[1].position.x - hosts[0].position.x) < 1000);
+  assert.ok(Math.abs(hosts[1].position.y - hosts[0].position.y) < 200);
+});
+
 test('无连线时访问点固定为部署内容，旧的远端位置不撑大画布且事实不变', () => {
   const graph = {
     entities: [

@@ -599,6 +599,20 @@
       const hosts = nodes.filter(node => node.type === 'hostBubble').sort((a, b) => a.position.x - b.position.x || a.id.localeCompare(b.id));
       for (let index = 0; index < hosts.length; index++) {
         const host = hosts[index];
+        const adjacent = hosts[index - 1];
+        if (adjacent) {
+          const previousSize = nodeDimensions(adjacent);
+          const gap = host.position.x - adjacent.position.x - previousSize.width;
+          const farApart = gap > Math.max(240, previousSize.width)
+            || Math.abs(host.position.y - adjacent.position.y) > Math.max(previousSize.height, nodeDimensions(host).height) + 240;
+          if (farApart) {
+            const position = { x: adjacent.position.x + previousSize.width + 80, y: adjacent.position.y };
+            for (const member of nodes.filter(node => host.data.memberIds.includes(node.id) && node.parentId !== host.id)) {
+              member.position = { x: member.position.x + position.x - host.position.x, y: member.position.y + position.y - host.position.y };
+            }
+            host.position = position;
+          }
+        }
         for (const previous of hosts.slice(0, index)) {
           const rect = { ...host.position, ...nodeDimensions(host) };
           const other = { ...previous.position, ...nodeDimensions(previous) };
