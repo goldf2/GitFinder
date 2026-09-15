@@ -2741,7 +2741,7 @@ test('内容筛选高亮匹配与一跳上下文并低可视保留其余节点',
   assert.deepEqual([...graph.directIds], ['entity_project1']);
   assert.deepEqual(graph.placements.map(item => item.entityId), ['entity_project1', 'entity_repo0001', 'entity_deploy01', 'entity_server01']);
   assert.deepEqual([...graph.contextualIds], ['entity_repo0001']);
-  assert.deepEqual([...graph.mutedIds], ['entity_deploy01', 'entity_server01']);
+  assert.deepEqual([...graph.mutedIds], ['entity_deploy01']);
   assert.deepEqual(graph.relationships.map(item => item.id), ['relationship_test0001', 'relationship_test0002', 'relationship_test0003']);
 
   controller.store.boards[0].view = {
@@ -2750,14 +2750,14 @@ test('内容筛选高亮匹配与一跳上下文并低可视保留其余节点',
   graph = controller._filteredGraph();
   assert.deepEqual([...graph.directIds], ['entity_deploy01']);
   assert.deepEqual(graph.placements.map(item => item.entityId), ['entity_project1', 'entity_repo0001', 'entity_deploy01', 'entity_server01']);
-  assert.deepEqual([...graph.contextualIds], ['entity_repo0001', 'entity_server01']);
+  assert.deepEqual([...graph.contextualIds], ['entity_repo0001']);
   assert.deepEqual([...graph.mutedIds], ['entity_project1']);
   assert.deepEqual(graph.relationships.map(item => item.id), ['relationship_test0001', 'relationship_test0002', 'relationship_test0003']);
 
   controller.store.boards[0].view.unmatchedDisplay = 'hide';
   graph = controller._filteredGraph();
-  assert.deepEqual(graph.placements.map(item => item.entityId), ['entity_deploy01']);
-  assert.deepEqual(graph.relationships, []);
+  assert.deepEqual(graph.placements.map(item => item.entityId), ['entity_deploy01', 'entity_server01']);
+  assert.deepEqual(graph.relationships.map(item => item.id), ['relationship_test0003']);
 });
 
 test('项目和仓库可按稳定身份加入当前白板并清除遮挡它的筛选', () => {
