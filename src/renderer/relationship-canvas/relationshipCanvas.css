@@ -205,6 +205,12 @@
   font-weight: 650;
 }
 
+.gf-flow-card-heading small[title] {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .gf-flow-card-heading strong {
   overflow: hidden;
   font-size: var(--relationship-title-font-size, 17px);

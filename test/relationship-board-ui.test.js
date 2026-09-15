@@ -65,6 +65,7 @@ test('隐藏部署后访问点按源归属回到 Project 内容区，多个访�
   assert.ok(a.y >= 120 + 143 + 24);
   assert.ok(b.y >= a.y + a.cardHeight + 24);
   assert.equal(result.entities.find(item => item.id === 'e1').detachedOwnerName, '隐藏部署');
+  assert.deepEqual(result.placements.slice(-2).map(item => item.entityId), ['e1', 'e2']);
   assert.deepEqual(all, before);
 });
 

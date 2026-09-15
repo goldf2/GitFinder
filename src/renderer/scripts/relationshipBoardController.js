@@ -4681,6 +4681,7 @@
         endpoint.y = Math.max(project.y + 72, ...[...siblings, ...previous].map(item => item.y + (item.cardHeight || 143) + 24));
         placedDetached.add(endpointId);
       }
+      placements.sort((a, b) => Number(detachedOwners.has(a.entityId)) - Number(detachedOwners.has(b.entityId)));
       const summaryRelationships = (graph.summaryRelationships || []).map(summary => ({
         ...summary,
         id: summary.id,
