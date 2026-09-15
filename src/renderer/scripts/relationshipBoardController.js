@@ -4624,6 +4624,25 @@
       const endpointPresentation = this._endpointPresentation(graph.placements);
       const geometry = this._displayGeometryMap(graph.placements);
       graph = { ...graph, placements: endpointPresentation.placements };
+      // Filtering a deployment must not erase the ownership of its visible endpoint.
+      const visibleIds = new Set(graph.placements.map(item => item.entityId));
+      const detachedOwners = new Map();
+      if (this._isServerTree() && this._readBoardView().showRelationshipLines !== true) {
+        const sourcePlacements = this._combinedPlacements();
+        const sourceById = new Map(sourcePlacements.map(item => [item.entityId, item]));
+        for (const edge of this._combinedRelationships(sourcePlacements)) {
+          const pair = edge.type === 'exposes' ? [edge.sourceId, edge.targetId]
+            : edge.type === 'exposed_by' ? [edge.targetId, edge.sourceId] : null;
+          if (!pair) continue;
+          const [ownerId, endpointId] = pair;
+          const owner = sourceEntities.get(ownerId);
+          const projectId = sourceById.get(ownerId)?.groupId;
+          if (owner?.type !== 'deployment' || sourceEntities.get(endpointId)?.type !== 'endpoint'
+            || visibleIds.has(ownerId) || !visibleIds.has(endpointId) || !visibleIds.has(projectId)
+            || detachedOwners.has(endpointId)) continue;
+          detachedOwners.set(endpointId, { projectId, name: owner.name });
+        }
+      }
       const entities = graph.placements.map(placement => {
         const source = sourceEntities.get(placement.entityId);
         if (!source) return null;
@@ -4633,6 +4652,7 @@
           name: this._entityDisplayName(source),
           iconKey: this._entityCardIcon(source),
           endpointChildren: endpointPresentation.children.get(source.id) || [],
+          ...(detachedOwners.has(source.id) ? { detachedOwnerName: detachedOwners.get(source.id).name } : {}),
           ...(asset?.imageData ? { details: { ...source.details, imageData: asset.imageData } } : {})
         };
       }).filter(Boolean);
@@ -4648,6 +4668,19 @@
             : { cardWidth: rect.width, cardHeight: rect.height })
         };
       });
+      const placedDetached = new Set();
+      for (const [endpointId, owner] of detachedOwners) {
+        const endpoint = placements.find(item => item.entityId === endpointId);
+        const project = placements.find(item => item.entityId === owner.projectId);
+        const siblings = placements.filter(item => item.groupId === owner.projectId && item.entityId !== endpointId
+          && !detachedOwners.has(item.entityId));
+        // Append in a dedicated row below visible cards, never in the title band.
+        const previous = placements.filter(item => item.groupId === owner.projectId && placedDetached.has(item.entityId));
+        endpoint.groupId = owner.projectId;
+        endpoint.x = project.x + 24;
+        endpoint.y = Math.max(project.y + 72, ...[...siblings, ...previous].map(item => item.y + (item.cardHeight || 143) + 24));
+        placedDetached.add(endpointId);
+      }
       const summaryRelationships = (graph.summaryRelationships || []).map(summary => ({
         ...summary,
         id: summary.id,

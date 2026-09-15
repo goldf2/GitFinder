@@ -222,7 +222,7 @@ const RelationshipCard = memo(function RelationshipCard({ id, data, selected }) 
     <header>
       {iconKey !== 'none' ? <span className="gf-flow-card-icon" aria-hidden="true"><CardIcon name={iconKey} /></span> : null}
       <span className="gf-flow-card-heading">
-        <small>{entityKind(entity.type)}</small>
+        <small title={entity.detachedOwnerName ? `所属部署：${entity.detachedOwnerName}（当前已隐藏）` : undefined}>{entity.detachedOwnerName ? `访问点 · ${entity.detachedOwnerName}` : entityKind(entity.type)}</small>
         <strong title={entity.name}>{entity.name}</strong>
       </span>
       {data.showRuntimeStatus ? <span className="gf-flow-status"><i />{tone === 'healthy' ? '正常' : tone === 'warning' ? '预警' : '停止/未知'}</span> : null}

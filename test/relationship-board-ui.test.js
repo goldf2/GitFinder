@@ -37,6 +37,37 @@ const userDataVerifierSource = read('scripts/verify-relationship-user-data.js');
 const preloadSource = read('preload.js');
 const mainSource = read('main.js');
 
+test('隐藏部署后访问点按源归属回到 Project 内容区，多个访问点不重叠', () => {
+  const controller = new Controller({ bridge: {} });
+  const entities = [
+    { id: 'p', type: 'group', name: 'Project', runtime: { dynamicKind: 'coolify-project-group' } },
+    { id: 'd', type: 'deployment', name: '隐藏部署' },
+    { id: 'live', type: 'deployment', name: '可见部署' },
+    { id: 'e1', type: 'endpoint', name: 'one' }, { id: 'e2', type: 'endpoint', name: 'two' }
+  ];
+  const all = entities.map((entity, i) => ({ entityId: entity.id, x: 100, y: 100 + i * 10,
+    ...(['d', 'live'].includes(entity.id) ? { groupId: 'p' } : {}) }));
+  const before = structuredClone(all);
+  controller._combinedPlacements = () => all;
+  controller._combinedRelationships = () => ['e1', 'e2'].map(id => ({ type: 'exposes', sourceId: 'd', targetId: id }));
+  controller._allEntitiesById = () => new Map(entities.map(entity => [entity.id, entity]));
+  controller._endpointPresentation = placements => ({ placements, children: new Map() });
+  controller._displayGeometryMap = () => new Map(all.map(item => [item.entityId, { ...item, width: 320, height: 143 }]));
+  controller._isServerTree = () => true;
+  controller._readBoardView = () => ({ showRelationshipLines: false });
+  controller._entityDisplayName = entity => entity.name;
+  controller._entityCardIcon = () => 'globe';
+  controller._groupShape = () => 'rounded';
+  const result = controller._flowGraphInput({ placements: all.filter(item => item.entityId !== 'd'), relationships: [] }, []);
+  const [a, b] = ['e1', 'e2'].map(id => result.placements.find(item => item.entityId === id));
+  assert.equal(a.groupId, 'p');
+  assert.equal(b.groupId, 'p');
+  assert.ok(a.y >= 120 + 143 + 24);
+  assert.ok(b.y >= a.y + a.cardHeight + 24);
+  assert.equal(result.entities.find(item => item.id === 'e1').detachedOwnerName, '隐藏部署');
+  assert.deepEqual(all, before);
+});
+
 globalThis.RelationshipGraphModel = require('../src/shared/relationshipGraphModel');
 const {
   Controller,
