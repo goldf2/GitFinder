@@ -14,6 +14,14 @@ const toolbarViewSource = read('src/renderer/scripts/relationshipBoardToolbarVie
 const boardRendererSource = `${controllerSource}\n${resourceViewSource}\n${toolbarViewSource}`;
 const flowCanvasSource = read('src/renderer/relationship-canvas/index.jsx');
 
+test('嵌套容器菜单脱离节点层级，点击浮层不会被外部关闭处理吞掉', () => {
+  const header = flowCanvasSource.split('function ContainerHeader(')[1].split('const RelationshipGroup =')[0];
+  assert.match(header, /<NodeToolbar isVisible=\{isOpen\}[\s\S]*?className="gf-flow-container-actions-portal"/);
+  assert.match(header, /!data.nestedContainer \? actions : null/);
+  assert.match(header, /zIndex: 10000/);
+  assert.match(flowCanvasSource, /closest\?\.\('[^']*\.gf-flow-container-actions-portal/);
+});
+
 test('容器标题保留 NodeToolbar 的节点坐标，不覆盖 portal 的变换和位置', () => {
   const css = read('src/renderer/relationship-canvas/relationshipCanvas.css');
   const rules = [...css.matchAll(/\.gf-flow-group-title-node-toolbar\s*\{([^}]+)\}/g)];

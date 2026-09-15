@@ -399,6 +399,14 @@
   pointer-events: auto;
 }
 
+.gf-flow-container-actions-portal .gf-flow-group-actions {
+  position: relative;
+  top: auto;
+  left: auto;
+  transform: translateY(100%);
+  white-space: nowrap;
+}
+
 .gf-flow-node-toolbar {
   z-index: 1000;
   display: flex;

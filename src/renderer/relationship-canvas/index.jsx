@@ -264,12 +264,7 @@ function ContainerHeader({ id, data, host = false, selected }) {
   const isOpen = openId === id;
   const physical = host || entity.runtime?.dynamicKind === 'coolify-project-group';
   const toggle = event => { event.stopPropagation(); setOpenId(current => current === id ? null : id); };
-  const header = <>
-    <div className={`gf-flow-group-title-toolbar${host ? ' gf-flow-host-title-toolbar' : ''}${zoom < 0.6 ? ' is-overview' : ''}`}>
-      <button type="button" title={entity.name} className="gf-flow-group-title-button nodrag nopan" onPointerDown={event => event.stopPropagation()} onClick={toggle}><strong>{entity.name}</strong></button>
-      {zoom >= 0.6 || selected ? <span>{host ? `${data.projectCount || 0} 个 Project` : `${data.memberCount || 0} 个成员`}</span> : null}
-      <MoreActions id={id} entity={entity} />
-      {isOpen ? <span className="gf-flow-group-actions" role="toolbar" aria-label={`${entity.name} 快捷操作`}>
+  const actions = isOpen ? <span className="gf-flow-group-actions" role="toolbar" aria-label={`${entity.name} 快捷操作`}>
         {host ? <ToolbarButton data={data} action="resource-settings" entity={entity}>显示设置</ToolbarButton> : null}
         <ToolbarButton data={data} action={host ? 'arrange-host' : 'arrange-group'} entity={entity}>自动排列</ToolbarButton>
         <ToolbarButton data={data} action="toggle-descendants" entity={entity}
@@ -280,14 +275,27 @@ function ContainerHeader({ id, data, host = false, selected }) {
         <ToolbarButton data={data} action={host ? 'details' : 'edit-group'} entity={entity}>属性</ToolbarButton>
         {physical ? <ToolbarButton data={data} action="hide-resource" entity={entity}>从白板隐藏</ToolbarButton> : null}
         {!physical && !entity.transient ? <ToolbarButton data={data} action="delete-group" entity={entity} className="is-danger">解散容器</ToolbarButton> : null}
-      </span> : null}
+      </span> : null;
+  const header = <>
+    <div className={`gf-flow-group-title-toolbar${host ? ' gf-flow-host-title-toolbar' : ''}${zoom < 0.6 ? ' is-overview' : ''}`}>
+      <button type="button" title={entity.name} className="gf-flow-group-title-button nodrag nopan" onPointerDown={event => event.stopPropagation()} onClick={toggle}><strong>{entity.name}</strong></button>
+      {zoom >= 0.6 || selected ? <span>{host ? `${data.projectCount || 0} 个 Project` : `${data.memberCount || 0} 个成员`}</span> : null}
+      <MoreActions id={id} entity={entity} />
+      {!data.nestedContainer ? actions : null}
     </div>
   </>;
   // Physical containers own their title band. Portal titles live in screen
   // coordinates and can dwarf their frames at overview zoom, hiding children.
-  if (data.nestedContainer) return <div className="gf-flow-nested-header" style={{
+  if (data.nestedContainer) return <><div className="gf-flow-nested-header" style={{
     '--group-title-scale': Math.min(1.3, Math.pow(1 / Math.max(0.03, zoom), 1 - (data.titleZoomStrength ?? 0.5)))
-  }}>{header}</div>;
+  }}>{header}</div>
+    {/* Only actions escape the low-z container; the title still scales with it. */}
+    <NodeToolbar isVisible={isOpen} position={Position.Top} align="start"
+      offset={-56 * zoom} className="gf-flow-container-actions-portal"
+      style={{ zIndex: 10000, marginLeft: 20 * zoom }}>
+      {actions}
+    </NodeToolbar>
+  </>;
   return <NodeToolbar isVisible position={Position.Top} align="start" className="gf-flow-group-title-node-toolbar" offset={-10}
     style={{ zIndex: isOpen ? 1000 : 10, '--group-title-scale': Math.pow(Math.min(1, Math.max(0.03, zoom)), data.titleZoomStrength ?? 0.5), '--group-title-max-width': `${Math.max(72, Math.min(280, Number(data.placement?.groupWidth || 640) * zoom))}px` }}>{header}</NodeToolbar>;
 }
@@ -362,7 +370,7 @@ function Canvas({
   const menuContext = useMemo(() => ({ openId, setOpenId }), [openId]);
   useEffect(() => {
     const closeOutside = event => {
-      if (!event.target.closest?.('.gf-flow-more, .gf-flow-node-toolbar, .gf-flow-group-title-toolbar')) setOpenId(null);
+      if (!event.target.closest?.('.gf-flow-more, .gf-flow-node-toolbar, .gf-flow-group-title-toolbar, .gf-flow-container-actions-portal')) setOpenId(null);
     };
     const closeOnEscape = event => { if (event.key === 'Escape') setOpenId(null); };
     window.addEventListener('pointerdown', closeOutside, true);
