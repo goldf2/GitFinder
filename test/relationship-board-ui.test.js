@@ -37,6 +37,23 @@ const userDataVerifierSource = read('scripts/verify-relationship-user-data.js');
 const preloadSource = read('preload.js');
 const mainSource = read('main.js');
 
+test('白板全屏只请求当前工作区，支持退出且失败时提示', async () => {
+  const controller = new Controller({ bridge: {} });
+  const calls = [];
+  const doc = { fullscreenElement: null, exitFullscreen: async () => calls.push('exit') };
+  controller.root = { ownerDocument: doc, requestFullscreen: async () => calls.push('enter') };
+  controller.notify = message => calls.push(message);
+  await controller._toggleFullscreen();
+  doc.fullscreenElement = controller.root;
+  await controller._toggleFullscreen();
+  assert.deepEqual(calls, ['enter', 'exit']);
+  doc.fullscreenElement = null;
+  controller.root.requestFullscreen = async () => { throw new Error('denied'); };
+  await controller._toggleFullscreen();
+  assert.match(calls[2], /无法进入/);
+  assert.match(controllerSource, /onfullscreenchange = \(\) => this\._syncFullscreenButton/);
+});
+
 test('隐藏部署后访问点按源归属回到 Project 内容区，多个访问点不重叠', () => {
   const controller = new Controller({ bridge: {} });
   const entities = [

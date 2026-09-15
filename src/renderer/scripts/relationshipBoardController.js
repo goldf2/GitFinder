@@ -1084,6 +1084,27 @@
       return true;
     }
 
+    async _toggleFullscreen() {
+      const root = this.root;
+      if (!root) return;
+      try {
+        if (root.ownerDocument.fullscreenElement === root) await root.ownerDocument.exitFullscreen();
+        else await root.requestFullscreen();
+      } catch {
+        this.notify('无法进入白板全屏，请稍后重试', 'error');
+      }
+    }
+
+    _syncFullscreenButton() {
+      const button = this.root?.querySelector('[data-relationship-action="fullscreen"]');
+      if (!button) return;
+      const active = this.root.ownerDocument.fullscreenElement === this.root;
+      button.setAttribute('aria-pressed', String(active));
+      button.setAttribute('aria-label', active ? '退出白板全屏' : '白板全屏');
+      button.title = active ? '退出白板全屏（Esc）' : '白板全屏';
+      button.querySelector('span').textContent = active ? '退出全屏' : '全屏';
+    }
+
     _isServerTree() { return Boolean(this.store && this._boardView().structure === 'server-tree'); }
 
     _endpointPresentation(placements) {
@@ -3868,6 +3889,7 @@
             <button class="relationship-tool-button" data-relationship-action="undo" type="button" title="撤销 (⌘Z)" ${this.undoStack.length ? '' : 'disabled'}>↶</button>
             <button class="relationship-tool-button" data-relationship-action="redo" type="button" title="重做 (⇧⌘Z)" ${this.redoStack.length ? '' : 'disabled'}>↷</button>
             <button class="relationship-tool-button relationship-icon-tool" data-relationship-action="fit" type="button" aria-label="适合内容" title="适合内容：将整个白板放入视图">${toolbarIcon('fit')}</button>
+            <button class="relationship-tool-button" data-relationship-action="fullscreen" type="button" aria-label="白板全屏" aria-pressed="false" title="白板全屏">${toolbarIcon('fit')}<span>全屏</span></button>
             ${this._layoutMenuHtml()}
             <button class="relationship-tool-button relationship-all-group-layout" data-relationship-action="toggle-all-group-layouts" type="button" aria-label="全部自动排列" aria-pressed="false" title="开启全部群组自动排列">${toolbarIcon('layout')}<span>全部自动排列</span></button>
             <span class="relationship-save-state" data-state="${this.saveState}" role="status">${this._saveLabel()}</span>
@@ -3910,6 +3932,7 @@
           <div class="relationship-context-menu" role="menu" aria-label="白板右键菜单" hidden></div>
         </section>`;
       this.root = this.container.querySelector('.relationship-workspace');
+      this.root.onfullscreenchange = () => this._syncFullscreenButton();
       if (openDisplay) {
         this.root.querySelector('.relationship-display-popover')?.replaceWith(openDisplay);
         this.root.querySelector('.relationship-display-trigger')?.setAttribute('aria-expanded', 'true');

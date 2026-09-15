@@ -14,7 +14,7 @@
     'reset-display-settings': ['_resetDisplaySettings'], 'toggle-all-group-layouts': ['_toggleAllGroupLayouts'],
     'toggle-resource-panel': ['_togglePanelCollapsed', ['library']],
     'new-board': ['_createBoard'], 'rename-board': ['_renameBoard'],
-    undo: ['undo'], redo: ['redo'], fit: ['fitContent'], 'reset-dynamic-layout': ['_resetDynamicLayout'],
+    undo: ['undo'], redo: ['redo'], fit: ['fitContent'], fullscreen: ['_toggleFullscreen'], 'reset-dynamic-layout': ['_resetDynamicLayout'],
     'arrange-by-category': ['_arrangeByCategory', [], false, '.relationship-layout-trigger'],
     'arrange-by-coolify-projects': ['_arrangeByCoolifyProjects', [], false, '.relationship-layout-trigger'],
     'arrange-around-selection': ['_arrangeAround', ['selection-centered'], false, '.relationship-layout-trigger'],

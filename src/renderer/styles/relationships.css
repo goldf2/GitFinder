@@ -51,6 +51,11 @@
   background: var(--bg-primary);
 }
 
+.relationship-workspace:fullscreen {
+  width: 100vw;
+  height: 100vh;
+}
+
 .relationship-toolbar {
   min-height: 44px;
   flex-shrink: 0;
