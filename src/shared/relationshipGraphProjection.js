@@ -86,8 +86,16 @@
   function filterGraph({ view, entitiesById, placements, relationships, matchesEntity, unmatchedDisplay }) {
     const filterActive = hasActiveFilters(view);
     const directIds = new Set();
+    const structuralIds = new Set();
     for (const placement of placements) {
       const entity = entitiesById.get(placement.entityId);
+      // Physical ownership frames are not filterable content cards.
+      if (entity?.type === 'server' || (entity?.type === 'group'
+        && (entity.runtime?.dynamicKind === 'coolify-project-group'
+          || String(entity.id).startsWith('entity_panel_projectgroup_')))) {
+        structuralIds.add(entity.id);
+        continue;
+      }
       if (entity && (!filterActive || matchesEntity(entity, placement))) directIds.add(entity.id);
     }
     const contextualIds = new Set();
@@ -100,8 +108,9 @@
       }
     }
     const allIds = new Set(placements.map(placement => placement.entityId));
-    const mutedIds = new Set([...allIds].filter(entityId => !directIds.has(entityId) && !contextualIds.has(entityId)));
-    const visibleIds = filterActive && unmatchedDisplay === 'hide' ? directIds : allIds;
+    for (const id of structuralIds) contextualIds.delete(id);
+    const mutedIds = new Set([...allIds].filter(entityId => !structuralIds.has(entityId) && !directIds.has(entityId) && !contextualIds.has(entityId)));
+    const visibleIds = filterActive && unmatchedDisplay === 'hide' ? new Set([...directIds, ...structuralIds]) : allIds;
     return {
       placements: placements.filter(placement => visibleIds.has(placement.entityId)),
       relationships: relationships.filter(relationship => visibleIds.has(relationship.sourceId) && visibleIds.has(relationship.targetId)),

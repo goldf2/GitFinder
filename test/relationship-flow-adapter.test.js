@@ -84,7 +84,7 @@ test('关联访问点命中时其部署所属的 Project 容器也保持正常',
   assert.equal(model.nodes.find(item => item.id === 'endpoint').data.filterState, 'match');
 });
 
-test('Project 及其部署和访问点都未命中时才虚化容器', () => {
+test('Project 及其部署和访问点都未命中时仍保留正常容器', () => {
   const graph = fixture();
   const model = Adapter.toFlowModel(graph, {
     directIds: [],
@@ -92,7 +92,27 @@ test('Project 及其部署和访问点都未命中时才虚化容器', () => {
     filterActive: true
   });
 
-  assert.equal(model.nodes.find(item => item.id === 'project').data.filterState, 'muted');
+  assert.equal(model.nodes.find(item => item.id === 'project').data.filterState, '');
+});
+
+test('隐藏未命中只隐藏内容，不剔除主机和 Project 结构容器', () => {
+  const Filter = require('../src/shared/relationshipGraphProjection');
+  const graph = fixture();
+  graph.entities.push({ id: 'host', type: 'server' });
+  graph.placements.push({ entityId: 'host', x: 0, y: 0 });
+  for (const unmatchedDisplay of ['dim', 'hide']) {
+    const result = Filter.filterGraph({ ...graph,
+      entitiesById: new Map(graph.entities.map(entity => [entity.id, entity])),
+      view: { runtimeStates: ['normal'] }, unmatchedDisplay,
+      matchesEntity: () => false
+    });
+    for (const id of ['project', 'host']) {
+      assert.ok(result.placements.some(item => item.entityId === id));
+      assert.ok(!result.mutedIds.has(id));
+      assert.ok(!result.directIds.has(id), '结构保留不计为筛选命中');
+    }
+    assert.equal(result.placements.some(item => item.entityId === 'deployment'), unmatchedDisplay === 'dim');
+  }
 });
 
 test('没有筛选时 Project 容器默认不虚化', () => {
