@@ -2,11 +2,13 @@
 
 ## 2026-09-15 +08:00 · GF-PANEL-WIDTH-20260915-01
 
-- 用户要求右侧面板可调宽；连接已通过 AgentDock Mac 2 恢复，确认实际缺口是关系白板的固定 264px 右停靠栏。
-- 实现独立 resize controller、分隔线和本机配置白名单；不改普通文件详情栏。增加 15 项 Node 测试与实际 Electron 交互验证脚本。
-- 当前测试目录限定运行 1202/1202、273 JS 检查通过；实际指针、键盘、保存、全屏、窄屏和视图重开共 15 项通过。最初根目录 `npm run check` 计 2389 项含旧 dist worktree 的 1187 项重复测试，不能当作新测试数。
-- 本轮操作前后实际白板 JSON 字节一致（4913 字节）；此前 alpha.188 的 4912→4913 差异未获得原文对照，仍不宣称已解释。
-- 下一步为 alpha.189 隔离构建与安装重启验证。详细记录 [RIGHT_PANEL_WIDTH_ALPHA189.md](RIGHT_PANEL_WIDTH_ALPHA189.md)。
+- 用户要求右側面板调宽；确认缺口是关系白板固定 264px 的独立右停靠区，而不是已有调宽的普通文件详情栏。
+- 实现独立 resize controller、6px 分隔线、边界与本机配置记忆，增加 15 项 Node 回归和真实 Electron/IPC 验证脚本。
+- 最初原工作区 npm check 的 2389 包含旧 dist worktree 重复测试；限定当前目录与最终干净构建均确认 1202/1202，273 JS 检查通过。
+- 安装版 15 项交互与独立进程退出重启恢复 504px 通过；原配置正常启动可见 alpha.189，旧全屏 fixture 18/18 通过。OS Accessibility 拒绝，所以指针验证是 Chromium 层，不是系统级鼠标。
+- 源码 `c824659c13d6e6aeb71e0225ac41d43d2c8d5070` 已推送并核对 origin/main。旧 alpha.188 可恢复备份保留，测试端口 9440 已关闭，正常用户实例继续运行。
+- 数据复核：源码测试期间用户 JSON 字节一致；正常应用退出重启后仅 viewport x/y/zoom 改变，节点、关系、placement 和 view 设置不变，未覆盖/回滚用户文件。此前 alpha.188 历史差异仍无原文对照。
+- 唯一下一步为用户实际使用反馈；详见 [RIGHT_PANEL_WIDTH_ALPHA189.md](RIGHT_PANEL_WIDTH_ALPHA189.md)。
 
 ## 2026-09-15 +08:00 · GF-LIFECYCLE-20260915-01 · GitFinder 测试与优化
 
