@@ -3815,6 +3815,7 @@
     }
 
     render() {
+      const focusedElement = this.root?.ownerDocument.activeElement;
       const openDisplay = this.root?.querySelector('.relationship-display-popover:not([hidden])');
       const displayScroll = openDisplay?.querySelector('.relationship-display-sections')?.scrollTop || 0;
       this._closeContextMenu();
@@ -3843,7 +3844,8 @@
       }, boardView: board.view, entityTypes: Model.ENTITY_TYPES, typeLabels: TYPE_LABELS,
       verificationFilters: Model.VERIFICATION_FILTERS, verificationLabels: VERIFICATION_LABELS,
       environmentOptions, labels, icon: toolbarIcon('filter'), escapeHtml });
-      this.container.innerHTML = `
+      const template = this.container.ownerDocument.createElement('template');
+      template.innerHTML = `
         <section class="relationship-workspace" aria-label="关系白板">
           <nav class="whiteboard-document-tabs" aria-label="白板文档标签页">
             <button type="button" class="whiteboard-new-button" data-relationship-action="new-document" title="新建独立白板项目">＋ 新建白板</button>
@@ -3931,8 +3933,23 @@
           </div>
           <div class="relationship-context-menu" role="menu" aria-label="白板右键菜单" hidden></div>
         </section>`;
-      this.root = this.container.querySelector('.relationship-workspace');
-      this.root.onfullscreenchange = () => this._syncFullscreenButton();
+      const nextRoot = template.content.firstElementChild;
+      if (this.root?.parentElement === this.container) {
+        // Removing the fullscreen element exits fullscreen. Keep its identity,
+        // and leave active modal dialogs connected so input and focus survive.
+        for (const child of [...this.root.childNodes]) {
+          if (!child.classList?.contains('relationship-dialog-overlay')) child.remove();
+        }
+        this.root.prepend(...nextRoot.childNodes);
+      } else {
+        this.container.replaceChildren(nextRoot);
+        this.root = nextRoot;
+      }
+      this.root.onfullscreenchange = () => {
+        this._syncFullscreenButton();
+        this._placePanelComponents();
+      };
+      this._syncFullscreenButton();
       if (openDisplay) {
         this.root.querySelector('.relationship-display-popover')?.replaceWith(openDisplay);
         this.root.querySelector('.relationship-display-trigger')?.setAttribute('aria-expanded', 'true');
@@ -3961,6 +3978,9 @@
       this._placePanelComponents();
       this._fitDisplayPopover();
       this._scheduleTaskReminders();
+      if (focusedElement?.isConnected && this.root.contains(focusedElement)) {
+        focusedElement.focus({ preventScroll: true });
+      }
     }
 
     _scheduleTaskReminders() {
@@ -3996,7 +4016,9 @@
     }
 
     _panelDocks() {
-      return [this.panelSidebarRoot || this.root?.querySelector('[data-panel-dock="left"]'), this.root?.querySelector('[data-panel-dock="right"]')];
+      const inlineLeft = this.root?.querySelector('[data-panel-dock="left"]');
+      const fullscreen = this.root && this.root.ownerDocument?.fullscreenElement === this.root;
+      return [fullscreen ? inlineLeft : this.panelSidebarRoot || inlineLeft, this.root?.querySelector('[data-panel-dock="right"]')];
     }
 
     _panelMoveControls(key, label) {
@@ -4104,14 +4126,10 @@
     }
 
     _bindRootEvents() {
-      this.root.addEventListener('click', event => this._handleClick(event));
-      this.root.addEventListener('change', event => ActionRouter.handleChange(this, event));
-      this.root.addEventListener('input', event => ActionRouter.handleInput(this, event));
-      this.root.addEventListener('submit', event => ActionRouter.handleSubmit(this, event));
-      this.root.addEventListener('dragstart', event => ActionRouter.handleDragStart(this, event));
-      this.root.addEventListener('dragover', event => ActionRouter.handleDragOver(this, event));
-      this.root.addEventListener('drop', event => ActionRouter.handleDrop(this, event));
-      this.root.addEventListener('dragend', () => this._clearPanelDrag());
+      for (const [type, handler] of Object.entries(this._panelEvents)) {
+        this.root.removeEventListener(type, handler);
+        this.root.addEventListener(type, handler);
+      }
     }
 
     _contextMenuItems(kind) {

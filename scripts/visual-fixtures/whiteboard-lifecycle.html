@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-CN" data-effective-mode="light" data-scheme="github">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GitFinder 白板全屏与重绘回归</title>
+<link rel="stylesheet" href="../../src/renderer/styles/main.css">
+<link rel="stylesheet" href="../../src/renderer/styles/theme.css">
+<link rel="stylesheet" href="../../src/renderer/styles/relationships.css">
+<link rel="stylesheet" href="../../src/renderer/generated/relationship-canvas.css">
+<style>
+  html, body { height: 100%; margin: 0; }
+  body { display: flex; flex-direction: column; }
+  .fixture-header { padding: 12px; display: flex; align-items: center; gap: 16px; }
+  .fixture-layout { flex: 1; min-height: 0; display: flex; }
+  #relationship-resource-sidebar-section { width: 250px; overflow: auto; flex-shrink: 0; }
+  #board { flex: 1; min-width: 0; min-height: 0; }
+  #fixture-results { max-height: 190px; overflow: auto; padding: 8px 12px; margin: 0; white-space: pre-wrap; }
+</style>
+<header class="fixture-header"><strong>白板生命周期回归 · 仅使用内存测试数据</strong><button id="run-lifecycle" type="button" disabled>运行全屏回归</button><span id="fixture-status" role="status">正在加载</span></header>
+<main class="fixture-layout">
+  <aside id="relationship-resource-sidebar-section"><div id="relationship-resource-sidebar-content"></div></aside>
+  <div id="board"></div>
+</main>
+<pre id="fixture-results" role="status"></pre>
+<script src="../../src/shared/relationshipGraphModel.js"></script>
+<script src="../../src/shared/relationshipGraphProjection.js"></script>
+<script src="../../src/shared/architectureSnapshotProjection.js"></script>
+<script src="../../src/shared/repositoryAssociation.js"></script>
+<script src="../../src/shared/relationshipLayoutPrimitives.js"></script>
+<script src="../../src/shared/relationshipProjectStructure.js"></script>
+<script src="../../src/shared/relationshipProjectGalaxyLayout.js"></script>
+<script src="../../src/shared/panelTopologyProjection.js"></script>
+<script src="../../src/renderer/scripts/htmlPresentation.js"></script>
+<script src="../../src/renderer/generated/relationship-canvas.js"></script>
+<script src="../../src/renderer/scripts/relationshipBoardActionRouter.js"></script>
+<script src="../../src/renderer/scripts/relationshipBoardResourceView.js"></script>
+<script src="../../src/renderer/scripts/relationshipBoardToolbarView.js"></script>
+<script src="../../src/renderer/scripts/relationshipBoardController.js"></script>
+<script src="whiteboard-lifecycle.js"></script>
+</html>

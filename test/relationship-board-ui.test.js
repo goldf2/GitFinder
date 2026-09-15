@@ -58,7 +58,7 @@ test('白板全屏只请求当前工作区，支持退出且失败时提示', as
   controller.root.requestFullscreen = async () => { throw new Error('denied'); };
   await controller._toggleFullscreen();
   assert.match(calls[2], /无法进入/);
-  assert.match(controllerSource, /onfullscreenchange = \(\) => this\._syncFullscreenButton/);
+  assert.match(controllerSource, /onfullscreenchange = \(\) => \{\s*this\._syncFullscreenButton\(\);\s*this\._placePanelComponents\(\)/);
 });
 
 test('隐藏部署后访问点按源归属回到 Project 内容区，多个访问点不重叠', () => {
