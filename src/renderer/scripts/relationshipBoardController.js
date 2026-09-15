@@ -15,10 +15,12 @@
     || (typeof module !== 'undefined' && module.exports ? require('./relationshipBoardToolbarView') : null);
   const presentation = root?.HtmlPresentation
     || (typeof module !== 'undefined' && module.exports ? require('./htmlPresentation') : null);
-  const api = factory(root?.RelationshipGraphModel, projection, scanner, primitives, graphProjection, actionRouter, resourceView, toolbarView, presentation);
+  const panelResize = root?.RelationshipPanelResize
+    || (typeof module !== 'undefined' && module.exports ? require('./relationshipPanelResize') : null);
+  const api = factory(root?.RelationshipGraphModel, projection, scanner, primitives, graphProjection, actionRouter, resourceView, toolbarView, presentation, panelResize);
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) root.RelationshipBoardController = api;
-})(typeof window !== 'undefined' ? window : globalThis, function createRelationshipBoardController(Model, PanelTopologyProjection, RepositoryRootScanner, LayoutPrimitives, GraphProjection, ActionRouter, ResourceView, ToolbarView, Presentation) {
+})(typeof window !== 'undefined' ? window : globalThis, function createRelationshipBoardController(Model, PanelTopologyProjection, RepositoryRootScanner, LayoutPrimitives, GraphProjection, ActionRouter, ResourceView, ToolbarView, Presentation, PanelResize) {
   const NODE_WIDTH = 280;
   const NODE_HEIGHT = 143;
   const COMPACT_NODE_WIDTH = 236;
@@ -329,6 +331,7 @@
       this.flowMutationActive = false;
       this.flowSelectionSync = false;
       this.panelLayout = {};
+      this.panelResize = new PanelResize.Controller({ config: this.bridge?.config, notify: this.notify, onResize: () => this._applyViewport() });
       this.panelSidebarRoot = null;
       this._panelEvents = {
         click: event => this._handleClick(event), input: event => ActionRouter.handleInput(this, event),
@@ -630,6 +633,7 @@
     }
 
     close(options = {}) {
+      this.panelResize.unmount();
       this.displayLayoutEdit = null;
       this.openRequestId += 1;
       this.panelRefreshInFlight = false;
@@ -689,8 +693,10 @@
         this.bridge.config?.get
           ? this.bridge.config.get('relationshipDynamicLayouts').catch(() => null)
           : Promise.resolve(null),
-        this.bridge.config?.get ? this.bridge.config.get('relationshipPanelLayout').catch(() => null) : Promise.resolve(null)
-      ]).then(async ([result, registry, dynamicLayouts, panelLayout]) => {
+        this.bridge.config?.get ? this.bridge.config.get('relationshipPanelLayout').catch(() => null) : Promise.resolve(null),
+        this.bridge.config?.get ? this.bridge.config.get('relationshipRightPanelWidth').catch(() => null) : Promise.resolve(null)
+      ]).then(async ([result, registry, dynamicLayouts, panelLayout, panelWidth]) => {
+        this.panelResize.loadWidth(panelWidth);
         this.store = Model.normalizeStore(result?.store).value;
         this.dynamicLayoutStore = normalizeDynamicLayoutStore(dynamicLayouts);
         this.panelLayout = {};
@@ -3821,6 +3827,7 @@
       this._closeContextMenu();
       const board = activeBoard(this.store);
       if (!this.container || !board) return;
+      this.panelResize.unmount();
       this.flowCanvas?.unmount?.();
       this.flowCanvas = null;
       this.flowRenderOptions = null;
@@ -3929,7 +3936,8 @@
               <div class="relationship-projection-note" hidden>部署摘要 · 派生显示，不修改关系事实</div>
             </div>
             <aside class="relationship-inspector-panel relationship-dock-component" data-panel-id="inspector" aria-label="关系详情" hidden></aside>
-            <div class="relationship-panel-dock relationship-right-dock" data-panel-dock="right"></div>
+            <div class="relationship-panel-resizer" data-relationship-panel-resize role="separator" aria-orientation="vertical" aria-label="调整右侧面板宽度" aria-controls="relationship-right-panel" tabindex="0" title="拖动调整右侧面板宽度；左右键微调，Shift 加速；双击恢复默认" hidden></div>
+            <div class="relationship-panel-dock relationship-right-dock" id="relationship-right-panel" data-panel-dock="right"></div>
           </div>
           <div class="relationship-context-menu" role="menu" aria-label="白板右键菜单" hidden></div>
         </section>`;
@@ -3978,6 +3986,7 @@
       this._placePanelComponents();
       this._fitDisplayPopover();
       this._scheduleTaskReminders();
+      this.panelResize.mount(this.root);
       if (focusedElement?.isConnected && this.root.contains(focusedElement)) {
         focusedElement.focus({ preventScroll: true });
       }
@@ -4088,6 +4097,7 @@
           button.setAttribute('aria-label', `${label}移到${next === 'left' ? '左' : '右'}侧`);
         });
       }
+      this.panelResize.refresh();
       this._applyViewport();
     }
 

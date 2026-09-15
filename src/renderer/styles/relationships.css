@@ -854,12 +854,20 @@ body:has(.relationship-workspace:fullscreen) .workspace-tab-strip,
 }
 
 .relationship-body.has-inspector,
-.relationship-workspace .relationship-body { grid-template-columns: auto minmax(0, 1fr) auto; }
+.relationship-workspace .relationship-body { grid-template-columns: auto minmax(0, 1fr) auto auto; }
 .relationship-panel-dock { display: flex; flex-direction: column; gap: 8px; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 8px; background: var(--bg-secondary); }
 .relationship-body > .relationship-panel-dock { width: 264px; max-width: 30vw; border-inline: 1px solid var(--border-color); }
 .relationship-body > .relationship-panel-dock:not(:has(> :not([hidden]))) { display: none; }
 .relationship-inline-left-dock { grid-column: 1; grid-row: 1; }
-.relationship-right-dock { grid-column: 3; grid-row: 1; }
+.relationship-body > .relationship-right-dock { grid-column: 4; grid-row: 1; width: var(--relationship-right-panel-width, 264px); max-width: none; min-width: 0; }
+.relationship-panel-resizer { grid-column: 3; grid-row: 1; width: 6px; position: relative; z-index: 19; cursor: col-resize; touch-action: none; -webkit-app-region: no-drag; outline: none; background: var(--bg-secondary); }
+.relationship-panel-resizer[hidden] { display: none; }
+.relationship-panel-resizer::after { content: ''; position: absolute; inset: 0 2px; background: var(--border-color); }
+.relationship-panel-resizer:hover::after,
+.relationship-panel-resizer:focus-visible::after,
+.is-panel-resizing .relationship-panel-resizer::after { background: var(--accent-primary); }
+.relationship-workspace.is-panel-resizing,
+.relationship-workspace.is-panel-resizing * { cursor: col-resize !important; user-select: none !important; }
 .relationship-body > .relationship-canvas { grid-column: 2; grid-row: 1; }
 #relationship-resource-sidebar-content { padding: 0; overflow: visible; background: transparent; }
 .relationship-panel-dock > .relationship-dock-component {

@@ -443,6 +443,7 @@
 
   function handleKeydown(controller, event) {
     if (!controller.root?.isConnected || event.defaultPrevented || event.isComposing || event.keyCode === 229) return;
+    if (event.target?.closest?.('[data-relationship-panel-resize]')) return;
     if (controller._handleContextMenuKeydown(event)) return;
     const layoutMenu = controller.root.querySelector('.relationship-layout-menu:not([hidden])');
     if (layoutMenu && !layoutMenu.hidden) {

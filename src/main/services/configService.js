@@ -51,7 +51,8 @@ const RENDERER_PREFERENCE_KEYS = new Set([
   'taskViewMode',
   'taskTimelineCategory',
   'relationshipDynamicLayouts',
-  'relationshipPanelLayout'
+  'relationshipPanelLayout',
+  'relationshipRightPanelWidth'
 ]);
 
 class ConfigService {
