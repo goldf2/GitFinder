@@ -41,6 +41,38 @@
     });
   }
 
+  // Search balanced columns by visible fit, rather than forcing equal-height rows.
+  // Input rectangles remain intact; shorter blocks can stack beside a tall host.
+  function packBalancedRegions(regions, aspect = 1.6, gap = 64) {
+    if (!regions.length) return [];
+    aspect = normalizeLayout({ viewportAspectRatio: aspect }).viewportAspectRatio;
+    const ordered = regions.map((region, index) => ({ ...region, index }))
+      .sort((a, b) => b.height - a.height || b.width - a.width || a.index - b.index);
+    const limit = Math.min(regions.length, Math.ceil(Math.sqrt(regions.length) * Math.max(1, aspect)));
+    let best;
+    for (let count = 1; count <= limit; count++) {
+      const columns = Array.from({ length: count }, () => ({ width: 0, height: 0, items: [] }));
+      for (const region of ordered) {
+        const column = columns.reduce((a, b) => b.height < a.height ? b : a);
+        column.items.push(region); column.width = Math.max(column.width, region.width);
+        column.height += region.height + gap;
+      }
+      const width = columns.reduce((sum, c) => sum + c.width, 0) + gap * (count - 1);
+      const height = Math.max(...columns.map(c => c.height)) - gap;
+      const score = Math.max(width / aspect, height);
+      if (!best || score < best.score || (score === best.score && width * height < best.area)) {
+        best = { columns, score, area: width * height };
+      }
+    }
+    const positions = Array(regions.length); let x = 80;
+    for (const column of best.columns) {
+      let y = 80;
+      for (const region of column.items) { positions[region.index] = { x, y }; y += region.height + gap; }
+      x += column.width + gap;
+    }
+    return positions;
+  }
+
   function indexPlacements(placements = []) {
     const byId = new Map(placements.map(item => [item.entityId, item]));
     const childrenByGroup = new Map();
@@ -75,5 +107,5 @@
     return Object.freeze({ byId, childrenByGroup, children, descendants, depth, canNest });
   }
 
-  return Object.freeze({ normalizeLayout, packRegions, indexPlacements });
+  return Object.freeze({ normalizeLayout, packRegions, packBalancedRegions, indexPlacements });
 });

@@ -102,6 +102,23 @@ body:has(.relationship-workspace:fullscreen) .workspace-tab-strip,
 .relationship-layout-options button { display: grid; grid-template-columns: 32px 1fr 18px; gap: 10px; align-items: center; min-height: 54px; }
 .relationship-layout-options svg { width: 32px; height: 32px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .relationship-layout-check { font-weight: 700; }
+.relationship-layout-menu[data-layout-panel="layout"] { width: min(448px, calc(100vw - 24px)); background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 12px; overscroll-behavior: contain; }
+.relationship-layout-menu[data-layout-panel="layout"] > header { position: sticky; top: -8px; z-index: 1; background: var(--bg-primary); border-bottom: 1px solid var(--border-color); }
+.relationship-layout-section h4 { margin: 10px 8px 4px; color: var(--text-secondary); font-size: 11px; font-weight: 600; }
+.relationship-layout-section .relationship-layout-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(184px, 100%), 1fr)); gap: 4px; }
+.relationship-layout-section .relationship-layout-options button { min-width: 0; grid-template-columns: 24px minmax(0, 1fr) 12px; gap: 6px; min-height: 62px; padding: 7px; }
+.relationship-layout-section .relationship-layout-options svg { width: 24px; height: 24px; }
+.relationship-layout-section .relationship-layout-options b { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+.relationship-layout-section .relationship-layout-options small { line-height: 1.4; margin-top: 3px; overflow-wrap: anywhere; }
+.relationship-layout-badge { font-size: 9px; font-weight: 500; font-style: normal; color: var(--accent-primary); background: var(--accent-bg); padding: 1px 4px; border-radius: 4px; }
+.relationship-layout-footer { border-top: 1px solid var(--border-color); margin: 8px 0 0; padding-top: 7px; }
+.relationship-layout-footer > small { margin: 0 8px 4px; }
+.relationship-layout-footer > button { color: var(--accent-primary); font-weight: 600; }
+@media (max-width: 700px) {
+  .relationship-layout-section .relationship-layout-options { grid-template-columns: 1fr; }
+}
+
+
 .relationship-structure-options button { display: grid; grid-template-columns: 1fr 18px; gap: 8px; min-height: 58px; align-items: center; }
 .relationship-scope-options { border: 0; margin: 4px 0 8px; padding: 0; }
 .relationship-scope-options legend { padding: 0 8px 4px; color: var(--text-secondary); font-size: 11px; font-weight: 700; }

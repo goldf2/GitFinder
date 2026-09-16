@@ -16,7 +16,7 @@
     const cardWidth = Math.max(layout.width, ...interior.map(item => size(item).width));
     const cardHeight = Math.max(layout.height, ...interior.map(item => size(item).height));
     const paddingX = Math.max(28, layout.horizontalSpacing / 2);
-    const paddingTop = Math.max(40, layout.verticalSpacing + 12);
+    const paddingTop = Math.max(40, layout.verticalSpacing + 12, Number(options.groupHeaderHeight) || 0);
     const paddingBottom = Math.max(28, layout.verticalSpacing / 2);
     const count = Math.max(1, interior.length);
     const grids = Array.from({ length: count }, (_, index) => {

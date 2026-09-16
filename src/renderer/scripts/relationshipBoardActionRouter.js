@@ -273,8 +273,9 @@
       if (!menu.hidden) {
         controller._closeAddMenu(); controller._closeFilterPopover(); controller._closeDisplayPopover();
         menu.style.transform = '';
-        const rect = menu.getBoundingClientRect(), view = menu.ownerDocument.defaultView;
-        const workspace = controller.root.getBoundingClientRect();
+        const view = menu.ownerDocument.defaultView, workspace = controller.root.getBoundingClientRect();
+        menu.style.maxWidth = `${Math.max(160, Math.min(view.innerWidth - 24, workspace.width - 16))}px`;
+        const rect = menu.getBoundingClientRect();
         menu.style.transform = `translateX(${Math.max(Math.max(12, workspace.left + 8) - rect.left, Math.min(0, Math.min(view.innerWidth - 12, workspace.right - 8) - rect.right))}px)`;
         menu.style.maxHeight = `${Math.max(160, view.innerHeight - rect.top - 12)}px`;
         (menu.querySelector('button[aria-checked="true"]') || menu.querySelector('button'))?.focus();
@@ -448,14 +449,18 @@
     const layoutMenu = controller.root.querySelector('.relationship-layout-menu:not([hidden])');
     if (layoutMenu && !layoutMenu.hidden) {
       if (event.key === 'Escape') { event.preventDefault(); controller._closeLayoutMenu(true); return; }
-      if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
+      if (['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
         event.preventDefault();
         const buttons = [...layoutMenu.querySelectorAll('button:not(:disabled)')], current = buttons.indexOf(controller.root.ownerDocument.activeElement);
+        const grid = layoutMenu.querySelector('.relationship-layout-options');
+        const columns = grid ? (layoutMenu.ownerDocument?.defaultView?.getComputedStyle?.(grid).gridTemplateColumns || '').trim().split(/\s+/).filter(Boolean).length || 1 : 1;
+        const step = ['ArrowDown', 'ArrowUp'].includes(event.key) ? columns : 1;
         const index = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1
-          : (current + (event.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length;
+          : (current + (['ArrowDown', 'ArrowRight'].includes(event.key) ? step : -step) + buttons.length) % buttons.length;
         buttons[index]?.focus(); return;
       }
       if (event.key === 'Tab') controller._closeLayoutMenu();
+      return; // Menu input must not delete, move or undo selected canvas nodes.
     }
     const editing = event.target?.isContentEditable
       || event.target?.closest?.('input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"]');

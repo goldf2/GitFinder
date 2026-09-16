@@ -95,6 +95,8 @@ async function main() {
     if (reopen) {
       await check('退出应用后重新启动恢复 504px', value => value.width === 504 && value.saved === 504 && !value.hidden);
     } else {
+      // The delayed-save case below targets workspace save(), not document saveDocument().
+      await evaluate('App.relationshipBoardController._showLocalWorkspace()');
       await evaluate(`(async()=>{const c=App.relationshipBoardController;c.panelResize.finishDrag(false);c.panelResize.loadWidth(264);c.panelLayout={library:{side:'right',order:0},inspector:{side:'right',order:1}};await c._savePanelLayout();c._placePanelComponents();window.__panelBefore=JSON.stringify(c.store);})()`);
       await settle();
       await check('右栏初始宽度 264px', value => value.width === 264 && !value.hidden);

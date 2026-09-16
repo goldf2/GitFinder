@@ -780,6 +780,32 @@
         const ordered = orderByTopologyAndPosition(targets, links);
         const positions = packRegions(ordered, layout.viewportAspectRatio, Math.max(layout.horizontalSpacing, layout.verticalSpacing));
         ordered.forEach((item, i) => Object.assign(item, positions[i]));
+      } else if (currentStyle === 'project-balanced') {
+        const names = new Map(graph.entities.map(entity => [entity.id, entity.name || entity.id]));
+        const compare = (a, b) => String(names.get(a.entityId) || a.entityId).localeCompare(String(names.get(b.entityId) || b.entityId), 'zh-CN', { numeric: true })
+          || a.entityId.localeCompare(b.entityId);
+        const hosts = targets.filter(item => types.get(item.entityId) === 'server').sort(compare);
+        const hostIds = new Set(hosts.map(item => item.entityId));
+        const owners = new Map();
+        for (const link of links) if (hostIds.has(link.sourceId) && !hostIds.has(link.targetId)) {
+          if (!owners.has(link.targetId)) owners.set(link.targetId, new Set());
+          owners.get(link.targetId).add(link.sourceId);
+        }
+        const assigned = new Set(), blocks = [], gap = Math.max(layout.horizontalSpacing, layout.verticalSpacing);
+        for (const host of [...hosts, null]) {
+          const items = targets.filter(item => !hostIds.has(item.entityId) && !assigned.has(item.entityId)
+            && (!host || (owners.get(item.entityId)?.size === 1 && owners.get(item.entityId).has(host.entityId)))).sort(compare);
+          if (!host && !items.length) continue;
+          const positions = LayoutPrimitives.packBalancedRegions(items, layout.viewportAspectRatio, gap);
+          const top = host ? host.height + gap : 0;
+          items.forEach((item, i) => { item.x = positions[i].x - 80; item.y = positions[i].y - 80 + top; assigned.add(item.entityId); });
+          if (host) { host.x = 0; host.y = 0; items.unshift(host); }
+          blocks.push({ items, width: Math.max(...items.map(item => item.x + item.width)), height: Math.max(...items.map(item => item.y + item.height)) });
+        }
+        // Host bubbles add 72px side padding and 88px/64px header/footer.
+        // Reserve that envelope so display collision repair does not undo stacking.
+        const positions = LayoutPrimitives.packBalancedRegions(blocks, layout.viewportAspectRatio, Math.max(192, gap * 2));
+        blocks.forEach((block, i) => block.items.forEach(item => { item.x += positions[i].x; item.y += positions[i].y; }));
       } else if (currentStyle === 'project-columns') {
         const names = new Map(graph.entities.map(entity => [entity.id, entity.name || entity.id]));
         const compare = (a, b) => names.get(a.entityId).localeCompare(names.get(b.entityId), 'zh-CN', { numeric: true })
@@ -824,7 +850,7 @@
       const shrinkProject = options.shrinkAutoProjectGroups === true && projectIds.has(item.entityId)
         && item.groupLayout === 'auto' && !ancestorLocked && !item.locked && !nested.some(child => child.members.some(p => p.locked));
       if (shrinkProject || (!options.preserveGroupContents && item.groupLayout === 'auto' && !ancestorLocked && !item.locked && !nested.some(child => child.members.some(p => p.locked)))) {
-        arrange(nested, shrinkProject ? 'compact' : ['bilateral', 'radial', 'project-columns'].includes(style) ? 'right' : style);
+        arrange(nested, shrinkProject ? 'compact' : ['bilateral', 'radial', 'project-columns', 'project-balanced'].includes(style) ? 'right' : style);
       }
       unit.x = Math.min(...nested.map(child => child.x)) - 28;
       unit.y = Math.min(...nested.map(child => child.y)) - 54;

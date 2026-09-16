@@ -41,7 +41,7 @@
   const TOPOLOGY_SCOPE_MODES = Object.freeze(['board', 'all', 'server', 'project', 'deployment', 'repository']);
   const ARCHITECTURE_SCOPE_MODES = Object.freeze(['snapshot', 'boundary', 'component']);
   const RESOURCE_DISPLAY_LEVELS = Object.freeze(['host', 'project', 'deployment', 'endpoint']);
-  const BOARD_LAYOUTS = Object.freeze(['free', 'compact', 'lanes', 'right', 'down', 'bilateral', 'radial', 'galaxy', 'project-columns']);
+  const BOARD_LAYOUTS = Object.freeze(['free', 'compact', 'lanes', 'right', 'down', 'bilateral', 'radial', 'galaxy', 'project-columns', 'project-balanced']);
   const BOARD_SNAP_MODES = Object.freeze(['off', 'grid', 'smart']);
   const BOARD_CARD_APPEARANCES = Object.freeze(['elevated', 'flat']);
   const BOARD_CARD_TITLE_SOURCES = Object.freeze(['name', 'note']);

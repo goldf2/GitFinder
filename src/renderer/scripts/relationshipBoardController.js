@@ -1017,8 +1017,8 @@
         if (liveProjectGroup) {
           delete annotations.groupWidth;
           delete annotations.groupHeight;
-          if (this._boardView().layout === 'project-columns' && override?.positionVersion === 1) {
-            // Saved member positions define a compact column frame. A fresh
+          if (['project-columns', 'project-balanced'].includes(this._boardView().layout) && override?.positionVersion === 1) {
+            // Saved member positions define a compact Project frame. A fresh
             // projection's default size must not enlarge it on cold startup.
             delete placement.groupWidth;
             delete placement.groupHeight;
@@ -1204,6 +1204,19 @@
           }
         }
       }
+      if (this._boardView().layout === 'project-balanced') {
+        // Auto Project rendering may refine padding and centre variable-height
+        // cards. Persist those visible rectangles, not the pre-render estimate.
+        const displayed = this._displayGeometryMap(this._unarchivedPlacements());
+        for (const item of [...(activeBoard(this.store)?.placements || []), ...(this.panelProjection?.placements || [])]) {
+          const rect = displayed.get(item.entityId);
+          if (!rect) continue;
+          item.x = Math.round(rect.x); item.y = Math.round(rect.y);
+          if (entities.get(item.entityId)?.type === 'group') {
+            item.groupWidth = Math.round(rect.width); item.groupHeight = Math.round(rect.height);
+          }
+        }
+      }
       this._saveDynamicPlacementOverrides(placements.filter(item => item.dynamic).map(item => item.entityId));
       this._persistSoon(0);
     }
@@ -1351,14 +1364,15 @@
     _layoutMenuHtml() {
       const view = this._boardView();
       const layouts = [
+        ['project-balanced', '均衡总览', '主机分区，Project 多列排列', 'M3 3H14V29H3ZM19 3H29V14H19ZM19 19H29V29H19Z'],
         ['free', '自由摆放', '保持手工位置', 'M7 7H12V12H7ZM20 20H25V25H20Z'],
-        ['project-columns', 'Project 纵向列表', '每台主机一列，Project 按名称纵向排列', 'M4 3H14V8H4ZM4 12H14V19H4ZM4 23H14V30H4ZM20 3H30V8H20ZM20 12H30V19H20Z'],
+        ['project-columns', '主机纵列', '每台主机一列，Project 按名称排序', 'M4 3H14V8H4ZM4 12H14V19H4ZM4 23H14V30H4ZM20 3H30V8H20ZM20 12H30V19H20Z'],
         ['right', '向右树状', '从左向右展开现有关系', 'M5 16H14M14 6V26M14 6H26M14 16H26M14 26H26'],
         ['down', '向下树状', '从上向下展开现有关系', 'M16 4V13M5 13H27M5 13V26M16 13V26M27 13V26'],
         ['bilateral', '左右分叉', '现有分支向两侧展开', 'M16 16H23M23 7V25M23 7H29M23 25H29M16 16H9M9 7V25M9 7H3M9 25H3'],
         ['radial', '环绕放射', '以分支为单位环绕，不拆散群组', 'M16 16L5 5M16 16L27 5M16 16L27 27M16 16L5 27'],
         ['galaxy', '项目星系', '按 Project 聚合部署；访问点位置服从结构开关', 'M16 8A8 8 0 1 0 16 24A8 8 0 1 0 16 8M16 2V5M27 8L24 10M30 19L26 18M22 29L20 25M9 29L11 25M2 19L6 18M5 8L8 10'],
-        ['lanes', '按类别分列', '同类元素一列，群组保持完整', 'M5 5H11V27H5ZM21 5H27V27H21Z'],
+        ['lanes', '按类别分列', '同类分列；主机树按主机排列', 'M5 5H11V27H5ZM21 5H27V27H21Z'],
         ['compact', '紧凑排列', '按可用画布比例平铺', 'M4 4H14V14H4ZM19 4H29V14H19ZM4 19H14V29H4ZM19 19H29V29H19Z']
       ];
       const structures = [
@@ -1385,11 +1399,16 @@
         <div class="relationship-menu-separator" role="separator"></div>
         <div class="relationship-menu-separator" role="separator"></div>
         <button type="button" role="menuitem" data-relationship-action="deployment-archive">归档的部署（${this._combinedPlacements().filter(item => item.archived).length}）</button>`;
-      const layoutMenu = `<p>只改变位置、方向和间距，不改变结构，也不创建副本。</p>
-        <div class="relationship-layout-options">${layouts.map(([key, label, hint, path]) => `<button type="button" role="menuitemradio" aria-checked="${view.layout === key}" aria-label="${label}" data-board-layout="${key}"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="${path}"/></svg><span><b>${label}</b><small>${hint}</small></span><span class="relationship-layout-check" aria-hidden="true">${view.layout === key ? '✓' : ''}</span></button>`).join('')}</div>
-        <div class="relationship-menu-separator" role="separator"></div>
-        <p>卡片间距在“显示”中调整；关闭组内自动排列的群组整体移动。</p>
-        <button type="button" role="menuitem" data-relationship-action="reset-dynamic-layout">整理布局</button>`;
+      const layoutGroups = [
+        ['常用排列', ['project-balanced', 'project-columns', 'compact', 'free']],
+        ['关系走向', ['right', 'down', 'bilateral', 'radial']],
+        ['其他布局', ['galaxy', 'lanes']]
+      ];
+      const layoutOption = ([key, label, hint, path]) => `<button type="button" role="menuitemradio" aria-checked="${view.layout === key}" aria-label="${label}" data-board-layout="${key}"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="${path}"/></svg><span><b>${label}${key === 'project-balanced' ? '<em class="relationship-layout-badge">推荐</em>' : ''}</b><small>${hint}</small></span><span class="relationship-layout-check" aria-hidden="true">${view.layout === key ? '✓' : ''}</span></button>`;
+      const layoutMenu = `<p>选择后立即排列，可撤销；不改变主机归属或群组成员。</p>
+        ${layoutGroups.map(([label, keys]) => `<section class="relationship-layout-section" role="group" aria-label="${label}"><h4>${label}</h4><div class="relationship-layout-options">${keys.map(key => layoutOption(layouts.find(item => item[0] === key))).join('')}</div></section>`).join('')}
+        <footer class="relationship-layout-footer"><small>锁定项保持原位；手动组内部不重排。间距在“显示”中调整。</small>
+        <button type="button" role="menuitem" data-relationship-action="reset-dynamic-layout">${view.layout === 'free' ? (this._isServerTree() ? '按主机纵列整理一次' : '紧凑整理一次') : '重新应用当前布局'}</button></footer>`;
       const selectedSnapshot = this.architectureSnapshotCatalog.find(snapshot => snapshot.snapshotId === view.architectureSnapshotId);
       const architectureCurrent = `${view.showArchitecture === true ? '显示' : '已隐藏'} · ${selectedSnapshot?.repositoryName || '未选择快照'}`;
       const architectureMenu = `<p>代码架构是基于项目文件夹或 Git 仓库生成的只读视图。请在资源库选中项目/仓库后打开“显示设置”，再导入或更新架构快照；它不会混入运行资源。</p>
@@ -3186,6 +3205,7 @@
               ...this._nodeDimensions(),
               ...this._displayViewSettings(),
               projectGroupShape: this._groupShape(group.entityId),
+              groupHeaderHeight: this._isServerTree() ? Math.max(72, GROUP_HEADER_HEIGHT) : GROUP_HEADER_HEIGHT,
               preserveCenter: true
             });
             memberCopies.forEach(item => geometryById.set(item.entityId, {
@@ -4952,7 +4972,8 @@
         undraggableIds,
         zoom: board.viewport.zoom,
         groupTitleFontSize: display.groupTitleFontSize,
-        hostContainerOnly: this._isServerTree()
+        hostContainerOnly: this._isServerTree(),
+        layout: view.layout
       });
       this.flowRenderOptions = {
         model,
