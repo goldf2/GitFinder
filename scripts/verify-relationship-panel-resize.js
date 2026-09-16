@@ -88,6 +88,7 @@ async function main() {
     await send('Page.bringToFront');
     await send('Emulation.setFocusEmulationEnabled', { enabled: true });
     await send('Runtime.enable');
+    await evaluate(`(async()=>{for(let i=0;i<450;i++){if(document.readyState==='complete' && typeof App!=='undefined' && typeof App.switchView==='function')return true;await new Promise(r=>setTimeout(r,30));}throw new Error('GitFinder startup not ready');})()`);
     await evaluate("App.switchView('relationships')");
     await evaluate(`(async()=>{for(let i=0;i<150;i++){if(App.relationshipBoardController?.root?.isConnected){return true;}await new Promise(r=>setTimeout(r,30));}throw new Error('Whiteboard not ready');})()`);
     await settle();
@@ -121,7 +122,11 @@ async function main() {
       await click('[data-relationship-action="fullscreen"]');
       await evaluate('new Promise(resolve=>setTimeout(resolve,600))'); await settle();
       await check('白板全屏保留右栏宽度', value => value.fullscreen && value.width === 424);
-      await drag(-80); await check('全屏中拖拽调整为 504px', value => value.width === 504 && value.saved === 504);
+      await evaluate(`(()=>{window.__resizePointerTrace=[];window.__resizeTraceFn=e=>{const r=App.relationshipBoardController.panelResize;__resizePointerTrace.push({type:e.type,x:e.clientX,y:e.clientY,width:r.width,preferred:r.preferredWidth,drag:r.drag?{...r.drag}:null,fullscreen:!!document.fullscreenElement})};for(const t of ['pointerdown','pointermove','pointerup','pointercancel','lostpointercapture'])document.addEventListener(t,__resizeTraceFn,true)})()`);
+      await drag(-80);
+      const trace=await evaluate(`(()=>{for(const t of ['pointerdown','pointermove','pointerup','pointercancel','lostpointercapture'])document.removeEventListener(t,__resizeTraceFn,true);return __resizePointerTrace})()`);
+      fs.writeFileSync(path.join(output,'fullscreen-pointer-trace.json'),JSON.stringify(trace,null,2));
+      await check('全屏中拖拽调整为 504px', value => value.width === 504 && value.saved === 504);
       await screenshot('fullscreen-panel-504.png');
       await evaluate('document.exitFullscreen()'); await evaluate('new Promise(resolve=>setTimeout(resolve,500))'); await settle();
       await check('退出全屏后保留 504px', value => !value.fullscreen && value.width === 504);
