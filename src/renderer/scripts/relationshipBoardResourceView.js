@@ -58,17 +58,18 @@
         <button type="button" data-remove-document="${escape(resource.id)}" title="仅从资源库移除" aria-label="移除 ${escape(resource.name)} 的资源库记录">×</button>
         <button type="button" data-trash-document="${escape(resource.id)}" title="移到废纸篓" aria-label="将 ${escape(resource.name)} 移到废纸篓">♲</button></article>`;
       const canLocate = resource.placed === true;
-      const canDrag = !canLocate && (!resource.transient || ['project', 'repository'].includes(resource.kind));
+      const canDrag = resource.kind !== 'architecture';
+      const addLabel = resource.kind === 'server' ? '添加主机容器及下级资源' : resource.cloudProject ? '添加 Project 容器及下级资源' : resource.kind === 'deployment' ? '添加部署及访问点' : '添加到白板';
       const action = canLocate
         ? `data-locate-resource="${escape(resource.key)}" title="在白板中定位" aria-label="在白板中定位 ${escape(resource.name)}">⌖`
-        : `data-add-resource="${escape(resource.key)}" title="添加到白板" aria-label="将 ${escape(resource.name)} 添加到白板">＋`;
+        : `data-add-resource="${escape(resource.key)}" title="${escape(addLabel)}" aria-label="${escape(addLabel)}：${escape(resource.name)}">＋`;
       const children = Array.isArray(resource.children) ? resource.children : [];
       const expandable = resource.expandable === true || children.length > 0;
       const expanded = resource.expanded === true;
       const expandButton = expandable
         ? `<button type="button" class="relationship-resource-expand" data-expand-resource="${escape(resource.key)}" aria-expanded="${expanded}" aria-label="${expanded ? '收起' : '展开'} ${escape(resource.name)} 下一级" title="${expanded ? '收起' : '展开'}下一级">${expanded ? '⌄' : '›'}</button>`
         : '';
-      const settingsButton = ['project', 'repository'].includes(resource.kind)
+      const settingsButton = !resource.cloudProject && ['project', 'repository'].includes(resource.kind)
         ? `<button type="button" class="relationship-resource-settings" data-resource-settings="${escape(resource.key)}" aria-label="为 ${escape(resource.name)} 设置显示" title="代码架构与显示设置">⌘</button>`
         : '';
       const childMarkup = expanded && children.length
@@ -79,6 +80,7 @@
         <span class="relationship-resource-copy"><strong>${escape(resource.name)}</strong><small title="${escape(resource.path || resource.secondary)}">${escape(resource.path || resource.secondary)}</small></span>
         ${expandButton}
         ${settingsButton}
+        ${canLocate && resource.composable ? `<button type="button" data-add-resource="${escape(resource.key)}" title="补全容器及下级资源，保留现有位置" aria-label="补全 ${escape(resource.name)} 的资源内容">＋</button>` : ''}
         <button type="button" ${action}</button></article>`;
       return `${itemMarkup}${childMarkup}`;
     };

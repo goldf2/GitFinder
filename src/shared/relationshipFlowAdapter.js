@@ -173,6 +173,7 @@
         if (member.parentId && member.parentId !== id) continue;
         const position = absolute.get(memberId) || member.position || { x: 0, y: 0 };
         member.parentId = id;
+        member.data = { ...member.data, nestedContainer: true };
         member.extent = 'parent';
         member.position = { x: position.x - bounds.x, y: position.y - bounds.y };
       }
@@ -180,7 +181,8 @@
         id,
         type: 'hostBubble',
         position: { x: bounds.x, y: bounds.y },
-        draggable: true,
+        draggable: hostNode.draggable !== false && hostNode.data?.placement?.locked !== true
+          && !nodes.some(node => node.data?.placement?.locked && (memberSet.has(node.id) || memberSet.has(node.parentId))),
         selectable: false,
         focusable: false,
         connectable: false,
@@ -207,7 +209,7 @@
   function refreshHostBubbles(nodes) {
     const shifts = new Map();
     const resized = nodes.map(node => {
-      if (node.type !== 'hostBubble') return node;
+      if (node.type !== 'hostBubble' || !node.data.memberIds?.length) return node;
       const bounds = hostBubbleBounds(nodes, node.data.memberIds || [], node.data.fallbackPosition);
       shifts.set(node.id, { x: node.position.x - bounds.x, y: node.position.y - bounds.y });
       return { ...node, position: { x: bounds.x, y: bounds.y }, style: { ...node.style, width: bounds.width, height: bounds.height } };
@@ -533,9 +535,10 @@
     if (!options.linkedNodeIds && !options.hostContainerOnly) nodes = avoidGroupTitleCollisions(nodes, options);
     nodes = constrainProjectNodes(nodes);
     const hostContainerOnly = options.hostContainerOnly === true;
-    const hostIds = hostContainerOnly ? new Set(nodes.filter(node => node.data?.entity?.type === 'server').map(node => node.id)) : new Set();
-    if (hostContainerOnly) nodes = nodes.filter(node => !hostIds.has(node.id));
-    const visible = new Set(nodes.map(item => item.id));
+    const hostContainers = hostContainerOnly || options.hostContainers === true;
+    const hostIds = hostContainers ? new Set(nodes.filter(node => node.data?.entity?.type === 'server').map(node => node.id)) : new Set();
+    if (hostContainers) nodes = nodes.filter(node => !hostIds.has(node.id));
+    const visible = new Set([...nodes.map(item => item.id), ...(hostContainerOnly ? [] : hostIds)]);
     const edges = (graph.relationships || []).filter(edge => visible.has(edge.sourceId) && visible.has(edge.targetId)
       && !isHostProjectSummary(edge, entities))
       .map(edge => {
@@ -543,8 +546,8 @@
         const visualOnly = edge.visualOnly === true;
         return {
           id: edge.id,
-          source: edge.sourceId,
-          target: edge.targetId,
+          source: hostIds.has(edge.sourceId) ? `host-bubble:${edge.sourceId}` : edge.sourceId,
+          target: hostIds.has(edge.targetId) ? `host-bubble:${edge.targetId}` : edge.targetId,
           type: 'bezier',
           selected: visualOnly ? false : edge.id === options.selectedRelationshipId,
           ...(visualOnly ? { selectable: false, focusable: false, deletable: false } : {}),
@@ -562,14 +565,37 @@
           label: edge.label || ''
         };
       });
-    if (hostContainerOnly) {
+    if (hostContainers) {
+      const hostRelationships = [...(graph.relationships || [])];
+      if (!hostContainerOnly) {
+        // Derive boundaries from real ownership on mixed boards too. A shared
+        // Project remains outside hosts instead of being parented to two of them.
+        const owners = new Map(), groupOwners = new Map();
+        for (const edge of graph.relationships || []) {
+          const pair = edge.type === 'runs_on' ? [edge.sourceId, edge.targetId]
+            : edge.type === 'hosts' ? [edge.targetId, edge.sourceId] : null;
+          if (!pair || entities.get(pair[0])?.type !== 'deployment' || !hostIds.has(pair[1])) continue;
+          if (!owners.has(pair[0])) owners.set(pair[0], new Set());
+          owners.get(pair[0]).add(pair[1]);
+          const groupId = placementById.get(pair[0])?.groupId;
+          if (isProjectGroup(entities.get(groupId))) {
+            if (!groupOwners.has(groupId)) groupOwners.set(groupId, new Set());
+            groupOwners.get(groupId).add(pair[1]);
+          }
+        }
+        for (const [deploymentId, hosts] of owners) for (const hostId of hosts) {
+          const groupId = placementById.get(deploymentId)?.groupId;
+          const targetId = groupOwners.get(groupId)?.size === 1 ? groupId : !groupId ? deploymentId : '';
+          if (targetId) hostRelationships.push({ id: `host-scope:${hostId}:${targetId}`, sourceId: hostId, targetId, visualOnly: true });
+        }
+      }
       // The host card is a physical-resource identity, so keep it only as the
       // read-only container boundary. Its original placement remains untouched.
       nodes = [...addHostBubbleNodes([...nodes, ...placements
         .filter(item => hostIds.has(item.entityId))
-        .map(item => ({ id: item.entityId, position: { x: item.x || 0, y: item.y || 0 }, style: { width: DEFAULT_CARD.width, height: DEFAULT_CARD.height }, data: { entity: entities.get(item.entityId), placement: item } }))], graph.relationships || [], entities, true, preserveProjectRows), ...nodes];
+        .map(item => ({ id: item.entityId, position: { x: item.x || 0, y: item.y || 0 }, style: { width: DEFAULT_CARD.width, height: DEFAULT_CARD.height }, draggable: !undraggableIds.has(item.entityId) && item.locked !== true, data: { entity: entities.get(item.entityId), placement: item } }))], hostRelationships, entities, true, preserveProjectRows || !hostContainerOnly), ...nodes];
       nodes = refreshHostBubbles(nodes);
-      const hosts = nodes.filter(node => node.type === 'hostBubble').sort((a, b) => a.position.x - b.position.x || a.id.localeCompare(b.id));
+      const hosts = (hostContainerOnly ? nodes.filter(node => node.type === 'hostBubble') : []).sort((a, b) => a.position.x - b.position.x || a.id.localeCompare(b.id));
       for (let index = 0; index < hosts.length; index++) {
         const host = hosts[index];
         const adjacent = hosts[index - 1];
@@ -602,6 +628,7 @@
     } else {
       nodes = [...addHostBubbleNodes(nodes, graph.relationships || [], entities), ...nodes];
     }
+    for (const node of nodes) if (node.type === 'hostBubble') node.data.initialPosition = { ...node.position };
     return rerouteFlowConnections(nodes, options.showRelationshipLines === false ? [] : edges, {
       zoom: options.zoom,
       groupTitleFontSize: options.groupTitleFontSize
@@ -622,7 +649,11 @@
     };
     return placements.map(placement => {
       const node = nodeById.get(placement.entityId);
-      if (!node) return { ...placement };
+      if (!node) {
+        const host = nodeById.get(`host-bubble:${placement.entityId}`);
+        const initial = host?.data?.initialPosition;
+        return host && initial && !host.data.memberIds?.length ? { ...placement, x: host.data.fallbackPosition.x + host.position.x - initial.x, y: host.data.fallbackPosition.y + host.position.y - initial.y } : { ...placement };
+      }
       const position = absolute(node);
       const next = { ...placement, x: position.x, y: position.y };
       if (node.type === 'relationshipGroup') {

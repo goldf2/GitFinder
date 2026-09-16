@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-16T21:30:11+08:00",
+  "updatedAt": "2026-09-17T05:13:42+08:00",
   "scope": "以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。",
   "baseline": {
     "version": "2.0.0-alpha.193",
     "sourceCommit": "99eef1d2992e389f32a48182a25fda3b9adf1958",
     "evidence": "docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md"
   },
-  "nextTaskId": "GF-AI-PROGRESS-001",
+  "nextTaskId": "GF-RESOURCE-001",
   "milestones": [
     {
       "id": "GF-P0",
@@ -853,6 +853,38 @@
       ],
       "evidence": [],
       "nextAction": "先讨论AI参与的输入、输出、确认点和数据边界，形成可验证设计；不立即开发外部模型接入。",
+      "blocker": "",
+      "delivery": null,
+      "userAcceptance": "pending"
+    },
+    {
+      "id": "GF-RESOURCE-001",
+      "milestone": "GF-P1",
+      "title": "资源库添加与主机/Project/部署容器一致性修复",
+      "priority": "P0",
+      "status": "verified",
+      "owner": "ChatGPT / AgentDock Cloudflare",
+      "updatedAt": "2026-09-17T05:13:42+08:00",
+      "dependsOn": [
+        "GF-LAYOUT-193"
+      ],
+      "sourcePaths": [
+        "src/renderer/scripts/relationshipBoardController.js",
+        "src/shared/relationshipFlowAdapter.js",
+        "src/renderer/scripts/relationshipBoardResourceView.js",
+        "src/shared/relationshipResourceComposition.js",
+        "test/relationship-resource-composition.test.js",
+        "scripts/verify-resource-containers.js"
+      ],
+      "acceptance": [
+        "资源库加号和拖拽在本机/独立白板可添加与自动工作区一致的主机容器及所属Project、部署和端点，不带入其它主机内容。",
+        "复用主机容器渲染；重复添加不重复，补全保留既有位置/锁定/备注，新增关系和层级保存/离线重开可恢复，撤销单次操作完整回退。",
+        "核查Project、部署、端点及本地项目/仓库入口；默认关闭测试功能不受影响；记录全量、实际安装验证和保护边界。"
+      ],
+      "evidence": [
+        "docs/00-handoff/RESOURCE_CONTAINERS_ALPHA197.md"
+      ],
+      "nextAction": "源码全量1327/1327、27项专项及实际Electron18项通过；从本轮提交构建并完成可恢复安装、18项安装版及测试开关保护后再推送。",
       "blocker": "",
       "delivery": null,
       "userAcceptance": "pending"

@@ -2,18 +2,18 @@
 
 > 自动生成。只编辑 `management/development-tasks.json`，然后执行 `npm run handoff:update`。
 
-更新时间：2026-09-16T21:30:11+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
+更新时间：2026-09-17T05:13:42+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
 
 核验基线：2.0.0-alpha.193 / `99eef1d2992e389f32a48182a25fda3b9adf1958`；证据：[docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md](LAYOUT_OPTIONS_ALPHA193.md)。
 
-**唯一下一任务：GF-AI-PROGRESS-001**
+**唯一下一任务：GF-RESOURCE-001**
 
 ## 阶段汇总
 
 | 阶段 | 纳入任务 | 已交付 | 开发中/已验证 | 阻塞/暂缓 |
 | --- | ---: | ---: | ---: | ---: |
 | GF-P0 接续工程 | 2 | 2 | 0 | 0 |
-| GF-P1 桌面稳定 | 10 | 5 | 0 | 1 |
+| GF-P1 桌面稳定 | 11 | 5 | 1 | 1 |
 | GF-P2 可维护与性能 | 4 | 0 | 0 | 0 |
 | GF-P3 可分发 | 5 | 0 | 0 | 3 |
 | GF-P4 全流程事件 | 5 | 0 | 0 | 1 |
@@ -55,6 +55,7 @@
 | GF-PROGRESS-001 | P0 | 已交付 | ChatGPT / AgentDock Cloudflare | 仓库进度接入开发任务与仪表盘 |
 | GF-LABS-001 | P0 | 已交付 | ChatGPT / AgentDock Cloudflare | 设置测试功能区与仪表盘/开发进度默认关闭 |
 | GF-AI-PROGRESS-001 | P1 | 计划中 | unassigned | AI辅助进度识别与人工确认的证据链设计 |
+| GF-RESOURCE-001 | P0 | 已验证 | ChatGPT / AgentDock Cloudflare | 资源库添加与主机/Project/部署容器一致性修复 |
 
 ## 可执行任务卡
 
@@ -595,3 +596,20 @@
 源码/设计入口：[docs/00-handoff/EXPERIMENTAL_FEATURES_ALPHA196.md](EXPERIMENTAL_FEATURES_ALPHA196.md)；[docs/00-handoff/REPOSITORY_PROGRESS_BRIDGE.md](REPOSITORY_PROGRESS_BRIDGE.md)。
 
 证据：尚无本任务完成证据；源码文件存在不表示验收通过。
+
+### GF-RESOURCE-001 · 资源库添加与主机/Project/部署容器一致性修复
+
+阶段：GF-P1；优先级：P0；状态：**已验证**；负责人：ChatGPT / AgentDock Cloudflare；用户验收：待用户反馈。
+
+更新：2026-09-17T05:13:42+08:00。依赖：GF-LAYOUT-193。
+
+**验收标准**
+1. 资源库加号和拖拽在本机/独立白板可添加与自动工作区一致的主机容器及所属Project、部署和端点，不带入其它主机内容。
+2. 复用主机容器渲染；重复添加不重复，补全保留既有位置/锁定/备注，新增关系和层级保存/离线重开可恢复，撤销单次操作完整回退。
+3. 核查Project、部署、端点及本地项目/仓库入口；默认关闭测试功能不受影响；记录全量、实际安装验证和保护边界。
+
+**接续动作：** 源码全量1327/1327、27项专项及实际Electron18项通过；从本轮提交构建并完成可恢复安装、18项安装版及测试开关保护后再推送。
+
+源码/设计入口：[src/renderer/scripts/relationshipBoardController.js](../../src/renderer/scripts/relationshipBoardController.js)；[src/shared/relationshipFlowAdapter.js](../../src/shared/relationshipFlowAdapter.js)；[src/renderer/scripts/relationshipBoardResourceView.js](../../src/renderer/scripts/relationshipBoardResourceView.js)；[src/shared/relationshipResourceComposition.js](../../src/shared/relationshipResourceComposition.js)；[test/relationship-resource-composition.test.js](../../test/relationship-resource-composition.test.js)；[scripts/verify-resource-containers.js](../../scripts/verify-resource-containers.js)。
+
+证据：[docs/00-handoff/RESOURCE_CONTAINERS_ALPHA197.md](RESOURCE_CONTAINERS_ALPHA197.md)

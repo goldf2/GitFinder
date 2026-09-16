@@ -328,6 +328,7 @@ const RelationshipGroup = memo(function RelationshipGroup({ id, data, selected }
 
 const HostBubble = memo(function HostBubble({ id, data }) {
   return <section className="gf-flow-host-bubble" aria-label={`${data.entity?.name || '主机'} Project 容器`}>
+    <ConnectionHandles nodeId={id} handles={data.connectionHandles} />
     <ContainerHeader id={id} data={data} host />
   </section>;
 });

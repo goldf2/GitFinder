@@ -431,7 +431,7 @@
     if (data.resourceSettings) return controller._openResourceSettingsForResource(resourceByKey(controller, data.resourceSettings));
     if (data.locateResource) {
       const resource = resourceByKey(controller, data.locateResource);
-      if (resource?.entityId) controller._focusEntityOnBoard(resource.entityId);
+      if (resource?.entityId) controller._focusEntityOnBoard(resource.compositionRootId || resource.entityId);
       return;
     }
     if (data.resourceKey) {

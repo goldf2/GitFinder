@@ -19,10 +19,12 @@
     || (typeof module !== 'undefined' && module.exports ? require('./relationshipPanelResize') : null);
   const persistence = root?.RelationshipBoardPersistence
     || (typeof module !== 'undefined' && module.exports ? require('./relationshipBoardPersistence') : null);
-  const api = factory(root?.RelationshipGraphModel, projection, scanner, primitives, graphProjection, actionRouter, resourceView, toolbarView, presentation, panelResize, persistence);
+  const composition = root?.RelationshipResourceComposition
+    || (typeof module !== 'undefined' && module.exports ? require('../../shared/relationshipResourceComposition') : null);
+  const api = factory(root?.RelationshipGraphModel, projection, scanner, primitives, graphProjection, actionRouter, resourceView, toolbarView, presentation, panelResize, persistence, composition);
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) root.RelationshipBoardController = api;
-})(typeof window !== 'undefined' ? window : globalThis, function createRelationshipBoardController(Model, PanelTopologyProjection, RepositoryRootScanner, LayoutPrimitives, GraphProjection, ActionRouter, ResourceView, ToolbarView, Presentation, PanelResize, Persistence) {
+})(typeof window !== 'undefined' ? window : globalThis, function createRelationshipBoardController(Model, PanelTopologyProjection, RepositoryRootScanner, LayoutPrimitives, GraphProjection, ActionRouter, ResourceView, ToolbarView, Presentation, PanelResize, Persistence, ResourceComposition) {
   const NODE_WIDTH = 280;
   const NODE_HEIGHT = 143;
   const COMPACT_NODE_WIDTH = 236;
@@ -166,7 +168,7 @@
   const RESOURCE_DISPLAY_LEVELS = Object.freeze(['host', 'project', 'deployment', 'endpoint']);
 
   function resourceDisplayType(entity = {}) {
-    return entity.type === 'group' && entity.runtime?.dynamicKind === 'coolify-project-group' ? 'project' : entity.type;
+    return ResourceComposition.isProjectContainer(entity) ? 'project' : entity.type;
   }
 
   function resourceDisplayLevelsFor(entity = {}, placement = {}) {
@@ -185,7 +187,7 @@
   }
 
   function resourceDisplayOptions(entity = {}) {
-    if (entity.runtime?.dynamicKind === 'coolify-project-group') return [];
+    if (ResourceComposition.isProjectContainer(entity)) return [];
     const type = resourceDisplayType(entity);
     if (type === 'server') return [['host', '主机（当前卡片）'], ['project', 'Project 容器'], ['deployment', '部署'], ['endpoint', '访问点']];
     if (type === 'project') return [['project', 'Project（当前卡片）'], ['deployment', '部署'], ['endpoint', '访问点']];
@@ -1866,13 +1868,15 @@
           }
         }
       }
-      const entities = this._combinedEntities().filter(entity => !this._isArchitectureEntity(entity)
-        && !(entity.type === 'group' && String(entity.runtime?.dynamicKind || '').startsWith('coolify-')));
-      const projectRefs = new Set(entities.filter(entity => entity.type === 'project').flatMap(entity => [entity.id, entity.refId].filter(Boolean).map(String)));
+      const liveContainerIds = new Set(this._resourceCompositionGraph().entities
+        .filter(entity => ResourceComposition.isProjectContainer(entity) && entity.transient).map(entity => entity.id));
+      const entities = [...this._allSourceEntitiesById().values()].filter(entity => !this._isArchitectureEntity(entity)
+        && !(entity.type === 'group' && (String(entity.runtime?.dynamicKind || '').startsWith('coolify-') || liveContainerIds.has(entity.id))));
+      const projectRefs = new Set(entities.filter(entity => ResourceComposition.isCloudProject(entity)).map(entity => `${entity.runtime?.providerId || 'panel'}:${entity.runtime?.projectUuid || entity.refId}`));
       for (const deployment of this.panelProjection?.entities || []) {
         const runtime = deployment.runtime || {};
         const projectRef = String(runtime.projectUuid || '').trim();
-        if (deployment.type !== 'deployment' || !projectRef || projectRef === 'project_unknown' || projectRefs.has(projectRef)) continue;
+        if (deployment.type !== 'deployment' || !projectRef || projectRef === 'project_unknown' || projectRefs.has(`${runtime.providerId || 'panel'}:${projectRef}`)) continue;
         const providerId = String(runtime.providerId || 'panel').replace(/[^a-zA-Z0-9_-]/g, '_');
         const suffix = projectRef.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 48);
         const project = {
@@ -1882,7 +1886,7 @@
           details: {}, source: 'observed', transient: true, resourceOnly: true,
           runtime: { providerId: runtime.providerId || '', providerLabel: runtime.providerLabel || '', projectUuid: projectRef, dynamicKind: 'panel-project' }
         };
-        entities.push(project); projectRefs.add(projectRef); projectRefs.add(project.id);
+        entities.push(project); projectRefs.add(`${runtime.providerId || 'panel'}:${projectRef}`);
       }
       const catalog = ResourceView.catalog({ resources: this.resources, entities, placements: boardPlacements,
         documents: this.documentLibrary, displayName: entity => this._entityDisplayName(entity), displaySubtitle: entity => {
@@ -1909,24 +1913,38 @@
         if (item.kind === 'architecture') return false;
         return true;
       });
-      const decorate = (item, ancestry = new Set()) => {
+      let compositionGraph;
+      const decorate = (original, ancestry = new Set(), hostId = '') => {
+        const entity = entityById.get(original.entityId);
+        const item = hostId && ResourceComposition.isCloudProject(entity)
+          ? { ...original, key: `${original.key}@host:${hostId}`, scopeHostId: hostId } : original;
+        const nextHostId = entity?.type === 'server' ? entity.id : hostId;
         const nextAncestry = new Set(ancestry).add(item.key);
+        let cloudPlacement = {};
+        if (ResourceComposition.isCloudProject(entity)) {
+          compositionGraph ||= this._resourceCompositionGraph();
+          const roots = ResourceComposition.select({ ...item, sourceEntity: entity }, compositionGraph)?.rootIds || [];
+          cloudPlacement = { cloudProject: true, compositionLabel: 'Project 容器及下级',
+            placed: roots.length > 0 && roots.every(id => boardPlacements.some(p => p.entityId === id)),
+            compositionRootId: roots[0] || '' };
+        }
         const childItems = this._resourceChildren(item, entityById, itemsByEntityId, hierarchy)
           .filter(child => !nextAncestry.has(child.key));
         const expanded = this.expandedResourceKeys.has(item.key);
         return {
-          ...item,
+          ...item, ...cloudPlacement,
+          composable: ['server', 'deployment'].includes(item.kind) || ResourceComposition.isCloudProject(entityById.get(item.entityId)) || ResourceComposition.isProjectContainer(entityById.get(item.entityId)),
+          category: ResourceComposition.isProjectContainer(entityById.get(item.entityId)) ? 'project' : item.category,
           expandable: childItems.length > 0,
           expanded,
-          children: expanded ? childItems.map(child => decorate(child, nextAncestry)) : []
+          children: expanded ? childItems.map(child => decorate(child, nextAncestry, nextHostId)) : []
         };
       };
       return roots.map(item => decorate(item));
     }
 
     _resourceRelationships() {
-      const sources = [this.store?.relationships || []];
-      if (this._topologyVisible()) sources.push(this.panelProjection?.relationships || []);
+      const sources = [this.store?.relationships || [], this.panelProjection?.relationships || []];
       const seen = new Set();
       return sources.flat().filter(relationship => {
         if (!relationship?.sourceId || !relationship?.targetId) return false;
@@ -1961,11 +1979,15 @@
         if (relationship.type === 'exposes' && source.type === 'deployment' && target.type === 'endpoint') add(endpointsByDeployment, source.id, target.id);
         if (relationship.type === 'exposed_by' && source.type === 'endpoint' && target.type === 'deployment') add(endpointsByDeployment, target.id, source.id);
       }
-      const projectByReference = new Map(entities.filter(entity => entity.type === 'project').flatMap(entity => [
+      const projectByReference = new Map(entities.filter(entity => entity.type === 'project' && !ResourceComposition.isCloudProject(entity)).flatMap(entity => [
         [entity.id, entity], ...(entity.refId ? [[String(entity.refId), entity]] : [])
       ]));
+      const cloudProjects = new Map(entities.filter(entity => ResourceComposition.isCloudProject(entity))
+        .map(entity => [`${entity.runtime?.providerId || 'panel'}:${entity.runtime?.projectUuid || entity.refId}`, entity]));
       for (const deployment of entities.filter(entity => entity.type === 'deployment')) {
-        const projectRefs = [...(deployment.runtime?.projectIds || []), deployment.runtime?.projectUuid].filter(Boolean);
+        const cloud = cloudProjects.get(`${deployment.runtime?.providerId || 'panel'}:${deployment.runtime?.projectUuid}`);
+        if (cloud) add(projectsByDeployment, deployment.id, cloud.id);
+        const projectRefs = (deployment.runtime?.projectIds || []).filter(Boolean);
         for (const projectRef of projectRefs) {
           const project = projectByReference.get(String(projectRef));
           if (project) add(projectsByDeployment, deployment.id, project.id);
@@ -1975,11 +1997,13 @@
         }
       }
       // Coolify Projects are visual containers, distinct from local project cards.
-      const sourcePlacements = new Map([...(activeBoard(this.store)?.placements || []), ...(this.panelProjection?.placements || [])]
+      const sourcePlacements = new Map([...(this.store?.boards || []).flatMap(board => board.placements || []), ...(activeBoard(this.store)?.placements || []), ...(this.panelProjection?.placements || [])]
         .map(item => [item.entityId, item]));
+      const snapshotIds = new Set((this.store?.entities || []).filter(item => item.source === 'observed' && !item.transient).map(item => item.id));
+      for (const item of activeBoard(this.store)?.placements || []) if (snapshotIds.has(item.entityId)) sourcePlacements.set(item.entityId, item);
       for (const deployment of entities.filter(entity => entity.type === 'deployment')) {
         const group = byId.get(sourcePlacements.get(deployment.id)?.groupId);
-        if (group?.runtime?.dynamicKind === 'coolify-project-group') add(projectsByDeployment, deployment.id, group.id);
+        if (ResourceComposition.isProjectContainer(group)) add(projectsByDeployment, deployment.id, group.id);
       }
       const deploymentsByProject = new Map();
       for (const [deploymentId, projectIds] of projectsByDeployment) {
@@ -1990,7 +2014,7 @@
         for (const deploymentId of deploymentIds) {
           for (const projectId of projectsByDeployment.get(deploymentId) || []) add(projectsByServer, serverId, projectId);
           const groupId = sourcePlacements.get(deploymentId)?.groupId;
-          if (groupId && byId.get(groupId)?.runtime?.dynamicKind === 'coolify-project-group') {
+          if (groupId && ResourceComposition.isProjectContainer(byId.get(groupId))) {
             add(projectsByServer, serverId, groupId);
           }
         }
@@ -2005,7 +2029,9 @@
         : resourceDisplayType(entity) === 'project' ? hierarchy.deploymentsByProject.get(entity.id)
           : entity.type === 'deployment' ? hierarchy.endpointsByDeployment.get(entity.id) : null;
       if (!childIds?.size) return [];
-      return [...childIds].map(id => itemsByEntityId.get(id)).filter(Boolean)
+      const scopedChildren = resource.scopeHostId && resourceDisplayType(entity) === 'project'
+        ? [...childIds].filter(id => hierarchy.deploymentsByServer.get(resource.scopeHostId)?.has(id)) : [...childIds];
+      return scopedChildren.map(id => itemsByEntityId.get(id)).filter(Boolean)
         .sort((left, right) => left.name.localeCompare(right.name, 'zh-CN') || left.key.localeCompare(right.key));
     }
 
@@ -2071,7 +2097,7 @@
       for (const relationship of relationships) {
         if (relationship.type !== 'runs_on') continue;
         const server = entities.get(relationship.targetId), groupId = placementById.get(relationship.sourceId)?.groupId;
-        if (!server || server.type !== 'server' || !groupId || entities.get(groupId)?.runtime?.dynamicKind !== 'coolify-project-group') continue;
+        if (!server || server.type !== 'server' || !groupId || !ResourceComposition.isProjectContainer(entities.get(groupId))) continue;
         if (!projectsByServerFallback.has(server.id)) projectsByServerFallback.set(server.id, new Set());
         projectsByServerFallback.get(server.id).add(groupId);
       }
@@ -2192,7 +2218,7 @@
 
     _isTopologyEntity(entity) {
       return ['server', 'deployment', 'project', 'repository', 'endpoint'].includes(entity?.type)
-        || entity?.runtime?.dynamicKind === 'coolify-project-group'
+        || ResourceComposition.isProjectContainer(entity)
         || String(entity?.runtime?.dynamicKind || '').startsWith('panel-');
     }
 
@@ -2229,7 +2255,8 @@
       const aliases = topologyVisible ? this._endpointAliases() : new Map();
       const entities = new Map(this._combinedEntities().map(entity => [entity.id, entity]));
       const topologyScopeMode = this._readBoardView().topologyScopeMode;
-      const hasDisplayPreferences = (board?.placements || []).some(item => resourceDisplayLevelsFor(entities.get(item.entityId), item).length);
+      const snapshotIds = new Set((this.store?.entities || []).filter(item => item.source === 'observed' && !item.transient).map(item => item.id));
+      const hasDisplayPreferences = (board?.placements || []).some(item => !snapshotIds.has(item.entityId) && resourceDisplayLevelsFor(entities.get(item.entityId), item).length);
       const previewingRuntime = topologyVisible && !this.documentRecord && (topologyScopeMode !== 'board' || hasDisplayPreferences);
       const liveTopologyIds = new Set((this.panelProjection?.placements || []).map(item => item.entityId));
       const liveProjectGroupIds = new Set((this.panelProjection?.placements || [])
@@ -2274,7 +2301,7 @@
           const liveProjectGroup = entity?.type === 'group'
             && entity.runtime?.dynamicKind === 'coolify-project-group'
             && placement.groupLayout === 'auto';
-          if (current && previewingRuntime && liveProjectGroup) {
+          if (current && previewingRuntime && !snapshotIds.has(placement.entityId) && liveProjectGroup) {
             // A Project container is derived from the live snapshot. Keep
             // local position/annotations, but discard legacy dimensions so
             // automatic geometry can shrink to the current members.
@@ -2282,7 +2309,7 @@
             delete next.groupWidth;
             delete next.groupHeight;
             placements[index] = next;
-          } else if (current && previewingRuntime && entity?.type !== 'group'
+          } else if (current && previewingRuntime && !snapshotIds.has(placement.entityId) && entity?.type !== 'group'
             && (current.groupId !== placement.groupId || liveProjectGroupIds.has(placement.groupId))) {
             // Live Project children are also derived from the current
             // snapshot. Reuse local annotations, but let the fresh runtime
@@ -2447,7 +2474,7 @@
             }
             if (topologyVisibleIds.has(placement.entityId) && placement.groupId && !topologyVisibleIds.has(placement.groupId)) {
               const group = entities.get(placement.groupId);
-              if (group?.runtime?.dynamicKind === 'coolify-project-group') {
+              if (ResourceComposition.isProjectContainer(group)) {
                 topologyVisibleIds.add(placement.groupId); changed = true;
               }
             }
@@ -3205,7 +3232,7 @@
               ...this._nodeDimensions(),
               ...this._displayViewSettings(),
               projectGroupShape: this._groupShape(group.entityId),
-              groupHeaderHeight: this._isServerTree() ? Math.max(72, GROUP_HEADER_HEIGHT) : GROUP_HEADER_HEIGHT,
+              groupHeaderHeight: Math.max(72, GROUP_HEADER_HEIGHT),
               preserveCenter: true
             });
             memberCopies.forEach(item => geometryById.set(item.entityId, {
@@ -4695,7 +4722,7 @@
       };
       indexResources(catalog);
       const nestedCounts = Object.fromEntries(['deployment', 'endpoint'].map(kind => [kind,
-        this._combinedEntities().filter(entity => entity.type === kind).length]));
+        [...this._allSourceEntitiesById().values()].filter(entity => entity.type === kind).length]));
       const total = this._panelElement('[data-resource-total]');
       if (total) total.textContent = String(catalog.length + Object.entries(nestedCounts).reduce((sum, [kind, count]) => sum + Math.max(0, count - catalog.filter(item => item.kind === kind).length), 0));
       for (const dock of this._panelDocks()) dock?.querySelectorAll(':scope > [data-resource-section]').forEach(item => item.remove());
@@ -4973,6 +5000,7 @@
         zoom: board.viewport.zoom,
         groupTitleFontSize: display.groupTitleFontSize,
         hostContainerOnly: this._isServerTree(),
+        hostContainers: true,
         layout: view.layout
       });
       this.flowRenderOptions = {
@@ -5273,6 +5301,11 @@
       this._persistSoon(0);
       this._renderGraph();
       if (!this.flowCanvas?.setCenter) return;
+      const host = this.flowRenderOptions?.model?.nodes?.find(node => node.type === 'hostBubble' && node.data?.entity?.id === entityId);
+      if (host && this.flowCanvas.fitView) {
+        requestAnimationFrame(() => void this.flowCanvas?.fitView?.({ nodes: [{ id: host.id }], padding: 0.15, maxZoom: 1, duration: 220 }));
+        return;
+      }
       const geometry = this._displayGeometryMap(this._combinedPlacements(board)).get(entityId);
       if (geometry) requestAnimationFrame(() => void this.flowCanvas?.setCenter?.(
         geometry.x + geometry.width / 2,
@@ -6415,8 +6448,113 @@
       this._addEntity({ id: makeId('entity'), type, name: values.name, details, source: 'manual' }, point);
     }
 
+    _resourceCompositionGraph() {
+      // Use the existing physical topology builder even on a free/mixed board.
+      // Do not change the board-wide structure or its preview scope.
+      const source = this.panelTopologyResult;
+      const cache = this.resourceCompositionProjection;
+      if (!cache || cache.source !== source || cache.projection !== this.panelProjection || cache.entities !== this.store?.entities) {
+        const physical = source?.state === 'ready'
+          ? PanelTopologyProjection.buildProjection({ ...source, projects: this.panelProjects,
+              repositories: this.panelRepositories, repositoryAssociations: this.repositoryAssociations,
+              existingEntities: this.store?.entities || [], serverTree: true,
+              layout: { ...this._nodeDimensions(), style: 'project-columns' } })
+          : this.panelProjection;
+        this.resourceCompositionProjection = { source, projection: this.panelProjection, entities: this.store?.entities, physical };
+      }
+      const physical = this.resourceCompositionProjection.physical || {};
+      const entities = new Map([...(this.store?.entities || []), ...(this.panelProjection?.entities || []), ...(physical.entities || [])].map(item => [item.id, item]));
+      const placements = new Map([...(this.store?.boards || []).flatMap(board => board.placements || []), ...(activeBoard(this.store)?.placements || []), ...(this.panelProjection?.placements || []), ...(physical.placements || [])].map(item => [item.entityId, item]));
+      const edges = new Map([...(this.store?.relationships || []), ...(this.panelProjection?.relationships || []), ...(physical.relationships || [])]
+        .map(item => [`${item.type}:${item.sourceId}:${item.targetId}`, item]));
+      return { entities: [...entities.values()], placements: [...placements.values()], relationships: [...edges.values()] };
+    }
+
+    _addResourceComposition(resource, point) {
+      const plan = ResourceComposition.select(resource, this._resourceCompositionGraph());
+      if (!plan) return null;
+      if (!plan.rootIds.length || !plan.entities.length) {
+        this.notify('没有可添加的 Project 容器来源；请刷新资源库后重试', 'warning');
+        return false;
+      }
+      const selectedIds = new Set(plan.entities.map(item => item.id));
+      const localGraph = { entities: plan.entities, placements: plan.placements,
+        relationships: plan.relationships.filter(edge => selectedIds.has(edge.sourceId) && selectedIds.has(edge.targetId)) };
+      for (const item of plan.placements) if (item.groupId && !selectedIds.has(item.groupId)) delete item.groupId;
+      PanelTopologyProjection.applyProjectEndpointMembership(localGraph, this._boardView().projectGroupIncludesEndpoints !== false);
+      // Pack only the selected source branch, not the whole remote topology or
+      // existing canvas. Shared endpoints must not inherit far-away source positions.
+      PanelTopologyProjection.arrangeBoardLayout(localGraph, { ...this._nodeDimensions(), style: 'project-columns',
+        preserveGroupContents: false, shrinkAutoProjectGroups: true, compactEndpoints: true });
+      const next = clone(this.store), board = activeBoard(next);
+      if (!board) return false;
+      const known = new Map(next.entities.map(item => [item.id, item]));
+      const placed = new Map(board.placements.map(item => [item.entityId, item]));
+      const incoming = new Map(plan.placements.map(item => [item.entityId, item]));
+      const anchorId = plan.rootIds.find(id => placed.has(id));
+      const anchor = anchorId ? placed.get(anchorId) : null;
+      const origin = incoming.get(anchorId || plan.rootIds[0]) || { x: 0, y: 0 };
+      const right = board.placements.length ? Math.max(...board.placements.map(item => item.x + (item.groupWidth || 320))) + 100 : 80;
+      const target = anchor || point || { x: right, y: 100 };
+      const dx = target.x - origin.x, dy = target.y - origin.y;
+      let added = 0, changed = false;
+      for (const entity of plan.entities) {
+        if (!known.has(entity.id)) { const portable = this._portableEntity(entity); next.entities.push(portable); known.set(entity.id, portable); changed = true; }
+      }
+      for (const sourcePlacement of plan.placements) {
+        const { entityId, groupId } = sourcePlacement;
+        const ownsParent = groupId && known.get(groupId)?.type === 'group' && (incoming.has(groupId) || placed.has(groupId));
+        const existing = placed.get(entityId);
+        if (existing) {
+          // Complete missing ownership, but never take a card out of a manual group.
+          if (!existing.groupId && ownsParent && known.get(entityId)?.type !== 'server') { existing.groupId = groupId; changed = true; }
+          continue;
+        }
+        const copy = { entityId, x: Math.round(sourcePlacement.x + dx), y: Math.round(sourcePlacement.y + dy) };
+        if (ownsParent && known.get(entityId)?.type !== 'server') copy.groupId = groupId;
+        for (const key of ['groupLayout', 'groupWidth', 'groupHeight', 'groupShape', 'groupAppearance']) {
+          if (sourcePlacement[key] !== undefined) copy[key] = sourcePlacement[key];
+        }
+        board.placements.push(copy); placed.set(entityId, copy); added++; changed = true;
+      }
+      const facts = new Set(next.relationships.map(item => `${item.type}:${item.sourceId}:${item.targetId}`));
+      for (const edge of plan.relationships) {
+        if (!placed.has(edge.sourceId) || !placed.has(edge.targetId)) continue;
+        const key = `${edge.type}:${edge.sourceId}:${edge.targetId}`;
+        if (facts.has(key)) continue;
+        next.relationships.push(this._portableRelationship(edge)); facts.add(key); changed = true;
+      }
+      const endpointPlacement = board.placements.map(item => ({ ...item }));
+      PanelTopologyProjection.applyProjectEndpointMembership({ entities: next.entities, placements: endpointPlacement, relationships: next.relationships }, board.view?.projectGroupIncludesEndpoints !== false);
+      for (const candidate of endpointPlacement) {
+        const item = placed.get(candidate.entityId);
+        if (!selectedIds.has(candidate.entityId) || known.get(candidate.entityId)?.type !== 'endpoint'
+          || (item.groupId && !ResourceComposition.isProjectContainer(known.get(item.groupId)))
+          || (candidate.groupId && !ResourceComposition.isProjectContainer(known.get(candidate.groupId)))) continue;
+        if (item.groupId !== candidate.groupId) {
+          if (candidate.groupId) item.groupId = candidate.groupId; else delete item.groupId;
+          changed = true;
+        }
+      }
+      const hidden = board.hiddenResourceIds || [];
+      if (plan.rootIds.some(id => hidden.includes(id))) { board.hiddenResourceIds = hidden.filter(id => !plan.rootIds.includes(id)); changed = true; }
+      if (board.view?.showTopology === false) { board.view.showTopology = true; changed = true; }
+      if (!changed) { this._focusEntityOnBoard(plan.rootIds[0]); return true; }
+      try {
+        // Validate the complete candidate before history/state/visibility changes.
+        const normalized = Model.assertValidStore(next);
+        this._recordMutation(); this.store = normalized;
+        this._selectOnlyEntity(plan.rootIds[0]);
+        this._finishBoardMutation(); this._renderResources();
+        this.notify(`已添加或补全 ${added} 个资源；现有位置、备注和手动分组保留`, 'success');
+        return true;
+      } catch (error) { this.notify(`未添加任何资源：${error.message}`, 'warning'); return false; }
+    }
+
     _addResource(resource, point = null) {
       if (!resource) return;
+      const composition = this._addResourceComposition(resource, point);
+      if (composition !== null) return composition;
       if (resource.kind !== 'architecture' && resource.type !== 'architecture') {
         this._ensureRuntimeLayerForResource(resource.kind);
       }
@@ -6585,7 +6723,7 @@
       const entities = this._allEntitiesById();
       const entity = entities.get(entityId);
       const placement = this._combinedPlacements().find(item => item.entityId === entityId);
-      return entity?.runtime?.dynamicKind === 'coolify-project-group'
+      return ResourceComposition.isProjectContainer(entity)
         || entities.get(placement?.groupId)?.runtime?.dynamicKind === 'coolify-project-group';
     }
 
