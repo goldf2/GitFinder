@@ -1,64 +1,45 @@
-# GitFinder 2.0
+# GitFinder 2
 
-GitFinder 2.0 的定位是“本地开发与部署管理中心”。它是与 GitFinder 1.x 分离的新项目，但会在逐项验证后复用 1.x 已经成熟的能力，不以“全部重写”为目标。
+本地优先的项目、Git仓库与部署关系中心。桌面应用将目录、Git状态、Coolify只读部署事实、关系白板和原生象数面板放在同一工作区；核心本地功能不要求登录或云服务。
 
-2.0 的界面以 GitFinder 1.x v1.30.13 为基线，保留现有窗口骨架、侧栏、工作区标签、目录/项目详情、右侧检查器和关系白板。Xiangshu Panel 数据以原生“部署面板”组件整合进这些结构，不嵌入 Panel 网页。
+## 开发与接续
 
-## 当前状态
+**从 [开发接续入口](docs/00-handoff/README.md) 开始。** 当前版本、安装和验证状态只维护在 [CURRENT_STATE.md](docs/00-handoff/CURRENT_STATE.md)，不要依赖旧README或历史对话中的版本号。
 
-| 状态 | 结论 |
+| 要找的内容 | 入口 |
 | --- | --- |
-| 已记录 | 产品定位、1.x/2.0 边界、Panel 集成边界和 Alpha 闭环 |
-| 已设计 | 复用分类、应用自有会话边界、Panel 动态拓扑契约、repositoryId 身份与白板投影验收 |
-| 已实现 | 1.x v1.30.13 界面基线、可移除受管位置、多 Panel 只读 Provider、无钥匙串应用会话、v2 多仓库关联、服务器/部署动态白板、标签页独立窗口、关系类型/方向/显示名称编辑，以及当前白板可移植导入导出与缺失资源保留 |
-| 已验证 | 674 项测试与 188 个 JavaScript 文件语法检查通过；双 Mock Panel 聚合、应用会话迁移、只读投影、位置移除、视图切换竞态保护、整卡拖动、关系编辑、白板文件往返和缺失资源标识回归通过 |
-| 尚未验证 | 真实 Xiangshu Panel `/topology` API、真实 Windows x64 runner/虚拟机、SSE 事件与系统通知 |
+| 详细目标、架构、分阶段方案和风险 | [DEVELOPMENT_PLAN.md](docs/00-handoff/DEVELOPMENT_PLAN.md) |
+| 当前任务、依赖、验收与证据 | [PROGRESS.md](docs/00-handoff/PROGRESS.md)，由[唯一任务源](management/development-tasks.json)生成 |
+| 唯一下一任务 | [NEXT_ACTIONS.md](docs/00-handoff/NEXT_ACTIONS.md) |
+| 检查、隔离验证、构建、安装、回退 | [RUNBOOK.md](docs/00-handoff/RUNBOOK.md) |
+| 多人/AI协作与进度更新 | [HANDOFF_PROTOCOL.md](docs/00-handoff/HANDOFF_PROTOCOL.md)、[AGENTS.md](AGENTS.md) |
+| 产品不变量与代码结构 | [CONTEXT.md](CONTEXT.md)、[ARCHITECTURE.md](ARCHITECTURE.md)、[ADR](docs/adr/) |
 
-当前开发版本为 `2.0.0-alpha.9`。它是本地可运行的开发 Alpha，不是稳定发布版；完整 MVS-01 仍需真实 Panel、真实 Windows、事件和通知验收。
+## 已有基础
 
-## 产品边界
+本地项目与Git服务、受控文件操作、项目详情、关系白板、布局、独立白板项目与媒体、直接Coolify只读Provider、HTTP检测、原生象数面板、可选账户和桌面更新客户端已有实现。具体可用范围与每次交付证据请查看当前状态和对应版本记录。
 
-- GitFinder 1.x 进入稳定维护期，只处理严重缺陷、安全问题和必要兼容性。
-- GitFinder 2.0 负责本地项目、Git 仓库、部署关联、项目详情、关系白板和系统通知。
-- Xiangshu Panel 继续独立运行，负责 Coolify 多节点聚合、服务器端监控和管理后台。
-- GitFinder 只通过经过身份验证、最小权限、稳定版本化的 Panel API 读取聚合事实与事件。
-- GitFinder 不读取系统钥匙串或保存 Panel 密码；可撤销只读令牌作为应用会话保存在本机用户数据中，不进入项目配置。
-- 每个 Panel 根地址拥有独立、稳定的 `providerId` 和应用会话；白板汇总多个 Provider，远端同名 ID 不会互相串联。
-- 左侧“位置”中的手动受管根可从应用列表移除；此操作不会删除磁盘文件夹或文件。
-- GitFinder 2 不直连 Coolify，也不显示 Coolify Token 输入框；Coolify 只作为 Panel 快照中的外部跳转目标。
-- Alpha 阶段只读；不停止、重启、删除或修改服务器与 Coolify 资源。
-- 部署概览进入项目详情、白板和侧边工具，不新增一级主视图。
+当前应用并非所有界面都使用React：应用壳为HTML/CSS/原生JavaScript，关系画布使用React与React Flow。运行事实、最近部署结果、本机HTTP观测、远端观测和缓存新鲜度必须分开显示。兼容IPC中的`panel`名称不意味着必须通过Panel代理才可读取Coolify。
 
-## 当前已知环境
+云同步、完整系统事件通知、正式签名发行和所有平台升级不能由现有客户端或设计文档推断为已完成。`server.js`是本机工具服务，不是公网多租户后端。
 
-- GitFinder 1.x 仓库：`/Volumes/project/项目/git-status-monitor`。
-- 1.x 当前本地版本：`1.30.13`，本地 `main` 已包含一个未推送的稳定维护提交。
-- 本地“开发中/已部署”范围未找到 Xiangshu Panel 源码仓库；在有 API 契约前，Panel 按外部数据提供方处理。
+## 启动与检查
 
-## 文档入口
+```bash
+npm ci
+npm run handoff:status
+npm run check
+npm run electron
+```
 
-- [系统架构与技术栈](./ARCHITECTURE.md)
-- [领域上下文](./CONTEXT.md)
-- [ADR-0001：2.0 独立架构与复用边界](./docs/adr/0001-independent-architecture.md)
-- [ADR-0002：Panel 动态拓扑与仓库稳定身份](./docs/adr/0002-panel-topology-and-repository-identity.md)
-- [ADR-0003：Panel 应用自有会话，不使用系统钥匙串](./docs/adr/0003-app-owned-panel-session.md)
-- [Alpha 1 最小垂直切片与验收](./docs/product/alpha-1-vertical-slice.md)
-- [Panel 原生界面整合方案](./docs/product/panel-ui-integration.md)
-- [Panel 动态拓扑 API v1](./docs/contracts/panel-topology-api-v1.md)
-- [动态部署关系白板](./docs/product/dynamic-deployment-board.md)
-- [2.0.0-alpha.1 MVS-01 阶段验证记录](./docs/verification/2.0.0-alpha.1-mvs-01.md)
-- [2.0.0-alpha.3 Panel 动态白板验证记录](./docs/verification/2.0.0-alpha.3-panel-topology.md)
-- [2.0.0-alpha.4 应用会话与普通启动验证记录](./docs/verification/2.0.0-alpha.4-app-session.md)
-- [2.0.0-alpha.5 多 Panel 与位置移除验证记录](./docs/verification/2.0.0-alpha.5-multi-provider-and-locations.md)
-- [2.0.0-alpha.6 视图切换与标签页独立窗口验证记录](./docs/verification/2.0.0-alpha.6-view-switch-and-tab-windows.md)
-- [2.0.0-alpha.7 可编辑关系与自动发现边界](./docs/verification/2.0.0-alpha.7-editable-relationships.md)
-- [2.0.0-alpha.8 关系属性栏视口修复](./docs/verification/2.0.0-alpha.8-relationship-inspector-viewport.md)
-- [2.0.0-alpha.9 白板文件与缺失资源保留](./docs/verification/2.0.0-alpha.9-board-files-and-missing-resources.md)
+开发与CI使用Node 24，依赖版本以锁文件为准。默认桌面启动可能使用真实用户配置，写入类验收请先按照运行手册建立独立profile。`npm start`启动本机Git工具服务，而非桌面应用。
 
-## 架构与发布
+编辑任务源后运行`npm run handoff:update`更新看板，`npm run check:handoff`验证记录一致性。工具不自动认领、完成任务或后台执行开发。
 
-- [在线更新行为与发布说明](./docs/online-update-publishing.md)
-- [App 与商店版本同步协议](./docs/release-control-plane.md)
-- [构建、发布与商店推送工作流](./docs/build-publish-workflow.md)
-- [统一认证技术栈决策](./docs/adr/0011-shared-authentication-stack-with-optional-account-sharing.md)
-- [数据平台策略](./docs/data-platform-strategy.md)
+## 安全与发布边界
+
+布局不能修改节点事实、主机归属或Project成员；只读Coolify不提供停止、删除或重新部署。凭据不得进入白板、Git、日志或导出。文档中的“计划中”不是生产部署、公开发行或用户数据上传授权。
+
+本机开发包、代码推送、正式发行是不同阶段。默认macOS交付和可恢复安装按AGENTS执行；Windows、Developer ID公证、商店/GitHub Release需分别验证。参见 [发布验收](CODEX_RELEASE_VALIDATION.md)、[在线更新说明](docs/online-update-publishing.md)、[构建发布工作流](docs/build-publish-workflow.md)。
+
+历史需求与对话索引可能保留在本机 `docs/ai-handoff/`；该目录目前被本机Git排除规则忽略，干净克隆不能依赖它。本轮不上传历史对话，只提供完整的项目内接续入口。

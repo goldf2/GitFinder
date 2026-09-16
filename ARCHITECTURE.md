@@ -1,5 +1,7 @@
 # GitFinder 2 系统架构与技术栈
 
+> 当前接续定位：以 [CURRENT_STATE.md](docs/00-handoff/CURRENT_STATE.md) 和 [详细开发方案](docs/00-handoff/DEVELOPMENT_PLAN.md) 的模块表为准。下面按原日期保留架构说明；新增独立保存模块、原生面板和布局菜单等演进参见版本验收，不能把旧日期快照作为今天的运行状态。
+
 > 文档状态：2026-09-04，根据当前仓库代码、`package.json` 和已接受 ADR 整理。
 > 本文明确区分“当前已实现”和“规划中”，不把设计备忘或未来方案描述为已经交付。
 

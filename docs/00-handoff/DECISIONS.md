@@ -47,3 +47,11 @@
 - 用户明确选择“独立管理”：GitFinder 使用独立 Casdoor 组织 `gitfinder` 和桌面应用 `gitfinder-desktop`，不与 `oaktech-store` 共用账户，不使用 `built-in` 管理员组织作为业务用户池。
 - 继续复用 Casdoor/OIDC 技术栈；账户登录仍为可选能力，不影响完全离线使用；此决定不包含云同步实现。
 - 执行状态：用户已明确确认创建；独立组织 `gitfinder` 与 Native 应用 `gitfinder-desktop` 已保存。应用仅开放 authorization_code、refresh_token，回调为 `http://127.0.0.1:43821/oauth/callback`，JWT/RS256；公开 Client ID 已配置到本机 alpha.97，Client Secret 未写入桌面端。登录页入口已验收，真实账号注册/登录、刷新与退出待用户输入凭据后验收。
+
+## GF-HANDOFF-20260916-01 · 单一任务源与人员/AI接续
+
+- 状态：采用。确认来源：用户明确要求项目内详细开发方案并及时跟踪进度。记录时间：2026-09-16T15:59:29+08:00。
+- 任务唯一事实源为 `management/development-tasks.json`，`PROGRESS.md`只生成；CURRENT_STATE/NEXT_ACTIONS只更新顶部有效块，历史兼容区只读。
+- 每次认领、实现、验证、失败、安装、推送、反馈或换人/AI必须更新记录；`npm run check:handoff`进入已有完整检查入口。脚本不自动判定任务通过，不创建后台开发。
+- 开发路线含阶段和验收，但Web/同步/数据库/生产事件接收器/正式发布仍受各自授权关口，不把文档建立等同于立即执行全部路线。
+- 旧本机对话索引保持Git排除，不作为远端接续依赖；具体职责与证据见 `HANDOFF_PROTOCOL.md` 和 `HANDOFF_SYSTEM_ALPHA194.md`。
