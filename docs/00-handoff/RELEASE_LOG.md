@@ -238,3 +238,7 @@
 ## 2026-09-16T21:30:11+08:00 · 2.0.0-alpha.196 · 默认关闭的测试功能区
 
 运行源码`f79dba1d2adf23f99adf5ff66d3667396552fe6a`，本机App已可恢复安装并正常启动，设置18项（含跨窗口/重启）及进度9项通过。1300测试/288JS、开发包issues=[]和codesign通过。默认关闭两项功能，不关闭仓库文档维护；16项新增回归。195备份`/Volumes/project/制品与备份/GitFinder-2-alpha195-before196.app.disabled`。源码已推送；最后文档收口另提交，不重建或伪造运行来源。数据、失败日志、哈希和限制见[完整记录](EXPERIMENTAL_FEATURES_ALPHA196.md)。仅macOS ad-hoc开发包。
+
+## 2026-09-17T05:50:44+08:00 · alpha.197 · 资源库容器添加一致性
+
+运行源码`76b98f2c9ce444116440bf5de4d35a6df1fda349`，macOS本机开发包已可恢复安装、正常旧工作区截图验收后推送；29专项、1329全量/290JS、安装组合21项及测试区18项通过。alpha196备份保留，3份原白板字节一致。未做Windows、公证或公开发行；后续文档收口不改变制品源。完整矩阵见[RESOURCE_CONTAINERS_ALPHA197.md](RESOURCE_CONTAINERS_ALPHA197.md)。
