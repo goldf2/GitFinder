@@ -28,8 +28,23 @@
 
 证据目录：`dist/agentdock-layout-options-20260916/`。截图与JSON在 `source-layout/`；失败到通过记录包括 `regression-before.log`、`flow-adapter-before.log`、`source-layout-adapter-before.log`、`source-layout-host-padding-before.log`、`source-layout-narrow-before.log`。
 
-## 当前交付状态
+## 已交付（2026-09-16）
 
-代码和源码UI已验证，版本为 `2.0.0-alpha.193`。最终提交、可追溯macOS打包、安装联合回归、退出重启及推送待执行。原安装仍为alpha.191，不能把本节解释为新版已安装。
+- 版本 `2.0.0-alpha.193`；运行源码 `99eef1d2992e389f32a48182a25fda3b9adf1958` 包含媒体修复 `6331df8`，安装验收后已推送 `origin/main` 并通过 `git ls-remote` 核对。alpha.192 没有单独安装，随193联合交付。
+- 干净提交worktree最终检查：1250/1250测试，279个JavaScript语法检查，两个验收脚本额外语法检查及差异检查通过。
+- macOS development产物门禁 `issues=[]`，`codesign --verify --deep --strict`通过，安装ASAR摘要与门禁报告一致。仅ad-hoc开发包，不具备Developer ID公证/正式分发资格；未做Windows或商店/GitHub Release发布。
+- 已安装 `/Applications/GitFinder 2.app`。旧191备份 `/Volumes/project/制品与备份/GitFinder-2-alpha191-before193.app.disabled`，可恢复。
+- ZIP：`dist/agentdock-layout-options-20260916/build/dist/GitFinder-2-2.0.0-alpha.193-arm64-mac.zip`；SHA-256 `849cc1c36fb3df1111bf693059d8129840f20a11de46cc6b74955a60b5df068e`。
+- 安装ASAR SHA-256：`69b0f73d9951fc14bdc4cc047e7f2bc7fee6291ab54c95095847688d87b3b0d8`。
+- 实际源码与安装ASAR分别完成布局16/16、媒体19/19、保存14/14、右栏19/19，共68项，均无renderer异常。布局包括同画布对比、菜单分组、真实选择、撤销重做、重复应用、自由布局、全屏、窄屏键盘和真实保存。
+- 已安装程序退出后重启同一隔离profile：右栏1/1（504px）、保存3/3、媒体4/4、布局2/2，共10项通过；布局几何和选项均恢复一致。
+- 隔离实例已退出，9443调试端口关闭；原用户配置通过系统open启动，进程11661无测试profile/调试参数。CoreGraphics窗口7562截图 `normal-installed-alpha193.png` 确认alpha.193与原象数面板，未替用户应用新布局。
+- 安装后两套实际用户白板文件SHA-256与截图任务开始基线完全一致，原10项未提交内容保留；旧媒体任务的2行QA前置条件补丁已作为自有改动提交。交接文件仅暂存本轮增量，不带入原未提交内容。
 
-唯一下一步：提交本轮源码，干净worktree构建后备份alpha.191并安装，完成布局/媒体/保存/右栏联合验收与重启，再推送并更新本记录。
+安装与重启结果见 `installed-{layout,media,save,panel}/` 和 `reopened-{layout,media,save,panel}/`。源代码推送日志 `source-push.log`、远端核对 `source-remote.txt`。后续交接记录提交不改变运行包绑定的源码提交。
+
+## 验收限制
+
+系统AX辅助功能观察返回-25211；本轮采用真实安装版Chromium输入与CoreGraphics系统窗口截图，不冒充系统级鼠标验收。媒体选择/错误场景沿用受控注入，成功文件操作使用真实IPC和文件读回；未测试真实磁盘故障或所有规模的白板。约30%的缩放改善仅对应所记录的脱敏样本与窗口尺寸。
+
+唯一下一步：用户在原关系白板主动选择“布局 → 均衡总览”确认使用效果；确认有效后归档支持文档修复报告，不自动改写其当前布局。
