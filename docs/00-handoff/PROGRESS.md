@@ -2,17 +2,17 @@
 
 > 自动生成。只编辑 `management/development-tasks.json`，然后执行 `npm run handoff:update`。
 
-更新时间：2026-09-16T16:02:58+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
+更新时间：2026-09-16T16:13:30+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
 
 核验基线：2.0.0-alpha.193 / `99eef1d2992e389f32a48182a25fda3b9adf1958`；证据：[docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md](LAYOUT_OPTIONS_ALPHA193.md)。
 
-**唯一下一任务：GF-HANDOFF-001**
+**唯一下一任务：GF-QUALITY-001**
 
 ## 阶段汇总
 
 | 阶段 | 纳入任务 | 已交付 | 开发中/已验证 | 阻塞/暂缓 |
 | --- | ---: | ---: | ---: | ---: |
-| GF-P0 接续工程 | 1 | 0 | 1 | 0 |
+| GF-P0 接续工程 | 1 | 1 | 0 | 0 |
 | GF-P1 桌面稳定 | 9 | 4 | 0 | 1 |
 | GF-P2 可维护与性能 | 3 | 0 | 0 | 0 |
 | GF-P3 可分发 | 5 | 0 | 0 | 3 |
@@ -25,13 +25,13 @@
 
 | 编号 | 优先级 | 状态 | 负责人 | 任务 |
 | --- | --- | --- | --- | --- |
-| GF-HANDOFF-001 | P0 | 开发中 | 本轮 ChatGPT / AgentDock Cloudflare | 详细开发方案与单一进度接续体系 |
+| GF-HANDOFF-001 | P0 | 已交付 | 本轮 ChatGPT / AgentDock Cloudflare | 详细开发方案与单一进度接续体系 |
 | GF-PANEL-189 | P1 | 已交付 | 历史交付记录 | 白板右栏可调宽及配置恢复 |
 | GF-SAVE-191 | P1 | 已交付 | 历史交付记录 | 白板自动/手动保存统一生命周期 |
 | GF-MEDIA-192 | P1 | 已交付 | 历史交付记录 | 媒体来源绑定、迟到结果及重开保护（随193交付） |
 | GF-LAYOUT-193 | P1 | 已交付 | 历史交付记录 | 分组布局菜单与均衡主机总览 |
 | GF-ACCEPT-001 | P1 | 阻塞 | unassigned | 实际布局、保存与媒体体验反馈及修复归档 |
-| GF-QUALITY-001 | P1 | 可开始 | unassigned | 可重复隔离fixture与35/100/300/1000节点基线 |
+| GF-QUALITY-001 | P1 | 可开始 | unassigned | 35部署基线与100/300/1000节点的可重复规模验证 |
 | GF-UI-001 | P1 | 可开始 | unassigned | 全屏偶发输入与键盘/主题可访问性矩阵 |
 | GF-DATA-001 | P1 | 可开始 | unassigned | 保存失败、进程中断与冲突恢复矩阵 |
 | GF-DATA-002 | P1 | 可开始 | unassigned | 媒体搬迁、缺失引用和损坏包边界 |
@@ -57,20 +57,22 @@
 
 ### GF-HANDOFF-001 · 详细开发方案与单一进度接续体系
 
-阶段：GF-P0；优先级：P0；状态：**开发中**；负责人：本轮 ChatGPT / AgentDock Cloudflare；用户验收：不要求用户确认。
+阶段：GF-P0；优先级：P0；状态：**已交付**；负责人：本轮 ChatGPT / AgentDock Cloudflare；用户验收：不要求用户确认。
 
-更新：2026-09-16T16:02:58+08:00。依赖：无。
+更新：2026-09-16T16:13:30+08:00。依赖：无。
 
 **验收标准**
 1. 从仓库入口可以定位当前版本、唯一下一任务及明确验收，不依赖聊天历史。
 2. 任务源与生成看板一致，异常字段/依赖/路径/过期看板检查有回归。
 3. 修正过期README和旧AI入口，保护已有未提交内容；按项目规则完成交付。
 
-**接续动作：** 干净克隆发现旧发布清单被本机Git忽略；已迁入可提交入口，重新运行干净门禁后构建安装。
+**接续动作：** 工程接续体系已交付；下一任务为GF-QUALITY-001，先准备可复现隔离fixture和规模基线，不自动启动云/数据库实施。
 
-源码/设计入口：[AGENTS.md](../../AGENTS.md)；[docs/00-handoff/DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md)；[docs/00-handoff/HANDOFF_PROTOCOL.md](HANDOFF_PROTOCOL.md)。
+源码/设计入口：[AGENTS.md](../../AGENTS.md)；[docs/00-handoff/DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md)；[docs/00-handoff/HANDOFF_PROTOCOL.md](HANDOFF_PROTOCOL.md)；[scripts/handoff-status.js](../../scripts/handoff-status.js)；[docs/00-handoff/RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md)。
 
 证据：[docs/00-handoff/HANDOFF_SYSTEM_ALPHA194.md](HANDOFF_SYSTEM_ALPHA194.md)
+
+交付：2.0.0-alpha.194；源码 `e142524c3de4448c7a9bd15b945b3eb3918c7c2d`。
 
 ### GF-PANEL-189 · 白板右栏可调宽及配置恢复
 
@@ -162,15 +164,15 @@
 
 **阻塞/暂缓原因：** 等待用户实际体验反馈；内部安装验收不能代替用户确认。
 
-### GF-QUALITY-001 · 可重复隔离fixture与35/100/300/1000节点基线
+### GF-QUALITY-001 · 35部署基线与100/300/1000节点的可重复规模验证
 
 阶段：GF-P1；优先级：P1；状态：**可开始**；负责人：unassigned；用户验收：不要求用户确认。
 
-更新：2026-09-16T15:52:24+08:00。依赖：GF-LAYOUT-193。
+更新：2026-09-16T16:13:30+08:00。依赖：GF-LAYOUT-193。
 
 **验收标准**
 1. 提供确定性fixture准备方式，独立profile内完成，无真实用户config/凭据。
-2. 四档规模记录环境、首屏/排列/保存/重开测量，不以样本30%改善推广到所有场景。
+2. 35部署基线与100/300/1000节点样本分别记录实体/显示节点数、环境和首屏/排列/保存/重开测量，不把单样本30%改善推广到所有场景。
 3. 重复应用/后台刷新/序列化及实际Flow显示一致，保留失败与前后截图。
 
 **接续动作：** 阅读四个验证脚本对fixture的输入要求，先实现可重复临时数据准备并测35节点基线。
@@ -183,18 +185,18 @@
 
 阶段：GF-P1；优先级：P1；状态：**可开始**；负责人：unassigned；用户验收：不要求用户确认。
 
-更新：2026-09-16T15:52:24+08:00。依赖：GF-PANEL-189。
+更新：2026-09-16T16:13:30+08:00。依赖：GF-PANEL-189。
 
 **验收标准**
 1. 记录pointer/blur/cancel、DPR和窗口状态，明确alpha190偏差是否复现。
 2. 菜单不会穿透到画布删除/撤销，浅深/窄屏/减少动画路径有证据。
 3. 权限拒绝、CDP输入和系统级输入分别描述，不用未复现宣称根因修复。
 
-**接续动作：** 按历史失败条件准备隔离profile，采集事件序列；先复现再决定是否改代码。
+**接续动作：** 保留alpha190输入偏差和alpha194全屏后窄屏菜单首轮隐藏记录，先在独立profile采集resize/菜单事件，复现后再决定是否改产品。
 
 源码/设计入口：[src/renderer/scripts/relationshipBoardActionRouter.js](../../src/renderer/scripts/relationshipBoardActionRouter.js)；[scripts/verify-relationship-panel-resize.js](../../scripts/verify-relationship-panel-resize.js)；[docs/00-handoff/OPTIMIZATION_ALPHA190.md](OPTIMIZATION_ALPHA190.md)。
 
-证据：尚无本任务完成证据；源码文件存在不表示验收通过。
+证据：[docs/00-handoff/HANDOFF_SYSTEM_ALPHA194.md](HANDOFF_SYSTEM_ALPHA194.md)
 
 ### GF-DATA-001 · 保存失败、进程中断与冲突恢复矩阵
 

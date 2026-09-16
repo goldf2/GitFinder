@@ -225,3 +225,12 @@
 - 版本：`2.0.0-alpha.123`。
 - 变更文件：`src/renderer/scripts/relationshipBoardController.js`、`test/relationship-board-ui.test.js`、版本文件。
 - 发布门槛：待全量 `npm run check`、`npm run pack`、本机安装启动和关系白板可见验证完成后更新为已发布。
+
+## 2026-09-16T16:13:30+08:00 · alpha.194 · 工程接续文档交付
+
+- 源码：`e142524c3de4448c7a9bd15b945b3eb3918c7c2d`；版本与锁文件一致。运行业务源码无改动，新增工程脚本/文档与management打包排除。
+- 验证：干净1265测试、280JS，工具15项；development产物issues为空、codesign通过，安装ASAR匹配。安装布局复核16项/右栏19项、重启3项通过；首轮菜单隐藏失败按验收记录保留。
+- 安装：`/Applications/GitFinder 2.app`；旧193备份：`/Volumes/project/制品与备份/GitFinder-2-alpha193-before194.app.disabled`。
+- ZIP SHA-256：`e9688d3668e86a4f20dfc61b8d1dc87d7a38d27fd865e05b4a9d70d0dc131ea9`；ASAR SHA-256：`dd3a6958ca092a15f711a7c8b4d1e49fc2d27934d0aafc391f035dc9987c0f41`。
+- 已恢复正常用户启动、数据哈希一致、调试端口关闭；源码已推送并远端核对。未进行Windows、公证或公开发行。
+- 完整证据、首次干净克隆失败及修复过程：`HANDOFF_SYSTEM_ALPHA194.md`。后续交接记录提交不改变运行包绑定源码。

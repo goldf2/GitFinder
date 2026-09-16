@@ -1,17 +1,17 @@
 # GitFinder 2 下一步
 
 <!-- BEGIN NEXT_ACTIONS -->
-## 当前接续任务：GF-HANDOFF-001
+## 唯一建议下一开发任务：GF-QUALITY-001
 
-状态：已验证、待交付。开发方案与台账已生成，14项工程回归及全量1264测试、280JS通过；下一动作是从干净提交构建、可恢复安装验收及推送。状态不得超前填写。
+更新时间：2026-09-16T16:13:30+08:00。GF-HANDOFF-001已交付alpha.194，工程台账当前状态为delivered；GF-QUALITY-001为ready，尚未认领或开始实现。
 
-本轮交付后的唯一建议下一开发任务：**GF-QUALITY-001**。第一步读取现有布局/保存/媒体验证脚本的fixture输入要求，建立确定性的独立profile准备过程，然后测35个部署的基线。不要复制真实用户config或直接改用户白板来做测试。
+**第一条可执行动作：** 阅读 `scripts/verify-relationship-layout-options.js`、`verify-relationship-save-lifecycle.js`、`verify-relationship-media-lifecycle.js` 对fixture清单与独立profile的输入约束，整理可重复数据准备步骤。先跑35部署基线，再建立100/300/1000节点样本，分别记录部署数、总实体和显示节点数。
 
-用户体验反馈GF-ACCEPT-001并行等待；无用户确认不自动应用新布局或归档“用户已验收”报告。GF-CLOUD系列、GF-WEBHOOK-001、GF-DB-001保持暂缓。
+验收：无真实用户config/凭据；相同数据重复排列、后台刷新、实际Flow模型和重新打开一致；真实耗时与几何/截图可复核，不把单样本改善当全局性能承诺。完整依赖与验收见[进度看板](PROGRESS.md)。
 
-任务依赖、owner、验收与证据以[唯一任务源](../../management/development-tasks.json)为准；可读入口[PROGRESS.md](PROGRESS.md)，操作步骤[RUNBOOK.md](RUNBOOK.md)。
-干净克隆追加发现：旧发布清单被本机Git排除，首轮接续检查失败；已迁入 `RELEASE_CHECKLIST.md`，修正入口后重跑。当前仍为193安装版，未推送194。
+GF-ACCEPT-001继续等待用户实际反馈，不代签确认。GF-UI-001记录alpha190输入偏差及alpha194窄屏首轮菜单隐藏，独立复现后再修复。云同步、数据库、常在线事件接收器和公开发行保持各自授权关口。
 
+开始工作前先运行 `npm run handoff:status` 和 `git status -sb`，认领唯一任务并保护现有dirty。按[RUNBOOK.md](RUNBOOK.md)运行隔离测试，按[HANDOFF_PROTOCOL.md](HANDOFF_PROTOCOL.md)在每次验证/阻塞/交付/切换AI时更新记录。
 <!-- END NEXT_ACTIONS -->
 
 ## 历史兼容记录（以下旧下一步已被顶部接续块取代）

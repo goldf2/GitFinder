@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-16T16:02:58+08:00",
+  "updatedAt": "2026-09-16T16:13:30+08:00",
   "scope": "以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。",
   "baseline": {
     "version": "2.0.0-alpha.193",
     "sourceCommit": "99eef1d2992e389f32a48182a25fda3b9adf1958",
     "evidence": "docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md"
   },
-  "nextTaskId": "GF-HANDOFF-001",
+  "nextTaskId": "GF-QUALITY-001",
   "milestones": [
     {
       "id": "GF-P0",
@@ -40,14 +40,16 @@
       "milestone": "GF-P0",
       "title": "详细开发方案与单一进度接续体系",
       "priority": "P0",
-      "status": "in_progress",
+      "status": "delivered",
       "owner": "本轮 ChatGPT / AgentDock Cloudflare",
-      "updatedAt": "2026-09-16T16:02:58+08:00",
+      "updatedAt": "2026-09-16T16:13:30+08:00",
       "dependsOn": [],
       "sourcePaths": [
         "AGENTS.md",
         "docs/00-handoff/DEVELOPMENT_PLAN.md",
-        "docs/00-handoff/HANDOFF_PROTOCOL.md"
+        "docs/00-handoff/HANDOFF_PROTOCOL.md",
+        "scripts/handoff-status.js",
+        "docs/00-handoff/RELEASE_CHECKLIST.md"
       ],
       "acceptance": [
         "从仓库入口可以定位当前版本、唯一下一任务及明确验收，不依赖聊天历史。",
@@ -57,9 +59,12 @@
       "evidence": [
         "docs/00-handoff/HANDOFF_SYSTEM_ALPHA194.md"
       ],
-      "nextAction": "干净克隆发现旧发布清单被本机Git忽略；已迁入可提交入口，重新运行干净门禁后构建安装。",
+      "nextAction": "工程接续体系已交付；下一任务为GF-QUALITY-001，先准备可复现隔离fixture和规模基线，不自动启动云/数据库实施。",
       "blocker": "",
-      "delivery": null,
+      "delivery": {
+        "version": "2.0.0-alpha.194",
+        "sourceCommit": "e142524c3de4448c7a9bd15b945b3eb3918c7c2d"
+      },
       "userAcceptance": "not_required"
     },
     {
@@ -201,11 +206,11 @@
     {
       "id": "GF-QUALITY-001",
       "milestone": "GF-P1",
-      "title": "可重复隔离fixture与35/100/300/1000节点基线",
+      "title": "35部署基线与100/300/1000节点的可重复规模验证",
       "priority": "P1",
       "status": "ready",
       "owner": "unassigned",
-      "updatedAt": "2026-09-16T15:52:24+08:00",
+      "updatedAt": "2026-09-16T16:13:30+08:00",
       "dependsOn": [
         "GF-LAYOUT-193"
       ],
@@ -217,7 +222,7 @@
       ],
       "acceptance": [
         "提供确定性fixture准备方式，独立profile内完成，无真实用户config/凭据。",
-        "四档规模记录环境、首屏/排列/保存/重开测量，不以样本30%改善推广到所有场景。",
+        "35部署基线与100/300/1000节点样本分别记录实体/显示节点数、环境和首屏/排列/保存/重开测量，不把单样本30%改善推广到所有场景。",
         "重复应用/后台刷新/序列化及实际Flow显示一致，保留失败与前后截图。"
       ],
       "evidence": [],
@@ -233,7 +238,7 @@
       "priority": "P1",
       "status": "ready",
       "owner": "unassigned",
-      "updatedAt": "2026-09-16T15:52:24+08:00",
+      "updatedAt": "2026-09-16T16:13:30+08:00",
       "dependsOn": [
         "GF-PANEL-189"
       ],
@@ -247,8 +252,10 @@
         "菜单不会穿透到画布删除/撤销，浅深/窄屏/减少动画路径有证据。",
         "权限拒绝、CDP输入和系统级输入分别描述，不用未复现宣称根因修复。"
       ],
-      "evidence": [],
-      "nextAction": "按历史失败条件准备隔离profile，采集事件序列；先复现再决定是否改代码。",
+      "evidence": [
+        "docs/00-handoff/HANDOFF_SYSTEM_ALPHA194.md"
+      ],
+      "nextAction": "保留alpha190输入偏差和alpha194全屏后窄屏菜单首轮隐藏记录，先在独立profile采集resize/菜单事件，复现后再决定是否改产品。",
       "blocker": "",
       "delivery": null,
       "userAcceptance": "not_required"
