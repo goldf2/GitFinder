@@ -17,10 +17,12 @@
     || (typeof module !== 'undefined' && module.exports ? require('./htmlPresentation') : null);
   const panelResize = root?.RelationshipPanelResize
     || (typeof module !== 'undefined' && module.exports ? require('./relationshipPanelResize') : null);
-  const api = factory(root?.RelationshipGraphModel, projection, scanner, primitives, graphProjection, actionRouter, resourceView, toolbarView, presentation, panelResize);
+  const persistence = root?.RelationshipBoardPersistence
+    || (typeof module !== 'undefined' && module.exports ? require('./relationshipBoardPersistence') : null);
+  const api = factory(root?.RelationshipGraphModel, projection, scanner, primitives, graphProjection, actionRouter, resourceView, toolbarView, presentation, panelResize, persistence);
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) root.RelationshipBoardController = api;
-})(typeof window !== 'undefined' ? window : globalThis, function createRelationshipBoardController(Model, PanelTopologyProjection, RepositoryRootScanner, LayoutPrimitives, GraphProjection, ActionRouter, ResourceView, ToolbarView, Presentation, PanelResize) {
+})(typeof window !== 'undefined' ? window : globalThis, function createRelationshipBoardController(Model, PanelTopologyProjection, RepositoryRootScanner, LayoutPrimitives, GraphProjection, ActionRouter, ResourceView, ToolbarView, Presentation, PanelResize, Persistence) {
   const NODE_WIDTH = 280;
   const NODE_HEIGHT = 143;
   const COMPACT_NODE_WIDTH = 236;
@@ -343,6 +345,8 @@
       this.saveTimer = null;
       this.saveChain = Promise.resolve();
       this.saveRequestId = 0;
+      this.documentSaveInFlight = false;
+      this.saveAfterDocument = false;
       this.saveState = 'saved';
       this.resourceSearch = '';
       this.displayLayoutEdit = null;
@@ -6808,56 +6812,11 @@
     }
 
     _persistSoon(delay = 100) {
-      this.saveRequestId++; // Pending edits invalidate older completion messages.
-      if (this.saveTimer) clearTimeout(this.saveTimer);
-      this._setSaveState('saving');
-      this.saveTimer = setTimeout(() => {
-        this.saveTimer = null;
-        this._persistNow();
-      }, delay);
+      return Persistence.schedule(this, delay);
     }
 
     _persistNow() {
-      if (!this.store) return Promise.resolve();
-      const requestId = ++this.saveRequestId;
-      const snapshot = clone(this.store);
-      const record = this.documentRecord;
-      let documentSnapshot;
-      try { documentSnapshot = record ? this._buildActiveBoardExportStore() : null; }
-      catch (error) { this._setSaveState('error'); this.notify(error.message, 'error'); return Promise.resolve(null); }
-      this._setSaveState('saving');
-      this.saveChain = this.saveChain
-        .catch(() => {})
-        .then(async () => {
-          if (!record) return this.bridge.relationshipBoards.save(snapshot);
-          const result = await this.bridge.relationshipBoards.saveDocument({ id: record.id, revision: record.revision, store: documentSnapshot });
-          Object.assign(record, result.record);
-          if (this.documentRecord === record) {
-            let materialized = false;
-            for (const saved of result.store?.entities || []) {
-              const current = this.store.entities.find(item => item.id === saved.id);
-              const original = documentSnapshot.entities.find(item => item.id === saved.id);
-              if (current?.details.imageData && current.details.imageData === original?.details.imageData && saved.details.assetPath) {
-                delete current.details.imageData; current.details.assetPath = saved.details.assetPath; materialized = true;
-              }
-            }
-            if (materialized) void this._refreshDocumentAssets();
-            this.documentLibrary = this.documentLibrary.map(item => item.id === record.id ? { ...item, ...record } : item);
-            const tab = this.root?.querySelector(`[data-open-document="${escapeSelectorValue(record.id)}"]`);
-            if (tab) tab.textContent = `▧ ${record.name}`;
-          }
-          return result;
-        })
-        .then(result => {
-          if (requestId === this.saveRequestId) this._setSaveState('saved');
-          return result;
-        })
-        .catch(error => {
-          if (requestId === this.saveRequestId) this._setSaveState('error');
-          this.notify(`关系白板保存失败：${error?.message || String(error)}`, 'error');
-          return null;
-        });
-      return this.saveChain;
+      return Persistence.persistNow(this);
     }
 
     _updateSummary() {
@@ -6965,29 +6924,7 @@
     }
 
     async _saveDocument(saveAs = false) {
-      if (this.documentBusy) return;
-      this.documentBusy = true;
-      try {
-        clearTimeout(this.saveTimer); this.saveTimer = null;
-        await this.saveChain;
-        const snapshot = this._buildActiveBoardExportStore();
-        const result = await this.bridge.relationshipBoards.saveDocument({ id: this.documentRecord?.id, revision: this.documentRecord?.revision, saveAs, store: snapshot });
-        if (result.cancelled) return;
-        const changedDocument = this.documentRecord?.id !== result.record.id;
-        if (!this.documentRecord) {
-          await this.bridge.relationshipBoards.save(this.store);
-          this.localWorkspace = this.store;
-        }
-        this.documentRecord = result.record;
-        this.openDocumentIds.add(result.record.id);
-        this.store = result.store || snapshot;
-        if (changedDocument) this._resetDocumentSelection();
-        await this._refreshDocumentLibrary();
-        this._setSaveState('saved');
-        this.render();
-        await this._refreshDocumentAssets();
-      } catch (error) { this._setSaveState('error'); this.notify(`白板保存失败：${error.message}`, 'error'); }
-      finally { this.documentBusy = false; }
+      return Persistence.saveDocument(this, saveAs);
     }
 
     _resetDocumentSelection() {
@@ -6998,15 +6935,20 @@
 
     async _showLocalWorkspace() {
       if (!this.documentRecord || this.documentBusy) return;
-      clearTimeout(this.saveTimer); this.saveTimer = null;
-      if (!await this._persistNow()) return;
-      this.documentRecord = null;
-      this.localWorkspaceMode = true;
-      this.store = this.localWorkspace || Model.normalizeStore((await this.bridge.relationshipBoards.get()).store).value;
-      this.localWorkspace = null;
-      this._resetDocumentSelection();
-      this._setPanelTopology(this.panelTopologyResult);
-      this.render();
+      this.documentBusy = true;
+      try {
+        if (!await this._persistNow()) return;
+        // Do not abandon the current file until the replacement has loaded.
+        const store = this.localWorkspace || Model.assertValidStore((await this.bridge.relationshipBoards.get()).store);
+        this.documentRecord = null;
+        this.localWorkspaceMode = true;
+        this.store = store;
+        this.localWorkspace = null;
+        this._resetDocumentSelection();
+        this._setPanelTopology(this.panelTopologyResult);
+        this.render();
+      } catch (error) { this.notify(`无法返回本机工作区：${error.message}`, 'error'); }
+      finally { this.documentBusy = false; }
     }
 
     async _removeDocument(id, trash = false) {
@@ -7049,15 +6991,16 @@
     }
 
     async _importRelationshipJson() {
-      if (this.importInFlight || !this.bridge?.relationshipBoards?.previewImport) return false;
+      if (this.importInFlight || this.documentBusy || !this.bridge?.relationshipBoards?.previewImport) return false;
       if (this.documentRecord) {
         this.notify('导入合并用于本机工作区。请先切换到“本机工作区”；独立文件请使用“打开…”', 'info');
         return false;
       }
       const rootAtStart = this.root;
       this.importInFlight = true;
+      this.documentBusy = true;
       try {
-        await this._persistNow();
+        if (!await this._persistNow()) return false;
         const preview = await this.bridge.relationshipBoards.previewImport();
         if (!preview || preview.cancelled || this.root !== rootAtStart) return false;
         if (!preview.hasChanges) {
@@ -7088,6 +7031,7 @@
         return false;
       } finally {
         this.importInFlight = false;
+        this.documentBusy = false;
       }
     }
 

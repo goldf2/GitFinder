@@ -743,7 +743,7 @@ test('确认 JSON 差异后控制器载入主进程结果并保留一次撤销�
   });
   controller.store = RelationshipGraphModel.assertValidStore(initialStore);
   controller.root = { querySelector: () => null };
-  controller._persistNow = async () => {};
+  controller._persistNow = async () => ({ store: controller.store });
   controller._openImportPreviewDialog = async () => true;
   controller.render = () => {};
   controller._setCanvasAnnouncement = () => {};
