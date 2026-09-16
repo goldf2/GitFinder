@@ -143,3 +143,8 @@ test('配置IPC只有保存成功后才刷新原生菜单并广播所有窗口',
   fail=true;await assert.rejects(handlers['config:setExperimentalFeature']({},'tasks',false),/disk/);
   assert.equal(items.tasks.visible,true);assert.equal(events.length,2);
 });
+
+test('测试区窄窗口不为小开关预留130px宽度，说明保留可读空间', () => {
+  const html=fs.readFileSync(path.join(__dirname,'../src/renderer/index.html'),'utf8');
+  assert.match(html, /#settings-testing \.app-settings-row\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\) auto/);
+});

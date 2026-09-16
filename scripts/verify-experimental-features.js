@@ -118,7 +118,7 @@ async function main() {
     await check('重新启用只恢复入口，不强制打开另一窗口的测试页',"AppState.currentMode==='tree'&&!document.querySelector('#btn-project-tasks').hidden",other);
     await other.send('Page.close');other.close();
     await client.send('Emulation.setDeviceMetricsOverride',{width:800,height:780,deviceScaleFactor:1,mobile:false});await delay(250);
-    await check('窄屏测试开关仍可见且不溢出内容区',"[...document.querySelectorAll('[data-experimental-feature]')].every(e=>{const r=e.getBoundingClientRect();return r.width>0&&r.right<=innerWidth&&r.bottom<=innerHeight})");await shot('testing-narrow.png');
+    await check('窄屏测试开关仍可见且不溢出内容区',"[...document.querySelectorAll('[data-experimental-feature]')].every(e=>{const r=e.getBoundingClientRect();return r.width>0&&r.right<=innerWidth&&r.bottom<=innerHeight&&e.parentElement.querySelector('span').getBoundingClientRect().width>=120})");await shot('testing-narrow.png');
     await client.send('Emulation.clearDeviceMetricsOverride');
     await client.evaluate("App.switchView('tasks');App.persistWorkspaceTabs()");await client.wait("!!document.querySelector('#task-refresh')");
     await client.evaluate('App.persistWorkspaceTabs()');await stop();await launch();

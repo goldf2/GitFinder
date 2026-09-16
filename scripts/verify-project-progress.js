@@ -65,6 +65,9 @@ async function main() {
     }
     async function screenshot(name) { const shot = await send('Page.captureScreenshot', { format: 'png' }); fs.writeFileSync(path.join(parent, name), Buffer.from(shot.data, 'base64')); }
     await send('Runtime.enable'); await send('Page.bringToFront');
+    // Keep this synthetic foreground case visible even when macOS moves test windows behind another app.
+    await send('Emulation.setFocusEmulationEnabled', { enabled: true });
+    await wait("document.visibilityState==='visible'");
     await wait("typeof App!=='undefined' && typeof AppState!=='undefined' && App._treeRoots?.length===1 && document.readyState==='complete'");
     await evaluate("App.switchView('dashboard')");
     await wait("AppState.dashboardStats?.sourceProjects?.length===2 && document.querySelectorAll('[data-dashboard-task-project]').length===2");
