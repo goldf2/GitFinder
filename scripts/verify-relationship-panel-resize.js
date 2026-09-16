@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Only use a disposable profile named panel-resize-test-profile. Uses the real
-// renderer, PointerEvents, keyboard events and configuration IPC, not mocks.
+// renderer, PointerEvents, keyboard events and configuration IPC. The save-state
+// case alone injects delayed writes, without modifying the real user profile.
 // node scripts/verify-relationship-panel-resize.js PORT PROFILE OUTPUT [--reopen]
 const fs = require('node:fs');
 const path = require('node:path');
@@ -111,6 +112,10 @@ async function main() {
       await check('面板移回恢复原宽度', value => value.width === 424 && !value.hidden);
       await send('Emulation.setDeviceMetricsOverride', { width: 760, height: 620, deviceScaleFactor: 1, mobile: false }); await settle();
       await check('窄窗口约束宽度但不覆盖偏好', value => value.width <= value.bounds.max && value.canvas > 0 && value.preferred === 424 && value.saved === 424);
+      await drag(0);
+      await check('窄窗口轻触分隔线不覆盖原宽度', value => value.preferred === 424 && value.saved === 424);
+      await drag(-12);
+      await check('窄窗口向边界外拖动不覆盖原宽度', value => value.preferred === 424 && value.saved === 424);
       await send('Emulation.clearDeviceMetricsOverride'); await settle();
       await check('窗口恢复后回到 424px', value => value.width === 424);
       await click('[data-relationship-action="fullscreen"]');
@@ -123,6 +128,30 @@ async function main() {
       await evaluate("App.switchView('tree')"); await settle();
       await evaluate("App.switchView('relationships')"); await settle();
       await check('切换视图再打开恢复 504px', value => value.width === 504 && !value.hidden);
+      // Only this isolated-profile case injects latency; width checks above use real IPC.
+      const saving = await evaluate(`(async()=>{
+        const c=App.relationshipBoardController;
+        await new Promise(r=>setTimeout(r,300)); await c.saveChain;
+        const bridge=c.bridge, requests=[];
+        const label=()=>c.root.querySelector('.relationship-save-state')?.textContent;
+        c.bridge={...bridge,relationshipBoards:{...bridge.relationshipBoards,
+          save:()=>new Promise(resolve=>requests.push(resolve))}};
+        try {
+          const first=c._persistNow(); await new Promise(r=>setTimeout(r,0));
+          const second=c._persistNow(); requests[0](); await first;
+          await new Promise(r=>setTimeout(r,0));
+          const pending={state:c.saveState,label:label()};
+          requests[1](); await second;
+          return {pending,complete:{state:c.saveState,label:label()}};
+        } finally {
+          for(const resolve of requests) resolve();
+          await c.saveChain; c.bridge=bridge;
+        }
+      })()`);
+      results.push({name:'安装版旧请求完成后仍显示正在保存',passed:saving.pending.state==='saving' && /正在保存/.test(saving.pending.label),...saving.pending});
+      assert.ok(results.at(-1).passed,JSON.stringify(saving));
+      results.push({name:'安装版最新请求完成后显示已保存',passed:saving.complete.state==='saved' && /已保存/.test(saving.complete.label),...saving.complete});
+      assert.ok(results.at(-1).passed,JSON.stringify(saving));
       const unchanged = await evaluate('window.__panelBefore===JSON.stringify(App.relationshipBoardController.store)');
       results.push({ name: '调宽不改白板节点、关系、布局或视口', passed: unchanged }); assert.ok(unchanged);
     }

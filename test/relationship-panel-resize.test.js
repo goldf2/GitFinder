@@ -39,7 +39,61 @@ function fire(target, type, properties = {}) {
   target.dispatchEvent(event);
   return event;
 }
+function frames(f) {
+  const queue = new Map(); let id = 0;
+  f.win.requestAnimationFrame = callback => { queue.set(++id, callback); return id; };
+  f.win.cancelAnimationFrame = key => queue.delete(key);
+  return { queue, flush() { const callbacks = [...queue.values()]; queue.clear(); for (const callback of callbacks) callback(); } };
+}
+
 const start = f => fire(f.handle, 'pointerdown', { button: 0, isPrimary: true, pointerId: 1, clientX: 800 });
+
+test('同一帧的高频拖动合并为一次布局，使用最后一个坐标', async () => {
+  const f = fixture(), clock = frames(f); let resizes = 0;
+  f.controller.onResize = () => { resizes++; };
+  start(f); for (let i = 1; i <= 100; i++) move(f, 800 - i);
+  assert.equal(resizes, 0); assert.equal(clock.queue.size, 1);
+  clock.flush(); assert.equal(resizes, 1); assert.equal(f.controller.width, 364);
+  end(f); await f.controller.saveChain; assert.equal(f.saves[0][1], 364);
+});
+
+test('下一帧前松开或卸载会先应用最后坐标，且清除排队帧', async () => {
+  for (const stop of ['pointerup', 'unmount', 'blur']) {
+    const f = fixture(), clock = frames(f); start(f); move(f, 650);
+    if (stop === 'unmount') f.controller.unmount(); else if (stop === 'blur') fire(f.win, 'blur'); else end(f);
+    await f.controller.saveChain;
+    assert.equal(f.saves[0][1], 414); assert.equal(clock.queue.size, 0);
+  }
+});
+
+test('下一帧前取消拖动丢弃待处理坐标，不写配置也不残留回调', async () => {
+  for (const cancel of ['Escape', 'pointercancel']) {
+    const f = fixture(), clock = frames(f); start(f); move(f, 650);
+    if (cancel === 'Escape') fire(f.doc, 'keydown', { key: 'Escape' }); else fire(f.doc, cancel, { pointerId: 1 });
+    await f.controller.saveChain; assert.equal(clock.queue.size, 0); clock.flush();
+    assert.equal(f.controller.width, 264); assert.equal(f.saves.length, 0);
+  }
+});
+
+test('窄窗口点击、边界拖动或按键，不覆盖较宽的记忆偏好', async () => {
+  for (const x of [800, 790, 'ArrowLeft', 'End']) {
+    const f = fixture(600); f.body.width = 800; f.left.width = 264; f.controller.refresh();
+    if (typeof x === 'string') fire(f.handle, 'keydown', { key: x });
+    else { start(f); move(f, x); end(f); }
+    await f.controller.saveChain;
+    assert.equal(f.controller.preferredWidth, 600); assert.equal(f.saves.length, 0);
+    f.body.width = 1500; f.controller.refresh(); assert.equal(f.controller.width, 600);
+  }
+});
+
+test('键盘到达边界以及重复默认宽度操作不反复写配置', async () => {
+  const f = fixture(); fire(f.handle, 'keydown', { key: 'End' }); await f.controller.saveChain;
+  for (let i = 0; i < 100; i++) fire(f.handle, 'keydown', { key: 'ArrowLeft' });
+  await f.controller.saveChain; assert.equal(f.saves.length, 1);
+  fire(f.handle, 'dblclick'); await f.controller.saveChain;
+  fire(f.handle, 'dblclick'); await f.controller.saveChain;
+  assert.equal(f.saves.length, 2);
+});
 const move = (f, x, pointerId = 1) => fire(f.doc, 'pointermove', { pointerId, clientX: x });
 const end = f => fire(f.doc, 'pointerup', { pointerId: 1 });
 

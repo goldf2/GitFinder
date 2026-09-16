@@ -342,6 +342,7 @@
       this.inspectorPinned = false;
       this.saveTimer = null;
       this.saveChain = Promise.resolve();
+      this.saveRequestId = 0;
       this.saveState = 'saved';
       this.resourceSearch = '';
       this.displayLayoutEdit = null;
@@ -6807,6 +6808,7 @@
     }
 
     _persistSoon(delay = 100) {
+      this.saveRequestId++; // Pending edits invalidate older completion messages.
       if (this.saveTimer) clearTimeout(this.saveTimer);
       this._setSaveState('saving');
       this.saveTimer = setTimeout(() => {
@@ -6817,6 +6819,7 @@
 
     _persistNow() {
       if (!this.store) return Promise.resolve();
+      const requestId = ++this.saveRequestId;
       const snapshot = clone(this.store);
       const record = this.documentRecord;
       let documentSnapshot;
@@ -6846,11 +6849,11 @@
           return result;
         })
         .then(result => {
-          this._setSaveState('saved');
+          if (requestId === this.saveRequestId) this._setSaveState('saved');
           return result;
         })
         .catch(error => {
-          this._setSaveState('error');
+          if (requestId === this.saveRequestId) this._setSaveState('error');
           this.notify(`关系白板保存失败：${error?.message || String(error)}`, 'error');
           return null;
         });

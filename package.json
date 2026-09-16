@@ -1,6 +1,6 @@
 {
   "name": "gitfinder-2",
-  "version": "2.0.0-alpha.189",
+  "version": "2.0.0-alpha.190",
   "description": "GitFinder 2 - 本地开发与部署管理中心",
   "main": "main.js",
   "productName": "GitFinder 2 Alpha",
@@ -8,7 +8,7 @@
     "git-monitor": "./cli.js"
   },
   "scripts": {
-    "test": "node --test",
+    "test": "node --test \"test/*.test.js\"",
     "build:renderer": "node scripts/build-renderer.js",
     "measure:whiteboard": "node scripts/measure-relationship-whiteboard.js",
     "check": "npm run build:renderer && npm test && node scripts/check-syntax.js",
