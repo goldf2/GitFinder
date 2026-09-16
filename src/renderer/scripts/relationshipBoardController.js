@@ -305,6 +305,13 @@
     return date.toISOString();
   }
 
+  // Runtime previews are only valid for the file source they were read from.
+  function mediaSourceKey(details = {}) {
+    if (details.imageData) return '';
+    return details.assetPath ? `asset:${details.assetPath}`
+      : details.referencePath ? `reference:${details.referencePath}` : '';
+  }
+
   class Controller {
     constructor(options = {}) {
       if (!Model) throw new Error('RelationshipGraphModel 未加载');
@@ -397,6 +404,7 @@
       this.remindedTodoKeys = new Set();
       this.openRequestId = 0;
       this.documentAssets = new Map();
+      this.documentAssetsRequestId = 0;
       this.now = options.now || (() => new Date());
       this._boundKeydown = event => this._handleKeydown(event);
       this._boundBlur = () => {
@@ -638,6 +646,7 @@
     }
 
     close(options = {}) {
+      this.documentAssetsRequestId++;
       this.panelResize.unmount();
       this.displayLayoutEdit = null;
       this.openRequestId += 1;
@@ -4703,13 +4712,14 @@
         const source = sourceEntities.get(placement.entityId);
         if (!source) return null;
         const asset = source.type === 'image' ? this.documentAssets.get(source.id) : null;
+        const preview = asset?.sourceKey && asset.sourceKey === mediaSourceKey(source.details) ? asset.imageData : '';
         return {
           ...source,
           name: this._entityDisplayName(source),
           iconKey: this._entityCardIcon(source),
           endpointChildren: endpointPresentation.children.get(source.id) || [],
           ...(detachedOwners.has(source.id) ? { detachedOwnerName: detachedOwners.get(source.id).name } : {}),
-          ...(asset?.imageData ? { details: { ...source.details, imageData: asset.imageData } } : {})
+          ...(preview ? { details: { ...source.details, imageData: preview } } : {})
         };
       }).filter(Boolean);
       const placements = graph.placements.map(placement => {
@@ -6262,13 +6272,14 @@
     }
 
     async _createCanvasElement(type, point = null) {
+      const record = this.documentRecord, boardId = activeBoard(this.store)?.id;
       this._closeAddMenu();
       if (type === 'image' && this.documentRecord?.projectDirectory) return this._addFiles(undefined, point, true);
       try {
         let entity;
         if (type === 'image') {
           const image = await this.bridge.relationshipBoards.pickImage();
-          if (image.cancelled) return;
+          if (image.cancelled || this.documentRecord !== record || activeBoard(this.store)?.id !== boardId) return;
           const width = Math.min(440, image.width);
           entity = { id: makeId('entity'), type, name: image.name, details: { imageData: image.data, width: String(width), height: String(Math.max(60, width * image.height / image.width)), fit: 'contain' }, source: 'manual' };
         } else entity = { id: makeId('entity'), type, name: '文字', details: { content: '双击编辑文字', fontSize: '24', color: '#334155', align: 'left', width: '320', height: '180' }, source: 'manual' };
@@ -6280,6 +6291,8 @@
     async _editCanvasElement(id) {
       const entity = this.store.entities.find(item => item.id === id);
       if (!entity || !['text', 'image', 'attachment'].includes(entity.type)) return;
+      const record = this.documentRecord, boardId = activeBoard(this.store)?.id;
+      const isCurrent = () => this.documentRecord === record && activeBoard(this.store)?.id === boardId;
       const d = entity.details;
       const fields = [{ key: 'name', label: '名称', value: entity.name, required: true }];
       if (entity.type === 'text') fields.push(
@@ -6292,15 +6305,17 @@
       else fields.push({ key: 'caption', label: '文件说明', value: d.caption });
       fields.push({ key: 'width', label: '宽度（60–1600）', value: d.width, type: 'number', min: 60, max: 1600 }, { key: 'height', label: '高度（60–1600）', value: d.height, type: 'number', min: 60, max: 1600 });
       const values = await this._openFormDialog({ title: `编辑${TYPE_LABELS[entity.type]}`, fields, submitLabel: '保存' });
-      if (!values) return;
+      if (!values || !isCurrent()) return;
       try {
+        const { name, replace, ...details } = values;
+        const image = replace === 'replace' ? await this.bridge.relationshipBoards.pickImage() : null;
+        if (image?.cancelled || !isCurrent()) return;
+        // Clone after the dialog/IO, so unrelated edits and materialized paths survive.
         const next = clone(this.store);
         const edited = next.entities.find(item => item.id === id);
-        const { name, replace, ...details } = values;
-        edited.name = name; edited.details = { ...d, ...details };
-        if (replace === 'replace') {
-          const image = await this.bridge.relationshipBoards.pickImage();
-          if (image.cancelled) return;
+        if (!edited || edited.type !== entity.type) return;
+        edited.name = name; edited.details = { ...edited.details, ...details };
+        if (image) {
           edited.details.imageData = image.data;
           delete edited.details.assetPath; delete edited.details.referencePath;
         }
@@ -6839,15 +6854,26 @@
       catch (error) { this.notify(`白板资源库读取失败：${error.message}`, 'error'); }
     }
 
+    _documentAssetsNeedRefresh() {
+      const media = this.store.entities.filter(entity => ['image', 'attachment'].includes(entity.type));
+      return this.documentAssets.size !== media.length
+        || media.some(entity => this.documentAssets.get(entity.id)?.sourceKey !== mediaSourceKey(entity.details));
+    }
+
     async _refreshDocumentAssets() {
+      const requestId = ++this.documentAssetsRequestId;
       const record = this.documentRecord;
       if (!record || !this.bridge.relationshipBoards.getAssets) { this.documentAssets.clear(); return; }
+      const revision = record.revision;
+      const sources = new Map(this.store.entities.map(entity => [entity.id, mediaSourceKey(entity.details)]));
+      const isCurrent = () => requestId === this.documentAssetsRequestId
+        && this.documentRecord === record && record.revision === revision;
       try {
         const assets = await this.bridge.relationshipBoards.getAssets(record.id);
-        if (this.documentRecord !== record) return;
-        this.documentAssets = new Map(assets.map(item => [item.entityId, item]));
+        if (!isCurrent()) return;
+        this.documentAssets = new Map(assets.map(item => [item.entityId, { ...item, sourceKey: sources.get(item.entityId) || '' }]));
         this._renderGraph();
-      } catch (error) { this.notify(`媒体读取失败：${error.message}`, 'error'); }
+      } catch (error) { if (isCurrent()) this.notify(`媒体读取失败：${error.message}`, 'error'); }
     }
 
     async _newDocument() {
@@ -6872,25 +6898,29 @@
     }
 
     async _addFiles(paths, point, imagesOnly = false) {
+      let record = this.documentRecord;
+      const boardId = activeBoard(this.store)?.id;
+      const isCurrent = () => this.documentRecord === record && activeBoard(this.store)?.id === boardId;
       this._closeAddMenu();
       try {
         if (!paths) {
           const result = await this.bridge.relationshipBoards.pickFiles(imagesOnly);
-          if (result.cancelled) return;
+          if (result.cancelled || !isCurrent()) return;
           paths = result.paths;
         }
         if (!paths?.length) { this.notify('未获取到本地文件，请使用“文件与媒体…”选择', 'info'); return; }
         if (!this.documentRecord?.projectDirectory) {
           this.notify('先选择白板项目保存位置，以便保存拖入的文件', 'info');
-          await this._saveDocument(true);
-          if (!this.documentRecord?.projectDirectory) return;
+          const saved = await this._saveDocument(true);
+          if (!saved || !this.documentRecord?.projectDirectory) return;
+          record = this.documentRecord;
         }
         if (this.store.entities.length + paths.length > Model.MAX_ENTITIES) throw new Error('白板元素数量超过限制');
         const values = await this._openFormDialog({ title: `添加 ${paths.length} 个文件`, submitLabel: '添加到白板', fields: [{ key: 'mode', label: '存储方式（外部引用在原文件移动后会失效）', value: 'copy', options: [['copy', '复制进白板项目（推荐）'], ['reference', '引用原文件，不复制']] }] });
-        if (!values) return;
-        const record = this.documentRecord;
+        if (!values || !isCurrent()) return;
         const entities = await this.bridge.relationshipBoards.attachFiles({ id: record.id, paths, mode: values.mode });
-        if (this.documentRecord !== record) return;
+        if (!isCurrent()) return;
+        if (this.store.entities.length + entities.length > Model.MAX_ENTITIES) throw new Error('白板元素数量超过限制');
         const board = activeBoard(this.store), canvas = this.root.querySelector('.relationship-canvas');
         point ||= { x: (canvas.clientWidth / 2 - board.viewport.x) / board.viewport.zoom, y: (canvas.clientHeight / 2 - board.viewport.y) / board.viewport.zoom };
         this._recordMutation();
@@ -6928,6 +6958,7 @@
     }
 
     _resetDocumentSelection() {
+      this.documentAssetsRequestId++;
       this.documentAssets.clear();
       this.undoStack = []; this.redoStack = [];
       this._clearEntitySelection(); this.selectedRelationshipId = '';

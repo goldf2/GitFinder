@@ -32,7 +32,7 @@
         materialized = true;
       }
     }
-    if (materialized) void c._refreshDocumentAssets();
+    if (materialized || c._documentAssetsNeedRefresh?.()) void c._refreshDocumentAssets();
     c.documentLibrary = c.documentLibrary.map(item => item.id === record.id ? { ...item, ...record } : item);
     for (const tab of c.root?.querySelectorAll?.('[data-open-document]') || []) {
       if (tab.dataset.openDocument === record.id) tab.textContent = `▧ ${record.name}`;
