@@ -1,9 +1,22 @@
 const configService = require('../services/configService');
+const { BrowserWindow, Menu } = require('electron');
 const directoryGrantService = require('../services/directoryGrantService');
 const { registerTrustedHandler } = require('./security');
 const ipcMain = { handle: registerTrustedHandler };
 
 function registerConfigIPC() {
+  registerTrustedHandler('config:setExperimentalFeature', async (event, key, enabled) => {
+    const flags = configService.setExperimentalFeature(key, enabled);
+    const menu = Menu.getApplicationMenu();
+    for (const view of ['dashboard', 'tasks']) {
+      const item = menu?.getMenuItemById(`experimental-view-${view}`);
+      if (item) item.visible = flags[view];
+    }
+    for (const window of BrowserWindow.getAllWindows()) {
+      if (!window.isDestroyed()) window.webContents.send('config:experimentalFeaturesChanged', flags);
+    }
+    return flags;
+  });
   ipcMain.handle('config:get', async (event, key) => {
     return configService.get(key);
   });

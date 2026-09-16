@@ -144,6 +144,7 @@ const App = {
   updaterController: null,
 
   async init() {
+    await this.loadExperimentalFeatures();
     try {
       AppState.windowContext = await window.gitFinder.app.getWindowContext() || { kind: 'primary' };
     } catch (_) {
@@ -1034,6 +1035,7 @@ const App = {
           </nav>
           <main class="app-settings-content" aria-label="设置内容">
         ${this.accountController.settingsMarkup()}
+        ${this.experimentalFeaturesMarkup()}
 
         <section class="app-settings-section" id="settings-browsing" role="tabpanel" aria-labelledby="settings-navigation-browsing">
           <div class="app-settings-section-heading">
@@ -1240,6 +1242,7 @@ const App = {
     document.getElementById('settings-show-recent-projects')?.addEventListener('change', updateProjectShortcutSettingsAvailability);
     updateProjectShortcutSettingsAvailability();
 
+    this.bindExperimentalFeatureSettings();
     this.bindSemanticColorSettings();
     this.accountController.render();
     this.updaterController.render();
@@ -1251,6 +1254,8 @@ const App = {
   activateSettingsSection(sectionId, options = {}) {
     const activeSection = window.SettingsNavigation.normalizeSection(sectionId);
     AppState.settingsSection = activeSection;
+    const footer = document.querySelector('.app-settings-footer');
+    if (footer) footer.hidden = activeSection === 'settings-testing';
     document.querySelectorAll('.app-settings-navigation-item[data-settings-section]').forEach(button => {
       const isActive = button.dataset.settingsSection === activeSection;
       button.setAttribute('aria-selected', String(isActive));
@@ -1809,15 +1814,17 @@ const App = {
 
   async normalizeAndRepairWorkspaceTabs(seed) {
     const migrationNeeded = window.WorkspaceTabs.needsContentQueryMigration(seed);
-    const session = window.WorkspaceTabs.normalizeSession(seed, AppState.currentPath);
+    const normalized = window.WorkspaceTabs.normalizeSession(seed, AppState.currentPath);
+    const session = window.ExperimentalFeatures.gateSession(normalized, AppState.experimentalFeatures);
+    const gated = JSON.stringify(session) !== JSON.stringify(normalized);
     try {
       const paths = window.WorkspaceTabs.sessionPaths(session);
       const inspection = await window.gitFinder.fs.inspectWorkspaceDirectories(paths);
       const repair = window.WorkspaceTabs.repairUnavailablePaths(session, inspection);
-      return { ...repair, changed: repair.changed || migrationNeeded };
+      return { ...repair, changed: repair.changed || migrationNeeded || gated };
     } catch (error) {
       console.warn('标签页路径校验失败，保留原会话:', error);
-      return { session, changed: migrationNeeded, repairedTabs: 0, removedHistoryEntries: 0 };
+      return { session, changed: migrationNeeded || gated, repairedTabs: 0, removedHistoryEntries: 0 };
     }
   },
 
@@ -2238,7 +2245,7 @@ const App = {
     AppState.selectedPaths.clear();
     AppState.selectionAnchorPath = null;
     AppState.currentPath = tab.path || '';
-    AppState.currentMode = tab.mode || 'tree';
+    AppState.currentMode = this.isExperimentalViewEnabled?.(tab.mode) === false ? 'tree' : (tab.mode || 'tree');
     AppState.contentQuery = window.ContentQuery.normalize(tab.contentQuery);
     this.applyDirectoryViewPreference(AppState.currentPath, AppState.currentMode);
     AppState.history = Array.isArray(tab.history) ? [...tab.history] : (tab.path ? [tab.path] : []);
@@ -3733,6 +3740,10 @@ const App = {
 
   switchView(view) {
     if (!['tree', 'dashboard', 'tasks', 'relationships', 'panel'].includes(view)) return;
+    if (this.isExperimentalViewEnabled?.(view) === false) {
+      this._showStatusMessage('请在设置 → 测试功能中启用后使用', 'warning');
+      return;
+    }
     this.closeQuickLook();
     this.clearFileSelection();
     AppState.currentMode = view;
@@ -3790,6 +3801,9 @@ const App = {
   },
 
   updateModeUI() {
+    if (!['tasks', 'dashboard'].includes(AppState.currentMode) || this.isExperimentalViewEnabled?.(AppState.currentMode) === false) {
+      this.stopProjectProgressPolling?.();
+    }
     this.updateToolbarMenuState();
     document.querySelectorAll('.sidebar-item[data-mode]').forEach(item => {
       item.classList.toggle('active', item.dataset.mode === AppState.currentMode);
@@ -4357,6 +4371,7 @@ const App = {
   },
 
   async renderContent() {
+    if (this.isExperimentalViewEnabled?.(AppState.currentMode) === false) { AppState.currentMode = 'tree'; this.updateModeUI(); }
     this.cancelDirectoryItemRendering('view-changed');
     AppState.galleryPreviewRequestId += 1;
     const renderRequestId = ++AppState.directoryRenderRequestId;
@@ -4868,6 +4883,7 @@ const App = {
   },
 
   async openDashboard(forceRefresh = false) {
+    if (this.isExperimentalViewEnabled?.('dashboard') === false) return;
     const contentArea = document.getElementById('content-area');
     const emptyState = document.getElementById('empty-state');
     const filterBar = document.getElementById('filter-bar');
@@ -4888,6 +4904,7 @@ const App = {
   },
 
   async ensureDashboardRepos(forceRefresh = false) {
+    if (this.isExperimentalViewEnabled?.('dashboard') === false) return;
     const roots = this._treeRoots || [];
     if (!forceRefresh && AppState.allRepos.length) return;
     if (!roots.length) return;
@@ -4907,8 +4924,10 @@ const App = {
   },
 
   async renderDashboardContent(displayRepos, contentArea, options = {}) {
+    if (this.isExperimentalViewEnabled?.('dashboard') === false || AppState.currentMode !== 'dashboard') return;
+    const readEpoch = this._progressReadEpoch || 0;
     const portfolio = options.portfolio || await this.readProjectProgressPortfolio(Boolean(options.forceRefresh));
-    if (AppState.currentMode !== 'dashboard') return;
+    if (readEpoch !== (this._progressReadEpoch || 0) || AppState.currentMode !== 'dashboard' || this.isExperimentalViewEnabled?.('dashboard') === false) return;
     this.ensureProjectProgressPolling?.();
     const filtered = ProjectProgressModel.scopeRepositories(this._filterByCategory(displayRepos), portfolio.projects || [], {
       includeUnlisted: this.activeRepositoryCategory() === 'all', query: AppState.searchQuery || '', knownRepositories: AppState.repos || []
@@ -4927,7 +4946,7 @@ const App = {
     }
 
     const stats = await this.collectDashboardStats(filtered, portfolio);
-    if (AppState.currentMode !== 'dashboard') return;
+    if (readEpoch !== (this._progressReadEpoch || 0) || AppState.currentMode !== 'dashboard' || this.isExperimentalViewEnabled?.('dashboard') === false) return;
     const scopeLabel = this.getSelectedCategoryLabel();
     contentArea.innerHTML = `
       <div class="project-dashboard">

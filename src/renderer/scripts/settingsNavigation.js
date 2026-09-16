@@ -11,6 +11,7 @@
     Object.freeze({ id: 'settings-panel-provider', label: 'Coolify 数据源', summary: '服务器与部署连接', glyph: '⌁' }),
     Object.freeze({ id: 'settings-developer-tools', label: '开发工具', summary: '终端、Git 与编辑器', glyph: '⌘' }),
     Object.freeze({ id: 'settings-projects', label: '项目身份', summary: '本地项目初始化', glyph: '◇' }),
+    Object.freeze({ id: 'settings-testing', label: '测试功能', summary: '未完善功能 · 默认关闭', glyph: '⚗' }),
     Object.freeze({ id: 'settings-updates', label: '软件更新', summary: '版本、下载与安装', glyph: '↻' })
   ]);
   const IDS = new Set(ITEMS.map(item => item.id));

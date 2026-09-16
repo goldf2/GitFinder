@@ -387,3 +387,11 @@
 - 源码push与ls-remote一致；原10项用户delta保留。任务delivered、用户反馈pending，nextTaskId回GF-QUALITY-001。
 - 失败保留：首次清洁依赖并发Electron解包失败，单独准备后全量重跑通过；组合check+UI超时后UI独立重跑通过。
 - 详见REPOSITORY_PROGRESS_BRIDGE.md与PROGRESS_BRIDGE_ALPHA195.json。
+
+## 2026-09-16T21:06:00+08:00 · GF-LABS-001 开始
+
+用户要求仪表盘/开发进度默认关闭，设置测试区显式启用；继续既有AgentDock任务tsk_6a7b9ad167ce0ba4，独立feat/experimental-progress-196工作区。基线1c31b9d5802ba270cc597a9cce168a1b6d63b6e7，主目录原10项dirty未动。采用本机独立开关，保留台账和白板；AI结合只作待设计方向。实现/测试/安装/推送尚未完成。
+
+## 2026-09-16T21:14:08+08:00 · GF-LABS-001 源码验证检查点
+
+已实现默认关闭的测试区与独立开关，配置/原生菜单/路由/旧会话/跨窗口/轮询/IPC门禁。15项专项及18项源码Electron流程通过，含合成台账字节不变和两次重启；保存失败由受控模拟覆盖，不冒充真实磁盘故障。主目录未修改，安装/推送尚未执行。

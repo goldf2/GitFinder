@@ -263,8 +263,8 @@ function setupApplicationMenu() {
       label: '显示',
       submenu: [
         { label: '文件浏览', click: () => sendShortcut('view:tree') },
-        { label: '仪表盘', click: () => sendShortcut('view:dashboard') },
-        { label: '开发任务', click: () => sendShortcut('view:tasks') },
+        { id: 'experimental-view-dashboard', label: '仪表盘（测试）', visible: configService.get('experimentalFeatures')?.dashboard === true, click: () => sendShortcut('view:dashboard') },
+        { id: 'experimental-view-tasks', label: '开发任务（测试）', visible: configService.get('experimentalFeatures')?.tasks === true, click: () => sendShortcut('view:tasks') },
         { label: '关系白板', click: () => sendShortcut('view:relationships') },
         { label: '文件操作历史', click: () => sendShortcut('open-file-history') },
         { type: 'separator' },

@@ -2,19 +2,19 @@
 
 > 自动生成。只编辑 `management/development-tasks.json`，然后执行 `npm run handoff:update`。
 
-更新时间：2026-09-16T16:57:50+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
+更新时间：2026-09-16T21:17:23+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
 
 核验基线：2.0.0-alpha.193 / `99eef1d2992e389f32a48182a25fda3b9adf1958`；证据：[docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md](LAYOUT_OPTIONS_ALPHA193.md)。
 
-**唯一下一任务：GF-QUALITY-001**
+**唯一下一任务：GF-LABS-001**
 
 ## 阶段汇总
 
 | 阶段 | 纳入任务 | 已交付 | 开发中/已验证 | 阻塞/暂缓 |
 | --- | ---: | ---: | ---: | ---: |
 | GF-P0 接续工程 | 2 | 2 | 0 | 0 |
-| GF-P1 桌面稳定 | 9 | 4 | 0 | 1 |
-| GF-P2 可维护与性能 | 3 | 0 | 0 | 0 |
+| GF-P1 桌面稳定 | 10 | 4 | 1 | 1 |
+| GF-P2 可维护与性能 | 4 | 0 | 0 | 0 |
 | GF-P3 可分发 | 5 | 0 | 0 | 3 |
 | GF-P4 全流程事件 | 5 | 0 | 0 | 1 |
 | GF-P5 Web与同步（需授权） | 4 | 0 | 0 | 4 |
@@ -53,6 +53,8 @@
 | GF-CLOUD-003 | P3 | 暂缓 | unassigned | 云快照、实时连接器及协作扩展评审 |
 | GF-DB-001 | P3 | 暂缓 | unassigned | 本地数据库/存储迁移决策与恢复设计 |
 | GF-PROGRESS-001 | P0 | 已交付 | ChatGPT / AgentDock Cloudflare | 仓库进度接入开发任务与仪表盘 |
+| GF-LABS-001 | P0 | 已验证 | ChatGPT / AgentDock Cloudflare | 设置测试功能区与仪表盘/开发进度默认关闭 |
+| GF-AI-PROGRESS-001 | P1 | 计划中 | unassigned | AI辅助进度识别与人工确认的证据链设计 |
 
 ## 可执行任务卡
 
@@ -557,3 +559,37 @@
 证据：[docs/00-handoff/PROGRESS_BRIDGE_ALPHA195.json](PROGRESS_BRIDGE_ALPHA195.json)；[docs/00-handoff/REPOSITORY_PROGRESS_BRIDGE.md](REPOSITORY_PROGRESS_BRIDGE.md)
 
 交付：2.0.0-alpha.195；源码 `564fadb98b813afc839da5f22655b30934f8930c`。
+
+### GF-LABS-001 · 设置测试功能区与仪表盘/开发进度默认关闭
+
+阶段：GF-P1；优先级：P0；状态：**已验证**；负责人：ChatGPT / AgentDock Cloudflare；用户验收：待用户反馈。
+
+更新：2026-09-16T21:17:23+08:00。依赖：GF-PROGRESS-001。
+
+**验收标准**
+1. 两个功能独立开关、默认关闭；菜单、旧标签恢复、跨窗口与主进程入口遵守开关。
+2. 关闭停止相关刷新，迟到结果不重开视图；原台账/白板不删除，开启与重启可恢复。
+3. 专项、全量检查与实际安装版验收有证据，项目文档保留AI结合待设计边界。
+
+**接续动作：** 最终1299项测试/288JS、15项新专项、18项设置门禁UI和9项显式开启后的进度UI通过；从当前提交构建并验收已安装App，再推送。
+
+源码/设计入口：[src/renderer/scripts/settingsNavigation.js](../../src/renderer/scripts/settingsNavigation.js)；[src/renderer/scripts/projectProgress.js](../../src/renderer/scripts/projectProgress.js)；[src/main/ipc/projectTasks.js](../../src/main/ipc/projectTasks.js)；[src/shared/experimentalFeatures.js](../../src/shared/experimentalFeatures.js)；[src/renderer/scripts/experimentalFeaturesController.js](../../src/renderer/scripts/experimentalFeaturesController.js)；[test/experimental-features.test.js](../../test/experimental-features.test.js)。
+
+证据：[docs/00-handoff/EXPERIMENTAL_FEATURES_ALPHA196.md](EXPERIMENTAL_FEATURES_ALPHA196.md)
+
+### GF-AI-PROGRESS-001 · AI辅助进度识别与人工确认的证据链设计
+
+阶段：GF-P2；优先级：P1；状态：**计划中**；负责人：unassigned；用户验收：待用户反馈。
+
+更新：2026-09-16T21:14:08+08:00。依赖：GF-LABS-001。
+
+**验收标准**
+1. 明确任务语义、可读数据范围、证据归属及模型/执行位置，不按提交数推算完成度。
+2. AI建议与人工确认分开，保留可审阅变更/冲突/撤销；不默认上传源码、凭据或台账。
+3. 确定验收方案与授权后才实现，不自动恢复默认开放的仪表盘与进度页。
+
+**接续动作：** 先讨论AI参与的输入、输出、确认点和数据边界，形成可验证设计；不立即开发外部模型接入。
+
+源码/设计入口：[docs/00-handoff/EXPERIMENTAL_FEATURES_ALPHA196.md](EXPERIMENTAL_FEATURES_ALPHA196.md)；[docs/00-handoff/REPOSITORY_PROGRESS_BRIDGE.md](REPOSITORY_PROGRESS_BRIDGE.md)。
+
+证据：尚无本任务完成证据；源码文件存在不表示验收通过。

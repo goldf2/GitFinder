@@ -1,18 +1,9 @@
 # GitFinder 2 下一步
 
 <!-- BEGIN NEXT_ACTIONS -->
-## 下一开发任务：GF-QUALITY-001
+## 当前接续任务：GF-LABS-001
 
-更新时间：2026-09-16T16:57:50+08:00。GF-PROGRESS-001的alpha195源码、安装与隔离App联动验收已完成；源码564fadb已推送并核对远端。
-
-当前用户动作：正常配置启动出现macOS“文稿”访问确认，由用户决定允许或拒绝；不要用脚本代授系统权限。App后方已读到真实项目台账，不将权限弹窗当作授权已经成功。
-
-1. 接续GF-QUALITY-001，准备确定性fixture，分别测35部署基线与100/300/1000节点；先读原任务验收，不重做已交付布局或开启数据库/云迁移。
-2. 进度修改只维护原项目台账；App前台15秒/焦点/手动刷新读取，不能在只读台账任务上绕过项目验收写done。
-3. 项目出现任务源错误时，修复原JSON/schema/唯一来源后刷新；不要复制到另一套CSV、自动修写生产数据或忽略错误回退旧投影。
-4. 安装版回归可执行 `node scripts/verify-project-progress.js --app '/Applications/GitFinder 2.app/Contents/MacOS/GitFinder 2 Alpha'`，只使用自建测试profile与合成台账；真实用户权限/数据验收另记。
-
-仅macOS本机开发包；Windows/公证/公开软件发布未执行。具体证据见[连接说明](REPOSITORY_PROGRESS_BRIDGE.md)。
+源码已验证，下一步从可追溯提交构建alpha.196，备份195后安装，重跑设置门禁及开启后的进度流程，然后正常启动、推送与文档收口。AI进度结合只记录方向，不执行自动判断、回写或上传。
 <!-- END NEXT_ACTIONS -->
 
 ## 历史兼容记录（以下旧下一步已被顶部接续块取代）

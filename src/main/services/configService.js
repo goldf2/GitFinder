@@ -7,6 +7,7 @@ const { app } = require('electron');
 const SemanticColors = require('../../shared/semanticColors');
 const ProjectShortcuts = require('../../shared/projectShortcuts');
 const ProjectGroups = require('../../shared/projectGroups');
+const ExperimentalFeatures = require('../../shared/experimentalFeatures');
 
 const MAX_CONFIG_TRANSACTION_BYTES = 16 * 1024 * 1024;
 const MAX_DIRECTORY_PATH_LENGTH = 32768;
@@ -357,6 +358,7 @@ class ConfigService {
       autoRefresh: true,
       refreshInterval: 60,
       viewMode: 'tree',
+      experimentalFeatures: ExperimentalFeatures.normalize(),
       cardStyle: 'card',
       sortBy: 'name',
       sortOrder: 'asc',
@@ -388,6 +390,16 @@ class ConfigService {
     config[key] = value;
     this.saveConfig();
     return config;
+  }
+
+  setExperimentalFeature(key, enabled) {
+    if (!ExperimentalFeatures.KEYS.includes(key) || typeof enabled !== 'boolean') throw new Error('测试功能开关无效');
+    const previous = this.getConfig();
+    const flags = { ...ExperimentalFeatures.normalize(previous.experimentalFeatures), [key]: enabled };
+    this.config = { ...previous, experimentalFeatures: flags };
+    try { this.saveConfig(); }
+    catch (error) { this.config = previous; throw error; }
+    return flags;
   }
 
   setRendererPreference(key, value) {

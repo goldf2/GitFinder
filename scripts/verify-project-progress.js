@@ -22,7 +22,7 @@ async function main() {
   ] };
   const files = [[path.join(managed, 'store/docs/00-handoff/TASKS.json'), store], [path.join(managed, 'desktop/management/development-tasks.json'), desktop]];
   for (const [file, data] of files) { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, JSON.stringify(data, null, 2)); }
-  fs.writeFileSync(path.join(profile, 'config.json'), JSON.stringify({ treeRoots: [{ path: managed, name: '进度验收', expanded: true }], defaultScanPath: managed, lastPath: managed, automaticUpdateChecks: false, themeMode: 'light', themeScheme: 'github', sidebarHidden: false, detailPanelHidden: true }));
+  fs.writeFileSync(path.join(profile, 'config.json'), JSON.stringify({ experimentalFeatures: { dashboard: true, tasks: true }, treeRoots: [{ path: managed, name: '进度验收', expanded: true }], defaultScanPath: managed, lastPath: managed, automaticUpdateChecks: false, themeMode: 'light', themeScheme: 'github', sidebarHidden: false, detailPanelHidden: true }));
   const server = net.createServer();
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const port = server.address().port;
@@ -56,7 +56,7 @@ async function main() {
     });
     function send(method, params = {}) { return new Promise((resolve, reject) => { const id = ++sequence; const timer = setTimeout(() => { pending.delete(id); reject(new Error(`${method} timed out`)); }, 30000); pending.set(id, { resolve, reject, timer }); socket.send(JSON.stringify({ id, method, params })); }); }
     async function evaluate(expression) { const reply = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true }); if (reply.exceptionDetails) throw new Error(JSON.stringify(reply.exceptionDetails)); return reply.result.value; }
-    async function wait(expression, timeout = 20000) { const start = Date.now(); while (Date.now() - start < timeout) { if (await evaluate(expression)) return; await delay(100); } throw new Error(`Condition timeout: ${expression}`); }
+    async function wait(expression, timeout = 20000) { const start = Date.now(); while (Date.now() - start < timeout) { if (await evaluate(expression)) return; await delay(100); } const diagnostic = await evaluate("JSON.stringify({mode:AppState.currentMode,visibility:document.visibilityState,active:document.activeElement?.tagName,activeId:document.activeElement?.id,timer:App._progressPollTimer,polling:App._progressPolling,read:!!App._progressReadPromise,loading:AppState.taskPortfolioLoading,edit:AppState.taskEditTaskKey,create:AppState.taskCreateDraft,preview:AppState.taskStatusPreview,milestone:AppState.milestoneEditKey,flags:AppState.experimentalFeatures,stats:AppState.dashboardStats&&{count:AppState.dashboardStats.taskCount,blocked:AppState.dashboardStats.taskBlockedCount,progress:AppState.dashboardStats.taskInProgressCount},tasks:AppState.taskPortfolio?.tasks?.map(t=>({id:t.taskId,status:t.sourceStatus}))})"); fs.writeFileSync(path.join(parent,'timeout-diagnostic.json'),diagnostic); throw new Error(`Condition timeout: ${expression}`); }
     async function check(name, expression) { assert.equal(await evaluate(expression), true, name); results.push({ name, passed: true }); console.log(name); }
     async function click(selector) {
       const point = await evaluate(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});if(!e||e.disabled)throw new Error('Missing enabled element');e.scrollIntoView({block:'nearest'});const r=e.getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2};})()`);

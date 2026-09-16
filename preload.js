@@ -227,6 +227,12 @@ contextBridge.exposeInMainWorld('gitFinder', {
   },
 
   config: {
+    setExperimentalFeature: (key, enabled) => ipcRenderer.invoke('config:setExperimentalFeature', key, enabled),
+    onExperimentalFeaturesChanged: callback => {
+      const listener = (_event, flags) => callback(flags);
+      ipcRenderer.on('config:experimentalFeaturesChanged', listener);
+      return () => ipcRenderer.removeListener('config:experimentalFeaturesChanged', listener);
+    },
     get: (key) => ipcRenderer.invoke('config:get', key),
     set: (key, value) => ipcRenderer.invoke('config:set', key, value),
     getConfig: () => ipcRenderer.invoke('config:getConfig'),

@@ -1,12 +1,18 @@
 // Development Tasks and Dashboard share a portfolio; neither maintains another task store.
 Object.assign(App, {
   async readProjectProgressPortfolio(forceRefresh = false) {
+    const epoch = this._progressReadEpoch || 0;
+    const enabled = () => this.isExperimentalViewEnabled?.('tasks') !== false || this.isExperimentalViewEnabled?.('dashboard') !== false;
+    const disabled = () => ({ success: false, disabled: true, readOnly: true, projects: [], tasks: [], warnings: [] });
+    if (!enabled()) return disabled();
     if (this._progressReadPromise) return this._progressReadPromise;
     if (!window.gitFinder?.projectTasks?.getPortfolio) return AppState.taskPortfolio || { projects: [], tasks: [], warnings: [] };
     const request = Promise.resolve().then(() => window.gitFinder.projectTasks.getPortfolio({ forceRefresh })).then(result => {
+      if (epoch !== (this._progressReadEpoch || 0) || !enabled()) return disabled();
       AppState.taskPortfolio = result;
       return result;
     }).catch(error => {
+      if (epoch !== (this._progressReadEpoch || 0) || !enabled()) return disabled();
       const result = { success: false, readOnly: true, projects: [], tasks: [], dependencies: [], milestones: [], timeline: [], warnings: [], error: error?.message || String(error) };
       AppState.taskPortfolio = result;
       return result;
@@ -16,18 +22,33 @@ Object.assign(App, {
     finally { if (this._progressReadPromise === request) this._progressReadPromise = null; }
   },
 
+  invalidateProjectProgress() {
+    this._progressReadEpoch = (this._progressReadEpoch || 0) + 1;
+    this._progressReadPromise = null;
+    AppState.taskPortfolio = null;
+    AppState.taskPortfolioLoading = false;
+    AppState.dashboardStats = null;
+  },
+
+  stopProjectProgressPolling() {
+    if (this._progressPollTimer) window.clearInterval(this._progressPollTimer);
+    if (this._refreshProjectProgress) window.removeEventListener('focus', this._refreshProjectProgress);
+    this._progressPollTimer = null;
+  },
+
   ensureProjectProgressPolling() {
+    if (!['tasks', 'dashboard'].includes(AppState.currentMode) || this.isExperimentalViewEnabled?.(AppState.currentMode) === false) return;
     if (this._progressPollTimer || typeof window.setInterval !== 'function') return;
     const refresh = async () => {
       const mode = AppState.currentMode;
-      if (!['tasks', 'dashboard'].includes(mode) || document.visibilityState === 'hidden' || this._progressReadPromise || this._progressPolling) return;
+      if (this.isExperimentalViewEnabled?.(mode) === false || !['tasks', 'dashboard'].includes(mode) || document.visibilityState === 'hidden' || this._progressReadPromise || this._progressPolling) return;
       if (AppState.taskEditTaskKey || AppState.taskCreateDraft || AppState.taskStatusPreview || AppState.milestoneEditKey || AppState.taskPortfolioLoading) return;
       if (document.activeElement?.matches?.('input, textarea, select, [contenteditable="true"]')) return;
       this._progressPolling = true;
       try {
         const previous = AppState.taskPortfolio;
         const portfolio = await this.readProjectProgressPortfolio(true);
-        if (AppState.currentMode !== mode) return;
+        if (AppState.currentMode !== mode || this.isExperimentalViewEnabled?.(mode) === false) return;
         if (portfolio.contentRevision && portfolio.contentRevision === previous?.contentRevision) return;
         const content = document.getElementById('content-area');
         if (!content) return;
@@ -37,7 +58,7 @@ Object.assign(App, {
         });
         if (mode === 'tasks') this.renderProjectTasksView();
         else await this.renderDashboardContent(this._prepareDisplayRepos(), content, { portfolio });
-        if (AppState.currentMode !== mode) return;
+        if (AppState.currentMode !== mode || this.isExperimentalViewEnabled?.(mode) === false) return;
         for (const item of scroll) { const element = document.querySelector(item.selector); if (element) { element.scrollTop = item.top; element.scrollLeft = item.left; } }
         this.updateStatusBar();
       } catch (error) { console.warn('项目进度读取失败', error?.message || error); }
@@ -46,14 +67,14 @@ Object.assign(App, {
     this._refreshProjectProgress = refresh;
     this._progressPollTimer = window.setInterval(refresh, 15000);
     window.addEventListener('focus', refresh);
-    window.addEventListener('beforeunload', () => {
-      window.clearInterval(this._progressPollTimer);
-      window.removeEventListener('focus', refresh);
-      this._progressPollTimer = null;
-    }, { once: true });
+    if (!this._progressUnloadBound) {
+      this._progressUnloadBound = true;
+      window.addEventListener('beforeunload', () => this.stopProjectProgressPolling(), { once: true });
+    }
   },
 
   async openProgressProjectTasks(projectId) {
+    if (this.isExperimentalViewEnabled?.('tasks') === false) return;
     AppState.taskFilters = { projectId, status: 'all', priority: 'all', leafOnly: true };
     AppState.taskViewMode = 'list';
     AppState.selectedTaskKey = null;
@@ -121,10 +142,10 @@ Object.assign(App, {
         ${warnings.length ? `<p class="task-danger-text" role="status">${warnings.length} 条数据源提醒：${warnings.slice(0, 3).map(item => this.escapeHtml(item.message || item.code)).join('；')}</p>` : ''}
         ${sources.length ? `<div class="dashboard-source-list">${sources.map(item => {
           const project = item.sourceProject;
-          return `<button class="dashboard-source-item" type="button" data-dashboard-task-project="${this.escapeHtml(project.projectId)}">
+          return `<button class="dashboard-source-item" type="button" ${this.isExperimentalViewEnabled?.('tasks') === false ? 'disabled title="请先在设置中开启开发进度测试功能"' : ''} data-dashboard-task-project="${this.escapeHtml(project.projectId)}">
             <span><strong>${this.escapeHtml(project.name)}</strong><small>${this.escapeHtml(project.source?.authority || 'Local Project Manager')} · ${project.source?.kind === 'repository-ledger' ? '原台账只读' : '连接器投影'}</small></span>
             <span>${item.unavailable ? `<strong class="task-danger-text">数据源异常</strong><small>${this.escapeHtml(item.sourceError)}</small>` : `<strong>${item.summary.progressDone}/${item.summary.progressTotal} 任务完成</strong><small>阻塞 ${item.summary.blockedCount}${project.nextTaskId ? ` · 下一项 ${this.escapeHtml(project.nextTaskId)}` : ''}</small>`}</span>
-            <span><small>源更新 ${this.escapeHtml(this.formatTaskTimestamp(project.updatedAt || project.generatedAt))}</small><small>查看开发任务 →</small></span>
+            <span><small>源更新 ${this.escapeHtml(this.formatTaskTimestamp(project.updatedAt || project.generatedAt))}</small><small>${this.isExperimentalViewEnabled?.('tasks') === false ? '开发进度未启用' : '查看开发任务 →'}</small></span>
           </button>`;
         }).join('')}</div>` : '<div class="dashboard-empty">当前范围暂无项目台账。将项目目录加入受管位置后，自动发现 management/development-tasks.json 或 docs/00-handoff/TASKS.json；不自动创建另一份进度文件。</div>'}
         <p class="project-dashboard-subtitle">前台每15秒重读；回到App时刷新。台账修改仍在项目内完成，不自动提交、打包或部署。</p>

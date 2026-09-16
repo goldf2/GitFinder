@@ -1,5 +1,7 @@
 Object.assign(App, {
   async renderProjectTasks(forceRefresh = false) {
+    if (this.isExperimentalViewEnabled?.('tasks') === false) return;
+    const readEpoch = this._progressReadEpoch || 0;
     const contentArea = document.getElementById('content-area');
     const emptyState = document.getElementById('empty-state');
     if (!contentArea) return;
@@ -18,10 +20,13 @@ Object.assign(App, {
           <div>${forceRefresh ? '正在重读任务源…' : '正在读取项目台账与任务连接器…'}</div>
         </div>`;
       try {
-        AppState.taskPortfolio = this.readProjectProgressPortfolio
+        const portfolio = this.readProjectProgressPortfolio
           ? await this.readProjectProgressPortfolio(true)
           : await window.gitFinder.projectTasks.getPortfolio({ forceRefresh });
+        if (readEpoch !== (this._progressReadEpoch || 0) || this.isExperimentalViewEnabled?.('tasks') === false) return;
+        AppState.taskPortfolio = portfolio;
       } catch (error) {
+        if (readEpoch !== (this._progressReadEpoch || 0) || this.isExperimentalViewEnabled?.('tasks') === false) return;
         AppState.taskPortfolio = {
           success: false,
           readOnly: true,
@@ -33,11 +38,11 @@ Object.assign(App, {
           error: error?.message || String(error)
         };
       } finally {
-        AppState.taskPortfolioLoading = false;
+        if (readEpoch === (this._progressReadEpoch || 0)) AppState.taskPortfolioLoading = false;
       }
     }
 
-    if (AppState.currentMode !== 'tasks') return;
+    if (AppState.currentMode !== 'tasks' || this.isExperimentalViewEnabled?.('tasks') === false) return;
     this.renderProjectTasksView();
     this.ensureProjectProgressPolling?.();
   },
