@@ -234,3 +234,7 @@
 - ZIP SHA-256：`e9688d3668e86a4f20dfc61b8d1dc87d7a38d27fd865e05b4a9d70d0dc131ea9`；ASAR SHA-256：`dd3a6958ca092a15f711a7c8b4d1e49fc2d27934d0aafc391f035dc9987c0f41`。
 - 已恢复正常用户启动、数据哈希一致、调试端口关闭；源码已推送并远端核对。未进行Windows、公证或公开发行。
 - 完整证据、首次干净克隆失败及修复过程：`HANDOFF_SYSTEM_ALPHA194.md`。后续交接记录提交不改变运行包绑定源码。
+
+## 2026-09-16T21:30:11+08:00 · 2.0.0-alpha.196 · 默认关闭的测试功能区
+
+运行源码`f79dba1d2adf23f99adf5ff66d3667396552fe6a`，本机App已可恢复安装并正常启动，设置18项（含跨窗口/重启）及进度9项通过。1300测试/288JS、开发包issues=[]和codesign通过。默认关闭两项功能，不关闭仓库文档维护；16项新增回归。195备份`/Volumes/project/制品与备份/GitFinder-2-alpha195-before196.app.disabled`。源码已推送；最后文档收口另提交，不重建或伪造运行来源。数据、失败日志、哈希和限制见[完整记录](EXPERIMENTAL_FEATURES_ALPHA196.md)。仅macOS ad-hoc开发包。
