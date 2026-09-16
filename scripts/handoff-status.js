@@ -7,6 +7,7 @@ const path = require('node:path');
 const SOURCE = 'management/development-tasks.json';
 const REPORT = 'docs/00-handoff/PROGRESS.md';
 const REQUIRED_DOCS = Object.freeze([
+  'AGENTS.md', 'README.md', 'CONTEXT.md', 'docs/00-handoff/RELEASE_CHECKLIST.md',
   'docs/00-handoff/README.md', 'docs/00-handoff/DEVELOPMENT_PLAN.md',
   'docs/00-handoff/HANDOFF_PROTOCOL.md', 'docs/00-handoff/RUNBOOK.md',
   'docs/00-handoff/CURRENT_STATE.md', 'docs/00-handoff/NEXT_ACTIONS.md',
@@ -147,7 +148,7 @@ function validateDocuments(root, nextTaskId) {
       const href = match[1];
       if (/^(?:https?:|mailto:|#)/i.test(href)) continue;
       try {
-        const target = path.posix.normalize(path.posix.join(path.posix.dirname(relative), decodeURIComponent(href.split('#')[0])));
+        const target = path.posix.normalize(path.posix.join(path.posix.dirname(relative), decodeURIComponent(href.split('#')[0]))).replace(/\/+$/, '');
         // The generated report is validated separately and may not yet exist on --write.
         if (target !== REPORT && !safeExistingPath(root, target)) errors.push(`${relative}: 无效本地链接 ${href}`);
       } catch { errors.push(`${relative}: 无效链接编码 ${href}`); }

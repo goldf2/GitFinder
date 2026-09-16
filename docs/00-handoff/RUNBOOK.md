@@ -85,7 +85,7 @@ npm run check
 npm run pack
 ```
 
-本机可在已核对锁文件和安装依赖一致的条件下复制已有node_modules加速，不能把未知依赖复制后当干净复现。构建见 `scripts/build-mac.sh` 与 [CODEX_RELEASE_VALIDATION.md](../../CODEX_RELEASE_VALIDATION.md)。不得删掉仍有未完成任务的worktree。`dist/release-verification.json`必须指向本次源码commit，检查issues、版本、ASAR与ZIP摘要。
+本机可在已核对锁文件和安装依赖一致的条件下复制已有node_modules加速，不能把未知依赖复制后当干净复现。构建见 `scripts/build-mac.sh` 与 [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md)。不得删掉仍有未完成任务的worktree。`dist/release-verification.json`必须指向本次源码commit，检查issues、版本、ASAR与ZIP摘要。
 
 ## 5. 安装与回退
 

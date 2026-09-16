@@ -2,7 +2,7 @@
 
 > 自动生成。只编辑 `management/development-tasks.json`，然后执行 `npm run handoff:update`。
 
-更新时间：2026-09-16T15:59:29+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
+更新时间：2026-09-16T16:02:58+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
 
 核验基线：2.0.0-alpha.193 / `99eef1d2992e389f32a48182a25fda3b9adf1958`；证据：[docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md](LAYOUT_OPTIONS_ALPHA193.md)。
 
@@ -25,7 +25,7 @@
 
 | 编号 | 优先级 | 状态 | 负责人 | 任务 |
 | --- | --- | --- | --- | --- |
-| GF-HANDOFF-001 | P0 | 已验证 | 本轮 ChatGPT / AgentDock Cloudflare | 详细开发方案与单一进度接续体系 |
+| GF-HANDOFF-001 | P0 | 开发中 | 本轮 ChatGPT / AgentDock Cloudflare | 详细开发方案与单一进度接续体系 |
 | GF-PANEL-189 | P1 | 已交付 | 历史交付记录 | 白板右栏可调宽及配置恢复 |
 | GF-SAVE-191 | P1 | 已交付 | 历史交付记录 | 白板自动/手动保存统一生命周期 |
 | GF-MEDIA-192 | P1 | 已交付 | 历史交付记录 | 媒体来源绑定、迟到结果及重开保护（随193交付） |
@@ -57,16 +57,16 @@
 
 ### GF-HANDOFF-001 · 详细开发方案与单一进度接续体系
 
-阶段：GF-P0；优先级：P0；状态：**已验证**；负责人：本轮 ChatGPT / AgentDock Cloudflare；用户验收：不要求用户确认。
+阶段：GF-P0；优先级：P0；状态：**开发中**；负责人：本轮 ChatGPT / AgentDock Cloudflare；用户验收：不要求用户确认。
 
-更新：2026-09-16T15:59:29+08:00。依赖：无。
+更新：2026-09-16T16:02:58+08:00。依赖：无。
 
 **验收标准**
 1. 从仓库入口可以定位当前版本、唯一下一任务及明确验收，不依赖聊天历史。
 2. 任务源与生成看板一致，异常字段/依赖/路径/过期看板检查有回归。
 3. 修正过期README和旧AI入口，保护已有未提交内容；按项目规则完成交付。
 
-**接续动作：** 已通过14项工程回归及完整1264项检查；从干净提交构建并完成可恢复安装、正常启动与推送。
+**接续动作：** 干净克隆发现旧发布清单被本机Git忽略；已迁入可提交入口，重新运行干净门禁后构建安装。
 
 源码/设计入口：[AGENTS.md](../../AGENTS.md)；[docs/00-handoff/DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md)；[docs/00-handoff/HANDOFF_PROTOCOL.md](HANDOFF_PROTOCOL.md)。
 

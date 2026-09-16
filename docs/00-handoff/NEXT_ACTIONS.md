@@ -10,6 +10,8 @@
 用户体验反馈GF-ACCEPT-001并行等待；无用户确认不自动应用新布局或归档“用户已验收”报告。GF-CLOUD系列、GF-WEBHOOK-001、GF-DB-001保持暂缓。
 
 任务依赖、owner、验收与证据以[唯一任务源](../../management/development-tasks.json)为准；可读入口[PROGRESS.md](PROGRESS.md)，操作步骤[RUNBOOK.md](RUNBOOK.md)。
+干净克隆追加发现：旧发布清单被本机Git排除，首轮接续检查失败；已迁入 `RELEASE_CHECKLIST.md`，修正入口后重跑。当前仍为193安装版，未推送194。
+
 <!-- END NEXT_ACTIONS -->
 
 ## 历史兼容记录（以下旧下一步已被顶部接续块取代）

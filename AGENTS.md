@@ -22,7 +22,7 @@
 1. 递增 `package.json` 与锁文件中的 prerelease 版本号。
 2. 运行源码检查和与变更相关的回归测试。
 3. 只暂存本次任务和版本变更，创建本地提交；不得混入用户已有的无关修改。
-4. 从该提交在当前 macOS 主机生成可追溯的安装产物，并按 `CODEX_RELEASE_VALIDATION.md` 验证产物。
+4. 从该提交在当前 macOS 主机生成可追溯的安装产物，并按 `docs/00-handoff/RELEASE_CHECKLIST.md` 验证产物。
 5. 可恢复地备份现有 `/Applications/GitFinder 2 Alpha*.app`，用新版本替换并正常启动。
 6. 验证已安装应用的版本、主界面和本次修改涉及的可见交互；通过后推送当前跟踪分支。若验收失败，继续修复、提交并重新打包，不推送失败版本。
 

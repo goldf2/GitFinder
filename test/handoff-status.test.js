@@ -115,3 +115,9 @@ test('工程进度台账不打进macOS应用运行资源', () => {
   assert.ok(ignoredSource.test('/management/development-tasks.json'));
   assert.ok(ignoredSource.test('/management/README.md'));
 });
+
+test('文档中的仓库内目录链接允许尾部斜线', t => {
+  const { root, write } = fixture(t);
+  write('AGENTS.md', '[资料目录](docs/)\n');
+  assert.doesNotThrow(() => run(root, ['--write'], () => {}));
+});

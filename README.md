@@ -40,6 +40,6 @@ npm run electron
 
 布局不能修改节点事实、主机归属或Project成员；只读Coolify不提供停止、删除或重新部署。凭据不得进入白板、Git、日志或导出。文档中的“计划中”不是生产部署、公开发行或用户数据上传授权。
 
-本机开发包、代码推送、正式发行是不同阶段。默认macOS交付和可恢复安装按AGENTS执行；Windows、Developer ID公证、商店/GitHub Release需分别验证。参见 [发布验收](CODEX_RELEASE_VALIDATION.md)、[在线更新说明](docs/online-update-publishing.md)、[构建发布工作流](docs/build-publish-workflow.md)。
+本机开发包、代码推送、正式发行是不同阶段。默认macOS交付和可恢复安装按AGENTS执行；Windows、Developer ID公证、商店/GitHub Release需分别验证。参见 [发布验收](docs/00-handoff/RELEASE_CHECKLIST.md)、[在线更新说明](docs/online-update-publishing.md)、[构建发布工作流](docs/build-publish-workflow.md)。
 
 历史需求与对话索引可能保留在本机 `docs/ai-handoff/`；该目录目前被本机Git排除规则忽略，干净克隆不能依赖它。本轮不上传历史对话，只提供完整的项目内接续入口。
