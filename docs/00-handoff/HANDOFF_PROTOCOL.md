@@ -4,7 +4,7 @@
 
 任务事实只写入 `management/development-tasks.json`；`PROGRESS.md`由脚本生成。当前版本和环境只在 `CURRENT_STATE.md` 顶部有效块维护；`NEXT_ACTIONS.md`解释任务源中的唯一下一任务。旧历史区和 `docs/ai-handoff/` 不能反向覆盖这些记录。
 
-GitFinder应用内项目任务仍读取Local Project Manager连接器；本仓库工程台账尚未导出到该连接器。需要接入时写最小只读导出，不能手工维护第二套同义任务。
+用户已要求打通App：GF-PROGRESS-001将仓库台账直接适配为开发任务与仪表盘的只读投影，保留Local Project Manager兼容源。任务事实仍只改项目内台账，不生成第二套可编辑CSV；实际实现/验收状态见REPOSITORY_PROGRESS_BRIDGE.md。
 
 ## 2. 状态定义
 

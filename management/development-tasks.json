@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-16T16:13:30+08:00",
+  "updatedAt": "2026-09-16T16:41:19+08:00",
   "scope": "以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。",
   "baseline": {
     "version": "2.0.0-alpha.193",
     "sourceCommit": "99eef1d2992e389f32a48182a25fda3b9adf1958",
     "evidence": "docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md"
   },
-  "nextTaskId": "GF-QUALITY-001",
+  "nextTaskId": "GF-PROGRESS-001",
   "milestones": [
     {
       "id": "GF-P0",
@@ -760,6 +760,36 @@
       "evidence": [],
       "nextAction": "先完成GF-STORAGE-001盘点，仅在用户批准后评估迁移设计。",
       "blocker": "已确认数据结构稳定前暂缓数据库；本次不实施迁移。",
+      "delivery": null,
+      "userAcceptance": "not_required"
+    },
+    {
+      "id": "GF-PROGRESS-001",
+      "milestone": "GF-P0",
+      "title": "仓库进度接入开发任务与仪表盘",
+      "priority": "P0",
+      "status": "verified",
+      "owner": "ChatGPT / tsk_b9ae6e2993932350（隔离worktree）",
+      "updatedAt": "2026-09-16T16:41:19+08:00",
+      "dependsOn": [],
+      "sourcePaths": [
+        "src/main/services/projectTaskProjectionService.js",
+        "src/renderer/scripts/projectTasks.js",
+        "src/renderer/scripts/app.js",
+        "docs/00-handoff/REPOSITORY_PROGRESS_BRIDGE.md"
+      ],
+      "acceptance": [
+        "无需复制台账，识别受管项目的两种任务源并在现有开发任务和仪表盘显示一致统计。",
+        "保留原任务状态/验收/交付区别；同项目旧投影去重；无效/冲突源显式报错且不回退伪正常。",
+        "只读接入，不执行仓库脚本、不写台账或控制CSV；范围/符号链接/容量边界、定期刷新和界面跳转有隔离测试。",
+        "可追溯macOS构建安装及实际任务/仪表盘验收通过后推送，保护并行改动与用户数据。"
+      ],
+      "evidence": [
+        "docs/00-handoff/PROGRESS_BRIDGE_ALPHA195.json",
+        "docs/00-handoff/REPOSITORY_PROGRESS_BRIDGE.md"
+      ],
+      "nextAction": "从已提交源码构建alpha195开发包，安装验收和正常启动后再推送。",
+      "blocker": "",
       "delivery": null,
       "userAcceptance": "not_required"
     }

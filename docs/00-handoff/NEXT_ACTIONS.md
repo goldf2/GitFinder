@@ -1,17 +1,16 @@
 # GitFinder 2 下一步
 
 <!-- BEGIN NEXT_ACTIONS -->
-## 唯一建议下一开发任务：GF-QUALITY-001
+## 唯一当前主线：GF-PROGRESS-001
 
-更新时间：2026-09-16T16:13:30+08:00。GF-HANDOFF-001已交付alpha.194，工程台账当前状态为delivered；GF-QUALITY-001为ready，尚未认领或开始实现。
+更新时间：2026-09-16T16:33:15+08:00。用户要求将项目内进度管理打通GitFinder开发任务/仪表盘。
 
-**第一条可执行动作：** 阅读 `scripts/verify-relationship-layout-options.js`、`verify-relationship-save-lifecycle.js`、`verify-relationship-media-lifecycle.js` 对fixture清单与独立profile的输入约束，整理可重复数据准备步骤。先跑35部署基线，再建立100/300/1000节点样本，分别记录部署数、总实体和显示节点数。
+1. 现有两种台账保持唯一数据源，App只读适配；本轮代码及隔离UI通过后，继续完整检查与可追溯alpha.195打包。
+2. 前轮alpha.194已经安装并推送。本轮串行执行可恢复安装，不启动第二条并行发布；不覆盖原dirty，不修改真实台账任务事实来造验收。
+3. 安装版再次验证两界面同源、项目跳转、文件变化刷新、坏源显错与不可绕过写回；正常用户启动后再推送。
+4. GF-PROGRESS-001实际交付后接续GF-QUALITY-001规模/性能基线；源规则和边界见[说明](REPOSITORY_PROGRESS_BRIDGE.md)。
 
-验收：无真实用户config/凭据；相同数据重复排列、后台刷新、实际Flow模型和重新打开一致；真实耗时与几何/截图可复核，不把单样本改善当全局性能承诺。完整依赖与验收见[进度看板](PROGRESS.md)。
-
-GF-ACCEPT-001继续等待用户实际反馈，不代签确认。GF-UI-001记录alpha190输入偏差及alpha194窄屏首轮菜单隐藏，独立复现后再修复。云同步、数据库、常在线事件接收器和公开发行保持各自授权关口。
-
-开始工作前先运行 `npm run handoff:status` 和 `git status -sb`，认领唯一任务并保护现有dirty。按[RUNBOOK.md](RUNBOOK.md)运行隔离测试，按[HANDOFF_PROTOCOL.md](HANDOFF_PROTOCOL.md)在每次验证/阻塞/交付/切换AI时更新记录。
+本轮不是双向任意编辑台账，不执行仓库脚本，不自动提交/打包/部署，不修改商城管理员。
 <!-- END NEXT_ACTIONS -->
 
 ## 历史兼容记录（以下旧下一步已被顶部接续块取代）

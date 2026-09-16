@@ -476,6 +476,7 @@ class ProjectTaskWritebackService {
     }
     const project = (portfolio.projects || []).find(item => item.projectId === String(projectId || ''));
     if (!project) throw new Error('项目已变化或不在当前任务投影中，请刷新后重试');
+    if (project.source?.kind === 'repository-ledger' || project.source?.writebackAllowed === false) throw new Error('项目内任务台账只读，请在原始台账维护任务后刷新');
     const roots = this._configuredRoots();
     if (roots.length === 0) throw new Error('GitFinder 没有可用的受管开发目录');
     const connectorRoot = this._assertManagedDirectory(portfolio.connector.root, roots, '连接器路径');

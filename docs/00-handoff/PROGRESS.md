@@ -2,17 +2,17 @@
 
 > 自动生成。只编辑 `management/development-tasks.json`，然后执行 `npm run handoff:update`。
 
-更新时间：2026-09-16T16:13:30+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
+更新时间：2026-09-16T16:41:19+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
 
 核验基线：2.0.0-alpha.193 / `99eef1d2992e389f32a48182a25fda3b9adf1958`；证据：[docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md](LAYOUT_OPTIONS_ALPHA193.md)。
 
-**唯一下一任务：GF-QUALITY-001**
+**唯一下一任务：GF-PROGRESS-001**
 
 ## 阶段汇总
 
 | 阶段 | 纳入任务 | 已交付 | 开发中/已验证 | 阻塞/暂缓 |
 | --- | ---: | ---: | ---: | ---: |
-| GF-P0 接续工程 | 1 | 1 | 0 | 0 |
+| GF-P0 接续工程 | 2 | 1 | 1 | 0 |
 | GF-P1 桌面稳定 | 9 | 4 | 0 | 1 |
 | GF-P2 可维护与性能 | 3 | 0 | 0 | 0 |
 | GF-P3 可分发 | 5 | 0 | 0 | 3 |
@@ -52,6 +52,7 @@
 | GF-CLOUD-002 | P3 | 暂缓 | unassigned | 一个白板和图片的双端同步闭环 |
 | GF-CLOUD-003 | P3 | 暂缓 | unassigned | 云快照、实时连接器及协作扩展评审 |
 | GF-DB-001 | P3 | 暂缓 | unassigned | 本地数据库/存储迁移决策与恢复设计 |
+| GF-PROGRESS-001 | P0 | 已验证 | ChatGPT / tsk_b9ae6e2993932350（隔离worktree） | 仓库进度接入开发任务与仪表盘 |
 
 ## 可执行任务卡
 
@@ -536,3 +537,21 @@
 证据：尚无本任务完成证据；源码文件存在不表示验收通过。
 
 **阻塞/暂缓原因：** 已确认数据结构稳定前暂缓数据库；本次不实施迁移。
+
+### GF-PROGRESS-001 · 仓库进度接入开发任务与仪表盘
+
+阶段：GF-P0；优先级：P0；状态：**已验证**；负责人：ChatGPT / tsk_b9ae6e2993932350（隔离worktree）；用户验收：不要求用户确认。
+
+更新：2026-09-16T16:41:19+08:00。依赖：无。
+
+**验收标准**
+1. 无需复制台账，识别受管项目的两种任务源并在现有开发任务和仪表盘显示一致统计。
+2. 保留原任务状态/验收/交付区别；同项目旧投影去重；无效/冲突源显式报错且不回退伪正常。
+3. 只读接入，不执行仓库脚本、不写台账或控制CSV；范围/符号链接/容量边界、定期刷新和界面跳转有隔离测试。
+4. 可追溯macOS构建安装及实际任务/仪表盘验收通过后推送，保护并行改动与用户数据。
+
+**接续动作：** 从已提交源码构建alpha195开发包，安装验收和正常启动后再推送。
+
+源码/设计入口：[src/main/services/projectTaskProjectionService.js](../../src/main/services/projectTaskProjectionService.js)；[src/renderer/scripts/projectTasks.js](../../src/renderer/scripts/projectTasks.js)；[src/renderer/scripts/app.js](../../src/renderer/scripts/app.js)；[docs/00-handoff/REPOSITORY_PROGRESS_BRIDGE.md](REPOSITORY_PROGRESS_BRIDGE.md)。
+
+证据：[docs/00-handoff/PROGRESS_BRIDGE_ALPHA195.json](PROGRESS_BRIDGE_ALPHA195.json)；[docs/00-handoff/REPOSITORY_PROGRESS_BRIDGE.md](REPOSITORY_PROGRESS_BRIDGE.md)

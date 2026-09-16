@@ -1,6 +1,8 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const configService = require('./configService');
+const crypto = require('node:crypto');
+const { RepositoryTaskLedgerService } = require('./repositoryTaskLedgerService');
 
 const SUPPORTED_SCHEMA_VERSION = '1.1';
 const DEFAULT_CACHE_TTL_MS = 60 * 1000;
@@ -70,6 +72,7 @@ class ProjectTaskProjectionService {
     this.cacheTtlMs = options.cacheTtlMs ?? DEFAULT_CACHE_TTL_MS;
     this.staleAfterMs = options.staleAfterMs ?? DEFAULT_STALE_AFTER_MS;
     this.cache = null;
+    this.repositoryLedgers = options.repositoryLedgers || new RepositoryTaskLedgerService({ configService: this.configService, now: this.now });
   }
 
   async getPortfolio(options = {}) {
@@ -85,22 +88,36 @@ class ProjectTaskProjectionService {
         return this._cacheResult(this._emptyResult('GitFinder 还没有可用的受管开发目录', warnings));
       }
 
+      const native = this.repositoryLedgers.readPortfolio(roots);
+      warnings.push(...native.warnings);
       const connectorRoot = this._findConnectorRoot(roots);
-      if (!connectorRoot) {
-        return this._cacheResult(this._emptyResult('未发现 Local Project Manager 数据连接器', warnings));
+      const registryPath = connectorRoot ? path.join(connectorRoot, 'portfolio', 'projects.csv') : '';
+      let registryRows = [];
+      if (connectorRoot) {
+        try { registryRows = parseCsvRows(this._readTextFile(registryPath, MAX_REGISTRY_BYTES)); }
+        catch (error) {
+          if (!native.projects.length) throw error;
+          warnings.push({ code: 'legacy-source-unavailable', path: registryPath, message: '旧任务连接器暂不可读取；仓库台账仍可使用' });
+        }
       }
-
-      const registryPath = path.join(connectorRoot, 'portfolio', 'projects.csv');
-      const registryRows = parseCsvRows(this._readTextFile(registryPath, MAX_REGISTRY_BYTES));
-      const projects = [];
-      const tasks = [];
-      const dependencies = [];
-      const milestones = [];
-      const timeline = [];
-
+      if (!connectorRoot && !native.projects.length) {
+        return this._cacheResult(this._emptyResult('未发现项目任务台账或 Local Project Manager 数据连接器', warnings));
+      }
+      const projects = [...native.projects];
+      const tasks = [...native.tasks];
+      const dependencies = [...native.dependencies];
+      const milestones = [...native.milestones];
+      const timeline = [...native.timeline];
+      const ownedRoots = new Set(native.ownedRoots);
       for (const row of registryRows) {
         if (!this._isEnabled(row.enabled)) continue;
         try {
+          const located = this._resolveProjectRoot(row, connectorRoot, roots);
+          // Even an invalid native ledger reserves authority; stale legacy exports cannot mask its error.
+          if (ownedRoots.has(located.realPath)) {
+            warnings.push({ code: 'legacy-source-superseded', path: located.realPath, message: '该项目已使用仓库任务台账，旧连接器投影不重复统计' });
+            continue;
+          }
           const projection = this._readProjectProjection(row, connectorRoot, roots, warnings);
           projects.push(projection.project);
           tasks.push(...projection.tasks);
@@ -108,12 +125,7 @@ class ProjectTaskProjectionService {
           milestones.push(...projection.milestones);
           timeline.push(...projection.timeline);
         } catch (error) {
-          warnings.push({
-            code: 'invalid-project',
-            projectId: String(row.project_id || ''),
-            path: String(row.path || ''),
-            message: error?.message || String(error)
-          });
+          warnings.push({ code: 'invalid-project', projectId: String(row.project_id || ''), path: String(row.path || ''), message: error?.message || String(error) });
         }
       }
 
@@ -128,12 +140,14 @@ class ProjectTaskProjectionService {
         success: true,
         readOnly: true,
         connector: {
-          name: 'Local Project Manager',
+          name: connectorRoot ? 'Local Project Manager' : 'Repository Task Ledgers',
           root: connectorRoot,
           registryPath,
           schemaVersion: SUPPORTED_SCHEMA_VERSION,
           readOnly: true
         },
+        sourceKinds: [...new Set(projects.map(project => project.source?.kind || 'local-project-manager'))],
+        contentRevision: crypto.createHash('sha256').update(JSON.stringify({ projects, tasks, dependencies, milestones, timeline, warnings })).digest('hex'),
         projects,
         tasks,
         dependencies,

@@ -1,0 +1,39 @@
+{
+  "checkedAt": "2026-09-16T16:41:19+08:00",
+  "taskId": "GF-PROGRESS-001",
+  "version": "2.0.0-alpha.195",
+  "baseCommit": "672053d92a4775bdb6905332a3a45967a7318449",
+  "checks": {
+    "newTests": {
+      "passed": 19,
+      "failed": 0
+    },
+    "fullTests": {
+      "passed": 1284,
+      "failed": 0,
+      "skipped": 0
+    },
+    "javascriptSyntax": 285,
+    "isolatedElectron": {
+      "passed": 9,
+      "failed": 0
+    }
+  },
+  "commands": [
+    "npm run check",
+    "node scripts/verify-project-progress.js"
+  ],
+  "localEvidence": [
+    "dist/progress-bridge-check/final-check.log",
+    "dist/progress-bridge-check/standalone-ui.log",
+    "dist/progress-ui-3KGQkI/result.json"
+  ],
+  "limits": [
+    "Repository ledgers are read-only in the App; legacy connector writeback remains separately gated.",
+    "A combined check+UI tool command exceeded its overall time limit after checks; the isolated UI suite was rerun separately and passed.",
+    "Installation, normal profile startup and push are not yet verified by this source-stage report.",
+    "No production accounts, storefront catalog, role data or user workboards were changed."
+  ],
+  "installation": "pending",
+  "publicRelease": "not_requested"
+}

@@ -1,0 +1,11 @@
+.dashboard-task-progress { min-width: 0; }
+.dashboard-source-list { display: flex; flex-direction: column; gap: 8px; margin: 16px 0; }
+.dashboard-source-item { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr); gap: 16px; width: 100%; padding: 14px; border: 1px solid var(--border-light); border-radius: 8px; background: var(--bg-primary); color: var(--text-primary); text-align: left; cursor: pointer; font: inherit; }
+.dashboard-source-item > span { display: flex; flex-direction: column; gap: 5px; min-width: 0; overflow-wrap: anywhere; }
+.dashboard-source-item small { color: var(--text-secondary); font-size: 12px; line-height: 1.5; }
+.dashboard-source-item:hover { background: var(--bg-hover); }
+.dashboard-source-item:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 2px; }
+.repository-task-detail h2 { overflow-wrap: anywhere; }
+.repository-task-detail .task-facts-grid dd, .repository-task-detail code, .repository-task-detail .task-next-action { overflow-wrap: anywhere; white-space: pre-wrap; }
+.dashboard-task-progress .project-dashboard-subtitle { line-height: 1.65; }
+@media (max-width: 800px) { .dashboard-source-item { grid-template-columns: minmax(0, 1fr); gap: 10px; } }

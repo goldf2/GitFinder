@@ -4882,7 +4882,8 @@ const App = {
       await this.ensureDashboardRepos(forceRefresh);
     }
     const displayRepos = this._prepareDisplayRepos();
-    await this.renderDashboardContent(displayRepos, contentArea);
+    await this.renderDashboardContent(displayRepos, contentArea, { forceRefresh });
+    this.ensureProjectProgressPolling?.();
     this.updateStatusBar();
   },
 
@@ -4905,19 +4906,28 @@ const App = {
     }
   },
 
-  async renderDashboardContent(displayRepos, contentArea) {
-    const filtered = this._filterByCategory(displayRepos);
+  async renderDashboardContent(displayRepos, contentArea, options = {}) {
+    const portfolio = options.portfolio || await this.readProjectProgressPortfolio(Boolean(options.forceRefresh));
+    if (AppState.currentMode !== 'dashboard') return;
+    this.ensureProjectProgressPolling?.();
+    const filtered = ProjectProgressModel.scopeRepositories(this._filterByCategory(displayRepos), portfolio.projects || [], {
+      includeUnlisted: this.activeRepositoryCategory() === 'all', query: AppState.searchQuery || '', knownRepositories: AppState.repos || []
+    });
 
     if (!filtered.length) {
       contentArea.innerHTML = `
-        <div style="text-align:center;padding:60px;color:#86868b;">
-          <div style="font-size:14px;margin-bottom:6px;">没有可显示的项目</div>
-          <div style="font-size:12px;">请先添加目录并扫描仓库,或调整筛选条件</div>
+        <div class="dashboard-empty">
+          <h3>当前范围暂无可统计的项目</h3>
+          <p>${this.escapeHtml(portfolio.error || '请添加包含任务台账的受管目录、扫描仓库，或切换项目分类。')}</p>
+          <button class="btn" id="dashboard-progress-refresh" type="button">刷新进度</button>
         </div>`;
+      AppState.dashboardStats = ProjectProgressModel.aggregate([]);
+      this.bindDashboardEvents(contentArea);
       return;
     }
 
-    const stats = await this.collectDashboardStats(filtered);
+    const stats = await this.collectDashboardStats(filtered, portfolio);
+    if (AppState.currentMode !== 'dashboard') return;
     const scopeLabel = this.getSelectedCategoryLabel();
     contentArea.innerHTML = `
       <div class="project-dashboard">
@@ -4932,17 +4942,19 @@ const App = {
           </div>
         </div>
         <div class="dashboard-kpi-grid">
-          ${this.getDashboardKpiHtml('控制文件覆盖率', `${stats.initializedPercent}%`, `${stats.initialized}/${stats.total} 个项目已初始化`, stats.initializedPercent)}
+          ${this.getDashboardKpiHtml('进度源覆盖率', `${stats.initializedPercent}%`, `${stats.initialized}/${stats.total} 个项目有台账、投影或控制文件`, stats.initializedPercent)}
           ${this.getDashboardKpiHtml('进度追踪覆盖率', `${stats.trackedPercent}%`, `${stats.tracked}/${stats.total} 个项目有进度记录`, stats.trackedPercent)}
           ${this.getDashboardKpiHtml('延期项目', `${stats.delayed}`, `截止日期早于今天且未完成`, stats.delayedPercent, stats.delayed > 0 ? 'warn' : '')}
           ${this.getDashboardKpiHtml('阻塞项目', `${stats.blocked}`, `进度记录中包含阻塞项`, stats.blockedPercent, stats.blocked > 0 ? 'warn' : '')}
           ${this.getDashboardKpiHtml('停滞项目', `${stats.stalled}`, `14 天内没有进度更新`, stats.stalledPercent, stats.stalled > 0 ? 'warn' : '')}
         </div>
+        ${this.getDashboardTaskSourcesHtml(stats, portfolio)}
         <div class="dashboard-section-grid">
           <div class="dashboard-panel">
             <div class="dashboard-panel-title">项目健康度</div>
             <div class="dashboard-health-list">
-              ${this.getDashboardHealthRow('未初始化控制文件', stats.missingControlProjects.length, stats.total)}
+              ${this.getDashboardHealthRow('缺少进度源', stats.missingControlProjects.length, stats.total)}
+              ${this.getDashboardHealthRow('数据源异常', stats.unavailableProjects.length, stats.total)}
               ${this.getDashboardHealthRow('没有进度记录', stats.untrackedProjects.length, stats.total)}
               ${this.getDashboardHealthRow('停滞项目', stats.stalledProjects.length, stats.total)}
               ${this.getDashboardHealthRow('延期项目', stats.delayedProjects.length, stats.total)}
@@ -4964,13 +4976,15 @@ const App = {
     this.bindDashboardEvents(contentArea);
   },
 
-  async collectDashboardStats(repos) {
+  async collectDashboardStats(repos, portfolio = AppState.taskPortfolio || {}) {
     const savedSelections = await window.gitFinder.config.get('projectControlSelections');
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const staleBefore = new Date(today);
     staleBefore.setDate(staleBefore.getDate() - 14);
     const projectStats = await Promise.all(repos.map(async repo => {
+      const sourceProject = ProjectProgressModel.matchProject(repo.path, portfolio.projects || []);
+      if (sourceProject) return ProjectProgressModel.fromTaskProject(repo, sourceProject, portfolio);
       try {
         const files = await window.gitFinder.fs.listProjectControlFiles(repo.path);
         const control = await this.loadProjectControl(repo.path, files, savedSelections?.[repo.path]);
@@ -5028,39 +5042,7 @@ const App = {
       }
     }));
 
-    const total = projectStats.length;
-    const initializedProjects = projectStats.filter(item => item.initialized);
-    const trackedProjects = projectStats.filter(item => item.tracked);
-    const delayedProjects = projectStats.filter(item => item.delayed);
-    const blockedProjects = projectStats.filter(item => item.blocked);
-    const stalledProjects = projectStats.filter(item => item.stalled);
-    const missingControlProjects = projectStats.filter(item => !item.initialized);
-    const untrackedProjects = projectStats.filter(item => !item.tracked);
-    const upcomingMilestones = projectStats
-      .flatMap(item => item.milestones)
-      .sort((a, b) => a.date - b.date)
-      .slice(0, 8);
-
-    return {
-      total,
-      initialized: initializedProjects.length,
-      tracked: trackedProjects.length,
-      delayed: delayedProjects.length,
-      blocked: blockedProjects.length,
-      stalled: stalledProjects.length,
-      initializedPercent: this.percent(initializedProjects.length, total),
-      trackedPercent: this.percent(trackedProjects.length, total),
-      delayedPercent: this.percent(delayedProjects.length, total),
-      blockedPercent: this.percent(blockedProjects.length, total),
-      stalledPercent: this.percent(stalledProjects.length, total),
-      projectStats,
-      missingControlProjects,
-      untrackedProjects,
-      delayedProjects,
-      blockedProjects,
-      stalledProjects,
-      upcomingMilestones
-    };
+    return ProjectProgressModel.aggregate(projectStats);
   },
 
   percent(value, total) {
@@ -5116,6 +5098,7 @@ const App = {
 
   getDashboardAttentionHtml(stats) {
     const items = [
+      ...(stats.unavailableProjects || []).map(item => ({ type: '源异常', repo: item.repo, detail: item.sourceError })),
       ...stats.delayedProjects.map(item => ({ type: '延期', repo: item.repo, detail: '存在已过截止日期的未完成事项' })),
       ...stats.blockedProjects.map(item => ({ type: '阻塞', repo: item.repo, detail: '进度记录中包含阻塞项' })),
       ...stats.stalledProjects.map(item => ({ type: '停滞', repo: item.repo, detail: item.lastProgressDate ? `上次进度：${this.formatDateShort(item.lastProgressDate)}` : '没有可识别的进度日期' })),
@@ -5137,6 +5120,10 @@ const App = {
   },
 
   bindDashboardEvents(container) {
+    container.querySelectorAll('[data-dashboard-task-project]').forEach(button => {
+      button.addEventListener('click', () => this.openProgressProjectTasks(button.dataset.dashboardTaskProject));
+    });
+    container.querySelector('#dashboard-progress-refresh')?.addEventListener('click', () => this.openDashboard(true));
     container.querySelectorAll('.dashboard-attention-item[data-path]').forEach(item => {
       item.addEventListener('click', () => this.selectRepo(item.dataset.path));
     });
@@ -7891,25 +7878,25 @@ const App = {
         const tests = visible.filter(event => (
           Array.isArray(event.categories) ? event.categories : [event.category]
         ).includes('test')).length;
-        rightText = `${visible.length} 条历史 · 测试相关 ${tests} · LPM 权威只读`;
+        rightText = `${visible.length} 条历史 · 测试相关 ${tests} · 按项目原始记录`;
       } else if (AppState.taskViewMode === 'milestones') {
         const milestones = AppState.taskPortfolio?.milestones || [];
         const visible = this.getFilteredProjectMilestones ? this.getFilteredProjectMilestones() : milestones;
         const overdue = visible.filter(milestone => milestone.overdue).length;
         const waiting = visible.filter(milestone => milestone.status === '所有自动检查通过，待人工验收').length;
-        rightText = `${visible.length} 个里程碑 · 逾期 ${overdue} · 待人工验收 ${waiting} · LPM 权威写回`;
+        rightText = `${visible.length} 个阶段/里程碑 · 逾期 ${overdue} · 待人工验收 ${waiting} · 台账只读 / 连接器确认写回`;
       } else if (AppState.taskViewMode === 'relations') {
         const tasks = AppState.taskPortfolio?.tasks || [];
         const dependencies = AppState.taskPortfolio?.dependencies || [];
         const visible = this.getFilteredProjectRelationTasks ? this.getFilteredProjectRelationTasks() : [];
         const metrics = window.ProjectTaskRelations.metrics(tasks, dependencies, AppState.taskFilters.projectId);
-        rightText = `${visible.length} 个关系任务 · ${metrics.dependencyCount} 条依赖 · ${metrics.pendingAcceptanceCount} 个待验收 · LPM 权威只读`;
+        rightText = `${visible.length} 个关系任务 · ${metrics.dependencyCount} 条依赖 · ${metrics.pendingAcceptanceCount} 个待验收 · 按项目原始记录`;
       } else {
         const tasks = AppState.taskPortfolio?.tasks || [];
         const visible = this.getFilteredProjectTasks ? this.getFilteredProjectTasks() : tasks;
         const blocked = visible.filter(task => task.status === '阻塞').length;
         const overdue = visible.filter(task => task.overdue).length;
-        rightText = `${visible.length} 个任务 · 逾期 ${overdue} · 阻塞 ${blocked} · LPM 权威写回`;
+        rightText = `${visible.length} 个任务 · 逾期 ${overdue} · 阻塞 ${blocked} · 台账只读 / 连接器确认写回`;
       }
     } else if (AppState.currentMode === 'dashboard') {
       const stats = AppState.dashboardStats;

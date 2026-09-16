@@ -11,7 +11,7 @@
 - 状态不得凭“代码看起来完成”升级。已验证、已安装、已推送、用户确认和正式发行分别记录；范围、状态语义、验收与交接模板见 [HANDOFF_PROTOCOL.md](docs/00-handoff/HANDOFF_PROTOCOL.md)。
 - 多AI先检查任务owner和工作树；只提交本轮路径/hunk，保护原有未提交内容。版本与安装由一名集成人串行处理，不并行替换用户App。
 - CURRENT_STATE与NEXT_ACTIONS的历史兼容区停止作为当前状态维护；今后只替换顶部带BEGIN/END标记的有效块，历史追加到SESSION_LOG或版本验收记录。
-- 本台账不自动接入应用内Local Project Manager投影，不创建定时开发或后台监控；未来需要接入只能生成只读导出，不维护第二份任务事实。
+- 用户已要求台账接入应用内开发任务与仪表盘；按GF-PROGRESS-001实施只读运行时投影，不维护第二份任务事实。App读取刷新不代表定时开发或后台自主验收。
 
 本文件补充 `/Volumes/project/AGENTS.md`，仅适用于本仓库。
 

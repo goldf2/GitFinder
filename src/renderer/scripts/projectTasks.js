@@ -10,15 +10,17 @@ Object.assign(App, {
       AppState.taskGitEvidenceLoading.clear();
     }
 
-    if (!AppState.taskPortfolio || forceRefresh) {
+    if (!AppState.taskPortfolio || forceRefresh || this.readProjectProgressPortfolio) {
       AppState.taskPortfolioLoading = true;
       contentArea.innerHTML = `
         <div class="task-loading" role="status">
           <div class="loading-spinner"></div>
-          <div>${forceRefresh ? '正在重读任务投影…' : '正在连接 Local Project Manager…'}</div>
+          <div>${forceRefresh ? '正在重读任务源…' : '正在读取项目台账与任务连接器…'}</div>
         </div>`;
       try {
-        AppState.taskPortfolio = await window.gitFinder.projectTasks.getPortfolio({ forceRefresh });
+        AppState.taskPortfolio = this.readProjectProgressPortfolio
+          ? await this.readProjectProgressPortfolio(true)
+          : await window.gitFinder.projectTasks.getPortfolio({ forceRefresh });
       } catch (error) {
         AppState.taskPortfolio = {
           success: false,
@@ -35,7 +37,9 @@ Object.assign(App, {
       }
     }
 
+    if (AppState.currentMode !== 'tasks') return;
     this.renderProjectTasksView();
+    this.ensureProjectProgressPolling?.();
   },
 
   getFilteredProjectTasks() {
@@ -44,7 +48,7 @@ Object.assign(App, {
     const query = String(AppState.searchQuery || '').trim().toLocaleLowerCase('zh-CN');
     return (portfolio.tasks || []).filter(task => {
       if (filters.projectId !== 'all' && task.projectId !== filters.projectId) return false;
-      if (filters.status === 'open' && task.status === '已验收完成') return false;
+      if (filters.status === 'open' && (task.completed || task.status === '已验收完成')) return false;
       if (!['all', 'open'].includes(filters.status) && task.status !== filters.status) return false;
       if (filters.priority !== 'all' && task.priority !== filters.priority) return false;
       if (filters.leafOnly && !task.isLeaf) return false;
@@ -84,7 +88,7 @@ Object.assign(App, {
     const query = String(AppState.searchQuery || '').trim().toLocaleLowerCase('zh-CN');
     return (portfolio.milestones || []).filter(milestone => {
       if (filters.projectId !== 'all' && milestone.projectId !== filters.projectId) return false;
-      if (statusFilter === 'open' && milestone.status === '已验收完成') return false;
+      if (statusFilter === 'open' && (milestone.completed || milestone.status === '已验收完成')) return false;
       if (!['all', 'open'].includes(statusFilter) && milestone.status !== statusFilter) return false;
       if (!query) return true;
       const haystack = [
@@ -113,8 +117,8 @@ Object.assign(App, {
         <section class="task-connection-empty" aria-labelledby="task-connection-title">
           <div class="task-empty-symbol" aria-hidden="true">⛓</div>
           <h2 id="task-connection-title">未连接到任务投影</h2>
-          <p>${this.escapeHtml(portfolio.error || '未发现 Local Project Manager 的项目注册表。')}</p>
-          <p class="task-empty-help">GitFinder 只会读取受管目录内的 <code>portfolio/projects.csv</code> 与项目投影，不会修改任务 CSV。</p>
+          <p>${this.escapeHtml(portfolio.error || '未发现项目台账或任务连接器。')}</p>
+          <p class="task-empty-help">将项目目录加入受管位置。GitFinder读取 <code>management/development-tasks.json</code> 或 <code>docs/00-handoff/TASKS.json</code>，并兼容原有 Local Project Manager；不另建任务事实文件。</p>
           <button class="btn btn-primary" id="task-retry-connection" type="button">重新发现</button>
         </section>`;
       contentArea.querySelector('#task-retry-connection')?.addEventListener('click', () => this.renderProjectTasks(true));
@@ -122,8 +126,9 @@ Object.assign(App, {
       return;
     }
 
+    if (AppState.taskFilters.projectId !== 'all' && !portfolio.projects.some(project => project.projectId === AppState.taskFilters.projectId)) AppState.taskFilters.projectId = 'all';
     const allTasks = portfolio.tasks || [];
-    const leafTasks = allTasks.filter(task => task.isLeaf);
+    const leafTasks = allTasks.filter(task => task.isLeaf && (AppState.taskFilters.projectId === 'all' || task.projectId === AppState.taskFilters.projectId));
     const visibleTasks = this.getFilteredProjectTasks();
     const allTimeline = portfolio.timeline || [];
     const visibleTimeline = this.getFilteredProjectTimeline();
@@ -141,10 +146,10 @@ Object.assign(App, {
     const projectTimeline = allTimeline.filter(event => (
       AppState.taskFilters.projectId === 'all' || event.projectId === AppState.taskFilters.projectId
     ));
-    const openCount = leafTasks.filter(task => task.status !== '已验收完成').length;
+    const openCount = leafTasks.filter(task => !task.completed && task.status !== '已验收完成').length;
     const blockedCount = leafTasks.filter(task => task.status === '阻塞').length;
     const overdueCount = leafTasks.filter(task => task.overdue).length;
-    const acceptanceCount = leafTasks.filter(task => task.status === '所有自动检查通过，待人工验收').length;
+    const acceptanceCount = leafTasks.filter(task => task.status === '所有自动检查通过，待人工验收' || task.sourceStatus === 'in_review').length;
     const timelineHasCategory = (event, category) => (
       Array.isArray(event.categories) ? event.categories : [event.category]
     ).includes(category);
@@ -156,7 +161,7 @@ Object.assign(App, {
     ));
     const milestoneOverdueCount = milestoneProjectSet.filter(milestone => milestone.overdue).length;
     const milestoneDueSoonCount = milestoneProjectSet.filter(milestone => milestone.dueSoon).length;
-    const milestoneCompletedCount = milestoneProjectSet.filter(milestone => milestone.status === '已验收完成').length;
+    const milestoneCompletedCount = milestoneProjectSet.filter(milestone => milestone.completed || milestone.status === '已验收完成').length;
     const statuses = [...new Set((isMilestones ? allMilestones : allTasks).map(item => item.status).filter(Boolean))];
     const priorities = [...new Set(allTasks.map(task => task.priority).filter(Boolean))]
       .sort((left, right) => left.localeCompare(right, undefined, { numeric: true }));
@@ -175,15 +180,15 @@ Object.assign(App, {
           <div class="task-heading-block">
             <div class="task-title-row">
               <h1 id="task-workspace-title">开发任务</h1>
-              <span class="task-source-badge" title="所有任务事实由 Local Project Manager 维护和写入">Local Project Manager · 权威数据</span>
+              <span class="task-source-badge" title="项目内台账是该项目唯一任务源；旧连接器按项目兼容">项目台账 / Local Project Manager</span>
             </div>
-            <p>跨项目查看任务、里程碑、持久化时间线、验收证据和关联仓库；写回继续由权威适配器确认执行。</p>
+            <p>与仪表盘同源；查看任务、依赖、验收条件和证据。仓库台账只读，旧连接器保留确认写回。前台每15秒重读。</p>
           </div>
           <div class="task-source-meta">
             <span title="${this.escapeHtml(portfolio.connector?.registryPath || '')}">${portfolio.projects.length} 个项目</span>
             <span>重读于 ${this.escapeHtml(this.formatTaskTimestamp(portfolio.refreshedAt))}</span>
-            <button class="btn btn-small btn-primary" id="task-create" type="button">新建任务</button>
-            <button class="btn btn-small" id="task-refresh" type="button">重读投影</button>
+            ${(portfolio.projects || []).some(project => project.source?.kind !== 'repository-ledger') ? '<button class="btn btn-small btn-primary" id="task-create" type="button">新建连接器任务</button>' : ''}
+            <button class="btn btn-small" id="task-refresh" type="button">刷新进度</button>
           </div>
         </header>
 
@@ -245,9 +250,9 @@ Object.assign(App, {
                 ${statuses.map(status => `<option value="${this.escapeHtml(status)}" ${AppState.milestoneStatusFilter === status ? 'selected' : ''}>${this.escapeHtml(status)}</option>`).join('')}
               </select>
             </label>
-            <span class="task-timeline-readonly">正式里程碑 · 应用前必须人工确认</span>
+            <span class="task-timeline-readonly">项目阶段 / 里程碑 · 仓库汇总只读，连接器变更需确认</span>
           ` : isRelations ? `
-            <span class="task-timeline-readonly">只读门禁 · 依赖与验收事实由 Local Project Manager 维护</span>
+            <span class="task-timeline-readonly">只读门禁 · 依赖与验收按各项目原始任务源维护</span>
           ` : `
             <label>状态
               <select id="task-status-filter">
@@ -274,7 +279,7 @@ Object.assign(App, {
             <button type="button" data-task-view="milestones" class="${isMilestones ? 'active' : ''}" aria-pressed="${isMilestones}">里程碑</button>
             <button type="button" data-task-view="relations" class="${isRelations ? 'active' : ''}" aria-pressed="${isRelations}">依赖验收</button>
           </div>
-          <span class="task-result-count">当前 ${isTimeline ? visibleTimeline.length : (isMilestones ? visibleMilestones.length : (isRelations ? visibleRelationTasks.length : visibleTasks.length))} / ${isTimeline ? allTimeline.length : (isMilestones ? allMilestones.length : allTasks.length)}</span>
+          <span class="task-result-count">当前 ${isTimeline ? visibleTimeline.length : (isMilestones ? visibleMilestones.length : (isRelations ? visibleRelationTasks.length : visibleTasks.length))} / ${isTimeline ? projectTimeline.length : (isMilestones ? milestoneProjectSet.length : allTasks.filter(task => AppState.taskFilters.projectId === 'all' || task.projectId === AppState.taskFilters.projectId).length)}</span>
         </div>
 
         ${isTimeline ? `
@@ -522,6 +527,7 @@ Object.assign(App, {
   },
 
   getProjectTaskRelationDetailHtml(task) {
+    if (task.source?.kind === 'repository-ledger') return this.getRepositoryTaskDetailHtml(task);
     const predecessors = task.predecessors || [];
     const successors = task.successors || [];
     const acceptance = task.acceptance || [];
@@ -618,6 +624,7 @@ Object.assign(App, {
   },
 
   getProjectMilestoneDetailHtml(milestone) {
+    if (milestone.source?.kind === 'repository-ledger') return this.getRepositoryMilestoneDetailHtml(milestone);
     const timingLabel = milestone.overdue ? ' · 已逾期' : (milestone.dueSoon ? ' · 七日内到期' : '');
     return `
       <div class="task-detail-scroll milestone-detail-scroll">
@@ -758,6 +765,7 @@ Object.assign(App, {
   },
 
   getProjectTaskDetailHtml(task) {
+    if (task.source?.kind === 'repository-ledger') return this.getRepositoryTaskDetailHtml(task);
     const acceptanceRatio = task.acceptanceTotal ? `${task.acceptancePassed}/${task.acceptanceTotal}` : '未配置';
     return `
       <div class="task-detail-scroll">
@@ -998,7 +1006,7 @@ Object.assign(App, {
   },
 
   getProjectTaskCreateFormHtml(draft = {}) {
-    const projects = AppState.taskPortfolio?.projects || [];
+    const projects = (AppState.taskPortfolio?.projects || []).filter(project => project.source?.kind !== 'repository-ledger' && project.source?.writebackAllowed !== false);
     const selectedProject = projects.find(project => project.projectId === draft.project_id) || projects[0] || null;
     const projectTasks = (AppState.taskPortfolio?.tasks || []).filter(task => task.projectId === selectedProject?.projectId);
     const stages = selectedProject?.stages || [];
@@ -1794,7 +1802,8 @@ Object.assign(App, {
   openProjectTaskCreate(parentTaskKey = '') {
     const modal = document.getElementById('task-create-modal');
     const selectedTask = this.getProjectTaskByKey(parentTaskKey || AppState.selectedTaskKey);
-    const projects = AppState.taskPortfolio?.projects || [];
+    if (parentTaskKey && selectedTask?.source?.kind === 'repository-ledger') return;
+    const projects = (AppState.taskPortfolio?.projects || []).filter(project => project.source?.kind !== 'repository-ledger' && project.source?.writebackAllowed !== false);
     const project = projects.find(item => item.projectId === selectedTask?.projectId) || projects[0];
     if (!modal || !project || AppState.taskCreateApplying) return;
     AppState.taskCreateDraft = {
@@ -2209,6 +2218,12 @@ Object.assign(App, {
   },
 
   bindProjectTaskEvents(contentArea) {
+    contentArea.querySelectorAll('[data-task-source-path]').forEach(button => {
+      button.addEventListener('click', async () => {
+        try { await window.gitFinder.fs.showInFinder(button.dataset.taskSourcePath); }
+        catch (error) { this._showStatusMessage(error?.message || '无法定位任务源', 'error'); }
+      });
+    });
     this.bindProjectTaskStatusModalEvents();
     this.bindProjectTaskEditModalEvents();
     this.bindProjectTaskCreateModalEvents();
