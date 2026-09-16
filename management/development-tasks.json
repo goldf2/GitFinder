@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-17T05:13:42+08:00",
+  "updatedAt": "2026-09-17T05:30:05+08:00",
   "scope": "以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。",
   "baseline": {
     "version": "2.0.0-alpha.193",
@@ -864,7 +864,7 @@
       "priority": "P0",
       "status": "verified",
       "owner": "ChatGPT / AgentDock Cloudflare",
-      "updatedAt": "2026-09-17T05:13:42+08:00",
+      "updatedAt": "2026-09-17T05:30:05+08:00",
       "dependsOn": [
         "GF-LAYOUT-193"
       ],
@@ -884,7 +884,7 @@
       "evidence": [
         "docs/00-handoff/RESOURCE_CONTAINERS_ALPHA197.md"
       ],
-      "nextAction": "源码全量1327/1327、27项专项及实际Electron18项通过；从本轮提交构建并完成可恢复安装、18项安装版及测试开关保护后再推送。",
+      "nextAction": "旧observed锚点兼容修正后29专项、1329全量/290JS与源码21项可见UI通过；用纠正提交重新构建安装，复验自动工作区和原数据后才推送。",
       "blocker": "",
       "delivery": null,
       "userAcceptance": "pending"

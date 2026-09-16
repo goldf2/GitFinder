@@ -97,7 +97,13 @@ async function main() {
   const screenshot=async(name)=>{const shot=await client.send('Page.captureScreenshot',{format:'png'});fs.writeFileSync(path.join(output,name),Buffer.from(shot.data,'base64'));};
   const keyFor=async(type,node)=>client.evaluate(`(()=>{const entity=__c.panelProjection.entities.find(e=>e.type===${JSON.stringify(type)}&&(e.runtime?.nodeId===${JSON.stringify(node)}||e.name===${JSON.stringify(node)}));if(!entity)throw Error('Fixture source missing');return 'entity:'+entity.id})()`);
   const add=async key=>{await client.click(`[data-add-resource="${key}"]`);await idle();};
-  const fit=async()=>{await client.evaluate('__c.fitContent()');await delay(350);};
+  const fit=async()=>{
+    // Wait for React Flow to commit and measure the new model before fitting.
+    await delay(400);
+    await client.evaluate('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))');
+    await client.evaluate('__c.flowCanvas.fitView({padding:.16,minZoom:.03,maxZoom:1.5,duration:0})');
+    await delay(200);
+  };
   try {
     await launch();await inject();
     await check('空白本机白板默认未注入远端节点',"__c.store.boards.find(b=>b.id===__c.store.activeBoardId).placements.length===0");
@@ -132,7 +138,7 @@ async function main() {
     await client.evaluate(`__c._openDocument(${JSON.stringify(document.record.id)})`);await inject();
     await add(hostEmpty);await fit();
     const bubble='.react-flow__node-hostBubble';
-    const start=await client.evaluate(`(()=>{const r=document.querySelector(${JSON.stringify(bubble)}).getBoundingClientRect();window.__emptyBefore={...__c.store.boards[0].placements[0]};window.__dragZoom=__c.store.boards[0].viewport.zoom;return{x:r.x+r.width/2,y:r.y+r.height*.6}})()`);
+    const start=await client.evaluate(`(()=>{const r=document.querySelector(${JSON.stringify(bubble)}).getBoundingClientRect();window.__emptyBefore={...__c.store.boards[0].placements[0]};window.__dragZoom=new DOMMatrixReadOnly(getComputedStyle(__c.root.querySelector('.react-flow__viewport')).transform).a;window.__hostBefore=new DOMMatrixReadOnly(getComputedStyle(document.querySelector('.react-flow__node-hostBubble')).transform).toJSON();return{x:r.x+r.width/2,y:r.y+r.height*.6}})()`);
     await client.send('Input.dispatchMouseEvent',{type:'mouseMoved',...start});
     await client.send('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',buttons:1,clickCount:1,...start});
     // Cross the pointer activation threshold with small real movement first;
@@ -141,8 +147,8 @@ async function main() {
     for(let i=1;i<=6;i++)await client.send('Input.dispatchMouseEvent',{type:'mouseMoved',button:'left',buttons:1,x:start.x+i*12,y:start.y+i*6});
     await client.send('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:1,x:start.x+72,y:start.y+36});await idle();
     await check('空主机容器真实指针移动后写入独立文件坐标',"__c.store.boards[0].placements[0].x!==__emptyBefore.x&&__c.store.boards[0].placements[0].y!==__emptyBefore.y");
-    fs.writeFileSync(path.join(output,'empty-host-drag.json'),JSON.stringify(await client.evaluate('({before:__emptyBefore,after:__c.store.boards[0].placements[0],zoom:__dragZoom,screenDelta:{x:72,y:36}})'),null,2));
-    await check('空主机拖动位移不随多次鼠标事件累计放大',"Math.abs((__c.store.boards[0].placements[0].x-__emptyBefore.x)-72/__dragZoom)<3&&Math.abs((__c.store.boards[0].placements[0].y-__emptyBefore.y)-36/__dragZoom)<3");
+    fs.writeFileSync(path.join(output,'empty-host-drag.json'),JSON.stringify(await client.evaluate('({before:__emptyBefore,after:__c.store.boards[0].placements[0],zoom:__dragZoom,storedZoom:__c.store.boards[0].viewport.zoom,hostBefore:__hostBefore,hostAfter:new DOMMatrixReadOnly(getComputedStyle(document.querySelector(".react-flow__node-hostBubble")).transform).toJSON(),screenDelta:{x:72,y:36}})'),null,2));
+    await check('空主机保存位移与实际画布一致，不随事件累计放大',"(()=>{const p=__c.store.boards[0].placements[0],m=new DOMMatrixReadOnly(getComputedStyle(document.querySelector('.react-flow__node-hostBubble')).transform);return Math.abs((p.x-__emptyBefore.x)-72/__dragZoom)<3&&Math.abs((p.y-__emptyBefore.y)-36/__dragZoom)<3&&Math.abs((p.x-__emptyBefore.x)-(m.m41-__hostBefore.m41))<.05&&Math.abs((p.y-__emptyBefore.y)-(m.m42-__hostBefore.m42))<.05})()");
     // Add a populated host to the independent project through its real palette.
     await add(hostA);await fit();
     await check('独立白板通过同一资源加号加入完整组成',"__c.documentRecord.id==="+JSON.stringify(document.record.id)+"&&__c.store.entities.filter(e=>e.type==='group').length===1&&__c.store.entities.filter(e=>e.type==='deployment').length===1");
@@ -158,6 +164,18 @@ async function main() {
     await check('空容器重启后没有回弹到旧坐标',`(()=>{const p=__c.store.boards[0].placements.find(p=>p.entityId===${JSON.stringify(emptyId)});return p.x===${emptyPosition.x}&&p.y===${emptyPosition.y}})()`);
     await check('仪表盘与开发进度测试开关仍默认关闭',"AppState.experimentalFeatures.tasks===false&&AppState.experimentalFeatures.dashboard===false");
     await screenshot('offline-reopened.png');
+    // Reproduce the existing workspace format: only observed host anchors and
+    // display preferences are persisted, not a complete imported snapshot.
+    const observedHosts=Projection.buildProjection(topology).entities.filter(e=>e.type==='server').map(e=>({id:e.id,type:e.type,name:e.name,details:{hostLabel:e.details?.hostLabel||''},source:'observed'}));
+    const anchors=empty();anchors.entities=observedHosts;anchors.boards[0].view.structure='server-tree';
+    anchors.boards[0].placements=observedHosts.map((e,i)=>({entityId:e.id,x:i*500,y:80,resourceDisplayLevels:['host','project','deployment','endpoint']}));
+    await stop();
+    fs.writeFileSync(path.join(profile,'relationship-boards.json'),JSON.stringify(anchors));
+    await launch();await inject();await fit();
+    await check('旧版observed主机锚点按原偏好继续展开实时Project和部署',"__c.localWorkspaceMode&&!__c.documentRecord&&__c.flowRenderOptions.model.nodes.filter(n=>n.data.entity.type==='deployment').length===2&&document.querySelectorAll('.gf-flow-group').length===2");
+    await check('旧自动工作区展开不擅自固化源节点和关系',"__c.store.boards[0].placements.length===3&&__c.store.relationships.length===0");
+    await check('旧工作区主机与部署实际位于可见画布内',"(()=>{const canvas=__c.root.querySelector('.relationship-canvas').getBoundingClientRect();const nodes=[...__c.root.querySelectorAll('.react-flow__node-hostBubble,.react-flow__node-relationshipCard')];return nodes.length>=5&&nodes.every(n=>{const r=n.getBoundingClientRect();return r.width>0&&r.height>0&&r.right>canvas.left&&r.left<canvas.right&&r.bottom>canvas.top&&r.top<canvas.bottom})})()");
+    await screenshot('legacy-live-workspace.png');
     assert.equal(exceptions.length,0,JSON.stringify(exceptions));
     fs.writeFileSync(path.join(output,'result.json'),JSON.stringify({checkedAt:new Date().toISOString(),executable,results,exceptions,scope:'Synthetic provider input only; actual app renderer, pointer/HTML drag, file IPC and process restart. No real user board writes or Coolify requests.'},null,2));
     console.log(JSON.stringify({output,passed:true,checks:results.length}));

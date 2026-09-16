@@ -1999,7 +1999,7 @@
       // Coolify Projects are visual containers, distinct from local project cards.
       const sourcePlacements = new Map([...(this.store?.boards || []).flatMap(board => board.placements || []), ...(activeBoard(this.store)?.placements || []), ...(this.panelProjection?.placements || [])]
         .map(item => [item.entityId, item]));
-      const snapshotIds = new Set((this.store?.entities || []).filter(item => item.source === 'observed' && !item.transient).map(item => item.id));
+      const snapshotIds = ResourceComposition.materializedIds(this.store, activeBoard(this.store));
       for (const item of activeBoard(this.store)?.placements || []) if (snapshotIds.has(item.entityId)) sourcePlacements.set(item.entityId, item);
       for (const deployment of entities.filter(entity => entity.type === 'deployment')) {
         const group = byId.get(sourcePlacements.get(deployment.id)?.groupId);
@@ -2255,7 +2255,7 @@
       const aliases = topologyVisible ? this._endpointAliases() : new Map();
       const entities = new Map(this._combinedEntities().map(entity => [entity.id, entity]));
       const topologyScopeMode = this._readBoardView().topologyScopeMode;
-      const snapshotIds = new Set((this.store?.entities || []).filter(item => item.source === 'observed' && !item.transient).map(item => item.id));
+      const snapshotIds = ResourceComposition.materializedIds(this.store, board);
       const hasDisplayPreferences = (board?.placements || []).some(item => !snapshotIds.has(item.entityId) && resourceDisplayLevelsFor(entities.get(item.entityId), item).length);
       const previewingRuntime = topologyVisible && !this.documentRecord && (topologyScopeMode !== 'board' || hasDisplayPreferences);
       const liveTopologyIds = new Set((this.panelProjection?.placements || []).map(item => item.entityId));

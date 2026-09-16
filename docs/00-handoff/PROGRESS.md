@@ -2,7 +2,7 @@
 
 > 自动生成。只编辑 `management/development-tasks.json`，然后执行 `npm run handoff:update`。
 
-更新时间：2026-09-17T05:13:42+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
+更新时间：2026-09-17T05:30:05+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
 
 核验基线：2.0.0-alpha.193 / `99eef1d2992e389f32a48182a25fda3b9adf1958`；证据：[docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md](LAYOUT_OPTIONS_ALPHA193.md)。
 
@@ -601,14 +601,14 @@
 
 阶段：GF-P1；优先级：P0；状态：**已验证**；负责人：ChatGPT / AgentDock Cloudflare；用户验收：待用户反馈。
 
-更新：2026-09-17T05:13:42+08:00。依赖：GF-LAYOUT-193。
+更新：2026-09-17T05:30:05+08:00。依赖：GF-LAYOUT-193。
 
 **验收标准**
 1. 资源库加号和拖拽在本机/独立白板可添加与自动工作区一致的主机容器及所属Project、部署和端点，不带入其它主机内容。
 2. 复用主机容器渲染；重复添加不重复，补全保留既有位置/锁定/备注，新增关系和层级保存/离线重开可恢复，撤销单次操作完整回退。
 3. 核查Project、部署、端点及本地项目/仓库入口；默认关闭测试功能不受影响；记录全量、实际安装验证和保护边界。
 
-**接续动作：** 源码全量1327/1327、27项专项及实际Electron18项通过；从本轮提交构建并完成可恢复安装、18项安装版及测试开关保护后再推送。
+**接续动作：** 旧observed锚点兼容修正后29专项、1329全量/290JS与源码21项可见UI通过；用纠正提交重新构建安装，复验自动工作区和原数据后才推送。
 
 源码/设计入口：[src/renderer/scripts/relationshipBoardController.js](../../src/renderer/scripts/relationshipBoardController.js)；[src/shared/relationshipFlowAdapter.js](../../src/shared/relationshipFlowAdapter.js)；[src/renderer/scripts/relationshipBoardResourceView.js](../../src/renderer/scripts/relationshipBoardResourceView.js)；[src/shared/relationshipResourceComposition.js](../../src/shared/relationshipResourceComposition.js)；[test/relationship-resource-composition.test.js](../../test/relationship-resource-composition.test.js)；[scripts/verify-resource-containers.js](../../scripts/verify-resource-containers.js)。
 

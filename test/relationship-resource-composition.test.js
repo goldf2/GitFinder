@@ -269,3 +269,23 @@ test('本机其它白板已有的离线Project归属在资源库仍可展开', (
   const host=c._resourceCatalog().find(i=>i.key===r.key);
   assert.ok(host.children.some(child=>child.kind==='group'));
 });
+
+test('旧工作区仅保存observed主机锚点时仍按显示偏好展开实时Project与部署', () => {
+  const c=fixture();
+  c.panelProjection=Projection.buildProjection({...c.panelTopologyResult,serverTree:true});
+  c.store.entities=c.panelProjection.entities.filter(e=>e.type==='server').map(e=>c._portableEntity(e));
+  board(c).view.structure='server-tree';
+  board(c).placements=c.store.entities.map((e,i)=>({entityId:e.id,x:i*500,y:80,resourceDisplayLevels:['host','project','deployment','endpoint']}));
+  const graph=c._filteredGraph();const map=new Map(c._combinedEntities().map(e=>[e.id,e]));
+  assert.equal(graph.placements.filter(p=>map.get(p.entityId)?.type==='deployment').length,2);
+  assert.equal(graph.placements.filter(p=>map.get(p.entityId)?.type==='group').length,2);
+  assert.equal(board(c).placements.length,3);assert.equal(c.store.relationships.length,0);
+});
+
+test('完整手动组合快照的主机显示偏好不会再引入其它主机或重复Project', () => {
+  const c=fixture();const r=source(c,'server','a');c._addResource(r);
+  board(c).placements.find(p=>p.entityId===r.entityId).resourceDisplayLevels=['host','project','deployment','endpoint'];
+  const graph=c._filteredGraph();const map=new Map(c._combinedEntities().map(e=>[e.id,e]));
+  assert.equal(graph.placements.filter(p=>map.get(p.entityId)?.type==='deployment').length,1);
+  assert.equal(graph.placements.filter(p=>map.get(p.entityId)?.type==='group').length,1);
+});

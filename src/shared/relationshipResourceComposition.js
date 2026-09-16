@@ -61,5 +61,27 @@
       relationships: (graph.relationships || []).filter(edge => selected.has(edge.sourceId) || selected.has(edge.targetId))
     };
   }
-  return Object.freeze({ isProjectContainer, isCloudProject, select });
+  function materializedIds(store, board) {
+    const placements = new Map((board?.placements || []).map(item => [item.entityId, item]));
+    const entities = new Map((store?.entities || []).map(item => [item.id, item]));
+    const connected = new Set();
+    for (const edge of store?.relationships || []) {
+      if (!['runs_on', 'hosts', 'exposes', 'exposed_by'].includes(edge.type)
+        || !placements.has(edge.sourceId) || !placements.has(edge.targetId)) continue;
+      connected.add(edge.sourceId); connected.add(edge.targetId);
+    }
+    const ids = new Set();
+    for (const id of connected) {
+      const entity = entities.get(id);
+      if (entity?.source !== 'observed' || entity.transient) continue;
+      ids.add(id);
+      let parent = placements.get(id)?.groupId;
+      const seen = new Set();
+      while (parent && !seen.has(parent) && isProjectContainer(entities.get(parent))) {
+        seen.add(parent); ids.add(parent); parent = placements.get(parent)?.groupId;
+      }
+    }
+    return ids;
+  }
+  return Object.freeze({ isProjectContainer, isCloudProject, select, materializedIds });
 });
