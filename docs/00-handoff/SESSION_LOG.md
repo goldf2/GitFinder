@@ -379,3 +379,11 @@
 - 只读仓库适配、同源任务/仪表盘、刷新与错误状态已完成。新增19回归、完整1284测试/285JS、隔离Electron9项通过。
 - 组合工具时限中断未算通过，UI已独立重跑。证据见PROGRESS_BRIDGE_ALPHA195.json。
 - 基于已交付alpha194/672053d整合，目标195；下一步是从真实提交打包、可恢复安装、正常启动后推送。不动原用户10项dirty及白板。
+
+## 2026-09-16T16:57:50+08:00 · GF-PROGRESS-001 · alpha195已安装及源码已推送
+
+- 实际运行源码564fadb，干净1284测试/285JS，安装版隔离9项通过；ASAR与产物报告一致，旧194已备份。
+- 正常配置启动已显示真实项目任务，但文稿权限弹窗需用户确认；不代授权限、不伪称正常配置全部点击/私有白板字节验收。
+- 源码push与ls-remote一致；原10项用户delta保留。任务delivered、用户反馈pending，nextTaskId回GF-QUALITY-001。
+- 失败保留：首次清洁依赖并发Electron解包失败，单独准备后全量重跑通过；组合check+UI超时后UI独立重跑通过。
+- 详见REPOSITORY_PROGRESS_BRIDGE.md与PROGRESS_BRIDGE_ALPHA195.json。

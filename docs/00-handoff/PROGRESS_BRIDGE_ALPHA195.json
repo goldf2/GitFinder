@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-09-16T16:41:19+08:00",
+  "checkedAt": "2026-09-16T16:57:50+08:00",
   "taskId": "GF-PROGRESS-001",
   "version": "2.0.0-alpha.195",
   "baseCommit": "672053d92a4775bdb6905332a3a45967a7318449",
@@ -26,14 +26,57 @@
   "localEvidence": [
     "dist/progress-bridge-check/final-check.log",
     "dist/progress-bridge-check/standalone-ui.log",
-    "dist/progress-ui-3KGQkI/result.json"
+    "dist/progress-ui-3KGQkI/result.json",
+    "dist/progress-bridge-check/clean-environment-note.json",
+    "dist/progress-bridge-check/clean-check-ready.log",
+    "dist/release-verification.json",
+    "dist/progress-ui-92uIeP/result.json",
+    "dist/progress-bridge-check/install.json"
   ],
   "limits": [
-    "Repository ledgers are read-only in the App; legacy connector writeback remains separately gated.",
-    "A combined check+UI tool command exceeded its overall time limit after checks; the isolated UI suite was rerun separately and passed.",
-    "Installation, normal profile startup and push are not yet verified by this source-stage report.",
-    "No production accounts, storefront catalog, role data or user workboards were changed."
+    "Repository task ledgers remain read-only in the App; legacy connector writes remain separately gated.",
+    "Native macOS Documents access confirmation is pending user choice; full normal-profile native clicking is not claimed.",
+    "No user acceptance is signed on the user behalf; documents/tasks/implementation/deployment remain separate.",
+    "No Windows, Apple notarization or public software release was performed.",
+    "No normal-profile data files were directly edited; byte-level equality of private user boards was not verified."
   ],
-  "installation": "pending",
-  "publicRelease": "not_requested"
+  "installation": {
+    "path": "/Applications/GitFinder 2.app",
+    "version": "2.0.0-alpha.195",
+    "sourceCommit": "564fadb98b813afc839da5f22655b30934f8930c",
+    "asarSha256": "1610f9332ce97a6fe7e1478268df1e5e47fa25c00e939549c2dc17af4373ce8b",
+    "codesign": "passed",
+    "backup": "/Volumes/project/制品与备份/GitFinder-2-alpha194-before195.app.disabled",
+    "installedUiChecks": {
+      "passed": 9,
+      "failed": 0
+    },
+    "normalProfileStartup": "Visible alpha195 tasks interface; native Documents permission dialog awaiting user choice.",
+    "normalProfileVisibleTaskData": "2026-09-16T16:55:25+08:00 screenshot shows 6 source projects and real OakTech task OPS-01 behind the permission dialog.",
+    "permissionGrantedByAssistant": false,
+    "normalProfileByteEqualityVerified": false,
+    "temporaryDebugPortClosed": true
+  },
+  "publicRelease": "not_requested",
+  "sourceCommit": "564fadb98b813afc839da5f22655b30934f8930c",
+  "sourcePushed": true,
+  "sourceRemoteVerified": "564fadb98b813afc839da5f22655b30934f8930c",
+  "cleanCheckout": {
+    "npmCi": "passed",
+    "firstFullRun": "Two Electron extraction collisions during concurrent first import; retained failed log.",
+    "targetedRecovery": {
+      "tests": 16,
+      "passed": 16
+    },
+    "completeRerun": {
+      "tests": 1284,
+      "passed": 1284,
+      "failed": 0,
+      "javascriptSyntax": 285
+    }
+  },
+  "originalUserWorktree": {
+    "protectedItems": 10,
+    "contentDeltasAndUntrackedHashesPreserved": true
+  }
 }
