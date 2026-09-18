@@ -25,6 +25,7 @@ import '@xyflow/react/dist/style.css';
 import './relationshipCanvas.css';
 import Adapter from '../../shared/relationshipFlowAdapter';
 import CoolifyLinks from '../../shared/coolifyManagementLinks';
+import ResourceComposition from '../../shared/relationshipResourceComposition';
 import CardIcon, { defaultCardIcon } from './CardIcon';
 
 const HANDLE_POSITIONS = {
@@ -274,7 +275,7 @@ function ContainerHeader({ id, data, host = false, selected }) {
   const { zoom } = useViewport();
   const entity = data.entity;
   const isOpen = openId === id;
-  const physical = host || entity.runtime?.dynamicKind === 'coolify-project-group';
+  const physical = host || ResourceComposition.isProjectContainer(entity);
   const toggle = event => { event.stopPropagation(); setOpenId(current => current === id ? null : id); };
   const actions = isOpen ? <span className="gf-flow-group-actions" role="toolbar" aria-label={`${entity.name} 快捷操作`}>
         {host ? <ToolbarButton data={data} action="resource-settings" entity={entity}>显示设置</ToolbarButton> : null}

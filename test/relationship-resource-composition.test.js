@@ -289,3 +289,111 @@ test('完整手动组合快照的主机显示偏好不会再引入其它主机�
   assert.equal(graph.placements.filter(p=>map.get(p.entityId)?.type==='deployment').length,1);
   assert.equal(graph.placements.filter(p=>map.get(p.entityId)?.type==='group').length,1);
 });
+
+// Identical saved composition, with or without its transient live source.
+function lifecycleFixture(offline = true, bothHosts = false) {
+  const c=fixture(true);c._addResource(source(c,'server','a'));
+  if(bothHosts)c._addResource(source(c,'server','b'));
+  if(offline){c.store=Model.assertValidStore(c.store);c.panelProjection={entities:[],placements:[],relationships:[]};c.panelTopologyResult={state:'unconfigured'};}
+  c._setCanvasAnnouncement=()=>{};
+  return c;
+}
+
+test('Project成员在线与离线均不能通过移出群组改变来源归属', () => {
+  for(const offline of [false,true]){
+    const c=lifecycleFixture(offline),e=c.store.entities.find(e=>e.type==='deployment');
+    c._selectOnlyEntity(e.id);const before=JSON.stringify(c.store),history=c.undoStack.length;
+    assert.equal(c._hasSampledOwnership(e.id),true,`offline=${offline}`);
+    assert.equal(c._removeSelectionFromGroups(),false);
+    assert.equal(JSON.stringify(c.store),before);assert.equal(c.undoStack.length,history);
+  }
+});
+
+test('Project作为目标也拒绝手工塞入无来源成员，离线不放开约束', () => {
+  for(const offline of [false,true]){
+    const c=lifecycleFixture(offline),group=c.store.entities.find(e=>e.type==='group');
+    c._addEntity({id:'entity_localtext01',type:'text',name:'Local',details:{},source:'manual'});
+    assert.equal(c._canJoinGroup('entity_localtext01',group.id),false);
+    c._selectOnlyEntity('entity_localtext01');const before=JSON.stringify(c.store);
+    assert.equal(c._assignSelectionToGroup(group.id),false);assert.equal(JSON.stringify(c.store),before);
+  }
+});
+
+test('Project删除在在线和离线均仅隐藏，不删除成员、关系或解除分组', () => {
+  for(const offline of [false,true]){
+    const c=lifecycleFixture(offline),group=c.store.entities.find(e=>e.type==='group');
+    const before=JSON.stringify({entities:c.store.entities,relationships:c.store.relationships,placements:board(c).placements});
+    c._selectOnlyEntity(group.id);c._deleteSelection();
+    assert.deepEqual(board(c).hiddenResourceIds,[group.id]);
+    assert.equal(JSON.stringify({entities:c.store.entities,relationships:c.store.relationships,placements:board(c).placements}),before);
+    const hidden=c._hiddenResourceIds();assert.ok(hidden.has(group.id));
+    for(const p of board(c).placements.filter(p=>p.groupId===group.id))assert.ok(hidden.has(p.entityId));
+  }
+});
+
+test('离线Project上下文菜单与属性面板不提供解散/修改父级入口', () => {
+  const c=lifecycleFixture(),group=c.store.entities.find(e=>e.type==='group');c._selectOnlyEntity(group.id);
+  const items=c._contextMenuItems('node').filter(Boolean);
+  assert.ok(items.some(item=>item.contextAction==='hide-resource'));
+  assert.equal(items.some(item=>item.contextAction==='delete'),false);
+  assert.doesNotMatch(c._groupAppearanceEditorHtml(group.id),/name="parentGroup"/);
+});
+
+test('离线部署菜单不出现移出Project命令', () => {
+  const c=lifecycleFixture(),e=c.store.entities.find(e=>e.type==='deployment');c._selectOnlyEntity(e.id);
+  assert.equal(c._contextMenuItems('node').filter(Boolean).some(item=>item.action==='remove-selection-group'),false);
+});
+
+test('Project隐藏可撤销、重做、从资源库恢复，单独隐藏子项不被恢复', () => {
+  const c=lifecycleFixture(),group=c.store.entities.find(e=>e.type==='group'),endpoint=c.store.entities.find(e=>e.type==='endpoint');
+  board(c).hiddenResourceIds=[endpoint.id];const before=JSON.stringify(c.store);
+  c._selectOnlyEntity(group.id);c._deleteSelection();const hidden=JSON.stringify(c.store);
+  c.undo();assert.equal(JSON.stringify(c.store),before);c.redo();assert.equal(JSON.stringify(c.store),hidden);
+  c._addResource({kind:'group',entityId:group.id,key:`entity:${group.id}`});
+  assert.deepEqual(board(c).hiddenResourceIds,[endpoint.id]);assert.ok(board(c).placements.some(p=>p.entityId===group.id));
+});
+
+test('隐藏离线Project不影响另一个主机及共享访问点', () => {
+  const c=lifecycleFixture(true,true),depA=c.store.entities.find(e=>e.name==='App A'),depB=c.store.entities.find(e=>e.name==='App B');
+  const group=board(c).placements.find(p=>p.entityId===depA.id).groupId;
+  const shared=c.store.entities.find(e=>e.type==='endpoint'&&e.name==='shared.example.invalid');
+  c._selectOnlyEntity(group);c._deleteSelection();const hidden=c._hiddenResourceIds();
+  assert.ok(hidden.has(depA.id));assert.equal(hidden.has(depB.id),false);assert.equal(hidden.has(shared.id),false);
+});
+
+test('普通手动群组仍可解散并保留成员，不被误判为来源容器', () => {
+  const c=lifecycleFixture();c._addEntity({id:'entity_manual01',type:'group',name:'Manual',details:{},source:'manual'});
+  c._addEntity({id:'entity_manualchild01',type:'text',name:'Child',details:{},source:'manual'});
+  board(c).placements.find(p=>p.entityId==='entity_manualchild01').groupId='entity_manual01';
+  c._selectOnlyEntity('entity_manual01');assert.ok(c._contextMenuItems('node').filter(Boolean).some(item=>item.contextAction==='delete'));
+  c._deleteSelection();assert.equal(c.store.entities.some(e=>e.id==='entity_manual01'),false);
+  assert.ok(c.store.entities.some(e=>e.id==='entity_manualchild01'));assert.equal(board(c).placements.find(p=>p.entityId==='entity_manualchild01').groupId,undefined);
+});
+
+test('离线Project范围选项不会因为runtime未保存而消失', () => {
+  const c=lifecycleFixture(),group=c.store.entities.find(e=>e.type==='group');
+  const options=c._topologyScopeOptions('project');assert.ok(options.some(item=>item.id===group.id),JSON.stringify(options));
+});
+
+test('容器标题使用共享稳定身份而不是仅按实时runtime判断', () => {
+  const text=fs.readFileSync(path.join(__dirname,'../src/renderer/relationship-canvas/index.jsx'),'utf8');
+  assert.match(text,/const physical = host \|\| ResourceComposition\.isProjectContainer\(entity\)/);
+});
+
+test('独立文档导出保留隐藏列表，不丢弃被隐藏的成员与关系', () => {
+  const c=lifecycleFixture(),group=c.store.entities.find(e=>e.type==='group');c._selectOnlyEntity(group.id);c._deleteSelection();
+  const exported=c._buildActiveBoardExportStore();assert.deepEqual(exported.boards[0].hiddenResourceIds,[group.id]);
+  assert.equal(exported.boards[0].placements.length,board(c).placements.length);assert.equal(exported.relationships.length,c.store.relationships.length);
+  exported.boards[0].hiddenResourceIds.push('entity_testonly');assert.deepEqual(board(c).hiddenResourceIds,[group.id]);
+});
+
+test('真实文件服务读回隐藏Project后仍能离线恢复完整组成', t => {
+  const os=require('node:os'),{WhiteboardDocumentService}=require('../src/main/services/whiteboardDocumentService');
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'gf-hidden-project-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+  const service=new WhiteboardDocumentService({baseDirectory:path.join(dir,'profile')});
+  const c=lifecycleFixture(),group=c.store.entities.find(e=>e.type==='group');c._selectOnlyEntity(group.id);c._deleteSelection();
+  const saved=service.save({store:c._buildActiveBoardExportStore()},path.join(dir,'test.gitfinder-board.json'));
+  c.store=service.open(saved.record.id).store;assert.ok(c._hiddenResourceIds().has(group.id));
+  c._addResource({kind:'group',entityId:group.id,key:`entity:${group.id}`});assert.equal(c._hiddenResourceIds().has(group.id),false);
+  assert.equal(c.store.entities.filter(e=>e.type==='deployment').length,1);assert.equal(c.store.relationships.length,3);
+});

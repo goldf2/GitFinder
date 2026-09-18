@@ -164,6 +164,38 @@ async function main() {
     await check('空容器重启后没有回弹到旧坐标',`(()=>{const p=__c.store.boards[0].placements.find(p=>p.entityId===${JSON.stringify(emptyId)});return p.x===${emptyPosition.x}&&p.y===${emptyPosition.y}})()`);
     await check('仪表盘与开发进度测试开关仍默认关闭',"AppState.experimentalFeatures.tasks===false&&AppState.experimentalFeatures.dashboard===false");
     await screenshot('offline-reopened.png');
+
+    // Offline Project actions must retain source ownership, not become manual-group actions.
+    const projectId=await client.evaluate("__c.store.entities.find(e=>e.type==='group').id");
+    const deploymentId=await client.evaluate("__c.store.entities.find(e=>e.type==='deployment').id");
+    const compositionBefore=await client.evaluate("JSON.stringify({entities:__c.store.entities,relationships:__c.store.relationships,placements:__c.store.boards[0].placements})");
+    await client.click('.gf-flow-group .gf-flow-more');
+    await client.wait("!!document.querySelector('.gf-flow-container-actions-portal [role=toolbar]')");
+    await check('离线Project标题菜单只提供隐藏而不是解散来源容器',"(()=>{const e=document.querySelector('.gf-flow-container-actions-portal');return e.textContent.includes('从白板隐藏')&&!e.textContent.includes('解散容器')})()");
+    await screenshot('offline-project-actions.png');
+    await client.click('.gf-flow-container-actions-portal [role=toolbar] button:last-child');await idle();
+    await check('实际点击隐藏后Project和成员消失，原实体关系与位置不变',`document.querySelectorAll('.gf-flow-group').length===0&&__c.store.boards[0].hiddenResourceIds.includes(${JSON.stringify(projectId)})&&JSON.stringify({entities:__c.store.entities,relationships:__c.store.relationships,placements:__c.store.boards[0].placements})===${JSON.stringify(compositionBefore)}`);
+    await client.evaluate('__c.undo()');await idle();
+    await check('离线Project隐藏可完整撤销并恢复画布',"document.querySelectorAll('.gf-flow-group').length===1");
+    await client.evaluate('__c.redo()');await idle();
+    await check('重做恢复隐藏，磁盘记录的成员仍完整',`document.querySelectorAll('.gf-flow-group').length===0&&__c.store.boards[0].placements.some(p=>p.entityId===${JSON.stringify(deploymentId)})`);
+    const hiddenStore=unwrapRelationshipBoardFile(JSON.parse(fs.readFileSync(document.record.path,'utf8'))).store;
+    assert.ok(hiddenStore.boards[0].hiddenResourceIds.includes(projectId));
+    assert.equal(JSON.stringify({entities:hiddenStore.entities,relationships:hiddenStore.relationships,placements:hiddenStore.boards[0].placements}),compositionBefore);
+    await stop();await launch();
+    await client.evaluate(`__c._openDocument(${JSON.stringify(document.record.id)})`);await client.evaluate("__c._setPanelTopology({state:'unconfigured'});__c._renderGraph();__c._renderResources()");await fit();
+    await check('隐藏状态在进程重启离线重开后保留，不自动删除源成员',`__c.store.boards[0].hiddenResourceIds.includes(${JSON.stringify(projectId)})&&document.querySelectorAll('.gf-flow-group').length===0&&__c.store.boards[0].placements.some(p=>p.entityId===${JSON.stringify(deploymentId)})`);
+    await add('entity:'+projectId);await fit();
+    await check('资源库加号可以恢复隐藏Project及成员，不重建实体',`document.querySelectorAll('.gf-flow-group').length===1&&!(__c.store.boards[0].hiddenResourceIds||[]).includes(${JSON.stringify(projectId)})&&JSON.stringify({entities:__c.store.entities,relationships:__c.store.relationships,placements:__c.store.boards[0].placements})===${JSON.stringify(compositionBefore)}`);
+    await client.evaluate(`__c._selectOnlyEntity(${JSON.stringify(deploymentId)});__c.root.querySelector('.relationship-canvas').focus()`);
+    await client.send('Input.dispatchKeyEvent',{type:'keyDown',key:'G',code:'KeyG',windowsVirtualKeyCode:71,modifiers:12});
+    await client.send('Input.dispatchKeyEvent',{type:'keyUp',key:'G',code:'KeyG',windowsVirtualKeyCode:71,modifiers:12});await idle();
+    await check('离线部署快捷键不能移出来源Project，菜单与属性不提供改归属入口',`__c.store.boards[0].placements.find(p=>p.entityId===${JSON.stringify(deploymentId)}).groupId===${JSON.stringify(projectId)}&&!__c._contextMenuItems('node').filter(Boolean).some(i=>i.action==='remove-selection-group')&&!__c._groupAppearanceEditorHtml(${JSON.stringify(projectId)}).includes('name="parentGroup"')`);
+    await client.evaluate(`__c._selectOnlyEntity(${JSON.stringify(projectId)});__c.root.querySelector('.relationship-canvas').focus()`);
+    await client.send('Input.dispatchKeyEvent',{type:'keyDown',key:'Backspace',code:'Backspace',windowsVirtualKeyCode:8});
+    await client.send('Input.dispatchKeyEvent',{type:'keyUp',key:'Backspace',code:'Backspace',windowsVirtualKeyCode:8});await idle();
+    await check('Backspace与标题隐藏一致，不解散离线Project或丢失内容',`__c.store.boards[0].hiddenResourceIds.includes(${JSON.stringify(projectId)})&&JSON.stringify({entities:__c.store.entities,relationships:__c.store.relationships,placements:__c.store.boards[0].placements})===${JSON.stringify(compositionBefore)}`);
+    await client.evaluate('__c.undo()');await idle();await fit();await screenshot('offline-restored-lifecycle.png');
     // Reproduce the existing workspace format: only observed host anchors and
     // display preferences are persisted, not a complete imported snapshot.
     const observedHosts=Projection.buildProjection(topology).entities.filter(e=>e.type==='server').map(e=>({id:e.id,type:e.type,name:e.name,details:{hostLabel:e.details?.hostLabel||''},source:'observed'}));

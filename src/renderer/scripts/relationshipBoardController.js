@@ -871,7 +871,7 @@
       if (!Model.TOPOLOGY_SCOPE_MODES.includes(type) || ['board', 'all'].includes(type)) return [];
       const entities = this._combinedEntities();
       const matches = entity => type === 'project'
-        ? entity.type === 'project' || entity.runtime?.dynamicKind === 'coolify-project-group'
+        ? entity.type === 'project' || ResourceComposition.isProjectContainer(entity)
         : entity.type === type;
       return entities.filter(entity => matches(entity))
         .filter(entity => entity.id !== 'entity_panel_shared_resources')
@@ -2670,6 +2670,7 @@
           name: board.name,
           viewport: clone(board.viewport),
           view: clone(board.view || Model.defaultBoardView()),
+          ...(board.hiddenResourceIds?.length ? { hiddenResourceIds: [...board.hiddenResourceIds] } : {}),
           placements: placements.map(placement => ({
             entityId: placement.entityId,
             x: placement.x,
@@ -3778,6 +3779,8 @@
       if (this._hasSampledOwnership(entityId)) return false;
       if (!groupId) return true;
       const entities = context.entities || this._allEntitiesById();
+      // Source-owned Project membership remains read-only after serialization.
+      if (ResourceComposition.isProjectContainer(entities.get(groupId))) return false;
       if (activeBoard(this.store)?.placements.some(item => item.entityId === entityId)
         && entities.get(groupId)?.transient) return false;
       const index = context.index || LayoutPrimitives.indexPlacements(context.placements || this._combinedPlacements());
@@ -4245,14 +4248,14 @@
         else if (single) items.push(context(single.type === 'group' ? '重命名群组…' : '重命名 / 显示别名…', 'rename'), context('备注、标签与待办…', 'annotations'));
         if (single && !(single.type === 'group' && single.transient)) items.push(command('围绕我布局', 'arrange-around-selection'));
         if (single?.type === 'server') items.push(command('显示设置…', 'resource-settings'));
-        else if (single?.type === 'group' && single.runtime?.dynamicKind === 'coolify-project-group') items.push(command('容器外观设置…', 'inspector'));
+        else if (ResourceComposition.isProjectContainer(single)) items.push(command('容器外观设置…', 'inspector'));
         else if (single?.type === 'repository') items.push(command('显示设置…', 'resource-settings'));
         if (single?.type === 'deployment') items.push(command('归档部署（仅当前白板）', 'archive-selected-deployment'));
         items.push(null, command('将所选卡片组成群组…', 'create-group-from-selection', this._selectedMemberPlacements().length < 2));
         if (this._selectedMemberPlacements().some(item => item.groupId)) items.push(command('移出所属群组', 'remove-selection-group'));
-        if (selected.some(item => item.transient || item.runtime?.dynamicKind === 'coolify-project-group')) items.push(context('从当前白板隐藏', 'hide-resource'));
+        if (selected.some(item => item.transient || ResourceComposition.isProjectContainer(item))) items.push(context('从当前白板隐藏', 'hide-resource'));
         // Live topology is read-only: never offer a partially effective mixed-selection deletion.
-        if (selected.every(item => !item.transient && item.runtime?.dynamicKind !== 'coolify-project-group' && activeBoard(this.store).placements.some(placement => placement.entityId === item.id))) items.push(context(selected.every(item => item.type === 'group') ? '解散群组（保留成员）' : '从白板移除', 'delete'));
+        if (selected.every(item => !item.transient && !ResourceComposition.isProjectContainer(item) && activeBoard(this.store).placements.some(placement => placement.entityId === item.id))) items.push(context(selected.every(item => item.type === 'group') ? '解散群组（保留成员）' : '从白板移除', 'delete'));
       } else {
         items.push(context('全选当前可见节点', 'select-all'), null,
           { label: '添加文字…', nodeType: 'text' },
@@ -6223,7 +6226,7 @@
       const options = placements.filter(item => this._canJoinGroup(entityId, item.entityId, context))
         .map(item => `<option value="${escapeHtml(item.entityId)}" ${placement.groupId === item.entityId ? 'selected' : ''}>${escapeHtml(entities.get(item.entityId).name)}</option>`).join('');
       return `<section class="relationship-group-appearance" aria-label="群组外观与嵌套">
-        ${entities.get(entityId)?.runtime?.dynamicKind === 'coolify-project-group' ? '' : `<label class="relationship-inspector-field"><span>上级群组</span><select name="parentGroup"><option value="">无（顶层）</option>${options}</select></label>`}
+        ${ResourceComposition.isProjectContainer(entities.get(entityId)) ? '' : `<label class="relationship-inspector-field"><span>上级群组</span><select name="parentGroup"><option value="">无（顶层）</option>${options}</select></label>`}
         <div class="relationship-group-colors">
           <label class="relationship-inspector-field"><span>容器形状</span><select data-selected-group-shape="${escapeHtml(entityId)}"><option value="inherit"${placement.groupShape ? '' : ' selected'}>跟随白板（${{ rounded: '矩形', polygon: '多边形' }[inheritedShape]}）</option><option value="rounded"${placement.groupShape === 'rounded' ? ' selected' : ''}>矩形</option><option value="polygon"${placement.groupShape === 'polygon' ? ' selected' : ''}>多边形</option></select></label>
           <label class="relationship-inspector-field"><span>显示样式</span><select data-selected-group-appearance="${escapeHtml(entityId)}"><option value="soft"${!placement.groupAppearance || placement.groupAppearance === 'soft' ? ' selected' : ''}>浅色填充</option><option value="outline"${placement.groupAppearance === 'outline' ? ' selected' : ''}>仅描边</option><option value="emphasis"${placement.groupAppearance === 'emphasis' ? ' selected' : ''}>强调填充</option></select></label>
@@ -6737,7 +6740,7 @@
       const entity = entities.get(entityId);
       const placement = this._combinedPlacements().find(item => item.entityId === entityId);
       return ResourceComposition.isProjectContainer(entity)
-        || entities.get(placement?.groupId)?.runtime?.dynamicKind === 'coolify-project-group';
+        || ResourceComposition.isProjectContainer(entities.get(placement?.groupId));
     }
 
     async _createGroupFromSelection() {
@@ -6821,7 +6824,7 @@
         const board = activeBoard(this.store);
         const selectedIds = this._entitySelectionIds();
         const entities = this._allEntitiesById();
-        if ([...selectedIds].some(id => entities.get(id)?.transient || entities.get(id)?.runtime?.dynamicKind === 'coolify-project-group')) {
+        if ([...selectedIds].some(id => entities.get(id)?.transient || ResourceComposition.isProjectContainer(entities.get(id)))) {
           return this._hideResourceSelection();
         }
         const selected = this._combinedPlacements().filter(item => selectedIds.has(item.entityId));
