@@ -246,3 +246,7 @@
 ## 2026-09-18T09:43:56+08:00 · alpha.198 · macOS开发包
 
 已安装验收并推送：运行源码e9097dc，QA ba0f6c5。直接Coolify入口使用系统默认浏览器。旧197可恢复备份保留；1345全量与安装51项通过。只读来源、白板校验限定、签名与测试边界见[交付记录](COOLIFY_CARD_LINKS_ALPHA198.md)。未公开发布。
+
+## 2026-09-18T23:09:43+08:00 · alpha.199 本机开发包
+
+运行源码`5f7cbcca576824cc7a7673e21d3128d8d4391f89`，最终安装ASAR`177335ec6fef32b5e1cec2cbbd9c93a77c4349d90cb55ab4aa4d60c2e9d9acbd`；1361/293JS、安装62项通过。旧198备份可恢复，源码验收后推送；无Windows/公证/公开Release，详见[完整记录](CONTAINER_LIFECYCLE_ALPHA199.md)。

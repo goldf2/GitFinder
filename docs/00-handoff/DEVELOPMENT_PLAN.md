@@ -154,3 +154,7 @@ GF-DB-001保持暂缓。任何JSON到数据库迁移必须有唯一事实源、�
 ### 管理入口与系统浏览器边界（GF-COOLIFY-LINK-001）
 
 用户确认管理后台链接由系统默认浏览器打开；不硬编码浏览器、不默认嵌入第三方后台。来源身份、网站访问、管理地址和登录权限分别处理；白板便携文件不含凭据或受信后台URL。alpha198已交付，证据与数据校验限定见[COOLIFY_CARD_LINKS_ALPHA198.md](COOLIFY_CARD_LINKS_ALPHA198.md)。
+
+### GF-CONTAINER-LIFECYCLE-001 · 已交付的生命周期约束
+
+alpha199统一来源Project在线/离线操作身份，隐藏、显示层开关与存储完整性分离；独立保存保留隐藏字段和已保存的不可见层成员。不能把可见投影当作全部持久内容，也不能因runtime被剥离就把来源容器变成手工群组。详见[验证与交付](CONTAINER_LIFECYCLE_ALPHA199.md)。
