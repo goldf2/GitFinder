@@ -7294,3 +7294,6 @@ body.file-drag-active.file-drag-copy {
 .native-panel-thumbnail span { position: absolute; inset: 0; display: grid; place-items: center; padding: 8px; color: var(--text-secondary); font-size: 11px; text-align: center; }
 .native-panel-thumbnail [hidden] { display: none; }
 .native-panel-cards .native-panel-thumbnail { width: 100%; }
+
+/* Feature wording is independent from the observation provider. */
+.native-panel-description { margin: 0; padding: 0 14px 10px; flex: 0 0 auto; }

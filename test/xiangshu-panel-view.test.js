@@ -7,7 +7,7 @@ const { Controller } = require('../src/renderer/scripts/directoryNavigationContr
 const read = file => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
 const source = read('src/renderer/scripts/app.js');
 
-test('象数面板与白板并列，使用打包本地代码而非 iframe', () => {
+test('应用面板与白板并列，使用打包本地代码而非 iframe', () => {
   const html = read('src/renderer/index.html');
   assert.match(html, /data-view="relationships"[\s\S]*?data-view="panel"/);
   assert.doesNotMatch(html, /xiangshu-panel-frame/);

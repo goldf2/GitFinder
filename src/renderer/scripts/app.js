@@ -1700,7 +1700,7 @@ const App = {
   },
 
   updateToolbarMenuState() {
-    const viewLabels = { tree: '文件浏览', dashboard: '仪表盘', tasks: '开发任务', relationships: '关系白板', panel: '象数面板', settings: '设置' };
+    const viewLabels = { tree: '文件浏览', dashboard: '仪表盘', tasks: '开发任务', relationships: '关系白板', panel: '应用面板', settings: '设置' };
     const sortLabels = { name: '名称', path: '路径', dir: '目录', status: 'Git 状态', time: '修改时间', size: '大小', branch: '分支' };
     const viewLabel = document.getElementById('view-menu-label');
     if (viewLabel) viewLabel.textContent = viewLabels[AppState.currentMode] || '文件浏览';
@@ -2020,14 +2020,14 @@ const App = {
         : (tab.mode === 'dashboard' ? '▦' : (collectionKind === 'projects'
           ? '◆'
           : (collectionKind === 'repositories' ? '⑂' : (collectionKind === 'project-repositories' ? '◆⑂' : '📁'))));
-      const title = tab.mode === 'panel' ? '象数面板' : tab.mode === 'tasks'
+      const title = tab.mode === 'panel' ? '应用面板' : tab.mode === 'tasks'
         ? '开发任务'
         : (collectionKind === 'projects'
           ? '所有项目'
           : (collectionKind === 'repositories'
             ? '所有仓库'
             : (collectionKind === 'project-repositories' ? '项目 + Git' : tab.title)));
-      const tabHelp = tab.mode === 'panel' ? 'panel.xiangshu.me' : tab.mode === 'tasks'
+      const tabHelp = tab.mode === 'panel' ? '查看已部署应用与服务，检查状态并快速访问。' : tab.mode === 'tasks'
         ? '开发任务 · Local Project Manager 权威任务工作台'
         : (collectionKind === 'projects'
           ? '所有受管位置 · 项目筛选'
@@ -7875,7 +7875,7 @@ const App = {
       leftText = '应用设置';
       rightText = '本机偏好 · 不写入项目配置';
     } else if (AppState.currentMode === 'panel') {
-      leftText = '象数面板';
+      leftText = '应用面板';
       rightText = '本地面板 · 部署 / 本机 / 远端独立状态';
     } else if (AppState.currentMode === 'relationships') {
       const summary = AppState.relationshipSummary;

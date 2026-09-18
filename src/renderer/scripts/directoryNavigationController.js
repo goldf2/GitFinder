@@ -208,7 +208,7 @@
         return;
       }
       if (this.state.currentMode === 'panel') {
-        container.textContent = '象数面板';
+        container.textContent = '应用面板';
         return;
       }
       const collectionKind = this.state.currentMode === 'tree'

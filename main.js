@@ -122,7 +122,8 @@ function createWindow(options = {}) {
     height: 800,
     minWidth: 800,
     minHeight: 600,
-    title: detachedTab?.title ? `${detachedTab.title} — GitFinder 2 Alpha` : 'GitFinder 2 Alpha',
+    title: detachedTab?.mode === 'panel' ? '应用面板 — GitFinder 2 Alpha'
+      : detachedTab?.title ? `${detachedTab.title} — GitFinder 2 Alpha` : 'GitFinder 2 Alpha',
     backgroundColor: '#f6f6f6',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),

@@ -32,7 +32,7 @@
     }
     build() {
       const toolbar = element('div', 'xiangshu-panel-toolbar');
-      toolbar.append(element('strong', '', '象数面板'));
+      toolbar.append(element('strong', '', '应用面板'));
       this.search = element('input', 'native-panel-search');
       this.search.type = 'search';
       this.search.placeholder = '搜索服务、主机、项目或网址';
@@ -64,7 +64,8 @@
       this.content = element('div', 'native-panel-content');
       const body = element('div', 'native-panel-body');
       body.append(this.sidebar, this.content);
-      this.container.replaceChildren(toolbar, body);
+      const description = element('p', 'native-panel-description native-panel-legend', '查看已部署应用与服务，检查状态并快速访问。');
+      this.container.replaceChildren(toolbar, description, body);
       this.syncSidebar();
     }
     syncSidebar() {
