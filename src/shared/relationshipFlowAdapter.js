@@ -45,7 +45,7 @@
     };
     if (['text', 'image', 'attachment'].includes(entity.type)) return {
       width: Number(entity.details?.width) || 320,
-      height: Number(entity.details?.height) || 180
+      height: Math.max(Number(entity.details?.height) || 180, entity.type === 'text' ? Math.ceil((Number(entity.details?.fontSize) || 24) * 1.4 + 32) : 0)
     };
     return {
       width: Number(placement.cardWidth) || Number(options.cardWidth) || DEFAULT_CARD.width,
@@ -106,10 +106,11 @@
     return nodes;
   }
 
-  function hostBubbleBounds(nodes, memberIds, fallback = { x: 0, y: 0 }) {
+  function hostBubbleBounds(nodes, memberIds, fallback = { x: 0, y: 0 }, titleMetrics = {}) {
     // The host title is a first-level header. Keep a dedicated header band so
     // Project headers can never occupy the same screen row.
-    const HOST_HEADER_SPACE = 88;
+    const HOST_HEADER_SPACE = Math.max(88, Number(titleMetrics.containerHeaderHeight) || 0);
+    const minWidth = Math.max(424, Number(titleMetrics.containerTitleMinWidth) + 40 || 0);
     const absolute = absolutePositions(nodes);
     const byId = new Map(nodes.map(node => [node.id, node]));
     const rects = memberIds.map(id => {
@@ -118,15 +119,15 @@
       const size = nodeDimensions(node);
       return { x: position.x, y: position.y, width: size.width, height: size.height };
     }).filter(Boolean);
-    if (!rects.length) return { x: fallback.x - 72, y: fallback.y - HOST_HEADER_SPACE, width: 424, height: 220 + HOST_HEADER_SPACE };
+    if (!rects.length) return { x: fallback.x - 72, y: fallback.y - HOST_HEADER_SPACE, width: minWidth, height: 220 + HOST_HEADER_SPACE };
     const left = Math.min(...rects.map(rect => rect.x)) - 72;
     const top = Math.min(...rects.map(rect => rect.y)) - HOST_HEADER_SPACE;
     const right = Math.max(...rects.map(rect => rect.x + rect.width)) + 72;
     const bottom = Math.max(...rects.map(rect => rect.y + rect.height)) + 64;
-    return { x: left, y: top, width: right - left, height: bottom - top };
+    return { x: left, y: top, width: Math.max(minWidth, right - left), height: bottom - top };
   }
 
-  function addHostBubbleNodes(nodes, relationships, entities, allHosts = false, preserveProjectRows = false) {
+  function addHostBubbleNodes(nodes, relationships, entities, allHosts = false, preserveProjectRows = false, titleMetrics = {}) {
     const byId = new Map(nodes.map(node => [node.id, node]));
     const membersByHost = new Map();
     if (allHosts) for (const node of nodes) {
@@ -162,7 +163,7 @@
           if (gap < 32 || gap > 160) current.position = { x: previous.position.x, y: bottom + 48 };
         }
       }
-      const bounds = hostBubbleBounds(nodes, memberIds, hostNode.position);
+      const bounds = hostBubbleBounds(nodes, memberIds, hostNode.position, titleMetrics);
       const id = `host-bubble:${hostId}`;
       // Reparent Project containers into the synthetic host node. Positions must
       // be converted from canvas coordinates to the host's local coordinates.
@@ -198,6 +199,7 @@
           fallbackPosition: hostNode.position,
           projectCount: memberIds.filter(memberId => isProjectGroup(entities.get(memberId))).length,
           deploymentCount: memberIds.filter(memberId => entities.get(memberId)?.type === 'deployment').length,
+          titleMetrics: { containerHeaderHeight: titleMetrics.containerHeaderHeight, containerTitleMinWidth: titleMetrics.containerTitleMinWidth },
           hostBubble: true,
           nestedContainer: allHosts
         }
@@ -210,7 +212,7 @@
     const shifts = new Map();
     const resized = nodes.map(node => {
       if (node.type !== 'hostBubble' || !node.data.memberIds?.length) return node;
-      const bounds = hostBubbleBounds(nodes, node.data.memberIds || [], node.data.fallbackPosition);
+      const bounds = hostBubbleBounds(nodes, node.data.memberIds || [], node.data.fallbackPosition, node.data.titleMetrics);
       shifts.set(node.id, { x: node.position.x - bounds.x, y: node.position.y - bounds.y });
       return { ...node, position: { x: bounds.x, y: bounds.y }, style: { ...node.style, width: bounds.width, height: bounds.height } };
     });
@@ -276,7 +278,7 @@
       return counts;
     }, new Map());
     const zoom = Math.max(0.03, Number(options.zoom) || 1);
-    const fontSize = Math.max(14, Math.min(36, Number(options.groupTitleFontSize) || 20));
+    const fontSize = Math.max(8, Math.min(96, Number(options.groupTitleFontSize) || 20));
     const titles = nodes.filter(node => node.type === 'relationshipGroup').map(node => {
       const position = absolute.get(node.id) || { x: 0, y: 0 };
       const size = nodeDimensions(node);
@@ -532,6 +534,17 @@
     });
     const preserveProjectRows = ['project-balanced', 'free'].includes(options.layout);
     if (options.hostContainerOnly) nodes = fitPhysicalProjects(nodes, preserveProjectRows);
+    // Expanding a title may grow its frame upward/rightward, but must not
+    // move the world position of saved children (including locked members).
+    if (options.containerHeaderHeight > 72 || options.containerTitleMinWidth > 0) {
+      for (const group of nodes.filter(node => isProjectGroup(node.data?.entity))) {
+        const children = nodes.filter(node => node.parentId === group.id);
+        const extraTop = children.length ? Math.max(0, (options.containerHeaderHeight || 72) - Math.min(...children.map(node => node.position.y))) : 0;
+        group.position = { ...group.position, y: group.position.y - extraTop };
+        group.style = { ...group.style, width: Math.max(group.style.width, (options.containerTitleMinWidth || 0) + 40), height: Math.max(group.style.height + extraTop, (options.containerHeaderHeight || 72) + 48) };
+        for (const child of children) child.position = { ...child.position, y: child.position.y + extraTop };
+      }
+    }
     if (!options.linkedNodeIds && !options.hostContainerOnly) nodes = avoidGroupTitleCollisions(nodes, options);
     nodes = constrainProjectNodes(nodes);
     const hostContainerOnly = options.hostContainerOnly === true;
@@ -593,7 +606,7 @@
       // read-only container boundary. Its original placement remains untouched.
       nodes = [...addHostBubbleNodes([...nodes, ...placements
         .filter(item => hostIds.has(item.entityId))
-        .map(item => ({ id: item.entityId, position: { x: item.x || 0, y: item.y || 0 }, style: { width: DEFAULT_CARD.width, height: DEFAULT_CARD.height }, draggable: !undraggableIds.has(item.entityId) && item.locked !== true, data: { entity: entities.get(item.entityId), placement: item } }))], hostRelationships, entities, true, preserveProjectRows || !hostContainerOnly), ...nodes];
+        .map(item => ({ id: item.entityId, position: { x: item.x || 0, y: item.y || 0 }, style: { width: DEFAULT_CARD.width, height: DEFAULT_CARD.height }, draggable: !undraggableIds.has(item.entityId) && item.locked !== true, data: { entity: entities.get(item.entityId), placement: item } }))], hostRelationships, entities, true, preserveProjectRows || !hostContainerOnly, options), ...nodes];
       nodes = refreshHostBubbles(nodes);
       const hosts = (hostContainerOnly ? nodes.filter(node => node.type === 'hostBubble') : []).sort((a, b) => a.position.x - b.position.x || a.id.localeCompare(b.id));
       for (let index = 0; index < hosts.length; index++) {
@@ -626,7 +639,7 @@
         }
       }
     } else {
-      nodes = [...addHostBubbleNodes(nodes, graph.relationships || [], entities), ...nodes];
+      nodes = [...addHostBubbleNodes(nodes, graph.relationships || [], entities, false, false, options), ...nodes];
     }
     for (const node of nodes) if (node.type === 'hostBubble') node.data.initialPosition = { ...node.position };
     return rerouteFlowConnections(nodes, options.showRelationshipLines === false ? [] : edges, {

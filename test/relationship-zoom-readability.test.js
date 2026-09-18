@@ -19,7 +19,7 @@ test('node popup actions use compact typography instead of inheriting canvas typ
   assert.match(rule, /min-height: 28px/);
   assert.match(rule, /padding: 4px 8px/);
   assert.doesNotMatch(css, /scale: var\(--group-title-scale/);
-  assert.match(css, /font-size: max\(10px, calc\(var\(--relationship-group-title-font-size/);
+  assert.match(css, /font-size: max\(min\(10px, var\(--relationship-group-title-font-size, 20px\)\), calc\(var\(--relationship-group-title-font-size/);
 });
 test('edges limit compensation and become lighter in distant overview', () => {
   assert.match(source, /vectorEffect: 'none'/);

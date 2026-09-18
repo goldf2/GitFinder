@@ -132,7 +132,7 @@
       let titleRect = null;
       if (groupTitleSpace) {
         const titleScale = groupTitleSpace / 40;
-        const fontScale = Math.max(14, Math.min(36, Number(options.groupTitleFontSize) || 20)) / 20;
+        const fontScale = Math.max(8, Math.min(96, Number(options.groupTitleFontSize) || 20)) / 20;
         const title = String(entities.get(group.entityId)?.name || '群组');
         const nameWidth = [...title].reduce((sum, character) => sum
           + (/[^\u0000-\u00ff]/.test(character) ? 20 : (character === ' ' ? 6 : 11)), 0) * fontScale;

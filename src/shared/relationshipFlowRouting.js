@@ -34,7 +34,7 @@
   }
 
   function titleWidth(entity = {}, memberCount = 0, fontSize = 20) {
-    const scale = Math.max(14, Math.min(36, Number(fontSize) || 20)) / 20;
+    const scale = Math.max(8, Math.min(96, Number(fontSize) || 20)) / 20;
     const name = String(entity.name || '群组');
     const nameWidth = [...name].reduce((sum, character) => sum
       + (/[^\u0000-\u00ff]/.test(character) ? 20 : (character === ' ' ? 6 : 11)), 0) * scale;
@@ -56,7 +56,7 @@
     }));
     const titles = nodes.filter(node => node.type === 'relationshipGroup').map(node => {
       const bounds = geometry.get(node.id);
-      const fontSize = Math.max(14, Math.min(36, Number(settings.groupTitleFontSize) || 20));
+      const fontSize = Math.max(8, Math.min(96, Number(settings.groupTitleFontSize) || 20));
       const width = titleWidth(node.data?.entity, childCounts.get(node.id) || 0, fontSize) / safeZoom;
       const height = (fontSize + 10) / safeZoom;
       const offset = 8 / safeZoom;

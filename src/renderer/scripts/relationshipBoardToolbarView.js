@@ -17,11 +17,11 @@
     const cardIcons = { server: 'server', deployment: 'deployment', endpoint: 'endpoint', repository: 'repository', project: 'project', ...(view.cardIcons || {}) };
     const sliders = [
       { key: 'cardScale', label: '卡片大小', value: view.cardScale, output: percent(view.cardScale), min: .8, max: 1.4, step: .05, data: 'display-card-scale' },
-      { key: 'textScale', label: '文字大小', value: view.textScale, output: percent(view.textScale), min: .85, max: 1.3, step: .05, data: 'display-text-scale' },
-      { key: 'groupTitleFontSize', label: '群组标题字号', value: view.groupTitleFontSize, output: px(view.groupTitleFontSize), min: 14, max: 36, step: 1, data: 'display-group-title-size' },
+      { key: 'textScale', label: '文字大小', value: view.textScale, output: percent(view.textScale), min: .5, max: 3, step: .05, data: 'display-text-scale' },
+      { key: 'groupTitleFontSize', label: '主机 / 群组标题字号', value: view.groupTitleFontSize, output: px(view.groupTitleFontSize), min: 8, max: 96, step: 1, data: 'display-group-title-size' },
       { key: 'titleZoomStrength', label: '标题随缩放程度（0% 固定，100% 跟随）', value: view.titleZoomStrength, output: percent(view.titleZoomStrength), min: 0, max: 1, step: .05, data: 'display-title-zoom-strength' },
-      { key: 'edgeLabelFontSize', label: '连线说明字号', value: view.edgeLabelFontSize, output: px(view.edgeLabelFontSize), min: 8, max: 24, step: 1, data: 'display-edge-label-size' },
-      { key: 'memberLabelFontSize', label: '成员说明字号', value: view.memberLabelFontSize, output: px(view.memberLabelFontSize), min: 8, max: 24, step: 1, data: 'display-member-label-size' },
+      { key: 'edgeLabelFontSize', label: '连线说明字号', value: view.edgeLabelFontSize, output: px(view.edgeLabelFontSize), min: 6, max: 48, step: 1, data: 'display-edge-label-size' },
+      { key: 'memberLabelFontSize', label: '成员说明字号', value: view.memberLabelFontSize, output: px(view.memberLabelFontSize), min: 6, max: 48, step: 1, data: 'display-member-label-size' },
       { key: 'cardWidth', label: '卡片基础宽度', value: view.cardWidth, output: px(view.cardWidth), min: 220, max: 600, step: 10, data: 'display-card-width', aria: '卡片宽度' },
       { key: 'cardHeight', label: '简略卡片最小高度', value: view.cardHeight, output: px(view.cardHeight), min: 143, max: 420, step: 1, data: 'display-card-height', aria: '卡片高度' },
       { key: 'horizontalSpacing', label: '横向间距', value: view.horizontalSpacing, output: px(view.horizontalSpacing), min: 16, max: 180, step: 4, data: 'display-horizontal-spacing', aria: '卡片横向间距' },

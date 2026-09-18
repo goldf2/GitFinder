@@ -3020,11 +3020,11 @@
         cardScale: Number.isFinite(cardScale) ? Math.min(1.4, Math.max(0.8, cardScale)) : defaults.cardScale,
         cardWidth: normalizedNumber(view.cardWidth, defaults.cardWidth, 220, 600),
         cardHeight: normalizedNumber(view.cardHeight, defaults.cardHeight, 143, 420),
-        textScale: Number.isFinite(textScale) ? Math.min(1.3, Math.max(0.85, textScale)) : defaults.textScale,
-        groupTitleFontSize: normalizedNumber(view.groupTitleFontSize, defaults.groupTitleFontSize, 14, 36),
+        textScale: Number.isFinite(textScale) ? Math.min(3, Math.max(0.5, textScale)) : defaults.textScale,
+        groupTitleFontSize: normalizedNumber(view.groupTitleFontSize, defaults.groupTitleFontSize, 8, 96),
         titleZoomStrength: normalizedNumber(view.titleZoomStrength, 0.5, 0, 1),
-        edgeLabelFontSize: normalizedNumber(view.edgeLabelFontSize, 10, 8, 24),
-        memberLabelFontSize: normalizedNumber(view.memberLabelFontSize, 12, 8, 24),
+        edgeLabelFontSize: normalizedNumber(view.edgeLabelFontSize, 10, 6, 48),
+        memberLabelFontSize: normalizedNumber(view.memberLabelFontSize, 12, 6, 48),
         edgeWidth: normalizedNumber(view.edgeWidth, defaults.edgeWidth, 0.8, 5),
         edgeZoomMode: ['adaptive', 'follow', 'fixed'].includes(view.edgeZoomMode) ? view.edgeZoomMode : 'adaptive',
         maxZoom: normalizedNumber(view.maxZoom, 8, 1, 8),
@@ -3053,13 +3053,23 @@
       };
     }
 
+    _textLayoutMetrics(display = this._displayViewSettings()) {
+      // Nested titles can grow to 1.3x during overview compensation. Reserve a
+      // title band and two readable glyphs without changing legacy defaults.
+      if (display.groupTitleFontSize <= 36 && display.memberLabelFontSize <= 24) return { containerHeaderHeight: 72, containerTitleMinWidth: 0 };
+      return {
+        containerHeaderHeight: Math.max(72, Math.ceil(Math.max(display.groupTitleFontSize * 1.3, display.memberLabelFontSize) * 1.4 + 32)),
+        containerTitleMinWidth: Math.ceil(display.groupTitleFontSize * 2.6 + display.memberLabelFontSize * 7 + 110)
+      };
+    }
+
     _nodeDimensions(display = this._displayViewSettings()) {
       const dimensions = display.mode === 'compact'
         ? { width: COMPACT_NODE_WIDTH, height: COMPACT_NODE_HEIGHT }
         : { width: NODE_WIDTH, height: NODE_HEIGHT };
       return {
-        width: Math.round(dimensions.width * display.cardScale * display.cardWidth / NODE_WIDTH),
-        height: Math.round(dimensions.height * display.cardScale * display.cardHeight / NODE_HEIGHT)
+        width: Math.round(dimensions.width * display.cardScale * display.cardWidth / NODE_WIDTH + Math.max(0, display.textScale - 1.3) * 48),
+        height: Math.round(dimensions.height * display.cardScale * display.cardHeight / NODE_HEIGHT + Math.max(0, display.textScale - 1.3) * 140)
       };
     }
 
@@ -3191,7 +3201,7 @@
       for (const placement of regular) {
         const entity = entitiesById.get(placement.entityId);
         if (['text', 'image', 'attachment'].includes(entity?.type)) {
-          geometryById.set(entity.id, { x: placement.x, y: placement.y, width: Number(entity.details.width) || 320, height: Number(entity.details.height) || 180 });
+          geometryById.set(entity.id, { x: placement.x, y: placement.y, width: Number(entity.details.width) || 320, height: Math.max(Number(entity.details.height) || 180, entity.type === 'text' ? Math.ceil((Number(entity.details.fontSize) || 24) * 1.4 + 32) : 0) });
           continue;
         }
         let y = placement.y;
@@ -3247,7 +3257,7 @@
               ...this._nodeDimensions(),
               ...this._displayViewSettings(),
               projectGroupShape: this._groupShape(group.entityId),
-              groupHeaderHeight: Math.max(72, GROUP_HEADER_HEIGHT),
+              groupHeaderHeight: this._textLayoutMetrics().containerHeaderHeight,
               preserveCenter: true
             });
             memberCopies.forEach(item => geometryById.set(item.entityId, {
@@ -4630,11 +4640,11 @@
         cardScale: Number.isFinite(cardScale) ? Math.min(1.4, Math.max(0.8, cardScale)) : 1,
         cardWidth: displayNumber('cardWidth', currentDisplay.cardWidth, 220, 600),
         cardHeight: displayNumber('cardHeight', currentDisplay.cardHeight, 143, 420),
-        textScale: Number.isFinite(textScale) ? Math.min(1.3, Math.max(0.85, textScale)) : 1,
-        groupTitleFontSize: displayNumber('groupTitleFontSize', currentDisplay.groupTitleFontSize, 14, 36),
+        textScale: Number.isFinite(textScale) ? Math.min(3, Math.max(0.5, textScale)) : 1,
+        groupTitleFontSize: displayNumber('groupTitleFontSize', currentDisplay.groupTitleFontSize, 8, 96),
         titleZoomStrength: displayNumber('titleZoomStrength', currentDisplay.titleZoomStrength, 0, 1),
-        edgeLabelFontSize: displayNumber('edgeLabelFontSize', currentDisplay.edgeLabelFontSize, 8, 24),
-        memberLabelFontSize: displayNumber('memberLabelFontSize', currentDisplay.memberLabelFontSize, 8, 24),
+        edgeLabelFontSize: displayNumber('edgeLabelFontSize', currentDisplay.edgeLabelFontSize, 6, 48),
+        memberLabelFontSize: displayNumber('memberLabelFontSize', currentDisplay.memberLabelFontSize, 6, 48),
         edgeWidth: displayNumber('edgeWidth', currentDisplay.edgeWidth, 0.8, 5),
         edgeZoomMode: ['adaptive', 'follow', 'fixed'].includes(data.get('edgeZoomMode')) ? data.get('edgeZoomMode') : 'adaptive',
         maxZoom: displayNumber('maxZoom', currentDisplay.maxZoom, 1, 8),
@@ -4656,7 +4666,7 @@
       };
       const projectShapeChanged = board.view.projectGroupShape !== currentDisplay.projectGroupShape;
       const galaxyShapeChanged = projectShapeChanged && board.view.layout === 'galaxy';
-      const geometryChanged = ['mode', 'cardScale', 'cardWidth', 'cardHeight', 'textScale', 'groupTitleFontSize', 'horizontalSpacing', 'verticalSpacing', 'showRuntimeStatus']
+      const geometryChanged = ['mode', 'cardScale', 'cardWidth', 'cardHeight', 'textScale', 'groupTitleFontSize', 'memberLabelFontSize', 'horizontalSpacing', 'verticalSpacing', 'showRuntimeStatus']
         .some(key => board.view[key] !== currentDisplay[key]);
       if ((geometryChanged || galaxyShapeChanged) && !this.displayLayoutEdit) {
         this._pushUndoSnapshot(before.history);
@@ -5029,6 +5039,7 @@
         groupTitleFontSize: display.groupTitleFontSize,
         hostContainerOnly: this._isServerTree(),
         hostContainers: true,
+        ...this._textLayoutMetrics(display),
         layout: view.layout
       });
       this.flowRenderOptions = {
@@ -6379,7 +6390,7 @@
       const fields = [{ key: 'name', label: '名称', value: entity.name, required: true }];
       if (entity.type === 'text') fields.push(
         { key: 'content', label: '文字内容', value: d.content, multiline: true, maxLength: 10000 },
-        { key: 'fontSize', label: '字号（12–96）', value: d.fontSize || 24, type: 'number', min: 12, max: 96 },
+        { key: 'fontSize', label: '字号（8–256）', value: d.fontSize || 24, type: 'number', min: 8, max: 256 },
         { key: 'color', label: '文字颜色', value: d.color || '#334155', type: 'color' },
         { key: 'align', label: '对齐', value: d.align, options: [['left', '左对齐'], ['center', '居中'], ['right', '右对齐']] }
       );

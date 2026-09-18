@@ -397,11 +397,11 @@
       cardScale: finiteNumber(view.cardScale, 1, 0.8, 1.4),
       cardWidth: finiteNumber(view.cardWidth, 280, 220, 600),
       cardHeight: finiteNumber(view.cardHeight, 143, 143, 420),
-      textScale: finiteNumber(view.textScale, 1, 0.85, 1.3),
-      groupTitleFontSize: finiteNumber(view.groupTitleFontSize, 20, 14, 36),
+      textScale: finiteNumber(view.textScale, 1, 0.5, 3),
+      groupTitleFontSize: finiteNumber(view.groupTitleFontSize, 20, 8, 96),
       titleZoomStrength: finiteNumber(view.titleZoomStrength, 0.5, 0, 1),
-      edgeLabelFontSize: finiteNumber(view.edgeLabelFontSize, 10, 8, 24),
-      memberLabelFontSize: finiteNumber(view.memberLabelFontSize, 12, 8, 24),
+      edgeLabelFontSize: finiteNumber(view.edgeLabelFontSize, 10, 6, 48),
+      memberLabelFontSize: finiteNumber(view.memberLabelFontSize, 12, 6, 48),
       edgeWidth: finiteNumber(view.edgeWidth, 1.7, 0.8, 5),
       edgeZoomMode: ['adaptive', 'follow', 'fixed'].includes(view.edgeZoomMode) ? view.edgeZoomMode : 'adaptive',
       maxZoom: finiteNumber(view.maxZoom, 8, 1, 8),
@@ -532,7 +532,7 @@
       if (['text', 'image', 'attachment'].includes(type)) {
         if (key === 'content') { details.content = String(rawValue ?? '').replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, '').slice(0, 10000); continue; }
         if (['width', 'height', 'fontSize'].includes(key)) {
-          details[key] = String(finiteNumber(rawValue, key === 'fontSize' ? 24 : 240, key === 'fontSize' ? 12 : 60, key === 'fontSize' ? 96 : 1600)); continue;
+          details[key] = String(finiteNumber(rawValue, key === 'fontSize' ? 24 : 240, key === 'fontSize' ? 8 : 60, key === 'fontSize' ? 256 : 1600)); continue;
         }
         if (key === 'color' && !/^#[0-9a-f]{6}$/i.test(rawValue)) { issues.push(`${pathPrefix}.color 无效`); continue; }
         if (key === 'align' && !['left', 'center', 'right'].includes(rawValue)) { issues.push(`${pathPrefix}.align 无效`); continue; }

@@ -122,6 +122,7 @@
   padding: 16px;
   overflow: auto;
   white-space: pre-wrap;
+  line-height: 1.4;
   overflow-wrap: anywhere;
 }
 
@@ -342,7 +343,7 @@
 .gf-flow-nested-header .gf-flow-group-title-button strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 
 .gf-flow-group-title-toolbar strong {
-  font-size: max(10px, calc(var(--relationship-group-title-font-size, 20px) * var(--group-title-scale, 1)));
+  font-size: max(min(10px, var(--relationship-group-title-font-size, 20px)), calc(var(--relationship-group-title-font-size, 20px) * var(--group-title-scale, 1)));
   display: block;
 }
 
