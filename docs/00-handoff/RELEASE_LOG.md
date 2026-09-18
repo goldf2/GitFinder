@@ -250,3 +250,7 @@
 ## 2026-09-18T23:09:43+08:00 · alpha.199 本机开发包
 
 运行源码`5f7cbcca576824cc7a7673e21d3128d8d4391f89`，最终安装ASAR`177335ec6fef32b5e1cec2cbbd9c93a77c4349d90cb55ab4aa4d60c2e9d9acbd`；1361/293JS、安装62项通过。旧198备份可恢复，源码验收后推送；无Windows/公证/公开Release，详见[完整记录](CONTAINER_LIFECYCLE_ALPHA199.md)。
+
+## 2026-09-19T06:04:54+08:00 · alpha.200 应用面板
+
+源码`311c24c0c383d7fb2542b60bffea26f29c662e49`，macOS开发包已安装、验收后推送；旧alpha199完整备份保留，实际7项命名/标签/偏好恢复通过。详情见[更名记录](APP_PANEL_NAME_ALPHA200.md)。

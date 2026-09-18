@@ -2,18 +2,18 @@
 
 > 自动生成。只编辑 `management/development-tasks.json`，然后执行 `npm run handoff:update`。
 
-更新时间：2026-09-19T05:59:35+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
+更新时间：2026-09-19T06:04:54+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
 
 核验基线：2.0.0-alpha.193 / `99eef1d2992e389f32a48182a25fda3b9adf1958`；证据：[docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md](LAYOUT_OPTIONS_ALPHA193.md)。
 
-**唯一下一任务：GF-PANEL-NAME-001**
+**唯一下一任务：GF-AI-PROGRESS-001**
 
 ## 阶段汇总
 
 | 阶段 | 纳入任务 | 已交付 | 开发中/已验证 | 阻塞/暂缓 |
 | --- | ---: | ---: | ---: | ---: |
 | GF-P0 接续工程 | 2 | 2 | 0 | 0 |
-| GF-P1 桌面稳定 | 14 | 8 | 1 | 1 |
+| GF-P1 桌面稳定 | 14 | 9 | 0 | 1 |
 | GF-P2 可维护与性能 | 4 | 0 | 0 | 0 |
 | GF-P3 可分发 | 5 | 0 | 0 | 3 |
 | GF-P4 全流程事件 | 5 | 0 | 0 | 1 |
@@ -58,7 +58,7 @@
 | GF-RESOURCE-001 | P0 | 已交付 | ChatGPT / AgentDock Cloudflare | 资源库添加与主机/Project/部署容器一致性修复 |
 | GF-COOLIFY-LINK-001 | P0 | 已交付 | ChatGPT / AgentDock Cloudflare | 白板卡片和主机/Project容器的Coolify管理入口 |
 | GF-CONTAINER-LIFECYCLE-001 | P0 | 已交付 | ChatGPT / AgentDock Cloudflare | 在线与离线Project隐藏、删除和成员归属一致性 |
-| GF-PANEL-NAME-001 | P1 | 已验证 | ChatGPT / AgentDock Cloudflare | 象数面板统一更名为应用面板 |
+| GF-PANEL-NAME-001 | P1 | 已交付 | ChatGPT / AgentDock Cloudflare | 象数面板统一更名为应用面板 |
 
 ## 可执行任务卡
 
@@ -659,17 +659,19 @@
 
 ### GF-PANEL-NAME-001 · 象数面板统一更名为应用面板
 
-阶段：GF-P1；优先级：P1；状态：**已验证**；负责人：ChatGPT / AgentDock Cloudflare；用户验收：待用户反馈。
+阶段：GF-P1；优先级：P1；状态：**已交付**；负责人：ChatGPT / AgentDock Cloudflare；用户验收：待用户反馈。
 
-更新：2026-09-19T05:59:35+08:00。依赖：无。
+更新：2026-09-19T06:04:54+08:00。依赖：无。
 
 **验收标准**
 1. 菜单、面包屑、页面标题、标签、状态栏与分离窗口统一显示应用面板。
 2. 保留panel模式、内部DOM/CSS标识、持久化键和来源URL；旧标签及筛选布局可恢复，不迁移配置或改历史出处。
 3. 实际源码与安装验证、版本和精确产物可追溯，原未提交内容及用户白板保持。
 
-**接续动作：** 7项新回归、源码7项界面/重启验证通过；从精确提交重跑全量和构建，安装验证后推送。
+**接续动作：** 命名、旧标签/偏好恢复、安装和源码推送已完成，用户实际使用验收仍pending；不重命名协议或历史来源。
 
 源码/设计入口：[src/renderer/index.html](../../src/renderer/index.html)；[src/renderer/scripts/app.js](../../src/renderer/scripts/app.js)；[src/renderer/scripts/nativePanelController.js](../../src/renderer/scripts/nativePanelController.js)；[src/renderer/scripts/directoryNavigationController.js](../../src/renderer/scripts/directoryNavigationController.js)；[main.js](../../main.js)；[test/app-panel-name.test.js](../../test/app-panel-name.test.js)；[scripts/verify-app-panel-name.js](../../scripts/verify-app-panel-name.js)。
 
 证据：[docs/00-handoff/APP_PANEL_NAME_ALPHA200.md](APP_PANEL_NAME_ALPHA200.md)
+
+交付：2.0.0-alpha.200；源码 `311c24c0c383d7fb2542b60bffea26f29c662e49`。

@@ -12,7 +12,7 @@
 
 ## 验证和交付
 
-名称变更与相关检查已完成；构建、安装和推送尚待执行，不以用户对名称的认可代替实现验收。
+以下为源码阶段记录；最终安装与推送状态见末尾“最终交付”，不以用户对名称的认可代替实现验收。
 
 - 新增7项回归在旧源码上2通过、5失败，更名后7/7；连同旧面板测试13/13。分离窗口标题从实际主进程源码表达式在隔离VM运行，确认旧panel标题改为新名称、其它窗口标题不变；未声称原生分离窗口鼠标验收。
 - 首轮完整检查1368/1368、294个JS通过；随后补齐标签可访问提示内的来源域名残留，最终提交还须重跑精确全量。
@@ -21,3 +21,14 @@
 - 原始证据：`dist/agentdock-app-panel-20260919/`；`naming-before.log`、`naming-final.log`、`full-check.log`、`ui-source4.log`及其实际截图。
 
 复跑：`node --test test/app-panel-name.test.js test/xiangshu-panel-view.test.js`；`node scripts/verify-app-panel-name.js`；安装版追加 `--app '/Applications/GitFinder 2.app/Contents/MacOS/GitFinder 2 Alpha'`。
+
+## 最终交付
+
+- 版本 `2.0.0-alpha.200`；运行源码 `311c24c0c383d7fb2542b60bffea26f29c662e49` 已在安装验收后推送。后续交接记录提交不改变安装制品源。
+- 精确干净提交完整检查 **1368/1368**、**294个JavaScript文件**通过；新名称专项7/7。Node执行版本26.9.0；未额外声称Windows实机或其他Node版本的新验收。
+- 源码版和最终安装版各7项界面/恢复验证通过，覆盖导航文字、旧标签、搜索、表格/卡片和偏好重启。最终安装证据 `/Volumes/project/项目/gitfinder-2/dist/agentdock-app-panel-20260919/work/dist/app-panel-name-ui-418E7C/result.json`；分离窗口标题为主进程表达式VM验证，非原生分离窗口实测。
+- 正常用户启动后系统截图 `normal-installed-alpha200.png` 已确认应用面板、旧标签的新名称、原筛选及实际资源；没有为验收重写用户偏好或白板。
+- 安装 `/Applications/GitFinder 2.app`，旧版备份 `/Volumes/project/制品与备份/GitFinder-2-alpha199-before200.app.disabled`。制品门禁issues为空，严格签名检查通过，仅ad-hoc本机开发包，无Developer ID公证、Windows或公开Release发布。
+- 安装ASAR SHA-256：`be07f8c81d07adea79930db616c8e106f69e74b09c0747a5f85f66208edd3055`；ZIP SHA-256：`e11d5661dd49a78339d447e3fccf28f3122602dca495f1f3adf2dad5904ed9a3`。ZIP在本工作树 `dist/GitFinder-2-2.0.0-alpha.200-arm64-mac.zip`。
+- 3个原白板文件在正常启动后的字节校验与本轮基线一致；主目录原10项未提交内容在集成前一致，集成时只应用本轮已提交内容并恢复原差异。最终以 `delivery-verification.json` 的集成核对为准。
+- 没有重新命名Provider协议、网络端点、存储键、内部DOM/CSS/方法标识或历史版本出处。字号扩大、AI进度和双源更新均未合入本轮。
