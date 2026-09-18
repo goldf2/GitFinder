@@ -2,18 +2,18 @@
 
 > 自动生成。只编辑 `management/development-tasks.json`，然后执行 `npm run handoff:update`。
 
-更新时间：2026-09-18T09:32:12+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
+更新时间：2026-09-18T09:43:56+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
 
 核验基线：2.0.0-alpha.193 / `99eef1d2992e389f32a48182a25fda3b9adf1958`；证据：[docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md](LAYOUT_OPTIONS_ALPHA193.md)。
 
-**唯一下一任务：GF-COOLIFY-LINK-001**
+**唯一下一任务：GF-AI-PROGRESS-001**
 
 ## 阶段汇总
 
 | 阶段 | 纳入任务 | 已交付 | 开发中/已验证 | 阻塞/暂缓 |
 | --- | ---: | ---: | ---: | ---: |
 | GF-P0 接续工程 | 2 | 2 | 0 | 0 |
-| GF-P1 桌面稳定 | 12 | 6 | 1 | 1 |
+| GF-P1 桌面稳定 | 12 | 7 | 0 | 1 |
 | GF-P2 可维护与性能 | 4 | 0 | 0 | 0 |
 | GF-P3 可分发 | 5 | 0 | 0 | 3 |
 | GF-P4 全流程事件 | 5 | 0 | 0 | 1 |
@@ -56,7 +56,7 @@
 | GF-LABS-001 | P0 | 已交付 | ChatGPT / AgentDock Cloudflare | 设置测试功能区与仪表盘/开发进度默认关闭 |
 | GF-AI-PROGRESS-001 | P1 | 计划中 | unassigned | AI辅助进度识别与人工确认的证据链设计 |
 | GF-RESOURCE-001 | P0 | 已交付 | ChatGPT / AgentDock Cloudflare | 资源库添加与主机/Project/部署容器一致性修复 |
-| GF-COOLIFY-LINK-001 | P0 | 已验证 | ChatGPT / AgentDock Cloudflare | 白板卡片和主机/Project容器的Coolify管理入口 |
+| GF-COOLIFY-LINK-001 | P0 | 已交付 | ChatGPT / AgentDock Cloudflare | 白板卡片和主机/Project容器的Coolify管理入口 |
 
 ## 可执行任务卡
 
@@ -619,17 +619,19 @@
 
 ### GF-COOLIFY-LINK-001 · 白板卡片和主机/Project容器的Coolify管理入口
 
-阶段：GF-P1；优先级：P0；状态：**已验证**；负责人：ChatGPT / AgentDock Cloudflare；用户验收：待用户反馈。
+阶段：GF-P1；优先级：P0；状态：**已交付**；负责人：ChatGPT / AgentDock Cloudflare；用户验收：待用户反馈。
 
-更新：2026-09-18T09:32:12+08:00。依赖：GF-RESOURCE-001。
+更新：2026-09-18T09:43:56+08:00。依赖：GF-RESOURCE-001。
 
 **验收标准**
-1. 部署卡片和主机/云Project标题区有独立Coolify入口，不混淆网站访问，不引起拖动或选中。
+1. 部署卡片和主机/云Project标题区有独立Coolify入口，交给系统默认浏览器，不指定浏览器或内嵌后台，不混淆网站访问，不引起拖动或选中。
 2. 来源精确匹配实例及真实UUID；缺数据不猜测，外链仍经现有主进程白名单，凭据不入白板。
 3. 通过专项/全量/安装版隔离点击和重启；保留原数据与dirty，明确未验证边界。
 
-**接续动作：** 15专项、1344全量、源码12项UI已通过；精确提交构建，安装并保护原数据后推送。
+**接续动作：** alpha198管理入口已安装验收并推送，使用系统默认浏览器；等待用户真实后台访问反馈，不代签验收。下一任务GF-AI-PROGRESS-001仍仅设计。
 
-源码/设计入口：[src/renderer/relationship-canvas/index.jsx](../../src/renderer/relationship-canvas/index.jsx)；[src/renderer/scripts/relationshipBoardController.js](../../src/renderer/scripts/relationshipBoardController.js)；[src/main/services/coolifyProviderService.js](../../src/main/services/coolifyProviderService.js)；[src/shared/panelTopologyProjection.js](../../src/shared/panelTopologyProjection.js)；[src/shared/coolifyManagementLinks.js](../../src/shared/coolifyManagementLinks.js)；[test/coolify-card-links.test.js](../../test/coolify-card-links.test.js)；[scripts/verify-coolify-card-links.js](../../scripts/verify-coolify-card-links.js)。
+源码/设计入口：[src/renderer/relationship-canvas/index.jsx](../../src/renderer/relationship-canvas/index.jsx)；[src/renderer/scripts/relationshipBoardController.js](../../src/renderer/scripts/relationshipBoardController.js)；[src/main/services/coolifyProviderService.js](../../src/main/services/coolifyProviderService.js)；[src/shared/panelTopologyProjection.js](../../src/shared/panelTopologyProjection.js)；[src/shared/coolifyManagementLinks.js](../../src/shared/coolifyManagementLinks.js)；[test/coolify-card-links.test.js](../../test/coolify-card-links.test.js)；[scripts/verify-coolify-card-links.js](../../scripts/verify-coolify-card-links.js)；[src/main/ipc/panel.js](../../src/main/ipc/panel.js)；[test/coolify-default-browser.test.js](../../test/coolify-default-browser.test.js)。
 
 证据：[docs/00-handoff/COOLIFY_CARD_LINKS_ALPHA198.md](COOLIFY_CARD_LINKS_ALPHA198.md)
+
+交付：2.0.0-alpha.198；源码 `e9097dce888cf2511d68bfcccc3b432290d1cdf8`。

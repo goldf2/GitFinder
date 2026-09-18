@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-18T09:32:12+08:00",
+  "updatedAt": "2026-09-18T09:43:56+08:00",
   "scope": "以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。",
   "baseline": {
     "version": "2.0.0-alpha.193",
     "sourceCommit": "99eef1d2992e389f32a48182a25fda3b9adf1958",
     "evidence": "docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md"
   },
-  "nextTaskId": "GF-COOLIFY-LINK-001",
+  "nextTaskId": "GF-AI-PROGRESS-001",
   "milestones": [
     {
       "id": "GF-P0",
@@ -897,9 +897,9 @@
       "milestone": "GF-P1",
       "title": "白板卡片和主机/Project容器的Coolify管理入口",
       "priority": "P0",
-      "status": "verified",
+      "status": "delivered",
       "owner": "ChatGPT / AgentDock Cloudflare",
-      "updatedAt": "2026-09-18T09:32:12+08:00",
+      "updatedAt": "2026-09-18T09:43:56+08:00",
       "dependsOn": [
         "GF-RESOURCE-001"
       ],
@@ -910,19 +910,24 @@
         "src/shared/panelTopologyProjection.js",
         "src/shared/coolifyManagementLinks.js",
         "test/coolify-card-links.test.js",
-        "scripts/verify-coolify-card-links.js"
+        "scripts/verify-coolify-card-links.js",
+        "src/main/ipc/panel.js",
+        "test/coolify-default-browser.test.js"
       ],
       "acceptance": [
-        "部署卡片和主机/云Project标题区有独立Coolify入口，不混淆网站访问，不引起拖动或选中。",
+        "部署卡片和主机/云Project标题区有独立Coolify入口，交给系统默认浏览器，不指定浏览器或内嵌后台，不混淆网站访问，不引起拖动或选中。",
         "来源精确匹配实例及真实UUID；缺数据不猜测，外链仍经现有主进程白名单，凭据不入白板。",
         "通过专项/全量/安装版隔离点击和重启；保留原数据与dirty，明确未验证边界。"
       ],
       "evidence": [
         "docs/00-handoff/COOLIFY_CARD_LINKS_ALPHA198.md"
       ],
-      "nextAction": "15专项、1344全量、源码12项UI已通过；精确提交构建，安装并保护原数据后推送。",
+      "nextAction": "alpha198管理入口已安装验收并推送，使用系统默认浏览器；等待用户真实后台访问反馈，不代签验收。下一任务GF-AI-PROGRESS-001仍仅设计。",
       "blocker": "",
-      "delivery": null,
+      "delivery": {
+        "version": "2.0.0-alpha.198",
+        "sourceCommit": "e9097dce888cf2511d68bfcccc3b432290d1cdf8"
+      },
       "userAcceptance": "pending"
     }
   ]
