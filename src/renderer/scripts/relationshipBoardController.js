@@ -25,6 +25,8 @@
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) root.RelationshipBoardController = api;
 })(typeof window !== 'undefined' ? window : globalThis, function createRelationshipBoardController(Model, PanelTopologyProjection, RepositoryRootScanner, LayoutPrimitives, GraphProjection, ActionRouter, ResourceView, ToolbarView, Presentation, PanelResize, Persistence, ResourceComposition) {
+  const CoolifyLinks = typeof module !== 'undefined' && module.exports
+    ? require('../../shared/coolifyManagementLinks') : globalThis.CoolifyManagementLinks;
   const NODE_WIDTH = 280;
   const NODE_HEIGHT = 143;
   const COMPACT_NODE_WIDTH = 236;
@@ -4733,6 +4735,8 @@
 
     _flowGraphInput(graph, alerts = this._topologyAlerts()) {
       const sourceEntities = this._allEntitiesById();
+      const managementSources = this.store
+        ? new Map(this._resourceCompositionGraph().entities.map(entity => [entity.id, entity])) : sourceEntities;
       const endpointPresentation = this._endpointPresentation(graph.placements);
       const geometry = this._displayGeometryMap(graph.placements);
       graph = { ...graph, placements: endpointPresentation.placements };
@@ -4764,6 +4768,7 @@
           ...source,
           name: this._entityDisplayName(source),
           iconKey: this._entityCardIcon(source),
+          coolifyManagementUrl: CoolifyLinks.entityUrl(managementSources.get(source.id)),
           endpointChildren: endpointPresentation.children.get(source.id) || [],
           ...(detachedOwners.has(source.id) ? { detachedOwnerName: detachedOwners.get(source.id).name } : {}),
           ...(preview ? { details: { ...source.details, imageData: preview } } : {})
@@ -4898,6 +4903,14 @@
     }
 
     _handleFlowAction(action, value, point) {
+      if (action === 'open-coolify') {
+        const current = this._resourceCompositionGraph().entities.find(entity => entity.id === value?.id);
+        const url = CoolifyLinks.entityUrl(current);
+        if (!url) { this.notify('当前资源没有可用的 Coolify 管理地址，请连接对应数据源并刷新；不会跳转到其他实例', 'warning'); return false; }
+        // Ignore URLs captured by stale buttons; the main process checks its allowlist.
+        return Promise.resolve().then(() => this.bridge.panel.openExternal(url))
+          .then(() => true).catch(error => { this.notify(`无法打开 Coolify：${error?.message || error}`, 'error'); return false; });
+      }
       if (action === 'toggle-descendants' && typeof value === 'string') return this._toggleLinkedMovement(value);
       if (action === 'toggle-endpoint-view' && value?.type === 'endpoint') {
         const placement = this._placementForEntity(value.id);

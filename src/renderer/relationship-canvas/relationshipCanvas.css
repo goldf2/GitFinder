@@ -561,3 +561,14 @@
   border-radius: 10px;
   box-shadow: 0 8px 24px rgb(38 49 70 / 12%);
 }
+
+/* Management links remain distinct from workload access and drag handles. */
+.gf-flow-coolify-link {
+  flex: 0 0 auto; white-space: nowrap; cursor: pointer;
+  border: 1px solid var(--ui-divider, #d7dce4); border-radius: 5px;
+  background: var(--bg-secondary, #fff); color: var(--accent-primary, #426fe8);
+  font: inherit; font-size: 10px; padding: 2px 5px; line-height: 1.4;
+}
+.gf-flow-coolify-link:disabled { opacity: .5; cursor: not-allowed; }
+.gf-flow-coolify-link:focus-visible { outline: 2px solid var(--accent-primary, #426fe8); outline-offset: 2px; }
+.gf-flow-card footer > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }

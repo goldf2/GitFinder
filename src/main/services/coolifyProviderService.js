@@ -1,5 +1,6 @@
 const crypto = require('node:crypto');
 const fs = require('node:fs');
+const CoolifyLinks = require('../../shared/coolifyManagementLinks');
 const path = require('node:path');
 const { execFile } = require('node:child_process');
 const { repositoryKey } = require('../../shared/repositoryAssociation');
@@ -241,9 +242,7 @@ function managementUrl(baseUrl, resource = {}, type = '', identity = {}) {
   const projectUuid = cleanText(identity.projectUuid || resource.project_uuid || resource.project?.uuid, 180);
   const environmentUuid = cleanText(identity.environmentUuid || resource.environment_uuid || resource.environment?.uuid, 180);
   const resourceUuid = cleanText(identity.resourceUuid || resource.uuid || resource.id, 180);
-  if (!projectUuid || !environmentUuid || !resourceUuid) return baseUrl;
-  const kind = ['application', 'service', 'database'].includes(type) ? type : 'application';
-  return `${baseUrl}/project/${encodeURIComponent(projectUuid)}/environment/${encodeURIComponent(environmentUuid)}/${kind}/${encodeURIComponent(resourceUuid)}`;
+  return CoolifyLinks.deploymentUrl(baseUrl, { projectUuid, environmentUuid, resourceUuid, resourceType: type });
 }
 
 function unknownRecentFailure() {
@@ -335,6 +334,7 @@ function normalizeCoolifyResource(resource = {}, type = 'resource', context = {}
     lastDeployment: facts.lastDeployment,
     recentFailure: facts.recentFailure,
     panelUrl: '',
+    coolifyProjectUrl: CoolifyLinks.projectUrl(context.baseUrl, projectUuid),
     coolifyUrl: context.baseUrl ? normalizeExternalUrl(managementUrl(context.baseUrl, resource, type, {
       projectUuid,
       environmentUuid,
@@ -705,7 +705,7 @@ async function readCoolifyOverviewInternal(options = {}) {
       latencyMs: null,
       resourceCount: resourceCountByServer.get(nodeId) || 0,
       panelUrl: '',
-      coolifyUrl: baseUrl
+      coolifyUrl: CoolifyLinks.serverUrl(baseUrl, nodeId)
     };
   });
   const result = {
@@ -1057,6 +1057,14 @@ class CoolifyProviderService {
     const providers = Array.isArray(snapshot?.providers) ? snapshot.providers : [];
     const deployments = Array.isArray(snapshot?.topology?.deployments) ? snapshot.topology.deployments : [];
     const servers = Array.isArray(snapshot?.topology?.servers) ? snapshot.topology.servers : [];
+    // Rebuild legacy cached homepage links from active instances and source IDs.
+    const providerById = new Map(providers.map(item => [item.providerId, item]));
+    for (const server of servers) server.coolifyUrl = CoolifyLinks.serverUrl(providerById.get(server.providerId)?.baseUrl, server.nodeId);
+    for (const resource of deployments) {
+      const base = providerById.get(resource.providerId)?.baseUrl;
+      resource.coolifyUrl = CoolifyLinks.deploymentUrl(base, resource);
+      resource.coolifyProjectUrl = CoolifyLinks.projectUrl(base, resource.projectUuid);
+    }
     this.endpointHealth.retainProviders(providers.map(item => item.providerId));
     for (const provider of providers) {
       this.endpointHealth.setTargets(provider.providerId, deployments
@@ -1065,7 +1073,7 @@ class CoolifyProviderService {
     for (const value of [
       ...providers.map(item => item.baseUrl),
       ...servers.flatMap(item => [item.coolifyUrl]),
-      ...deployments.flatMap(item => [item.coolifyUrl, ...(item.domains || [])])
+      ...deployments.flatMap(item => [item.coolifyUrl, item.coolifyProjectUrl, ...(item.domains || [])])
     ]) if (value) this.allowedExternalUrls.add(value);
   }
 
@@ -1306,7 +1314,7 @@ class CoolifyProviderService {
       observedAt: new Date(this.now()).toISOString()
     });
     if (!this._isCurrentProvider(provider)) throw Object.assign(new Error('Coolify 实例已变更，同步结果已丢弃'), { code: 'ESTALE' });
-    for (const value of [provider.baseUrl, ...overview.servers.flatMap(server => [server.coolifyUrl]), ...overview.deployments.flatMap(resource => [resource.coolifyUrl, ...resource.domains])]) {
+    for (const value of [provider.baseUrl, ...overview.servers.flatMap(server => [server.coolifyUrl]), ...overview.deployments.flatMap(resource => [resource.coolifyUrl, resource.coolifyProjectUrl, ...resource.domains])]) {
       if (value) this.allowedExternalUrls.add(value);
     }
     return overview;

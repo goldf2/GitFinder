@@ -11,6 +11,8 @@
     ? require('./relationshipProjectStructure') : window.RelationshipProjectStructure;
   const ProjectGalaxyLayout = typeof module !== 'undefined' && module.exports
     ? require('./relationshipProjectGalaxyLayout') : window.RelationshipProjectGalaxyLayout;
+  const CoolifyLinks = typeof module !== 'undefined' && module.exports
+    ? require('./coolifyManagementLinks') : window.CoolifyManagementLinks;
   function stableHash(value) {
     let hash = 2166136261;
     for (const character of String(value || '')) {
@@ -470,8 +472,11 @@
         id: key, type: 'group', transient: true, source: 'observed',
         name: `${runtime.providerLabel || runtime.providerId} · ${runtime.projectName || (projectUuid ? `Project ${projectUuid}` : '未分配项目')}`,
         details: { notes: 'Coolify Projects · 按项目归属分组' },
-        runtime: { providerId: runtime.providerId, projectUuid: runtime.projectUuid || '', dynamicKind: 'coolify-project-group' }
+        runtime: { providerId: runtime.providerId, projectUuid: runtime.projectUuid || '', dynamicKind: 'coolify-project-group',
+          coolifyUrl: CoolifyLinks.safeUrl(runtime.coolifyProjectUrl) }
       });
+      // Do not silently pick one target when a source supplies conflicting links.
+      if (groups.get(key).runtime.coolifyUrl !== CoolifyLinks.safeUrl(runtime.coolifyProjectUrl)) groups.get(key).runtime.coolifyUrl = '';
       memberships.set(entity.id, new Set([key]));
     }
     const addMembership = (target, source) => {

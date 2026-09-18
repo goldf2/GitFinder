@@ -1,18 +1,11 @@
 # GitFinder 2 当前状态
 
 <!-- BEGIN CURRENT_STATE -->
-## 当前有效快照 · alpha.197 资源容器一致性已交付
+## 当前任务：GF-COOLIFY-LINK-001 · alpha198源码已验证
 
-更新时间：2026-09-17T05:50:44+08:00。GF-RESOURCE-001已交付；唯一下一任务：GF-AI-PROGRESS-001（planned/unassigned，仅设计）。
+更新时间：2026-09-18T09:32:12+08:00。卡片/主机/Project管理入口、来源地址及缓存兼容已实施。15专项、1344全量/292JS、源码12项指针/键盘/离线重启通过；尚未安装或推送。唯一下一动作：精确提交后构建、可恢复安装和验证。原10项dirty及白板保护，实验功能仍默认关闭；旧生命周期检查不算本轮完成。
 
-- 当前安装 `/Applications/GitFinder 2.app` 为alpha.197；运行源码`76b98f2c9ce444116440bf5de4d35a6df1fda349`已在安装验收后推送。文档收口不改变制品源。
-- 主机、云Project、部署/端点的加号和拖放共用组合流程；新本机/独立白板复用主机容器，已有主机可显式补全，保留位置/备注/锁定/手工归属，不强制切换整板结构。
-- 旧observed主机锚点仍按原偏好展开实时来源；完整组合快照不额外引入其它主机。离线保存、跨白板、共享端点、跨来源Project身份已回归。
-- 精确源码1329/1329、290JS；29专项复跑通过；最终安装组合21/21、测试区保护18/18通过，含退出重启及旧工作区冷启动。正常用户截图确认Project/部署实际可见。
-- 原10项未提交内容保留；两套合集和独立主机白板共3文件最终字节与安装前一致。未主动补全/排列真实白板。旧196备份在 `/Volumes/project/制品与备份/GitFinder-2-alpha196-before197.app.disabled`。
-- 实验进度页仍默认关闭；没有合入并行双源更新、调用AI、迁移数据库或写入Coolify。仅macOS ad-hoc开发包，用户反馈未代签。
-
-详情及首候选兼容回归见[RESOURCE_CONTAINERS_ALPHA197.md](RESOURCE_CONTAINERS_ALPHA197.md)。进度以[唯一台账](../../management/development-tasks.json)为准。
+见[本轮记录](COOLIFY_CARD_LINKS_ALPHA198.md)。
 <!-- END CURRENT_STATE -->
 
 ## 历史兼容记录（以下不再表示当前状态）

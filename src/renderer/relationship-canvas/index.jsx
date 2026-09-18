@@ -24,6 +24,7 @@ import {
 import '@xyflow/react/dist/style.css';
 import './relationshipCanvas.css';
 import Adapter from '../../shared/relationshipFlowAdapter';
+import CoolifyLinks from '../../shared/coolifyManagementLinks';
 import CardIcon, { defaultCardIcon } from './CardIcon';
 
 const HANDLE_POSITIONS = {
@@ -159,6 +160,15 @@ function ToolbarButton({ data, action, entity, children, className = '', ...prop
   >{children}</button>;
 }
 
+function CoolifyButton({ data, entity }) {
+  if (!['server', 'deployment'].includes(entity.type) && !CoolifyLinks.isProject(entity)) return null;
+  const url = entity.coolifyManagementUrl ?? CoolifyLinks.entityUrl(entity);
+  return <ToolbarButton data={data} action="open-coolify" entity={entity}
+    className="gf-flow-coolify-link" data-coolify-entity={entity.id}
+    disabled={!url} aria-label={`在 Coolify 中打开 ${entity.name}`}
+    title={url ? `在浏览器中打开 Coolify 管理页：${url}` : '无可用管理地址，请连接对应 Coolify 数据源并刷新'}>Coolify ↗</ToolbarButton>;
+}
+
 const RelationshipCard = memo(function RelationshipCard({ id, data, selected }) {
   const { openId } = useContext(ActionMenuContext);
   const { zoom } = useViewport();
@@ -217,6 +227,7 @@ const RelationshipCard = memo(function RelationshipCard({ id, data, selected }) 
       </svg>
       <MoreActions id={id} entity={entity} />
       <strong className="gf-flow-server-name" title={entity.name}>{entity.name}</strong>
+      <CoolifyButton data={data} entity={entity} />
     </div> : <>
     <div className="gf-flow-card-accent" />
     <header>
@@ -246,6 +257,7 @@ const RelationshipCard = memo(function RelationshipCard({ id, data, selected }) 
     /> : null}
     {!compactEndpoint ? <footer>
       <span>{entityUpdatedLabel(entity)}</span>
+      <CoolifyButton data={data} entity={entity} />
       {entity.type === 'endpoint' && endpointUrl
         ? <span className="gf-flow-endpoint-actions">
           <ToolbarButton data={data} action="toggle-endpoint-view" entity={entity}>{showsEndpointPreview ? '卡片' : '预览'}</ToolbarButton>
@@ -280,6 +292,7 @@ function ContainerHeader({ id, data, host = false, selected }) {
     <div className={`gf-flow-group-title-toolbar${host ? ' gf-flow-host-title-toolbar' : ''}${zoom < 0.6 ? ' is-overview' : ''}`}>
       <button type="button" title={entity.name} className="gf-flow-group-title-button nodrag nopan" onPointerDown={event => event.stopPropagation()} onClick={toggle}><strong>{entity.name}</strong></button>
       {zoom >= 0.6 || selected ? <span>{host ? `${data.projectCount || 0} 个 Project` : `${data.memberCount || 0} 个成员`}</span> : null}
+      <CoolifyButton data={data} entity={entity} />
       <MoreActions id={id} entity={entity} />
       {!data.nestedContainer ? actions : null}
     </div>
