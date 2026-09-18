@@ -196,6 +196,18 @@ async function main() {
     await client.send('Input.dispatchKeyEvent',{type:'keyUp',key:'Backspace',code:'Backspace',windowsVirtualKeyCode:8});await idle();
     await check('Backspace与标题隐藏一致，不解散离线Project或丢失内容',`__c.store.boards[0].hiddenResourceIds.includes(${JSON.stringify(projectId)})&&JSON.stringify({entities:__c.store.entities,relationships:__c.store.relationships,placements:__c.store.boards[0].placements})===${JSON.stringify(compositionBefore)}`);
     await client.evaluate('__c.undo()');await idle();await fit();await screenshot('offline-restored-lifecycle.png');
+    await client.click('[data-layout-menu="topology"]');
+    await client.wait("!!document.querySelector('[data-board-topology-visible=\"false\"]')");
+    await client.click('[data-board-topology-visible="false"]');await idle();
+    await check('关闭整个运行层只改变显示，不从内存或磁盘删除组成',`__c.store.boards[0].view.showTopology===false&&document.querySelectorAll('.gf-flow-group').length===0&&JSON.stringify({entities:__c.store.entities,relationships:__c.store.relationships,placements:__c.store.boards[0].placements})===${JSON.stringify(compositionBefore)}`);
+    const layerHidden=unwrapRelationshipBoardFile(JSON.parse(fs.readFileSync(document.record.path,'utf8'))).store;
+    assert.equal(JSON.stringify({entities:layerHidden.entities,relationships:layerHidden.relationships,placements:layerHidden.boards[0].placements}),compositionBefore);
+    await stop();await launch();await client.evaluate(`__c._openDocument(${JSON.stringify(document.record.id)})`);
+    await check('运行层隐藏状态重启保持，原节点与关系仍在独立文件',`__c.store.boards[0].view.showTopology===false&&__c.store.entities.length===${saved.entities.length}&&__c.store.relationships.length===3`);
+    await client.click('[data-layout-menu="topology"]');await client.wait("!!document.querySelector('[data-board-topology-visible=\"true\"]')");
+    await client.click('[data-board-topology-visible="true"]');await idle();await fit();
+    await check('重开运行层恢复原容器，不需要重新从资源库添加',"document.querySelectorAll('.gf-flow-group').length===1&&document.querySelectorAll('.gf-flow-host-bubble').length===2&&__c.store.boards[0].placements.some(p=>p.note==='重开保留的备注')");
+    await screenshot('layer-toggle-reopened.png');
     // Reproduce the existing workspace format: only observed host anchors and
     // display preferences are persisted, not a complete imported snapshot.
     const observedHosts=Projection.buildProjection(topology).entities.filter(e=>e.type==='server').map(e=>({id:e.id,type:e.type,name:e.name,details:{hostLabel:e.details?.hostLabel||''},source:'observed'}));

@@ -2,7 +2,7 @@
 
 > 自动生成。只编辑 `management/development-tasks.json`，然后执行 `npm run handoff:update`。
 
-更新时间：2026-09-18T22:51:45+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
+更新时间：2026-09-18T22:58:44+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
 
 核验基线：2.0.0-alpha.193 / `99eef1d2992e389f32a48182a25fda3b9adf1958`；证据：[docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md](LAYOUT_OPTIONS_ALPHA193.md)。
 
@@ -641,14 +641,14 @@
 
 阶段：GF-P1；优先级：P0；状态：**已验证**；负责人：ChatGPT / AgentDock Cloudflare；用户验收：待用户反馈。
 
-更新：2026-09-18T22:51:45+08:00。依赖：GF-RESOURCE-001。
+更新：2026-09-18T22:58:44+08:00。依赖：GF-RESOURCE-001。
 
 **验收标准**
 1. 保存离线后与在线来源使用相同Project身份；删除为隐藏、恢复不丢成员，且普通手工分组仍可解散。
 2. 上下文菜单、容器标题、属性面板与拖放/快捷键一致；保护来源成员归属，不给离线节点额外写权限。
 3. 专项及全量通过，隔离安装版离线重启/恢复/Coolify入口与默认测试区回归有证据；保留用户原数据。
 
-**接续动作：** 最终41项资源/生命周期专项与源码29项实际UI通过，精确提交后重跑完整门禁并构建，安装验证及正常用户数据核对后推送。
+**接续动作：** 45专项和源码32项UI已通过；隐藏层保存保护补丁待精确提交完整门禁、重建安装。首候选未推送，不作为最终交付。
 
 源码/设计入口：[src/renderer/scripts/relationshipBoardController.js](../../src/renderer/scripts/relationshipBoardController.js)；[src/renderer/relationship-canvas/index.jsx](../../src/renderer/relationship-canvas/index.jsx)；[src/shared/relationshipResourceComposition.js](../../src/shared/relationshipResourceComposition.js)；[scripts/verify-resource-containers.js](../../scripts/verify-resource-containers.js)；[test/relationship-resource-composition.test.js](../../test/relationship-resource-composition.test.js)。
 

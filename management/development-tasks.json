@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-18T22:51:45+08:00",
+  "updatedAt": "2026-09-18T22:58:44+08:00",
   "scope": "以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。",
   "baseline": {
     "version": "2.0.0-alpha.193",
@@ -937,7 +937,7 @@
       "priority": "P0",
       "status": "verified",
       "owner": "ChatGPT / AgentDock Cloudflare",
-      "updatedAt": "2026-09-18T22:51:45+08:00",
+      "updatedAt": "2026-09-18T22:58:44+08:00",
       "dependsOn": [
         "GF-RESOURCE-001"
       ],
@@ -956,7 +956,7 @@
       "evidence": [
         "docs/00-handoff/CONTAINER_LIFECYCLE_ALPHA199.md"
       ],
-      "nextAction": "最终41项资源/生命周期专项与源码29项实际UI通过，精确提交后重跑完整门禁并构建，安装验证及正常用户数据核对后推送。",
+      "nextAction": "45专项和源码32项UI已通过；隐藏层保存保护补丁待精确提交完整门禁、重建安装。首候选未推送，不作为最终交付。",
       "blocker": "",
       "delivery": null,
       "userAcceptance": "pending"

@@ -397,3 +397,32 @@ test('真实文件服务读回隐藏Project后仍能离线恢复完整组成', t
   c._addResource({kind:'group',entityId:group.id,key:`entity:${group.id}`});assert.equal(c._hiddenResourceIds().has(group.id),false);
   assert.equal(c.store.entities.filter(e=>e.type==='deployment').length,1);assert.equal(c.store.relationships.length,3);
 });
+
+test('独立文件关闭运行层后保存仍保留既有资源和关系，显示开关不是删除', () => {
+  const c=lifecycleFixture();const before=JSON.stringify({entities:c.store.entities,placements:board(c).placements,relationships:c.store.relationships});
+  board(c).view.showTopology=false;const exported=c._buildActiveBoardExportStore();
+  assert.equal(JSON.stringify({entities:exported.entities,placements:exported.boards[0].placements,relationships:exported.relationships}),before);
+  assert.equal(exported.boards[0].view.showTopology,false);
+});
+
+test('保存关闭的运行层不会顺带固化未添加的其它主机', () => {
+  const c=lifecycleFixture(false);board(c).view.showTopology=false;
+  const exported=c._buildActiveBoardExportStore();assert.equal(exported.entities.filter(e=>e.type==='server').length,1);
+  assert.equal(exported.entities.some(e=>e.name==='App B'),false);
+  assert.equal(exported.entities.filter(e=>e.type==='deployment').length,1);
+});
+
+
+test('隐藏代码架构层也保留已保存节点，未添加的架构预览不进入文档', () => {
+  const c=lifecycleFixture();c._addEntity({id:'entity_archsaved01',type:'architecture',name:'Saved architecture',source:'manual',details:{architectureComponentId:'saved'}});
+  c.architectureProjection={entities:[{id:'entity_archlive01',type:'architecture',name:'Preview',details:{}}],placements:[{entityId:'entity_archlive01',x:0,y:0}],relationships:[]};
+  board(c).view.showArchitecture=false;const exported=c._buildActiveBoardExportStore();
+  assert.ok(exported.entities.some(e=>e.id==='entity_archsaved01'));assert.equal(exported.entities.some(e=>e.id==='entity_archlive01'),false);
+  assert.equal(exported.entities.filter(e=>e.type==='deployment').length,1);
+});
+
+test('隐藏层保存不以当前来源覆盖已保存的名称和说明', () => {
+  const c=lifecycleFixture(false),e=c.store.entities.find(e=>e.type==='deployment');e.name='Saved name';e.details.status='Saved status';
+  const live=c.panelProjection.entities.find(item=>item.id===e.id);live.name='Changed source';live.details.status='Current source status';
+  for(const visible of [true,false]){board(c).view.showTopology=visible;const saved=c._buildActiveBoardExportStore().entities.find(item=>item.id===e.id);assert.equal(saved.name,'Saved name');assert.equal(saved.details.status,'Saved status');}
+});

@@ -2651,8 +2651,20 @@
     _buildActiveBoardExportStore() {
       const board = activeBoard(this.store);
       if (!board) throw new Error('当前没有可导出的关系白板');
-      const placements = this._combinedPlacements(board);
+      const placements = [...this._combinedPlacements(board)];
       const entitiesById = this._allEntitiesById();
+      for (const entity of this.store.entities) if (!entitiesById.has(entity.id)) entitiesById.set(entity.id, entity);
+      const includedIds = new Set(placements.map(item => item.entityId));
+      // A display-layer toggle must not erase already saved content. Only add
+      // persisted hidden-layer members, never unseen live preview resources.
+      for (const item of board.placements) {
+        const entity = entitiesById.get(item.entityId);
+        const hiddenLayer = (!this._topologyVisible() && this._isTopologyEntity(entity))
+          || (!this._architectureVisible() && this._isArchitectureEntity(entity, item));
+        if (hiddenLayer && !includedIds.has(item.entityId)) {
+          placements.push(item); includedIds.add(item.entityId);
+        }
+      }
       const entities = placements
         .map(placement => entitiesById.get(placement.entityId))
         .filter(Boolean)
