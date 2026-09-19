@@ -659,8 +659,10 @@ test('嵌套容器写回时递归还原绝对坐标', () => {
   const flow = Adapter.toFlowModel(graph);
   const nested = flow.nodes.find(item => item.id === 'nested');
   const deployment = flow.nodes.find(item => item.id === 'deployment');
-  assert.deepEqual(nested.position, { x: 300, y: 200 });
-  assert.deepEqual(deployment.position, { x: 40, y: 60 });
+  // The inner header needs 72px. Expand its frame upward by 12px while
+  // preserving the deployment's absolute coordinates, not the obsolete inset.
+  assert.deepEqual(nested.position, { x: 300, y: 188 });
+  assert.deepEqual(deployment.position, { x: 40, y: 72 });
   assert.deepEqual(Adapter.toPlacements(flow.nodes, graph.placements)
     .find(item => item.entityId === 'deployment'), graph.placements.find(item => item.entityId === 'deployment'));
 });

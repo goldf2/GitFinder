@@ -490,6 +490,7 @@ function Canvas({
         }
         next = Adapter.constrainProjectNodes(next);
         next = Adapter.refreshHostBubbles?.(next) || next;
+        next = Adapter.reserveContainerHeaders(next);
         const routed = Adapter.rerouteFlowConnections(next, edges, { zoom: viewportZoom.current, groupTitleFontSize });
         next = routed.nodes;
         setEdges(routed.edges);

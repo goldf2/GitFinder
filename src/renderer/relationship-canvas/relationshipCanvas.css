@@ -338,7 +338,7 @@
 
 /* NodeToolbar owns its portal coordinates and viewport transform. */
 .gf-flow-nested-header { position: absolute; top: 14px; left: 20px; right: 20px; z-index: 10; }
-.gf-flow-nested-header .gf-flow-group-title-toolbar { width: 100%; box-sizing: border-box; box-shadow: none; }
+.gf-flow-nested-header .gf-flow-group-title-toolbar { width: 100%; box-sizing: border-box; box-shadow: none; align-items: center; line-height: 1.25; min-height: 28px; }
 .gf-flow-nested-header .gf-flow-group-title-button { flex: 1 1 auto; min-width: 0; text-align: left; }
 .gf-flow-nested-header .gf-flow-group-title-button strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 
@@ -354,6 +354,8 @@
 }
 
 .gf-flow-group-title-toolbar.is-overview { padding: 1px 4px; gap: 4px; box-shadow: none; border-radius: 4px; }
+/* Nested titles use their own frame width, not the floating overview cap. */
+.gf-flow-nested-header .gf-flow-group-title-toolbar.is-overview strong { max-width: 100%; }
 
 .gf-flow-group-title-toolbar > .gf-flow-more {
   width: max(20px, calc(28px * var(--group-title-scale, 1)));

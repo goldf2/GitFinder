@@ -3058,9 +3058,10 @@
     _textLayoutMetrics(display = this._displayViewSettings()) {
       // Nested titles can grow to 1.3x during overview compensation. Reserve a
       // title band and two readable glyphs without changing legacy defaults.
-      if (display.groupTitleFontSize <= 36 && display.memberLabelFontSize <= 24) return { containerHeaderHeight: 72, containerTitleMinWidth: 0 };
+      const containerHeaderHeight = Math.max(72, Math.ceil(Math.max(display.groupTitleFontSize * 1.3, display.memberLabelFontSize) * 1.4 + 32));
+      if (display.groupTitleFontSize <= 36 && display.memberLabelFontSize <= 24) return { containerHeaderHeight, containerTitleMinWidth: 0 };
       return {
-        containerHeaderHeight: Math.max(72, Math.ceil(Math.max(display.groupTitleFontSize * 1.3, display.memberLabelFontSize) * 1.4 + 32)),
+        containerHeaderHeight,
         containerTitleMinWidth: Math.ceil(display.groupTitleFontSize * 2.6 + display.memberLabelFontSize * 7 + 110)
       };
     }

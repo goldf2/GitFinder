@@ -61,6 +61,54 @@
     };
   }
 
+  function containerHeaderInset(node) {
+    return node?.type === 'hostBubble' || node?.data?.nestedContainer
+      ? Math.max(node.type === 'hostBubble' ? 88 : 72, Number(node.data?.headerHeight) || 0)
+      : PROJECT_INSET;
+  }
+
+  // Repair presentation bounds bottom-up, without relocating existing content.
+  // Saved wrap frames are minimum requests, not permission to cover a title.
+  function reserveContainerHeaders(input, options = {}) {
+    const nodes = input.map(node => ({ ...node, position: { ...node.position },
+      style: { ...node.style }, data: { ...node.data } }));
+    const byId = new Map(nodes.map(node => [node.id, node]));
+    const isContainer = node => ['hostBubble', 'relationshipGroup'].includes(node?.type);
+    const depth = node => { const seen = new Set(); let value = 0;
+      while (node?.parentId && !seen.has(node.parentId)) { seen.add(node.parentId); node = byId.get(node.parentId); value++; } return value; };
+    for (const node of nodes.filter(isContainer)) {
+      if (node.parentId && isContainer(byId.get(node.parentId))) node.data.nestedContainer = true;
+      if (node.type === 'hostBubble' || node.data.nestedContainer) {
+        node.data.headerHeight = Math.max(node.type === 'hostBubble' ? 88 : 72,
+          Number(options.containerHeaderHeight) || 0, Number(node.data.headerHeight) || 0);
+      }
+    }
+    for (const node of nodes.filter(isContainer).sort((a,b) => depth(b) - depth(a))) {
+      if (node.type !== 'hostBubble' && !node.data.nestedContainer) continue;
+      const absolute = absolutePositions(nodes), origin = absolute.get(node.id), size = nodeDimensions(node);
+      const children = nodes.filter(child => child.parentId === node.id ||
+        (!child.parentId && node.type === 'hostBubble' && node.data.memberIds?.includes(child.id)));
+      const rects = children.map(child => ({ child, x: absolute.get(child.id).x - origin.x,
+        y: absolute.get(child.id).y - origin.y, ...nodeDimensions(child) }));
+      const shiftX = Math.min(0, ...rects.map(r => r.x - 24));
+      const shiftY = Math.min(0, ...rects.map(r => r.y - containerHeaderInset(node)));
+      const width = Math.max(size.width, (Number(options.containerTitleMinWidth) || 0) + 40,
+        ...rects.map(r => r.x + r.width + 24)) - shiftX;
+      const height = Math.max(size.height, containerHeaderInset(node) + 48,
+        ...rects.map(r => r.y + r.height + 24)) - shiftY;
+      node.position = { x: node.position.x + shiftX, y: node.position.y + shiftY };
+      node.style = { ...node.style, width, height };
+      if (node.width != null) node.width = width;
+      if (node.height != null) node.height = height;
+      if (node.measured) node.measured = { ...node.measured, width, height };
+      // Rebase direct children only. All descendant world positions stay fixed.
+      for (const {child} of rects) if (child.parentId === node.id) {
+        child.position = { x: child.position.x - shiftX, y: child.position.y - shiftY };
+      }
+    }
+    return nodes;
+  }
+
   function isProjectGroup(entity = {}) {
     return entity.type === 'group' && (entity.runtime?.dynamicKind === 'coolify-project-group'
       || String(entity.id || '').startsWith('entity_panel_projectgroup_'));
@@ -383,9 +431,17 @@
         const maxX = projectPosition.x + projectSize.width - size.width - inset;
         const maxY = projectPosition.y + projectSize.height - size.height - inset;
         x = Math.min(Math.max(x, projectPosition.x + inset), Math.max(projectPosition.x + inset, maxX));
-        y = Math.min(Math.max(y, projectPosition.y + inset), Math.max(projectPosition.y + inset, maxY));
+        const top = projectPosition.y + containerHeaderInset(project);
+        y = Math.min(Math.max(y, top), Math.max(top, maxY));
       }
       node.position = { x: x - parentPosition.x, y: y - parentPosition.y };
+    }
+    for (const node of next.slice().sort((a,b) => depth(a) - depth(b))) {
+      const parent = byId.get(node.parentId);
+      if (!parent || containerHeaderInset(parent) === PROJECT_INSET || node.data?.placement?.locked) continue;
+      const top = containerHeaderInset(parent);
+      const maxY = Math.max(top, nodeDimensions(parent).height - nodeDimensions(node).height - PROJECT_INSET);
+      node.position.y = Math.min(Math.max(node.position.y, top), maxY);
     }
     return next;
   }
@@ -441,7 +497,8 @@
     const polygons = [];
     for (const id of roots) {
       const node = byId.get(id);
-      const projectId = node?.data?.projectAncestorId || projectAncestor(node, byId);
+      const projectId = node?.data?.projectAncestorId || projectAncestor(node, byId)
+        || (containerHeaderInset(byId.get(node?.parentId)) > PROJECT_INSET ? node.parentId : '');
       const project = projectId && byId.get(projectId);
       if (!node || !project || movingIds.has(projectId)) continue;
       const nodePosition = absolute.get(id);
@@ -455,7 +512,7 @@
       }
       const lowerX = projectPosition.x + PROJECT_INSET - nodePosition.x;
       const upperX = projectPosition.x + projectSize.width - nodeSize.width - PROJECT_INSET - nodePosition.x;
-      const lowerY = projectPosition.y + PROJECT_INSET - nodePosition.y;
+      const lowerY = projectPosition.y + containerHeaderInset(project) - nodePosition.y;
       const upperY = projectPosition.y + projectSize.height - nodeSize.height - PROJECT_INSET - nodePosition.y;
       minX = Math.max(minX, Math.min(lowerX, upperX));
       maxX = Math.min(maxX, Math.max(lowerX, upperX));
@@ -549,6 +606,11 @@
         for (const child of children) child.position = { ...child.position, y: child.position.y + extraTop };
       }
     }
+    for (const node of nodes) if (node.type === 'relationshipGroup' &&
+      (node.parentId || (isProjectGroup(node.data?.entity) && (options.hostContainers || options.hostContainerOnly)))) {
+      node.data.nestedContainer = true;
+    }
+    nodes = reserveContainerHeaders(nodes, options);
     if (!options.linkedNodeIds && !options.hostContainerOnly) nodes = avoidGroupTitleCollisions(nodes, options);
     nodes = constrainProjectNodes(nodes);
     const hostContainerOnly = options.hostContainerOnly === true;
@@ -646,6 +708,7 @@
     } else {
       nodes = [...addHostBubbleNodes(nodes, graph.relationships || [], entities, false, false, options), ...nodes];
     }
+    nodes = reserveContainerHeaders(nodes, options);
     for (const node of nodes) if (node.type === 'hostBubble') node.data.initialPosition = { ...node.position };
     return rerouteFlowConnections(nodes, options.showRelationshipLines === false ? [] : edges, {
       zoom: options.zoom,
@@ -696,6 +759,8 @@
     showsRuntimeStatus,
     constrainProjectNodes,
     refreshHostBubbles,
+    reserveContainerHeaders,
+    containerHeaderInset,
     avoidGroupTitleCollisions,
     movementRoots,
     applyLinkedDrag,

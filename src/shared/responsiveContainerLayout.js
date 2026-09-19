@@ -45,7 +45,7 @@
     const nodes=input.map(n=>({...n,position:{...n.position},style:{...n.style},data:{...n.data,placement:{...n.data?.placement}}}));
     const current=nodes.find(n=>n.id===id),world=absolute(input),origin=world.get(id);
     const gapX=Math.max(16,Number(options.horizontalSpacing)||24),gapY=Math.max(16,Number(options.verticalSpacing)||24);
-    const header=Math.max(72,Number(options.headerHeight)||72),padding=24;
+    const header=Math.max(current.type==='hostBubble'?88:72,Number(current.data?.headerHeight)||0,Number(options.headerHeight)||72),padding=24;
     const items=children(nodes,current).sort((a,b)=>{
       const pa=world.get(a.id),pb=world.get(b.id);return pa.y-pb.y||pa.x-pb.x||a.id.localeCompare(b.id);
     });
@@ -80,8 +80,9 @@
     while(parent&&!seen.has(parent.id)){
       seen.add(parent.id);if(!container(parent))break;
       const kids=children(nodes,parent),s=size(parent);
+      const parentHeader=Math.max(parent.type==='hostBubble'?88:72,Number(parent.data?.headerHeight)||0,header);
       const shiftX=Math.min(0,...kids.filter(n=>n.parentId===parent.id).map(n=>n.position.x-padding));
-      const shiftY=Math.min(0,...kids.filter(n=>n.parentId===parent.id).map(n=>n.position.y-header));
+      const shiftY=Math.min(0,...kids.filter(n=>n.parentId===parent.id).map(n=>n.position.y-parentHeader));
       const w=Math.max(s.width,...kids.map(n=>n.position.x+size(n).width+padding))-shiftX;
       const h=Math.max(s.height,...kids.map(n=>n.position.y+size(n).height+padding))-shiftY;
       if(w>100000||h>100000)return unchanged;
