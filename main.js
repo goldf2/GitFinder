@@ -67,7 +67,7 @@ if (updateConfiguration.enabled) {
     const { UnifiedElectronUpdater } = require('./src/main/services/unified-update/electron.cjs');
     const identity = require('./src/main/services/unified-update/identity.json');
     autoUpdater = new UnifiedElectronUpdater({ app, nativeUpdater, shell, config: {
-      ...identity, channel: 'alpha', build: 206,
+      ...identity, channel: 'alpha', build: 207,
       platform: process.platform === 'darwin' ? 'macos-' + process.arch : 'windows-x64',
       feeds: ['https://github.com/goldf2/GitFinder/releases/download/update-alpha/updates.json', 'https://oaktechz.com/updates/gitfinder-2/updates.json'],
     } });

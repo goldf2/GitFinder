@@ -9,7 +9,7 @@ function fixture(t) {
   const root=fs.mkdtempSync(path.join(os.tmpdir(),'gf-ledger-'));
   t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
   const configService={getTreeRoots:()=>[{path:root}],get:()=>undefined,getRepos:()=>({repos:[]})};
-  const roots=[{path:root,realPath:fs.realpathSync(root)}];
+  const roots=[{path:root,realPath:fs.realpathSync.native(root)}];
   return {root,roots,configService,service:new RepositoryTaskLedgerService({now:()=>new Date('2026-09-16T08:00:00Z')})};
 }
 function write(root,relative,book){const p=path.join(root,relative);fs.mkdirSync(path.dirname(p),{recursive:true});fs.writeFileSync(p,JSON.stringify(book));return p;}
@@ -57,7 +57,7 @@ test('same basename in distinct directories is never merged; overlapping roots d
 });
 test('links outside the owning project and linked project directories are not followed',t=>{
  const f=fixture(t);const p=write(f.root,'other/docs/00-handoff/TASKS.json',snake());const root=path.join(f.root,'store');fs.mkdirSync(path.join(root,'docs/00-handoff'),{recursive:true});fs.symlinkSync(p,path.join(root,'docs/00-handoff/TASKS.json'));fs.symlinkSync(path.join(f.root,'other'),path.join(f.root,'linked'));
- const r=f.service.readPortfolio(f.roots);assert.equal(r.tasks.length,2);assert.ok(r.projects.find(x=>x.projectRoot===fs.realpathSync(root))?.sourceError);assert.equal(r.projects.some(x=>x.projectRoot.endsWith('/linked')),false);
+ const r=f.service.readPortfolio(f.roots);assert.equal(r.tasks.length,2);assert.ok(r.projects.find(x=>x.projectRoot===fs.realpathSync.native(root))?.sourceError);assert.equal(r.projects.some(x=>x.projectRoot.endsWith('/linked')),false);
 });
 test('oversized and evidence traversal are bounded without following references',t=>{
  const f=fixture(t);const b=snake();b.tasks[0].evidence=[{path:'../../private.txt',result:'passed'}];write(f.root,'store/docs/00-handoff/TASKS.json',b);

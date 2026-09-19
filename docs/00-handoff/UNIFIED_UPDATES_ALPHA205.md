@@ -9,3 +9,5 @@
 ## 2026-09-20 CI 后续候选 alpha.206
 
 alpha.205 的 GitHub Actions 35472928510 未通过：macOS 测试比较了临时目录非规范路径；Windows 检查未兼容 CRLF。修复为比较 realpath 和仅规范化换行，不放宽台账内容校验。新候选 alpha.206，正式签名、公证及公开发布仍待完成。
+
+alpha.206 Mac CI 通过；Windows 的台账直接调用测试使用非 native realpath，和服务的 Windows 原生长路径不同，7 项用例无项目。fixture 改为原生规范路径，与真实调用方一致。候选 alpha.207，需重新跑 Windows CI。
