@@ -2,9 +2,9 @@
 
 任务：GF-CONTAINER-RESIZE-001。基线：alpha.201 / `7d1476c1dad146094c12d2ba4030b378e5648782`。
 
-## 当前状态
+## 当前状态（2026-09-19T08:20:33+08:00）
 
-源码已完成；18项专项和1399项完整检查通过。三类容器共24个方向已用实际Electron指针输入操作并逐次检查撤销/重做；额外14项包含便携文件与动态配置冷启动已通过。尚未完成最终安装、正常用户启动与推送；下节随真实交付更新，不能把源码结果当成已安装。
+已交付alpha.202：运行源码`a12551f5dd71702c2d1674e7f79b9b5130f17487`已在安装验收后推送；文档收口提交不改变制品来源。18项专项、干净源码1399/1399与297个JavaScript检查通过。实际安装版一次完整通过38项缩放矩阵，另11字号、32资源生命周期、12Coolify入口，共93项通过。所有测试有真实文件或配置IPC和重启验证；用户实际体验确认仍pending。
 
 ## 使用与行为
 
@@ -56,3 +56,23 @@ node scripts/verify-responsive-containers.js --app '/Applications/GitFinder 2.ap
 只在明确操作后保存新字段；未迁移数据库、复制凭据或写入Coolify配置。旧严格解析版本可能不识别wrap，因此包含新尺寸的新文件应使用alpha202及后续兼容版本；恢复旧应用不保证新文件能降级打开。原未修改文件不受影响。
 
 本轮不声称新来源增加成员后的所有布局组合、超大规模、所有字号/嵌套、Windows原生输入或正式分发均通过。仅macOS本机开发签名；AI调用、生产发布和默认开放实验进度均不在范围。用户实际验收单独记录。
+
+## 最终交付证据
+
+- 可执行应用：`/Applications/GitFinder 2.app`，版本`2.0.0-alpha.202`；源码`a12551f5dd71702c2d1674e7f79b9b5130f17487`。正常启动无调试参数，系统截图`normal-front-alpha202.png`确认原项目、白板和应用面板标签均恢复。早期截图尚只有应用外壳，激活窗口后再次核对完整界面；不将其归因为已证实的代码故障。
+- 开发签名包门禁`issues=[]`；`codesign --verify --deep --strict`及安装ASAR对比通过。ASAR SHA-256：`46cd05b660248d4e40a52011142f3155c3181a44f8ee983d97db7013934ba584`。
+- ZIP：`dist/agentdock-responsive-containers-20260919/work/dist/GitFinder-2-2.0.0-alpha.202-arm64-mac.zip`；SHA-256：`6aba185e3c4abe2b7a926b1697fe6869348650dd47bb7e2b579f5e95a2b40ba0`。
+- alpha201备份：`/Volumes/project/制品与备份/GitFinder-2-alpha201-before202.app.disabled`。仅ad-hoc开发签名，无Developer ID公证、Windows、商店或GitHub Release发行。
+- 原3份白板（两套合集及con01独立文件）在安装验收和正常启动后与本轮基线字节一致；原10项未提交内容保留，主工作区合入时再核对原差异及未跟踪内容。
+- 运行源码推送及远端核对：`source-push.log`、`source-remote.txt`；总体`delivery-verification.json`。原始日志和截图位于本项目`dist/agentdock-responsive-containers-20260919/`，不假定其他机器能访问本机dist，跨机应重跑脚本。
+
+安装矩阵：
+
+| 范围 | 通过 | 原始结果（工作区内dist） |
+| --- | ---: | --- |
+| responsive | 38/38 | `container-resize-ui-HQDtOl/result.json` |
+| text-ranges | 11/11 | `text-ranges-ui-1SKVkv/result.json` |
+| resource-containers | 32/32 | `resource-containers-ui-KXmwhJ/result.json` |
+| coolify-links | 12/12 | `coolify-links-ui-ZMaVNR/result.json` |
+
+唯一下一步：收集用户实际拖拽反馈；确认有效后按项目规则归档支持报告。AI辅助进度任务回到仅设计阶段，不能因本轮交付擅自调用模型、上传源码或重新开放实验入口。
