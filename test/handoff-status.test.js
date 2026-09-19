@@ -89,6 +89,8 @@ test('生成不会修改任务源，check不写文件且识别过期看板', t =
   assert.deepEqual(fs.readFileSync(path.join(root, SOURCE)), source);
   const report = fs.readFileSync(path.join(root, REPORT)); run(root, ['--check'], () => {});
   assert.deepEqual(fs.readFileSync(path.join(root, REPORT)), report);
+  fs.writeFileSync(path.join(root, REPORT), report.toString().replace(/\n/g, '\r\n'));
+  run(root, ['--check'], () => {});
   fs.appendFileSync(path.join(root, REPORT), '\n手改\n');
   assert.throws(() => run(root, ['--check'], () => {}), /看板已过期/);
 });

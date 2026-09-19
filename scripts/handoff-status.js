@@ -174,7 +174,7 @@ function run(root, args = [], output = console.log) {
     finally { if (fs.existsSync(temporary)) fs.unlinkSync(temporary); }
     output(`已生成 ${REPORT}；任务状态未修改。`);
   } else if (args[0] === '--check') {
-    if (!fs.existsSync(target) || fs.readFileSync(target, 'utf8') !== expected) throw new Error('看板已过期或缺失，请运行 npm run handoff:update');
+    if (!fs.existsSync(target) || fs.readFileSync(target, 'utf8').replace(/\r\n/g, '\n') !== expected) throw new Error('看板已过期或缺失，请运行 npm run handoff:update');
     output(`接续检查通过：${data.tasks.length}项任务，${data.milestones.length}个阶段；记录一致性不等于实际验收。`);
   } else {
     output(`下一任务: ${data.nextTaskId}\n基线: ${data.baseline.version}\n更新时间: ${data.updatedAt}`);
