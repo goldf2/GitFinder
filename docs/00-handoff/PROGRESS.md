@@ -2,18 +2,18 @@
 
 > 自动生成。只编辑 `management/development-tasks.json`，然后执行 `npm run handoff:update`。
 
-更新时间：2026-09-19T09:06:25+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
+更新时间：2026-09-19T09:58:24+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
 
 核验基线：2.0.0-alpha.193 / `99eef1d2992e389f32a48182a25fda3b9adf1958`；证据：[docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md](LAYOUT_OPTIONS_ALPHA193.md)。
 
-**唯一下一任务：GF-CONTAINER-HEADER-001**
+**唯一下一任务：GF-AI-PROGRESS-001**
 
 ## 阶段汇总
 
 | 阶段 | 纳入任务 | 已交付 | 开发中/已验证 | 阻塞/暂缓 |
 | --- | ---: | ---: | ---: | ---: |
 | GF-P0 接续工程 | 2 | 2 | 0 | 0 |
-| GF-P1 桌面稳定 | 17 | 11 | 1 | 1 |
+| GF-P1 桌面稳定 | 17 | 12 | 0 | 1 |
 | GF-P2 可维护与性能 | 4 | 0 | 0 | 0 |
 | GF-P3 可分发 | 5 | 0 | 0 | 3 |
 | GF-P4 全流程事件 | 5 | 0 | 0 | 1 |
@@ -61,7 +61,7 @@
 | GF-PANEL-NAME-001 | P1 | 已交付 | ChatGPT / AgentDock Cloudflare | 象数面板统一更名为应用面板 |
 | GF-TEXT-RANGE-001 | P1 | 已交付 | ChatGPT / AgentDock Cloudflare | 扩大白板文字与容器标题字号范围 |
 | GF-CONTAINER-RESIZE-001 | P0 | 已交付 | ChatGPT / AgentDock Cloudflare | 四边四角容器缩放与成员自适应换行 |
-| GF-CONTAINER-HEADER-001 | P0 | 开发中 | ChatGPT / AgentDock Cloudflare | 嵌套容器标题安全区与拖拽防重叠 |
+| GF-CONTAINER-HEADER-001 | P0 | 已交付 | ChatGPT / AgentDock Cloudflare | 嵌套容器标题安全区与拖拽防重叠 |
 
 ## 可执行任务卡
 
@@ -719,17 +719,19 @@
 
 ### GF-CONTAINER-HEADER-001 · 嵌套容器标题安全区与拖拽防重叠
 
-阶段：GF-P1；优先级：P0；状态：**开发中**；负责人：ChatGPT / AgentDock Cloudflare；用户验收：待用户反馈。
+阶段：GF-P1；优先级：P0；状态：**已交付**；负责人：ChatGPT / AgentDock Cloudflare；用户验收：待用户反馈。
 
-更新：2026-09-19T09:06:25+08:00。依赖：GF-CONTAINER-RESIZE-001。
+更新：2026-09-19T09:58:24+08:00。依赖：GF-CONTAINER-RESIZE-001。
 
 **验收标准**
 1. 重现截图同顶边主机/Project，几何预留区消除重叠，不隐藏名称或管理入口。
 2. 拖动与缩放受标题安全区约束，旧布局、不同字号、重复显示、真实保存与重开可核验。
 3. 完整回归与安装验收，保留成员/关系、锁定边界及原用户文件和未提交内容。
 
-**接续动作：** 源码28项标题与13单元已建立，待容器相邻回归与确切提交全量后，构建安装并执行安装版矩阵。
+**接续动作：** 已完成源码、121项完整安装验收、正常用户启动及源码推送；等待用户实际体验确认，确认后归档支持报告。
 
 源码/设计入口：[src/shared/relationshipFlowAdapter.js](../../src/shared/relationshipFlowAdapter.js)；[src/shared/responsiveContainerLayout.js](../../src/shared/responsiveContainerLayout.js)；[src/renderer/relationship-canvas/index.jsx](../../src/renderer/relationship-canvas/index.jsx)；[src/renderer/relationship-canvas/relationshipCanvas.css](../../src/renderer/relationship-canvas/relationshipCanvas.css)；[test/container-header-spacing.test.js](../../test/container-header-spacing.test.js)；[src/renderer/scripts/relationshipBoardController.js](../../src/renderer/scripts/relationshipBoardController.js)；[scripts/verify-container-headers.js](../../scripts/verify-container-headers.js)。
 
 证据：[docs/00-handoff/CONTAINER_HEADER_ALPHA203.md](CONTAINER_HEADER_ALPHA203.md)
+
+交付：2.0.0-alpha.203；源码 `3dd763907c48bd88b6598bb2940989397d0bee19`。
