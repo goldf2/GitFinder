@@ -1,11 +1,9 @@
 # GitFinder 2 下一步
 
 <!-- BEGIN NEXT_ACTIONS -->
-## 下一任务：GF-AI-PROGRESS-001
+## GF-UPDATE-001：统一更新接入
 
-更新时间：2026-09-19T16:35:00+08:00。GF-CARD-NAME-001的alpha204已安装验收并推送；不重复打包。等待用户确认名称显示，确认后归档修复报告。
-
-AI进度结合仍仅设计、未启动，不自动调用模型或上传资料。验收、默认TMPDIR测试限制和回退见[CARD_NAME_ALPHA204.md](CARD_NAME_ALPHA204.md)。
+alpha.205开发中；用户授权GitHub与官网发布。独立工作树保护原修改。两端协议与流式下载适配进行中；本机没有有效Developer ID签名身份，正式Mac签名公证尚未通过。下一步验证并构建待发布制品，不能把开发包当成正式发行。详见[接入记录](UNIFIED_UPDATES_ALPHA205.md)。
 <!-- END NEXT_ACTIONS -->
 
 ## 历史兼容记录（以下旧下一步已被顶部接续块取代）

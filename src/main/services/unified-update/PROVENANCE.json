@@ -1,0 +1,9 @@
+{
+  "standard": "APP-UPDATE-001",
+  "version": "1.1.0",
+  "source": "app-update-kit",
+  "files": {
+    "index.cjs": "2e44d88a8e42f558fd5f62dccde1a9484ac4a4e39ee361de40f72b3b879fccf0",
+    "electron.cjs": "a4c9230c5f49387659dcf8ed5cdeefe7cf6b884ff4bebe7c77a835eb3a22f20a"
+  }
+}

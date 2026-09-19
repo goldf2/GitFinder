@@ -2,11 +2,11 @@
 
 > 自动生成。只编辑 `management/development-tasks.json`，然后执行 `npm run handoff:update`。
 
-更新时间：2026-09-19T16:35:00+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
+更新时间：2026-09-20T06:00:37+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
 
 核验基线：2.0.0-alpha.193 / `99eef1d2992e389f32a48182a25fda3b9adf1958`；证据：[docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md](LAYOUT_OPTIONS_ALPHA193.md)。
 
-**唯一下一任务：GF-AI-PROGRESS-001**
+**唯一下一任务：GF-UPDATE-001**
 
 ## 阶段汇总
 
@@ -15,7 +15,7 @@
 | GF-P0 接续工程 | 2 | 2 | 0 | 0 |
 | GF-P1 桌面稳定 | 18 | 13 | 0 | 1 |
 | GF-P2 可维护与性能 | 4 | 0 | 0 | 0 |
-| GF-P3 可分发 | 5 | 0 | 0 | 3 |
+| GF-P3 可分发 | 5 | 0 | 1 | 2 |
 | GF-P4 全流程事件 | 5 | 0 | 0 | 1 |
 | GF-P5 Web与同步（需授权） | 4 | 0 | 0 | 4 |
 
@@ -41,7 +41,7 @@
 | GF-STORAGE-001 | P2 | 可开始 | unassigned | 已实现存储格式和恢复边界清单 |
 | GF-CI-001 | P1 | 可开始 | unassigned | 当前远端CI结果和跨平台测试入口核验 |
 | GF-WIN-001 | P2 | 计划中 | unassigned | Windows x64正常安装与默认GPU路径验收 |
-| GF-UPDATE-001 | P2 | 阻塞 | unassigned | 正式签名与旧版到新版更新链路 |
+| GF-UPDATE-001 | P2 | 开发中 | Codex | 正式签名与旧版到新版更新链路 |
 | GF-RELEASE-001 | P2 | 暂缓 | unassigned | 公开发布控制面、manifest与回退联合验收 |
 | GF-AUTH-001 | P2 | 阻塞 | unassigned | 现有独立账户的真实登录/刷新/退出验收 |
 | GF-EVENT-001 | P2 | 计划中 | unassigned | 部署事件模型与有界历史增量契约 |
@@ -348,22 +348,20 @@
 
 ### GF-UPDATE-001 · 正式签名与旧版到新版更新链路
 
-阶段：GF-P3；优先级：P2；状态：**阻塞**；负责人：unassigned；用户验收：不要求用户确认。
+阶段：GF-P3；优先级：P2；状态：**开发中**；负责人：Codex；用户验收：不要求用户确认。
 
-更新：2026-09-16T15:52:24+08:00。依赖：无。
+更新：2026-09-20T06:00:37+08:00。依赖：无。
 
 **验收标准**
 1. 确认签名/公证和测试发布源，旧版真实发现、下载、确认重启后版本正确。
 2. 取消、断网、校验失败保留可用旧版及用户数据。
 3. 发布清单、平台/架构与产物一致，开发签名不冒充正式发行。
 
-**接续动作：** 确认签名资源与授权的测试发布源；没有证据前不宣称正式升级可用。
+**接续动作：** 接入APP-UPDATE-001签名统一清单与多源流式下载；完成隔离构建及安装验收。Developer ID缺失，正式Mac发布待资源。
 
-源码/设计入口：[src/main/services/updateService.js](../../src/main/services/updateService.js)；[scripts/verify-release.js](../../scripts/verify-release.js)；[docs/online-update-publishing.md](../online-update-publishing.md)。
+源码/设计入口：[src/main/services/updateService.js](../../src/main/services/updateService.js)；[scripts/verify-release.js](../../scripts/verify-release.js)；[docs/online-update-publishing.md](../online-update-publishing.md)；[src/main/services/unified-update/index.cjs](../../src/main/services/unified-update/index.cjs)。
 
 证据：尚无本任务完成证据；源码文件存在不表示验收通过。
-
-**阻塞/暂缓原因：** 尚无本轮可复核的正式签名/公证及旧版升级证据；执行前需确认签名资源和发布范围。
 
 ### GF-RELEASE-001 · 公开发布控制面、manifest与回退联合验收
 

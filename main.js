@@ -63,7 +63,14 @@ const updateConfiguration = resolveUpdateConfiguration({ isPackaged: app.isPacka
 let autoUpdater = null;
 if (updateConfiguration.enabled) {
   try {
-    autoUpdater = require('electron-updater').autoUpdater;
+    const nativeUpdater = require('electron-updater').autoUpdater;
+    const { UnifiedElectronUpdater } = require('./src/main/services/unified-update/electron.cjs');
+    const identity = require('./src/main/services/unified-update/identity.json');
+    autoUpdater = new UnifiedElectronUpdater({ app, nativeUpdater, shell, config: {
+      ...identity, channel: 'alpha', build: 205,
+      platform: process.platform === 'darwin' ? 'macos-' + process.arch : 'windows-x64',
+      feeds: ['https://github.com/goldf2/GitFinder/releases/download/update-alpha/updates.json', 'https://oaktechz.com/updates/gitfinder-2/updates.json'],
+    } });
   } catch (e) {
     console.warn('electron-updater 未安装,自动升级不可用');
   }

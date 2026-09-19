@@ -1,13 +1,9 @@
 # GitFinder 2 当前状态
 
 <!-- BEGIN CURRENT_STATE -->
-## 当前有效快照 · alpha.204 部署名称已交付
+## GF-UPDATE-001：统一更新接入
 
-更新时间：2026-09-19T16:35:00+08:00。GF-CARD-NAME-001已交付；安装alpha204，源码7e61176453d5ff370d3770c95979106d188c3a08已推送。
-
-部署名称独占完整正文行，图标/类型/状态留在上方；访问点、容器和布局不变。规范TMPDIR全量1413测试/298JS、隔离及安装各29项通过。正常启动原白板，核对cyberbegging完整显示；旧alpha203可恢复。默认TMPDIR既有台账路径测试失败留证，不宣称全环境无问题。用户验收pending。
-
-下一开发任务GF-AI-PROGRESS-001仅设计，未自动启动。详见[CARD_NAME_ALPHA204.md](CARD_NAME_ALPHA204.md)。
+alpha.205开发中；用户授权GitHub与官网发布。独立工作树保护原修改。两端协议与流式下载适配进行中；本机没有有效Developer ID签名身份，正式Mac签名公证尚未通过。下一步验证并构建待发布制品，不能把开发包当成正式发行。详见[接入记录](UNIFIED_UPDATES_ALPHA205.md)。
 <!-- END CURRENT_STATE -->
 
 ## 历史兼容记录（以下不再表示当前状态）
