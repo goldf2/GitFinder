@@ -236,11 +236,12 @@ const RelationshipCard = memo(function RelationshipCard({ id, data, selected }) 
       {iconKey !== 'none' ? <span className="gf-flow-card-icon" aria-hidden="true"><CardIcon name={iconKey} /></span> : null}
       <span className="gf-flow-card-heading">
         <small title={entity.detachedOwnerName ? `所属部署：${entity.detachedOwnerName}（当前已隐藏）` : undefined}>{entity.detachedOwnerName ? `访问点 · ${entity.detachedOwnerName}` : entityKind(entity.type)}</small>
-        <strong title={entity.name}>{entity.name}</strong>
+        {entity.type !== 'deployment' && <strong title={entity.name}>{entity.name}</strong>}
       </span>
       {data.showRuntimeStatus ? <span className="gf-flow-status"><i />{tone === 'healthy' ? '正常' : tone === 'warning' ? '预警' : '停止/未知'}</span> : null}
       <MoreActions id={id} entity={entity} />
     </header>
+    {entity.type === 'deployment' && <strong className="gf-flow-card-name" title={entity.name}>{entity.name}</strong>}
     <p className="gf-flow-card-subtitle" title={subtitle}>{subtitle || '暂无详细信息'}</p>
     {deploymentMeta.length ? <div className="gf-flow-deployment-signals">{deploymentMeta.map(signal => <span key={signal}>{signal}</span>)}</div> : null}
     {entity.endpointChildren?.length ? <div className="gf-flow-endpoint-children nodrag nopan nowheel" aria-label={`${entity.name} 访问点`}>

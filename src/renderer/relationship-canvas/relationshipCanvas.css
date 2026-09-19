@@ -219,6 +219,20 @@
   white-space: nowrap;
 }
 
+.gf-flow-card-name {
+  display: block;
+  overflow: hidden;
+  margin-top: 4px;
+  font-size: var(--relationship-title-font-size, 17px);
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gf-flow-card.resource-deployment .gf-flow-card-icon { width: 24px; height: 24px; border-radius: 6px; }
+.gf-flow-card.resource-deployment .gf-flow-card-icon svg { width: 18px; height: 18px; }
+.gf-flow-card.resource-deployment .gf-flow-card-subtitle { margin-top: 4px; }
+
 .gf-flow-status {
   display: flex;
   align-items: center;

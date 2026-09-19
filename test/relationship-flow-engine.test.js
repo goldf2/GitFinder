@@ -12,6 +12,12 @@ const controllerSource = fs.readFileSync(path.join(__dirname, '../src/renderer/s
 const toolbarViewSource = fs.readFileSync(path.join(__dirname, '../src/renderer/scripts/relationshipBoardToolbarView.js'), 'utf8');
 const adapterSource = fs.readFileSync(path.join(__dirname, '../src/shared/relationshipFlowAdapter.js'), 'utf8');
 
+test('部署名称独占头部下方整行，不被图标和状态挤压', () => {
+  assert.match(source, /entity.type !== 'deployment' && <strong title=\{entity.name\}/);
+  assert.match(source, /<\/header>\s*\{entity.type === 'deployment' && <strong className="gf-flow-card-name"/);
+  assert.match(canvasCss, /\.gf-flow-card-name\s*\{[^}]*display:\s*block;[^}]*overflow:\s*hidden;/s);
+});
+
 test('新画布直接使用成熟库提供框选、拖动平移、滚轮缩放、边缘滚动和小地图', () => {
   assert.match(source, /selectionOnDrag/);
   assert.match(source, /panOnScroll=\{false\}/);

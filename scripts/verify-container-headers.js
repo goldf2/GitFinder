@@ -64,7 +64,7 @@ async function main() {
     {entityId:b,x:1180,y:100,groupWidth:920,groupHeight:650,groupLayout:'manual',containerLayout:'wrap'}];
   const relationships=[];
   for(let i=0;i<10;i++){const id='entity_header_app'+i,owner=i<7?a:b,j=i<7?i:i-7;
-    entities.push({id,type:'deployment',name:'示例应用 '+i,details:{status:'running'}});
+    entities.push({id,type:'deployment',name:i===0?'cyberbeijing-production-service':'示例应用 '+i,details:{status:'running'}});
     placements.push({entityId:id,groupId:owner,x:(i<7?184:1204)+(j%(i<7?3:2))*310,y:180+Math.floor(j/(i<7?3:2))*190});
     relationships.push({id:'relationship_header_app'+i,type:'runs_on',sourceId:id,targetId:host});
   }
@@ -118,7 +118,17 @@ async function main() {
     await client.send('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:1,x:pos.x+dx*pos.zoom,y:pos.y+dy*pos.zoom});await idle();
   }
   try {
-    await launch();await center('host-bubble:'+host);await clearHeaders('同顶边旧布局打开后父子标题分层，所有名称保留');await shot('repaired-default.png');
+    await launch();
+    await center('entity_header_app0',1);
+    const cardName=await client.evaluate(`(()=>{const card=document.querySelector('.resource-deployment');const title=card.querySelector('.gf-flow-card-name');const header=card.querySelector('header');const r=title.getBoundingClientRect(),h=header.getBoundingClientRect(),c=card.getBoundingClientRect(),f=card.querySelector('footer').getBoundingClientRect();return{text:title.textContent,tooltip:title.title,title:r.toJSON(),header:h.toJSON(),card:c.toJSON(),footer:f.toJSON()}})()`);
+    assert.equal(cardName.text,'cyberbeijing-production-service');
+    assert.equal(cardName.tooltip,cardName.text);
+    assert.ok(cardName.title.top>=cardName.header.bottom,'名称应在图标状态行下方');
+    assert.ok(Math.abs(cardName.title.width-cardName.header.width)<1,'名称独占正文宽度');
+    assert.ok(cardName.footer.bottom<=cardName.card.bottom,'操作按钮不能溢出卡片');
+    record('部署长名称独占正文整行，提示保留全名，底部按钮未溢出');
+    await shot('deployment-name.png');
+    await center('host-bubble:'+host);await clearHeaders('同顶边旧布局打开后父子标题分层，所有名称保留');await shot('repaired-default.png');
     assert.deepEqual((await state()).placements,seed.boards[0].placements);record('首次显示不改写已存尺寸、成员坐标或关系');
     await client.click('[data-relationship-action=toggle-display-menu]');
     for(const font of [8,20,36,48,96]) {
