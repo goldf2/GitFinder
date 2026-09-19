@@ -238,6 +238,7 @@
       ...(note ? { note } : {}),
       ...(todos.length ? { todos } : {}),
       ...(['auto', 'manual'].includes(value.groupLayout) ? { groupLayout: value.groupLayout } : {}),
+      ...(value.containerLayout === 'wrap' ? { containerLayout: 'wrap' } : {}),
       ...(Number.isFinite(Number(value.groupWidth)) && Number(value.groupWidth) >= GROUP_MIN_WIDTH ? { groupWidth: Math.min(100000, Math.round(Number(value.groupWidth))) } : {}),
       ...(Number.isFinite(Number(value.groupHeight)) && Number(value.groupHeight) >= GROUP_MIN_HEIGHT ? { groupHeight: Math.min(100000, Math.round(Number(value.groupHeight))) } : {}),
       ...(value.locked === true ? { locked: true } : {}), ...(value.expanded === true ? { expanded: true } : {}),
@@ -650,6 +651,7 @@
     }
 
     close(options = {}) {
+      this.containerResizeActive = false;
       this.documentAssetsRequestId++;
       this.panelResize.unmount();
       this.displayLayoutEdit = null;
@@ -1018,7 +1020,7 @@
           && liveEntities.get(placement.entityId)?.runtime?.dynamicKind === 'coolify-project-group';
         const liveProjectMember = liveProjectGroupIds.has(placement.groupId);
         const annotations = normalizePlacementAnnotations(override);
-        if (liveProjectGroup) {
+        if (liveProjectGroup && override?.containerLayout !== 'wrap') {
           delete annotations.groupWidth;
           delete annotations.groupHeight;
           if (['project-columns', 'project-balanced'].includes(this._boardView().layout) && override?.positionVersion === 1) {
@@ -1047,7 +1049,7 @@
           ...(override.groupBackground ? { groupBackground: override.groupBackground } : {}),
           ...(override.groupBorder ? { groupBorder: override.groupBorder } : {}),
           ...(validGroup ? { groupId } : {}),
-          ...(liveProjectGroup ? { groupLayout: 'auto' } : {}),
+          ...(liveProjectGroup && override?.containerLayout !== 'wrap' ? { groupLayout: 'auto' } : {}),
           userPositioned: true
         } : { ...placement, ...(validGroup ? { groupId } : {}) };
       });
@@ -2303,7 +2305,7 @@
           const liveProjectGroup = entity?.type === 'group'
             && entity.runtime?.dynamicKind === 'coolify-project-group'
             && placement.groupLayout === 'auto';
-          if (current && previewingRuntime && !snapshotIds.has(placement.entityId) && liveProjectGroup) {
+          if (current && previewingRuntime && !snapshotIds.has(placement.entityId) && liveProjectGroup && current.containerLayout !== 'wrap') {
             // A Project container is derived from the live snapshot. Keep
             // local position/annotations, but discard legacy dimensions so
             // automatic geometry can shrink to the current members.
@@ -3232,7 +3234,7 @@
         // drag cannot repack its members or resize the frame on re-render.
         const linkedProject = projectGroup && (linkedBranch.has(group.entityId)
           || descendants.some(item => linkedBranch.has(item.entityId)));
-        const autoLayout = group.groupLayout === 'auto' && !group.locked
+        const autoLayout = group.containerLayout !== 'wrap' && group.groupLayout === 'auto' && !group.locked
           && !descendants.some(item => item.locked) && !linkedProject;
         const projectGalaxy = this._boardView().layout === 'galaxy' && projectGroup;
         let autoProjectBounds = null;
@@ -3303,7 +3305,7 @@
         } : this._placementGeometry(group, placements, new Set(), geometryById));
         if (this._isServerTree()) {
           let originalY = bounds.y;
-          if (!linkedProject) {
+          if (!linkedProject && group.containerLayout !== 'wrap') {
             const union = containedMembers.map(item => geometryById.get(item.entityId)).filter(Boolean);
             if (union.length) {
               const right = Math.max(bounds.x + bounds.width, ...union.map(r => r.x + r.width + GROUP_PADDING_X));
@@ -3406,7 +3408,7 @@
       this._recordMutation();
       const before = this._displayGeometryMap(this._combinedPlacements());
       const items = [...new Set(groups.flatMap(group => this._materializeGroupGeometry(group.entityId, before)))];
-      groups.forEach(group => { group.groupLayout = enabled ? 'auto' : 'manual'; });
+      groups.forEach(group => { group.groupLayout = enabled ? 'auto' : 'manual'; if (enabled) delete group.containerLayout; });
       if (enabled) {
         if (arrangeBoard) {
           // A batch tidy also replaces oversized legacy wrapping widths. A
@@ -3454,6 +3456,7 @@
         return { ...item, width: bounds.width, height: bounds.height };
       });
       this._recordMutation();
+      delete group.containerLayout;
       group.groupLayout = 'auto';
       PanelTopologyProjection.arrangeProjectContainer(groupCopy, memberCopies, {
         ...this._nodeDimensions(),
@@ -3532,6 +3535,9 @@
       let top = Math.min(...bounds.map(item => item.y));
       const changed = new Set();
       this._recordMutation();
+      const hostPlacement = this._placementForEntity(hostId);
+      delete hostPlacement.containerLayout; delete hostPlacement.groupWidth; delete hostPlacement.groupHeight;
+      changed.add(hostId);
       ordered.forEach((unit, index) => {
         const rect = bounds[index], dx = left - rect.x, dy = top - rect.y;
         for (const item of descendants(unit.entityId)) {
@@ -3550,7 +3556,7 @@
     _settleProjectDeployment(entityId) {
       const groupId = this._logicalProjectGroupForMember(entityId);
       const group = groupId && this._placementForEntity(groupId);
-      if (!group || group.locked) return false;
+      if (!group || group.locked || group.containerLayout === 'wrap') return false;
       const entities = this._allEntitiesById();
       const placements = this._combinedPlacements();
       const includeEndpoints = this._boardView().projectGroupIncludesEndpoints !== false;
@@ -4800,8 +4806,9 @@
         };
       }).filter(Boolean);
       const placements = graph.placements.map(placement => {
-        const rect = geometry.get(placement.entityId)
-          || this._placementGeometry(placement, graph.placements, new Set(), geometry);
+        const rect = placement.containerLayout === 'wrap' && sourceEntities.get(placement.entityId)?.type === 'server'
+          ? { x: placement.x, y: placement.y, width: placement.groupWidth, height: placement.groupHeight }
+          : geometry.get(placement.entityId) || this._placementGeometry(placement, graph.placements, new Set(), geometry);
         return {
           ...placement,
           x: rect.x,
@@ -4852,16 +4859,22 @@
       let persistentChanged = false;
       let anyChanged = false;
       for (const candidate of changed) {
+        if (next.resizeChangedIds && !next.resizeChangedIds.has(candidate.entityId)) continue;
         const placement = this._placementForEntity(candidate.entityId);
         if (!placement) continue;
         const fields = ['x', 'y', 'groupWidth', 'groupHeight'];
-        if (!fields.some(field => Number.isFinite(candidate[field]) && candidate[field] !== placement[field])) continue;
+        if (!fields.some(field => Number.isFinite(candidate[field]) && candidate[field] !== placement[field])
+          && !(candidate.containerLayout === 'wrap' && placement.containerLayout !== 'wrap')) continue;
         if (!this.flowMutationActive) {
           this._recordMutation();
           this.flowMutationActive = true;
         }
         for (const field of fields) {
           if (Number.isFinite(candidate[field])) placement[field] = Math.round(candidate[field] * 100) / 100;
+        }
+        if (candidate.containerLayout === 'wrap') {
+          placement.containerLayout = 'wrap';
+          if (this._allEntitiesById().get(candidate.entityId)?.type === 'group') placement.groupLayout = 'manual';
         }
         anyChanged = true;
         if (placement.dynamic) dynamicIds.push(placement.entityId);
@@ -4927,6 +4940,28 @@
       menu.querySelector('button:not(:disabled)')?.focus({ preventScroll: true });
     }
 
+    _containerResizeAllowed(entityId) {
+      const placements = this._combinedPlacements(), entities = this._allEntitiesById();
+      const entity = entities.get(entityId);
+      if (!['server', 'group'].includes(entity?.type)) return false;
+      const byId = new Map(placements.map(p => [p.entityId, p]));
+      const ids = new Set([entityId]);
+      if (entity.type === 'server') {
+        const hierarchy = this._resourceHierarchy([...entities.values()], this._combinedRelationships(placements));
+        for (const id of [...(hierarchy.projectsByServer.get(entityId) || []), ...(hierarchy.deploymentsByServer.get(entityId) || [])]) {
+          ids.add(id); if (byId.get(id)?.groupId) ids.add(byId.get(id).groupId);
+        }
+      }
+      for (let previous = -1; previous !== ids.size;) {
+        previous = ids.size;
+        for (const p of placements) if (ids.has(p.groupId)) ids.add(p.entityId);
+      }
+      let parent = byId.get(entityId)?.groupId;
+      const seen = new Set();
+      while (parent && !seen.has(parent)) { seen.add(parent); ids.add(parent); parent = byId.get(parent)?.groupId; }
+      return ![...ids].some(id => byId.get(id)?.locked);
+    }
+
     _handleFlowAction(action, value, point) {
       if (action === 'open-coolify') {
         const current = this._resourceCompositionGraph().entities.find(entity => entity.id === value?.id);
@@ -4961,6 +4996,31 @@
       if (action === 'context-node') return this._openFlowContextMenu('node', value, point);
       if (action === 'context-edge') return this._openFlowContextMenu('relationship', value, point);
       if (action === 'context-pane') return this._openFlowContextMenu('canvas', null, point);
+      if (action === 'container-resize-start') {
+        if (!this._containerResizeAllowed(value?.id)) return false;
+        this.containerResizeActive = { store: this.store, boardId: activeBoard(this.store)?.id, document: this.documentRecord };
+        return true;
+      }
+      if (action === 'container-resize-cancel') { this.containerResizeActive = false; return true; }
+      if (action === 'container-resize-commit') {
+        const gesture = this.containerResizeActive;
+        this.containerResizeActive = false;
+        if (!gesture || gesture.store !== this.store || gesture.document !== this.documentRecord
+          || gesture.boardId !== activeBoard(this.store)?.id || !this._containerResizeAllowed(value?.id)
+          || !point?.nodes?.length || !point.resizeBaseline) return false;
+        const current = this._combinedPlacements();
+        const baseline = new Map(globalThis.RelationshipCanvasEngine.toPlacements(point.resizeBaseline, current).map(p => [p.entityId, p]));
+        const changes = globalThis.RelationshipCanvasEngine.toPlacements(point.nodes, current).filter(p => {
+          const old = baseline.get(p.entityId);
+          return old && ['x', 'y', 'groupWidth', 'groupHeight', 'containerLayout'].some(key => p[key] !== old[key]);
+        });
+        if (!changes.length) return false;
+        this._recordMutation(); this.flowMutationActive = true;
+        try { this._handleFlowModelChange({ ...point, resizeChangedIds: new Set(changes.map(p => p.entityId)) }); }
+        finally { this.flowMutationActive = false; }
+        this._persistSoon(0); this._refreshHistoryButtons(); this._renderGraph();
+        return true;
+      }
       if (!value?.id) return;
       if (action === 'select-group' || action === 'arrange-group') {
         this._selectOnlyEntity(value.id);
@@ -5042,6 +5102,9 @@
         ...this._textLayoutMetrics(display),
         layout: view.layout
       });
+      for (const node of model.nodes) if (['hostBubble', 'relationshipGroup'].includes(node.type)) {
+        node.data.resizeBlocked = !this._containerResizeAllowed(node.data.entity.id);
+      }
       this.flowRenderOptions = {
         model,
         fitView: false,
@@ -5050,6 +5113,7 @@
         horizontalSpacing: display.horizontalSpacing,
         verticalSpacing: display.verticalSpacing,
         groupTitleFontSize: display.groupTitleFontSize,
+        ...this._textLayoutMetrics(display),
         titleZoomStrength: display.titleZoomStrength,
         edgeZoomMode: display.edgeZoomMode,
         maxZoom: display.maxZoom,
@@ -6551,7 +6615,7 @@
         }
         const copy = { entityId, x: Math.round(sourcePlacement.x + dx), y: Math.round(sourcePlacement.y + dy) };
         if (ownsParent && known.get(entityId)?.type !== 'server') copy.groupId = groupId;
-        for (const key of ['groupLayout', 'groupWidth', 'groupHeight', 'groupShape', 'groupAppearance']) {
+        for (const key of ['groupLayout', 'containerLayout', 'groupWidth', 'groupHeight', 'groupShape', 'groupAppearance']) {
           if (sourcePlacement[key] !== undefined) copy[key] = sourcePlacement[key];
         }
         board.placements.push(copy); placed.set(entityId, copy); added++; changed = true;

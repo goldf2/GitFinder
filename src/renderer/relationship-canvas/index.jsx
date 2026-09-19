@@ -11,7 +11,6 @@ import {
   Handle,
   MarkerType,
   MiniMap,
-  NodeResizer,
   NodeToolbar,
   Position,
   ReactFlow,
@@ -27,6 +26,8 @@ import Adapter from '../../shared/relationshipFlowAdapter';
 import CoolifyLinks from '../../shared/coolifyManagementLinks';
 import ResourceComposition from '../../shared/relationshipResourceComposition';
 import CardIcon, { defaultCardIcon } from './CardIcon';
+import ContainerResizer from './ContainerResizer';
+import ResponsiveLayout from '../../shared/responsiveContainerLayout';
 
 const HANDLE_POSITIONS = {
   top: Position.Top,
@@ -310,7 +311,7 @@ function ContainerHeader({ id, data, host = false, selected }) {
       {actions}
     </NodeToolbar>
   </>;
-  return <NodeToolbar isVisible position={Position.Top} align="start" className="gf-flow-group-title-node-toolbar" offset={-10}
+  return <NodeToolbar isVisible position={Position.Top} align="start" className="gf-flow-group-title-node-toolbar" offset={10}
     style={{ zIndex: isOpen ? 1000 : 10, '--group-title-scale': Math.pow(Math.min(1, Math.max(0.03, zoom)), data.titleZoomStrength ?? 0.5), '--group-title-max-width': `${Math.max(72, Math.min(280, Number(data.placement?.groupWidth || 640) * zoom))}px` }}>{header}</NodeToolbar>;
 }
 
@@ -324,27 +325,17 @@ const RelationshipGroup = memo(function RelationshipGroup({ id, data, selected }
     background: data.placement.groupAppearance === 'outline' ? 'transparent'
       : data.placement.groupAppearance === 'emphasis' ? 'color-mix(in srgb, var(--group-background) 20%, transparent)' : undefined
   };
-  return <section className={`gf-flow-group is-${shape}${selected ? ' is-selected' : ''}${data.filterState ? ` is-filter-${data.filterState}` : ''}`} style={style}>
+  return <><ContainerResizer id={id} data={data} /><section className={`gf-flow-group is-${shape}${selected ? ' is-selected' : ''}${data.filterState ? ` is-filter-${data.filterState}` : ''}`} style={style}>
     <ConnectionHandles nodeId={id} handles={data.connectionHandles} />
-    <NodeResizer
-      isVisible={selected}
-      minWidth={320}
-      minHeight={220}
-      keepAspectRatio={shape === 'polygon'}
-      onResizeStart={() => data.onAction?.('resize-start', entity)}
-      onResizeEnd={() => data.onAction?.('resize-end', entity)}
-      lineClassName="gf-flow-resize-line"
-      handleClassName="gf-flow-resize-handle"
-    />
     <ContainerHeader id={id} data={data} selected={selected} />
-  </section>;
+  </section></>;
 });
 
 const HostBubble = memo(function HostBubble({ id, data }) {
-  return <section className="gf-flow-host-bubble" aria-label={`${data.entity?.name || '主机'} Project 容器`}>
+  return <><ContainerResizer id={id} data={data} /><section className="gf-flow-host-bubble" aria-label={`${data.entity?.name || '主机'} Project 容器`}>
     <ConnectionHandles nodeId={id} handles={data.connectionHandles} />
     <ContainerHeader id={id} data={data} host />
-  </section>;
+  </section></>;
 });
 
 const NODE_TYPES = { relationshipCard: RelationshipCard, relationshipGroup: RelationshipGroup, hostBubble: HostBubble };
@@ -371,6 +362,8 @@ function Canvas({
   horizontalSpacing = 64,
   verticalSpacing = 36,
   groupTitleFontSize = 20,
+  containerHeaderHeight = 72,
+  containerTitleMinWidth = 0,
   titleZoomStrength = 0.5,
   edgeZoomMode = 'adaptive',
   maxZoom = 8,
@@ -395,7 +388,37 @@ function Canvas({
       window.removeEventListener('keydown', closeOnEscape);
     };
   }, []);
+  const resizeState = useRef(null);
   const dispatchAction = useCallback((action, value, point) => {
+    if (action.startsWith('container-resize-')) {
+      if (action === 'container-resize-start') {
+        const base = flowInstance.current?.getNodes() || model.nodes;
+        if (!ResponsiveLayout.canResize(base, point.nodeId)) return false;
+        resizeState.current = { id: point.nodeId, base, edges: flowInstance.current?.getEdges() || model.edges,
+          current: null, changed: false };
+        if (onAction?.(action, value) === false) { resizeState.current = null; return false; }
+        return true;
+      }
+      const gesture = resizeState.current;
+      if (!gesture) return false;
+      if (action === 'container-resize-preview') {
+        const result = ResponsiveLayout.resize(gesture.base, gesture.id, point, {
+          horizontalSpacing, verticalSpacing, headerHeight: containerHeaderHeight, minTitleWidth: containerTitleMinWidth
+        });
+        gesture.current = result.nodes; gesture.changed = result.changed;
+        setNodes(result.nodes);
+        return true;
+      }
+      resizeState.current = null;
+      if (action === 'container-resize-commit' && gesture.changed) {
+        const routed = Adapter.rerouteFlowConnections(gesture.current, gesture.edges, { zoom: viewportZoom.current, groupTitleFontSize });
+        setNodes(routed.nodes); setEdges(routed.edges);
+        return onAction?.(action, value, { ...routed, resizeBaseline: gesture.base });
+      }
+      setNodes(gesture.base); setEdges(gesture.edges);
+      onAction?.('container-resize-cancel', value);
+      return false;
+    }
     const result = onAction?.(action, value, point);
     if (action === 'toggle-descendants' && typeof result === 'boolean') {
       setNodes(current => current.map(node => node.id === value ? {
@@ -404,7 +427,7 @@ function Canvas({
       } : node));
     }
     return result;
-  }, [onAction]);
+  }, [onAction, model, horizontalSpacing, verticalSpacing, groupTitleFontSize, containerHeaderHeight, containerTitleMinWidth]);
   const withActions = useCallback(items => items.map(node => ({ ...node, data: { ...node.data, onAction: dispatchAction } })), [dispatchAction]);
   const [nodes, setNodes] = useState(() => withActions(model.nodes));
   const [edges, setEdges] = useState(model.edges);
@@ -412,7 +435,10 @@ function Canvas({
   const modifierState = useRef({ alt: false });
   const viewportZoom = useRef(Number(initialViewport?.zoom) || 1);
 
-  useEffect(() => setNodes(withActions(model.nodes)), [model.nodes, withActions]);
+  useEffect(() => {
+    if (resizeState.current) { resizeState.current = null; onAction?.('container-resize-cancel'); }
+    setNodes(withActions(model.nodes));
+  }, [model.nodes, withActions]);
   useEffect(() => setEdges(model.edges), [model.edges]);
   useEffect(() => {
     const updateModifier = event => { modifierState.current.alt = event.altKey; };
@@ -432,9 +458,10 @@ function Canvas({
     return counts;
   }, new Map()), [nodes]);
   const displayedNodes = useMemo(() => nodes.map(node => ['relationshipGroup', 'hostBubble'].includes(node.type)
-    ? { ...node, data: { ...node.data, titleZoomStrength, memberCount: memberCounts.get(node.id) || 0 } } : node), [nodes, memberCounts, titleZoomStrength]);
+    ? { ...node, data: { ...node.data, resizeAllowed: ResponsiveLayout.canResize(nodes, node.id), titleZoomStrength, memberCount: memberCounts.get(node.id) || 0 } } : node), [nodes, memberCounts, titleZoomStrength]);
 
   const handleNodesChange = useCallback(changes => {
+    if (resizeState.current) return; // Measurements during preview are not user writes.
     setNodes(current => {
       let next = applyNodeChanges(changes, current);
       const userGeometryChange = changes.some(change => change.type === 'position'

@@ -2,18 +2,18 @@
 
 > 自动生成。只编辑 `management/development-tasks.json`，然后执行 `npm run handoff:update`。
 
-更新时间：2026-09-19T06:40:07+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
+更新时间：2026-09-19T08:06:56+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
 
 核验基线：2.0.0-alpha.193 / `99eef1d2992e389f32a48182a25fda3b9adf1958`；证据：[docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md](LAYOUT_OPTIONS_ALPHA193.md)。
 
-**唯一下一任务：GF-AI-PROGRESS-001**
+**唯一下一任务：GF-CONTAINER-RESIZE-001**
 
 ## 阶段汇总
 
 | 阶段 | 纳入任务 | 已交付 | 开发中/已验证 | 阻塞/暂缓 |
 | --- | ---: | ---: | ---: | ---: |
 | GF-P0 接续工程 | 2 | 2 | 0 | 0 |
-| GF-P1 桌面稳定 | 15 | 10 | 0 | 1 |
+| GF-P1 桌面稳定 | 16 | 10 | 1 | 1 |
 | GF-P2 可维护与性能 | 4 | 0 | 0 | 0 |
 | GF-P3 可分发 | 5 | 0 | 0 | 3 |
 | GF-P4 全流程事件 | 5 | 0 | 0 | 1 |
@@ -60,6 +60,7 @@
 | GF-CONTAINER-LIFECYCLE-001 | P0 | 已交付 | ChatGPT / AgentDock Cloudflare | 在线与离线Project隐藏、删除和成员归属一致性 |
 | GF-PANEL-NAME-001 | P1 | 已交付 | ChatGPT / AgentDock Cloudflare | 象数面板统一更名为应用面板 |
 | GF-TEXT-RANGE-001 | P1 | 已交付 | ChatGPT / AgentDock Cloudflare | 扩大白板文字与容器标题字号范围 |
+| GF-CONTAINER-RESIZE-001 | P0 | 已验证 | ChatGPT / AgentDock Cloudflare | 四边四角容器缩放与成员自适应换行 |
 
 ## 可执行任务卡
 
@@ -695,3 +696,20 @@
 证据：[docs/00-handoff/TEXT_RANGES_ALPHA201.md](TEXT_RANGES_ALPHA201.md)
 
 交付：2.0.0-alpha.201；源码 `7ae44cdd3cbca46bc3ee01322889a5d64be6a1ed`。
+
+### GF-CONTAINER-RESIZE-001 · 四边四角容器缩放与成员自适应换行
+
+阶段：GF-P1；优先级：P0；状态：**已验证**；负责人：ChatGPT / AgentDock Cloudflare；用户验收：待用户反馈。
+
+更新：2026-09-19T08:06:56+08:00。依赖：GF-TEXT-RANGE-001。
+
+**验收标准**
+1. 主机、Project、普通群组支持四边四角拖动，内部按宽度换行且组件不缩放。
+2. 显式尺寸、嵌套与锁定边界可保存重开，撤销或取消不留下半次操作。
+3. 全量、实际安装拖拽与重启验证，原数据及未提交改动保留。
+
+**接续动作：** 从精确提交构建alpha202，备份alpha201后安装；执行完整38项缩放及原字号/Coolify/资源回归，通过正常用户启动与数据校验后推送。
+
+源码/设计入口：[src/renderer/relationship-canvas/index.jsx](../../src/renderer/relationship-canvas/index.jsx)；[src/shared/relationshipFlowAdapter.js](../../src/shared/relationshipFlowAdapter.js)；[src/renderer/scripts/relationshipBoardController.js](../../src/renderer/scripts/relationshipBoardController.js)；[src/shared/relationshipGraphModel.js](../../src/shared/relationshipGraphModel.js)；[src/shared/responsiveContainerLayout.js](../../src/shared/responsiveContainerLayout.js)；[src/renderer/relationship-canvas/ContainerResizer.jsx](../../src/renderer/relationship-canvas/ContainerResizer.jsx)；[test/responsive-container-layout.test.js](../../test/responsive-container-layout.test.js)；[scripts/verify-responsive-containers.js](../../scripts/verify-responsive-containers.js)。
+
+证据：[docs/00-handoff/CONTAINER_RESIZE_ALPHA202.md](CONTAINER_RESIZE_ALPHA202.md)

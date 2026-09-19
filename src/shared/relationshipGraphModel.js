@@ -662,7 +662,7 @@
     if (groupId && group && group.type !== 'group') issues.push(`${prefix}.groupId 必须引用分组节点`);
     if (strict) {
       for (const key of Object.keys(raw)) {
-        if (!['entityId', 'x', 'y', 'groupId', 'groupBackground', 'groupBorder', 'groupLayout', 'groupWidth', 'groupHeight', 'groupShape', 'groupAppearance', 'titleMode', 'titleText', 'titleSource', 'statusVisibility', 'iconKey', 'labels', 'note', 'todos', 'locked', 'expanded', 'archived', 'moveWithDescendants', 'endpointView', 'resourceDisplayLevel', 'resourceDisplayLevels', 'resourceDisplayProjectEnabled'].includes(key)) issues.push(`${prefix}.${key} 不是允许的字段`);
+        if (!['entityId', 'x', 'y', 'groupId', 'groupBackground', 'groupBorder', 'groupLayout', 'containerLayout', 'groupWidth', 'groupHeight', 'groupShape', 'groupAppearance', 'titleMode', 'titleText', 'titleSource', 'statusVisibility', 'iconKey', 'labels', 'note', 'todos', 'locked', 'expanded', 'archived', 'moveWithDescendants', 'endpointView', 'resourceDisplayLevel', 'resourceDisplayLevels', 'resourceDisplayProjectEnabled'].includes(key)) issues.push(`${prefix}.${key} 不是允许的字段`);
       }
       if (!Number.isFinite(Number(raw.x)) || !Number.isFinite(Number(raw.y))) {
         issues.push(`${prefix} 坐标必须是有限数字`);
@@ -706,6 +706,13 @@
       if (entity?.type !== 'deployment') issues.push(`${prefix}.archived 仅适用于部署`);
       else placement.archived = true;
     }
+    if (raw.containerLayout != null) {
+      if (!['group', 'server'].includes(entity?.type) || raw.containerLayout !== 'wrap') issues.push(`${prefix}.containerLayout 必须是容器的 wrap`);
+      else {
+        placement.containerLayout = 'wrap';
+        if (![raw.groupWidth, raw.groupHeight].every(v => Number.isFinite(Number(v)) && Number(v) > 0)) issues.push(`${prefix}.containerLayout 缺少有效尺寸`);
+      }
+    }
     if (raw.groupLayout != null) {
       if (entity?.type !== 'group' || !['auto', 'manual'].includes(raw.groupLayout)) issues.push(`${prefix}.groupLayout 必须是分组的 auto 或 manual`);
       else placement.groupLayout = raw.groupLayout;
@@ -721,7 +728,7 @@
     }
     for (const [key, min] of [['groupWidth', 320], ['groupHeight', 180]]) {
       if (raw[key] == null) continue;
-      if (entity?.type !== 'group' || !Number.isFinite(Number(raw[key])) || Number(raw[key]) < min || Number(raw[key]) > 100000) issues.push(`${prefix}.${key} 必须是分组的有效尺寸`);
+      if (!(entity?.type === 'group' || (entity?.type === 'server' && raw.containerLayout === 'wrap')) || !Number.isFinite(Number(raw[key])) || Number(raw[key]) < min || Number(raw[key]) > 100000) issues.push(`${prefix}.${key} 必须是分组的有效尺寸`);
       else placement[key] = Math.round(Number(raw[key]));
     }
     if (groupId && group?.type === 'group') placement.groupId = groupId;

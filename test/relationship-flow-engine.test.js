@@ -38,10 +38,11 @@ test('服务器树摘要线没有交互命中区、箭头、右键菜单或程�
   assert.match(canvasCss, /\.gf-flow-handle\.is-visual-only\s*\{[^}]*opacity:\s*0;[^}]*pointer-events:\s*none;/s);
 });
 
-test('新画布使用更宽缩放范围，多边形容器强制等比缩放', () => {
+test('新画布保持缩放范围，容器采用独立边角尺寸与内容换行', () => {
   assert.match(source, /minZoom=\{0\.03\}/);
   assert.match(source, /maxZoom=\{maxZoom\}/);
-  assert.match(source, /keepAspectRatio=\{shape === 'polygon'\}/);
+  assert.match(source, /<ContainerResizer/);
+  assert.match(fs.readFileSync(require.resolve('../src/shared/responsiveContainerLayout'), 'utf8'), /width\s*\*\s*\.12/);
   assert.doesNotMatch(canvasCss, /\.gf-flow-group\.is-circle/);
 });
 

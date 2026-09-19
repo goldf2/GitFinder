@@ -76,6 +76,7 @@
   // dimensions. This only affects the physical server tree, never source data.
   function fitPhysicalProjects(nodes, preserveManual = false) {
     for (const project of nodes.filter(node => isProjectGroup(node.data?.entity))) {
+      if (project.data?.placement?.containerLayout === 'wrap') { project.data.nestedContainer = true; continue; }
       const children = nodes.filter(node => node.parentId === project.id);
       const size = nodeDimensions(project);
       const protectedLayout = preserveManual && (project.data?.placement?.groupLayout === 'manual'
@@ -151,7 +152,7 @@
       const hostNode = byId.get(hostId);
       if (!host || !hostNode) continue;
       const memberIds = [...memberSet];
-      if (allHosts && !preserveProjectRows) {
+      if (allHosts && !preserveProjectRows && hostNode.data?.placement?.containerLayout !== 'wrap') {
         const projects = memberIds.map(memberId => byId.get(memberId)).filter(node => isProjectGroup(node?.data?.entity))
           .sort((a, b) => a.position.y - b.position.y || a.id.localeCompare(b.id));
         // Repair legacy tall empty columns and collisions while retaining sane
@@ -163,7 +164,10 @@
           if (gap < 32 || gap > 160) current.position = { x: previous.position.x, y: bottom + 48 };
         }
       }
-      const bounds = hostBubbleBounds(nodes, memberIds, hostNode.position, titleMetrics);
+      const wrap = hostNode.data?.placement?.containerLayout === 'wrap';
+      const bounds = wrap ? { x: hostNode.position.x, y: hostNode.position.y,
+        width: hostNode.data.placement.groupWidth, height: hostNode.data.placement.groupHeight }
+        : hostBubbleBounds(nodes, memberIds, hostNode.position, titleMetrics);
       const id = `host-bubble:${hostId}`;
       // Reparent Project containers into the synthetic host node. Positions must
       // be converted from canvas coordinates to the host's local coordinates.
@@ -211,7 +215,7 @@
   function refreshHostBubbles(nodes) {
     const shifts = new Map();
     const resized = nodes.map(node => {
-      if (node.type !== 'hostBubble' || !node.data.memberIds?.length) return node;
+      if (node.type !== 'hostBubble' || !node.data.memberIds?.length || node.data?.placement?.containerLayout === 'wrap') return node;
       const bounds = hostBubbleBounds(nodes, node.data.memberIds || [], node.data.fallbackPosition, node.data.titleMetrics);
       shifts.set(node.id, { x: node.position.x - bounds.x, y: node.position.y - bounds.y });
       return { ...node, position: { x: bounds.x, y: bounds.y }, style: { ...node.style, width: bounds.width, height: bounds.height } };
@@ -537,7 +541,7 @@
     // Expanding a title may grow its frame upward/rightward, but must not
     // move the world position of saved children (including locked members).
     if (options.containerHeaderHeight > 72 || options.containerTitleMinWidth > 0) {
-      for (const group of nodes.filter(node => isProjectGroup(node.data?.entity))) {
+      for (const group of nodes.filter(node => isProjectGroup(node.data?.entity) && node.data?.placement?.containerLayout !== 'wrap')) {
         const children = nodes.filter(node => node.parentId === group.id);
         const extraTop = children.length ? Math.max(0, (options.containerHeaderHeight || 72) - Math.min(...children.map(node => node.position.y))) : 0;
         group.position = { ...group.position, y: group.position.y - extraTop };
@@ -611,6 +615,7 @@
       const hosts = (hostContainerOnly ? nodes.filter(node => node.type === 'hostBubble') : []).sort((a, b) => a.position.x - b.position.x || a.id.localeCompare(b.id));
       for (let index = 0; index < hosts.length; index++) {
         const host = hosts[index];
+        if (host.data?.placement?.containerLayout === 'wrap') continue;
         const adjacent = hosts[index - 1];
         if (adjacent) {
           const previousSize = nodeDimensions(adjacent);
@@ -664,11 +669,16 @@
       const node = nodeById.get(placement.entityId);
       if (!node) {
         const host = nodeById.get(`host-bubble:${placement.entityId}`);
+        if (host?.data?.placement?.containerLayout === 'wrap') {
+          const rect = nodeDimensions(host);
+          return { ...placement, x: host.position.x, y: host.position.y, containerLayout: 'wrap', groupWidth: rect.width, groupHeight: rect.height };
+        }
         const initial = host?.data?.initialPosition;
         return host && initial && !host.data.memberIds?.length ? { ...placement, x: host.data.fallbackPosition.x + host.position.x - initial.x, y: host.data.fallbackPosition.y + host.position.y - initial.y } : { ...placement };
       }
       const position = absolute(node);
       const next = { ...placement, x: position.x, y: position.y };
+      if (node.data?.placement?.containerLayout === 'wrap') { next.containerLayout = 'wrap'; if (node.type === 'relationshipGroup') next.groupLayout = 'manual'; }
       if (node.type === 'relationshipGroup') {
         const width = node.measured?.width || node.width || node.style?.width;
         const height = node.measured?.height || node.height || node.style?.height;

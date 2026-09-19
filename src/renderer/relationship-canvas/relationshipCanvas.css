@@ -573,3 +573,34 @@
 .gf-flow-coolify-link:disabled { opacity: .5; cursor: not-allowed; }
 .gf-flow-coolify-link:focus-visible { outline: 2px solid var(--accent-primary, #426fe8); outline-offset: 2px; }
 .gf-flow-card footer > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+
+
+/* Screen-sized resize hit regions on all container edges and corners. */
+.gf-container-resizer { position: absolute; inset: 0; pointer-events: none; z-index: 30; }
+.gf-container-resize-control {
+  position: absolute; display: block; pointer-events: auto; touch-action: none;
+  padding: 0; margin: 0; border: 0; border-radius: 0; background: transparent;
+  min-width: 0; min-height: 0; outline-offset: 0;
+}
+.gf-container-resize-control:is(.is-top,.is-bottom) { left: var(--resize-corner); right: var(--resize-corner); height: var(--resize-hit); cursor: ns-resize; }
+.gf-container-resize-control.is-top { top: calc(var(--resize-hit) / -2); }
+.gf-container-resize-control.is-bottom { bottom: calc(var(--resize-hit) / -2); }
+.gf-container-resize-control:is(.is-left,.is-right) { top: var(--resize-corner); bottom: var(--resize-corner); width: var(--resize-hit); cursor: ew-resize; }
+.gf-container-resize-control.is-left { left: calc(var(--resize-hit) / -2); }
+.gf-container-resize-control.is-right { right: calc(var(--resize-hit) / -2); }
+.gf-container-resize-control:is(.is-top-left,.is-top-right,.is-bottom-left,.is-bottom-right) {
+  width: var(--resize-corner); height: var(--resize-corner); border: 1px solid var(--accent-primary, #3978ff);
+  border-radius: 2px; background: var(--bg-primary, #fff); opacity: 0;
+}
+.gf-container-resize-control:is(.is-top-left,.is-bottom-right) { cursor: nwse-resize; }
+.gf-container-resize-control:is(.is-top-right,.is-bottom-left) { cursor: nesw-resize; }
+.gf-container-resize-control:is(.is-top-left,.is-top-right) { top: calc(var(--resize-corner) / -2); }
+.gf-container-resize-control:is(.is-bottom-left,.is-bottom-right) { bottom: calc(var(--resize-corner) / -2); }
+.gf-container-resize-control:is(.is-top-left,.is-bottom-left) { left: calc(var(--resize-corner) / -2); }
+.gf-container-resize-control:is(.is-top-right,.is-bottom-right) { right: calc(var(--resize-corner) / -2); }
+.react-flow__node:hover > .gf-container-resizer > button,
+.react-flow__node.selected > .gf-container-resizer > button,
+.gf-container-resizer:focus-within > button { opacity: 1; }
+.gf-container-resize-control:not(:disabled):hover { background: var(--accent-primary, #3978ff); opacity: .55; }
+.gf-container-resize-control:focus-visible { outline: 2px solid var(--accent-primary, #3978ff); }
+.gf-container-resize-control:disabled { pointer-events: none; opacity: 0 !important; }
