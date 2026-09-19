@@ -2,18 +2,18 @@
 
 > 自动生成。只编辑 `management/development-tasks.json`，然后执行 `npm run handoff:update`。
 
-更新时间：2026-09-19T16:15:00+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
+更新时间：2026-09-19T16:35:00+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
 
 核验基线：2.0.0-alpha.193 / `99eef1d2992e389f32a48182a25fda3b9adf1958`；证据：[docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md](LAYOUT_OPTIONS_ALPHA193.md)。
 
-**唯一下一任务：GF-CARD-NAME-001**
+**唯一下一任务：GF-AI-PROGRESS-001**
 
 ## 阶段汇总
 
 | 阶段 | 纳入任务 | 已交付 | 开发中/已验证 | 阻塞/暂缓 |
 | --- | ---: | ---: | ---: | ---: |
 | GF-P0 接续工程 | 2 | 2 | 0 | 0 |
-| GF-P1 桌面稳定 | 18 | 12 | 1 | 1 |
+| GF-P1 桌面稳定 | 18 | 13 | 0 | 1 |
 | GF-P2 可维护与性能 | 4 | 0 | 0 | 0 |
 | GF-P3 可分发 | 5 | 0 | 0 | 3 |
 | GF-P4 全流程事件 | 5 | 0 | 0 | 1 |
@@ -25,7 +25,7 @@
 
 | 编号 | 优先级 | 状态 | 负责人 | 任务 |
 | --- | --- | --- | --- | --- |
-| GF-CARD-NAME-001 | P1 | 已验证 | Codex | 部署名称独立整行显示 |
+| GF-CARD-NAME-001 | P1 | 已交付 | Codex | 部署名称独立整行显示 |
 | GF-HANDOFF-001 | P0 | 已交付 | 本轮 ChatGPT / AgentDock Cloudflare | 详细开发方案与单一进度接续体系 |
 | GF-PANEL-189 | P1 | 已交付 | 历史交付记录 | 白板右栏可调宽及配置恢复 |
 | GF-SAVE-191 | P1 | 已交付 | 历史交付记录 | 白板自动/手动保存统一生命周期 |
@@ -68,19 +68,21 @@
 
 ### GF-CARD-NAME-001 · 部署名称独立整行显示
 
-阶段：GF-P1；优先级：P1；状态：**已验证**；负责人：Codex；用户验收：待用户反馈。
+阶段：GF-P1；优先级：P1；状态：**已交付**；负责人：Codex；用户验收：待用户反馈。
 
-更新：2026-09-19T16:15:00+08:00。依赖：无。
+更新：2026-09-19T16:35:00+08:00。依赖：无。
 
 **验收标准**
 1. 部署名称不被图标和状态夹住，独占正文宽度。
 2. 底部操作无溢出，访问点和容器不变；完成安装验收。
 
-**接续动作：** TMPDIR=/private/tmp npm run check通过1413测试/298JS，专项20/20及UI29项通过；继续alpha204打包安装验收。
+**接续动作：** alpha204已安装，29项安装验收、原白板cyberbegging显示通过，源码已推送；等待用户反馈。
 
 源码/设计入口：[src/renderer/relationship-canvas/index.jsx](../../src/renderer/relationship-canvas/index.jsx)；[src/renderer/relationship-canvas/relationshipCanvas.css](../../src/renderer/relationship-canvas/relationshipCanvas.css)。
 
 证据：[docs/00-handoff/CARD_NAME_ALPHA204.md](CARD_NAME_ALPHA204.md)
+
+交付：2.0.0-alpha.204；源码 `7e61176453d5ff370d3770c95979106d188c3a08`。
 
 ### GF-HANDOFF-001 · 详细开发方案与单一进度接续体系
 

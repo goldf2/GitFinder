@@ -1,9 +1,11 @@
 # GitFinder 2 下一步
 
 <!-- BEGIN NEXT_ACTIONS -->
-## 下一任务：GF-CARD-NAME-001
+## 下一任务：GF-AI-PROGRESS-001
 
-完成部署名称整行的隔离UI验收，再执行版本递增、检查、打包安装和推送；不改访问点或容器标题。后续GF-AI-PROGRESS-001仍暂未开始。
+更新时间：2026-09-19T16:35:00+08:00。GF-CARD-NAME-001的alpha204已安装验收并推送；不重复打包。等待用户确认名称显示，确认后归档修复报告。
+
+AI进度结合仍仅设计、未启动，不自动调用模型或上传资料。验收、默认TMPDIR测试限制和回退见[CARD_NAME_ALPHA204.md](CARD_NAME_ALPHA204.md)。
 <!-- END NEXT_ACTIONS -->
 
 ## 历史兼容记录（以下旧下一步已被顶部接续块取代）
