@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-20T10:14:00+08:00",
+  "updatedAt": "2026-09-20T10:22:00+08:00",
   "scope": "以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。",
   "baseline": {
     "version": "2.0.0-alpha.193",
     "sourceCommit": "99eef1d2992e389f32a48182a25fda3b9adf1958",
     "evidence": "docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md"
   },
-  "nextTaskId": "GF-PANEL-MANAGE-001",
+  "nextTaskId": "GF-AI-PROGRESS-001",
   "milestones": [
     {
       "id": "GF-P0",
@@ -37,10 +37,11 @@
   "tasks": [
     {
       "id": "GF-PANEL-MANAGE-001", "milestone": "GF-P1", "title": "应用面板Coolify管理入口",
-      "priority": "P1", "status": "verified", "owner": "Codex", "updatedAt": "2026-09-20T10:14:00+08:00",
+      "priority": "P1", "status": "delivered", "owner": "Codex", "updatedAt": "2026-09-20T10:22:00+08:00",
       "dependsOn": [], "sourcePaths": ["src/shared/nativePanelModel.js", "src/renderer/scripts/nativePanelController.js"],
       "acceptance": ["卡片和表格均可进入对应Coolify部署管理页，缺少地址时禁用。", "没有公开域名也可管理，不探测远端或执行部署操作；完成安装验收。"],
-      "evidence": ["docs/00-handoff/PANEL_MANAGE_ALPHA205.md"], "nextAction": "专项20/20、隔离UI管理与原交互/主题通过；继续alpha205全量检查、打包和安装。", "blocker": "", "userAcceptance": "pending"
+      "evidence": ["docs/00-handoff/PANEL_MANAGE_ALPHA205.md"], "nextAction": "alpha205安装及原面板入口可见通过，源码已推送；浏览器回读超时，真实页面落地待用户确认。", "blocker": "", "userAcceptance": "pending",
+      "delivery": {"version": "2.0.0-alpha.205", "sourceCommit": "24e517dbab2567fbf5a38afbc352b702ea211a7b"}
     },
     {
       "id": "GF-CARD-NAME-001",
