@@ -24,11 +24,11 @@ async function main() {
   }
   try {
     await evaluate(`(() => {
-      window.__nativePanelCalls = { refresh: 0, probes: 0 };
+      window.__nativePanelCalls = { refresh: 0, probes: 0, opened: [] };
       const checkedAt = new Date().toISOString();
       const snapshot = { providers: [{ providerId: 'fixture', label: '测试主机', baseUrl: 'https://node.test' }], topology: { generatedAt: checkedAt, deployments: [
-        { providerId: 'fixture', resourceUuid: 'a', name: '示例 API', projectName: '测试项目', type: 'application', status: 'running:healthy', domains: ['https://app.test'] },
-        { providerId: 'fixture', resourceUuid: 'b', name: '无网址数据库', projectName: '内部服务', type: 'database', status: 'stopped', domains: [] }
+        { providerId: 'fixture', resourceUuid: 'a', projectUuid: 'p', environmentUuid: 'e', name: '示例 API', projectName: '测试项目', type: 'application', status: 'running:healthy', domains: ['https://app.test'] },
+        { providerId: 'fixture', resourceUuid: 'b', projectUuid: 'p', environmentUuid: 'e', name: '无网址数据库', projectName: '内部服务', type: 'database', status: 'stopped', domains: [] }
       ] } };
       const api = {
         getCachedTopology: async () => snapshot,
@@ -36,7 +36,7 @@ async function main() {
         getEndpointChecks: async () => ({ checks: [{ providerId: 'fixture', url: 'https://app.test', httpStatus: 403, checkedAt }], pending: 0 }),
         getRemoteObservations: async () => ({ checkedAt, checks: [{ nodeUrl: 'https://node.test', resourceUuid: 'a', url: 'https://app.test', httpStatus: 503, checkedAt }] }),
         checkEndpoints: async () => { __nativePanelCalls.probes++; return { checks: [{ providerId: 'fixture', url: 'https://app.test', httpStatus: 200, checkedAt }], pending: 0 }; },
-        openExternal: async () => true
+        openExternal: async url => { __nativePanelCalls.opened.push(url); }
       };
       App.nativePanelController?.close();
       localStorage.removeItem('gitfinder.native-panel.v1');
@@ -59,6 +59,30 @@ async function main() {
     assert.deepEqual(result.lights.sort(), ['gray', 'gray', 'green', 'red', 'red', 'yellow'].map(color => 'native-panel-lamp lamp-' + color).sort());
     assert.match(result.text, /需授权访问/);
     assert.match(result.text, /HTTP 503/);
+    const management = await evaluate(`(async () => {
+      const c=App.nativePanelController, layouts=[];
+      for (const layout of ['table','cards']) {
+        c.layout=layout;c.render();
+        const controls=[...c.content.querySelectorAll('button')].filter(b=>b.textContent==='Coolify 管理');
+        layouts.push({layout,count:controls.length,enabled:controls.every(b=>!b.disabled)});
+        controls.forEach(b=>b.click());
+      }
+      const before=__nativePanelCalls.opened.length;
+      c.snapshot.topology.deployments[0].environmentUuid='';c.render();
+      const disabled=[...c.content.querySelectorAll('button')].find(b=>b.textContent==='Coolify 管理'&&b.disabled);
+      disabled?.click();
+      const blocked=!!disabled&&!!disabled.title&&before===__nativePanelCalls.opened.length;
+      c.snapshot.topology.deployments[0].environmentUuid='e';c.layout='table';c.render();
+      const original=c.api.openExternal;c.api.openExternal=async()=>{throw Error('test rejection')};
+      [...c.content.querySelectorAll('button')].find(b=>b.textContent==='Coolify 管理').click();
+      await Promise.resolve();await Promise.resolve();const failure=c.status.textContent;
+      c.api.openExternal=original;
+      return {layouts,blocked,failure,opened:__nativePanelCalls.opened};
+    })()`);
+    assert.deepEqual(management.layouts,[{layout:'table',count:2,enabled:true},{layout:'cards',count:2,enabled:true}]);
+    assert.equal(management.blocked,true);
+    assert.match(management.failure,/Coolify 管理页无法打开/);
+    assert.deepEqual(management.opened,[...Array(2)].flatMap(()=>['https://node.test/project/p/environment/e/application/a','https://node.test/project/p/environment/e/database/b']));
     const interactions = await evaluate(`(async () => {
       const controller = App.nativePanelController;
       const view = controller.container;
@@ -112,7 +136,7 @@ async function main() {
     assert.equal(themes.variants.length, 14);
     assert.ok(themes.variants.every(item => item.matches), JSON.stringify(themes));
     assert.equal(new Set(themes.reminderColors).size, 4);
-    console.log(JSON.stringify({ ok: true, rows: result.rows, interactions, themeVariants: themes.variants.length, reminderVariants: themes.reminderColors.length }));
+    console.log(JSON.stringify({ ok: true, rows: result.rows, management, interactions, themeVariants: themes.variants.length, reminderVariants: themes.reminderColors.length }));
   } finally { socket.close(); }
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });

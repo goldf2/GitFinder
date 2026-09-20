@@ -44,6 +44,8 @@ test('旧缓存重新激活重建受信管理路径，Project加入精确白名�
   const s=new CoolifyProviderService({configDirectory:dir});
   const snapshot={providers:[{providerId:'one',baseUrl:base}],topology:{servers:[{providerId:'one',nodeId:'server-1',coolifyUrl:base}],deployments:[{...deployment(),providerId:'one',coolifyUrl:base,coolifyProjectUrl:undefined}]}};
   s._activateTopology(snapshot);
+  const panelRow = require('../src/shared/nativePanelModel').rows(snapshot)[0];
+  assert.equal(s.resolveExternalUrl(panelRow.managementUrl), snapshot.topology.deployments[0].coolifyUrl);
   assert.equal(snapshot.topology.servers[0].coolifyUrl,base+'/server/server-1');
   assert.equal(s.resolveExternalUrl(base+'/project/project-1'),base+'/project/project-1');
   assert.throws(()=>s.resolveExternalUrl(base+'/project/other'));assert.throws(()=>s.resolveExternalUrl('https://untrusted.example.invalid'));

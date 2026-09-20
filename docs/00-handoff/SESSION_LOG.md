@@ -1,5 +1,11 @@
 # GitFinder 2 研发会话记录
 
+## 2026-09-20T10:17:00+08:00 · GF-PANEL-MANAGE-001
+
+- 用户确认应用面板缺少的是Coolify部署管理入口；基线alpha204/95a5408，原10项dirty保留。
+- 增加安全派生managementUrl、卡片/表格管理按钮、缺少身份禁用及错误提示。专项20/20、隔离Electron管理与原交互/主题验证通过，CUA视觉通过。alpha205打包安装待执行，详见PANEL_MANAGE_ALPHA205.md。
+
+
 ## 2026-09-19T16:30:00+08:00 · GF-CARD-NAME-001
 
 - 基线alpha203/bb82970，原10项dirty保留；仅部署卡片名称独占整行，图标/类型/状态紧凑排列。

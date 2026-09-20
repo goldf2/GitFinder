@@ -4,6 +4,21 @@ const { lamp, rows, remoteCheck, thumbnailUrl } = require('../src/shared/nativeP
 const now = Date.parse('2026-09-12T00:00:00Z');
 const checkedAt = new Date(now).toISOString();
 
+test('management links use provider and source IDs, independently of public endpoints', () => {
+  const provider = { providerId: 'one', baseUrl: 'https://coolify.test' };
+  for (const type of ['application', 'service', 'database']) {
+    const resource = { providerId: 'one', resourceUuid: 'resource1', projectUuid: 'project1', environmentUuid: 'env1', type, domains: [] };
+    const snapshot = { providers: [provider], topology: { deployments: [resource] } };
+    assert.equal(rows(snapshot)[0].managementUrl, `https://coolify.test/project/project1/environment/env1/${type}/resource1`);
+    resource.domains = ['https://app.test', 'https://second.test'];
+    assert.equal(rows(snapshot)[0].managementUrl, rows(snapshot)[1].managementUrl);
+    resource.environmentUuid = '';
+    resource.coolifyUrl = 'https://untrusted.test';
+    assert.equal(rows(snapshot)[0].managementUrl, '');
+  }
+  assert.equal(rows({topology:{deployments:[{resourceUuid:'x',type:'application'}]}})[0].managementUrl, '');
+});
+
 test('remote screenshots resolve against the panel, never target servers or arbitrary URLs', () => {
   const path = '/api/thumbnails/' + 'a'.repeat(40) + '.webp';
   assert.equal(thumbnailUrl(path), 'https://panel.xiangshu.me' + path);

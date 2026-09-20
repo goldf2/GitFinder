@@ -1,8 +1,8 @@
 (function(root, factory) {
-  const api = factory();
+  const api = factory(typeof module !== 'undefined' && module.exports ? require('./coolifyManagementLinks') : root.CoolifyManagementLinks);
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root) root.NativePanelModel = api;
-})(typeof window !== 'undefined' ? window : globalThis, function() {
+})(typeof window !== 'undefined' ? window : globalThis, function(ManagementLinks) {
   const FRESH_MS = 5 * 60 * 1000;
   function thumbnailUrl(value) {
     const path = String(value || '').replace(/^https:\/\/panel\.xiangshu\.me(?=\/)/, '');
@@ -39,6 +39,7 @@
       const urls = [...new Set((resource.domains || []).filter(url => urlKey(url)))];
       return (urls.length ? urls : ['']).map(url => ({
         ...resource, url, baseUrl: provider?.baseUrl || '',
+        managementUrl: ManagementLinks.deploymentUrl(provider?.baseUrl, resource),
         node: resource.providerLabel || provider?.label || resource.serverName || '未命名主机',
         project: resource.projectName || '未分配项目',
         deploymentCheck: { status: resource.status, checkedAt: snapshot.topology?.generatedAt, stale: Boolean(resource.stale) }

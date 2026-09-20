@@ -2,18 +2,18 @@
 
 > 自动生成。只编辑 `management/development-tasks.json`，然后执行 `npm run handoff:update`。
 
-更新时间：2026-09-19T16:35:00+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
+更新时间：2026-09-20T10:14:00+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
 
 核验基线：2.0.0-alpha.193 / `99eef1d2992e389f32a48182a25fda3b9adf1958`；证据：[docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md](LAYOUT_OPTIONS_ALPHA193.md)。
 
-**唯一下一任务：GF-AI-PROGRESS-001**
+**唯一下一任务：GF-PANEL-MANAGE-001**
 
 ## 阶段汇总
 
 | 阶段 | 纳入任务 | 已交付 | 开发中/已验证 | 阻塞/暂缓 |
 | --- | ---: | ---: | ---: | ---: |
 | GF-P0 接续工程 | 2 | 2 | 0 | 0 |
-| GF-P1 桌面稳定 | 18 | 13 | 0 | 1 |
+| GF-P1 桌面稳定 | 19 | 13 | 1 | 1 |
 | GF-P2 可维护与性能 | 4 | 0 | 0 | 0 |
 | GF-P3 可分发 | 5 | 0 | 0 | 3 |
 | GF-P4 全流程事件 | 5 | 0 | 0 | 1 |
@@ -25,6 +25,7 @@
 
 | 编号 | 优先级 | 状态 | 负责人 | 任务 |
 | --- | --- | --- | --- | --- |
+| GF-PANEL-MANAGE-001 | P1 | 已验证 | Codex | 应用面板Coolify管理入口 |
 | GF-CARD-NAME-001 | P1 | 已交付 | Codex | 部署名称独立整行显示 |
 | GF-HANDOFF-001 | P0 | 已交付 | 本轮 ChatGPT / AgentDock Cloudflare | 详细开发方案与单一进度接续体系 |
 | GF-PANEL-189 | P1 | 已交付 | 历史交付记录 | 白板右栏可调宽及配置恢复 |
@@ -65,6 +66,22 @@
 | GF-CONTAINER-HEADER-001 | P0 | 已交付 | ChatGPT / AgentDock Cloudflare | 嵌套容器标题安全区与拖拽防重叠 |
 
 ## 可执行任务卡
+
+### GF-PANEL-MANAGE-001 · 应用面板Coolify管理入口
+
+阶段：GF-P1；优先级：P1；状态：**已验证**；负责人：Codex；用户验收：待用户反馈。
+
+更新：2026-09-20T10:14:00+08:00。依赖：无。
+
+**验收标准**
+1. 卡片和表格均可进入对应Coolify部署管理页，缺少地址时禁用。
+2. 没有公开域名也可管理，不探测远端或执行部署操作；完成安装验收。
+
+**接续动作：** 专项20/20、隔离UI管理与原交互/主题通过；继续alpha205全量检查、打包和安装。
+
+源码/设计入口：[src/shared/nativePanelModel.js](../../src/shared/nativePanelModel.js)；[src/renderer/scripts/nativePanelController.js](../../src/renderer/scripts/nativePanelController.js)。
+
+证据：[docs/00-handoff/PANEL_MANAGE_ALPHA205.md](PANEL_MANAGE_ALPHA205.md)
 
 ### GF-CARD-NAME-001 · 部署名称独立整行显示
 

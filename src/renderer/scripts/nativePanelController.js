@@ -248,8 +248,11 @@
         }
         const actions = cell();
         const probe = this.button('检测本机', () => this.probe(row)); probe.disabled = !row.url;
-        const open = this.button('打开', () => this.api.openExternal(row.url).catch(() => { this.status.textContent = '访问点无法打开，请检查连接设置。'; })); open.disabled = !row.url;
-        actions.append(probe, open);
+        const open = this.button('访问应用', () => this.api.openExternal(row.url).catch(() => { this.status.textContent = '访问点无法打开，请检查连接设置。'; })); open.disabled = !row.url;
+        const manage = this.button('Coolify 管理', () => this.api.openExternal(row.managementUrl).catch(() => { this.status.textContent = 'Coolify 管理页无法打开，请检查连接设置。'; }));
+        manage.disabled = !row.managementUrl;
+        manage.title = row.managementUrl ? `打开此部署的 Coolify 管理页：${row.managementUrl}` : '缺少管理地址，请检查 Coolify 连接并同步资源。';
+        actions.append(probe, open, manage);
         item.append(preview, name, cell(row.node), cell(row.project), url, lights, actions); body.append(item);
       }
       this.content.append(target);
