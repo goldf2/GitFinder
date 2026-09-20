@@ -1,5 +1,9 @@
 # GitFinder 2 研发会话记录
 
+## 2026-09-20T14:58:00+08:00 · GF-UPDATE-002
+
+alpha209已安装，bf4f25b已推送。builder/updater/GitHub原生链迁移，公证前置于归档；1414测试、24专项、298JS、干净包门禁及DMG/YAML校验通过。隔离UI显示209并读取公开207。正式签名、公证、公开新Release和实际升级未完成，任务blocked。保护原dirty与用户数据，详见MATURE_UPDATES_ALPHA208.md；统一作业指导书已保存。
+
 ## 2026-09-20T10:17:00+08:00 · GF-PANEL-MANAGE-001
 
 - 用户确认应用面板缺少的是Coolify部署管理入口；基线alpha204/95a5408，原10项dirty保留。
