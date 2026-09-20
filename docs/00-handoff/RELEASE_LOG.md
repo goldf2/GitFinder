@@ -1,5 +1,9 @@
 # GitFinder 2 发布记录
 
+## 2026-09-20T14:58:00+08:00 · alpha209本机候选
+
+源码bf4f25b已推送，干净worktree构建并安装/Applications/GitFinder 2.app。builder生成DMG/ZIP/元数据，包门禁及YAML两制品摘要、隔离UI读取GitHub207通过。Developer ID为0，仅ad-hoc；未公开新Release、未更新商店、未完成旧版自动升级。原205与中间208备份保留。详见MATURE_UPDATES_ALPHA208.md。
+
 ## 2026-09-09 +08:00 · 2.0.0-alpha.130（已构建、已安装，待推送）
 
 - 内容：Coolify 主界面状态栏改为单一同步状态灯；隐藏资源统计文字，保留悬停和日志详情。
