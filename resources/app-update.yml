@@ -1,4 +1,5 @@
-provider: generic
-url: https://oaktechz.com/releases/gitfinder-2/alpha/
-channel: latest
+# Historical packager compatibility; new builder generates this file automatically.
+provider: github
+owner: goldf2
+repo: GitFinder
 updaterCacheDirName: gitfinder-2-updater

@@ -49,7 +49,7 @@ test('Alpha 版本按语义版本比较，而不是只比较 2.0.0 主版本', (
   assert.equal(isNewerVersion('2.0.0', '2.0.0-alpha.99'), true);
 });
 
-test('打包应用默认使用 OakTech Alpha 更新源，可用环境变量覆盖或关闭', () => {
+test('打包应用默认使用 builder 的 GitHub 更新源，可用环境变量覆盖或关闭', () => {
   assert.deepEqual(resolveUpdateConfiguration({ isPackaged: false, env: {} }), {
     enabled: false,
     reason: 'development',
@@ -115,11 +115,9 @@ test('更新服务统一配置发布源、检查结果和下载安装动作', as
   });
 
   assert.equal(service.setup(), true);
-  assert.deepEqual(updater.feed, {
-    provider: 'generic',
-    url: DEFAULT_UPDATE_FEED_URL,
-    channel: 'latest',
-  });
+  assert.equal(updater.feed, undefined); // builder owns the normal feed
+  assert.equal(updater.allowPrerelease, true);
+  assert.equal(updater.allowDowngrade, false);
   assert.equal(updater.autoDownload, false);
   assert.equal(updater.autoInstallOnAppQuit, false);
   assert.equal(scheduled[0].delay, 10_000);

@@ -15,9 +15,10 @@ const {
 } = require('../scripts/verify-release');
 const { ignoredSource } = require('../scripts/package-mac');
 
-const validAppUpdateText = `provider: generic
-url: https://oaktechz.com/releases/gitfinder-2/alpha/
-channel: latest
+const validAppUpdateText = `# Historical packager compatibility; new builder generates this file automatically.
+provider: github
+owner: goldf2
+repo: GitFinder
 updaterCacheDirName: gitfinder-2-updater
 `;
 
@@ -39,7 +40,7 @@ function validSource(overrides = {}) {
           loadBrowserProcessSpecificV8Snapshot: false,
           grantFileProtocolExtraPrivileges: true,
         },
-        extraResources: [{ from: 'resources/app-update.yml', to: 'app-update.yml' }],
+        publish: { provider: 'github', owner: 'goldf2', repo: 'GitFinder', releaseType: 'draft' },
         mac: {
           icon: 'public/icon.icns',
           target: ['dmg', 'zip'],
@@ -118,10 +119,10 @@ test('应用自有 Panel 会话构建不得启用会访问系统钥匙串的 Coo
   assert.deepEqual(result.issues.map((entry) => entry.code), ['fuses.config']);
 });
 
-test('更新配置固定读取 OakTech Alpha 目录并提供下载缓存目录', () => {
+test('更新配置固定读取 GitHub 仓库并提供下载缓存目录', () => {
   assert.deepEqual(validateUpdateConfiguration(validAppUpdateText).issues, []);
   assert.deepEqual(
-    validateUpdateConfiguration(validAppUpdateText.replace('https://oaktechz.com/', 'https://example.test/')).issues
+    validateUpdateConfiguration(validAppUpdateText.replace('repo: GitFinder', 'repo: WrongApp')).issues
       .map((entry) => entry.code),
     ['update.config'],
   );
@@ -331,7 +332,8 @@ test('Alpha 工作流从同一提交构建双平台产物并创建 OakTech 与 G
   assert.match(publishWorkflow, /Verify OakTech public manifests are already current/);
   assert.match(publishWorkflow, /gh release edit "v\$EXPECTED_VERSION" --draft=false/);
 
-  assert.match(buildScript, /node scripts\/package-mac\.js/);
+  assert.match(buildScript, /electron-builder\/out\/cli\/cli\.js/);
+  assert.match(buildScript, /--publish never/);
   assert.match(packageScript, /resources.*app-update\.yml/);
   assert.match(packageScript, /continueOnError:\s*false/);
   assert.match(packageScript, /keychainProfile:\s*environment\.GITFINDER_NOTARY_KEYCHAIN_PROFILE/);
@@ -351,10 +353,8 @@ test('Alpha 工作流从同一提交构建双平台产物并创建 OakTech 与 G
   assert.equal(normalizeForTest(fs.readFileSync(path.join(projectRoot, 'resources/app-update.yml'), 'utf8')), normalizeForTest(validAppUpdateText));
   assert.equal(packageJson.productName, 'GitFinder 2 Alpha');
   assert.equal(packageJson.build.appId, 'com.gitfinder.app.v2');
-  assert.equal(packageJson.build.publish, undefined);
-  assert.deepEqual(packageJson.build.extraResources, [
-    { from: 'resources/app-update.yml', to: 'app-update.yml' },
-  ]);
+  assert.deepEqual(packageJson.build.publish, { provider: 'github', owner: 'goldf2', repo: 'GitFinder', releaseType: 'draft' });
+  assert.equal(packageJson.build.extraResources, undefined);
   assert.equal(packageJson.scripts.publish, undefined);
   assert.equal(packageJson.scripts['dist:builder'], undefined);
   assert.match(packageJson.scripts.check, /node scripts\/check-syntax\.js/);

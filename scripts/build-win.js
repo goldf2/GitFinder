@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { spawnSync } = require('node:child_process');
-const { writeUpdateManifest } = require('./generate-update-manifest');
+const yaml = require('js-yaml');
 
 const projectRoot = path.resolve(__dirname, '..');
 const pkg = JSON.parse(fs.readFileSync(path.join(projectRoot, 'package.json'), 'utf8'));
@@ -87,11 +87,13 @@ for (const artifactPath of [installerPath, blockmapPath, zipPath]) {
   if (!fs.existsSync(artifactPath)) throw new Error(`缺少 Windows 构建产物：${artifactPath}`);
 }
 
-writeUpdateManifest({
-  version: pkg.version,
-  artifactPath: installerPath,
-  outputPath: updateManifestPath
-});
+const updateInfo = yaml.load(fs.readFileSync(updateManifestPath, 'utf8'));
+const installerInfo = updateInfo.files?.find(file => file.url === installerName);
+if (updateInfo.version !== pkg.version || !installerInfo
+    || installerInfo.size !== fs.statSync(installerPath).size
+    || installerInfo.sha512 !== crypto.createHash('sha512').update(fs.readFileSync(installerPath)).digest('base64')) {
+  throw new Error('builder 更新元数据与安装包不一致');
+}
 
 const signature = signatureStatus(installerPath);
 const unsignedTestBuild = signature !== 'Valid';

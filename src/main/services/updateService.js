@@ -1,5 +1,5 @@
-const DEFAULT_UPDATE_FEED_URL = 'https://oaktechz.com/releases/gitfinder-2/alpha/';
-const DEFAULT_RELEASE_PAGE_URL = 'https://oaktechz.com/products/gitfinder-2';
+const DEFAULT_UPDATE_FEED_URL = 'https://github.com/goldf2/GitFinder/releases/';
+const DEFAULT_RELEASE_PAGE_URL = 'https://github.com/goldf2/GitFinder/releases';
 
 function normalizeWebUrl(value, { directory = false, allowInsecureLocalhost = false } = {}) {
   const parsed = new URL(String(value || '').trim());
@@ -32,7 +32,7 @@ function resolveUpdateConfiguration({
       directory: true,
       allowInsecureLocalhost,
     });
-    return { enabled: true, reason: null, feedUrl, releasePageUrl };
+    return { enabled: true, reason: null, feedUrl, releasePageUrl, overrideFeed: Boolean(env.GITFINDER_2_UPDATE_URL) };
   } catch (error) {
     return {
       enabled: false,
@@ -238,11 +238,12 @@ function createUpdateService({
   function setup() {
     if (setupComplete || !configuration?.enabled || !autoUpdater) return false;
     setupComplete = true;
-    autoUpdater.setFeedURL({
-      provider: 'generic',
-      url: configuration.feedUrl,
-      channel: 'latest',
+    // Normal releases read builder's app-update.yml; override is for an explicit mirror/test.
+    if (configuration.overrideFeed) autoUpdater.setFeedURL({
+      provider: 'generic', url: configuration.feedUrl, channel: 'latest',
     });
+    autoUpdater.allowPrerelease = Boolean(parseVersion(app.getVersion())?.prerelease.length);
+    autoUpdater.allowDowngrade = false;
     autoUpdater.autoDownload = false;
     autoUpdater.autoInstallOnAppQuit = false;
     bindEvents();

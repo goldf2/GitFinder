@@ -9,7 +9,7 @@ const PRODUCT_NAME = 'GitFinder 2 Alpha';
 const BUNDLE_ID = 'com.gitfinder.app.v2';
 const ARTIFACT_PREFIX = 'GitFinder-2';
 const UPDATE_CONFIG_PATH = 'resources/app-update.yml';
-const UPDATE_FEED_URL = 'https://oaktechz.com/releases/gitfinder-2/alpha/';
+const UPDATE_FEED_URL = 'https://github.com/goldf2/GitFinder/releases/';
 const UPDATER_CACHE_DIR = 'gitfinder-2-updater';
 const VALID_MODES = new Set(['development', 'official']);
 const VALID_PHASES = new Set(['source', 'artifact']);
@@ -63,18 +63,19 @@ function isSemver(value) {
 function validateUpdateConfiguration(text) {
   const values = {
     provider: scalar(text, /^provider:\s*(.+)$/m),
-    url: scalar(text, /^url:\s*(.+)$/m),
+    owner: scalar(text, /^owner:\s*(.+)$/m),
+    repo: scalar(text, /^repo:\s*(.+)$/m),
     channel: scalar(text, /^channel:\s*(.+)$/m),
     updaterCacheDirName: scalar(text, /^updaterCacheDirName:\s*(.+)$/m),
   };
-  const valid = values.provider === 'generic'
-    && values.url === UPDATE_FEED_URL
-    && values.channel === 'latest'
+  const valid = values.provider === 'github'
+    && values.owner === 'goldf2'
+    && values.repo === 'GitFinder'
     && values.updaterCacheDirName === UPDATER_CACHE_DIR;
   return {
     issues: valid
       ? []
-      : [issue('update.config', '打包更新配置必须指向 OakTech Alpha 稳定目录并声明独立缓存目录。')],
+      : [issue('update.config', '打包更新配置必须指向 GitHub goldf2/GitFinder 并声明独立缓存目录。')],
     values,
   };
 }
@@ -132,13 +133,8 @@ function validateSourceConfiguration({
   if (ico.subarray(0, 4).toString('hex') !== '00000100') {
     issues.push(issue('icons.ico', 'public/icon.ico 不是有效 ICO 文件。'));
   }
-  if (build.publish != null) {
-    issues.push(issue('update.publish', '二进制由 OakTech 后台发布，electron-builder 不得自行上传到其他发布目标。'));
-  }
-  const hasUpdateResource = Array.isArray(build.extraResources)
-    && build.extraResources.some((entry) => entry?.from === UPDATE_CONFIG_PATH && entry?.to === 'app-update.yml');
-  if (!hasUpdateResource) {
-    issues.push(issue('update.resource', `打包必须将 ${UPDATE_CONFIG_PATH} 复制为 app-update.yml。`));
+  if (build.publish?.provider !== 'github' || build.publish?.owner !== 'goldf2' || build.publish?.repo !== 'GitFinder' || build.publish?.releaseType !== 'draft') {
+    issues.push(issue('update.publish', '必须配置指定GitHub仓库，默认只允许草稿。'));
   }
   issues.push(...validateUpdateConfiguration(appUpdateText).issues);
 
@@ -214,6 +210,9 @@ function scalar(text, pattern) {
 }
 
 function parseLatestMacManifest(text) {
+  const document = require('js-yaml').load(text);
+  const zip = document.files?.find(file => file.url.endsWith('.zip'));
+  if (zip) return { version: document.version, fileUrl: zip.url, fileSha512: zip.sha512, fileSize: zip.size, path: document.path, sha512: document.sha512, releaseDate: document.releaseDate };
   return {
     version: scalar(text, /^version:\s*(.+)$/m),
     fileUrl: scalar(text, /^\s*-\s+url:\s*(.+)$/m),
@@ -479,7 +478,7 @@ function requireRegularPath(filePath, description, issues) {
 function verifyArtifact(projectRoot, options, source) {
   const version = source.version;
   const distDir = path.join(projectRoot, 'dist');
-  const appPath = path.join(distDir, `${PRODUCT_NAME}-darwin-arm64`, `${PRODUCT_NAME}.app`);
+  const appPath = path.join(distDir, 'mac-arm64', `${PRODUCT_NAME}.app`);
   const zipName = `${ARTIFACT_PREFIX}-${version}-arm64-mac.zip`;
   const zipPath = path.join(distDir, zipName);
   const manifestPath = path.join(distDir, 'latest-mac.yml');
@@ -528,7 +527,8 @@ function verifyArtifact(projectRoot, options, source) {
   }
 
   const sourceIconPath = path.join(projectRoot, 'public', 'icon.icns');
-  const appIconPath = path.join(appPath, 'Contents', 'Resources', 'electron.icns');
+  const iconName = readPlistValue(plistPath, 'CFBundleIconFile');
+  const appIconPath = path.join(appPath, 'Contents', 'Resources', path.basename(iconName.endsWith('.icns') ? iconName : `${iconName}.icns`));
   const sourceIconSha256 = hashFile(sourceIconPath, 'sha256');
   const appIconSha256 = fs.existsSync(appIconPath) ? hashFile(appIconPath, 'sha256') : '';
   if (!appIconSha256 || appIconSha256 !== sourceIconSha256) {
