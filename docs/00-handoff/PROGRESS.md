@@ -6,7 +6,7 @@
 
 核验基线：2.0.0-alpha.193 / `99eef1d2992e389f32a48182a25fda3b9adf1958`；证据：[docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md](LAYOUT_OPTIONS_ALPHA193.md)。
 
-**唯一下一任务：GF-UPDATE-002**
+**唯一下一任务：GF-UPDATE-003**
 
 ## 阶段汇总
 
@@ -80,11 +80,11 @@
 2. 默认手动安装，自动下载退出安装独立明确开启，保留签名门禁。
 3. 设置及原生菜单可打开固定公开反馈入口。
 
-**接续动作：** 完成回归与 alpha210 构建和真实界面验证
+**接续动作：** alpha210已构建并安装验证统一UI；源码推送后单独完成公开测试版与官网同步。
 
 源码/设计入口：[main.js](../../main.js)；[preload.js](../../preload.js)；[src/main/services/updateService.js](../../src/main/services/updateService.js)；[src/renderer/scripts/updateController.js](../../src/renderer/scripts/updateController.js)。
 
-证据：尚无本任务完成证据；源码文件存在不表示验收通过。
+证据：[docs/00-handoff/UPDATE_CHANNELS_ALPHA210.md](UPDATE_CHANNELS_ALPHA210.md)
 
 ### GF-UPDATE-002 · 成熟安装与更新方案迁移
 

@@ -8,6 +8,8 @@
 
 涉及 main.js、preload.js、src/main/services/updateService.js、src/renderer/scripts/updateController.js、两个更新测试和版本声明。渠道切换清旧候选并阻止任务中切换，不降级；自动安装仅在显式开启且平台条件满足后启用，不强制重启。
 
-构建/安装/发布待后续证据补充。官网连接与正式签名阻塞仍归GF-UPDATE-002，不因设置实现完成而标记正式升级成功。
+干净工作树 /Volumes/project/临时文件/gitfinder-builder-alpha210 在 a6b64fd 完成 DMG/ZIP 构建，development artifact gate通过（ad-hoc，不代表正式签名）。安装/发布待后续证据补充。官网连接与正式签名阻塞仍归GF-UPDATE-002，不因设置实现完成而标记正式升级成功。
 
 通用界面规范：/Volumes/project/支持文档/部署与运维/APP设置与软件更新界面规范.md。
+
+2026-09-21 05:46 +08:00：/Applications/GitFinder 2.app已替换alpha210，原209保存在dist/GitFinder-2-alpha209-before-unified-ui.app。codesign --verify --deep --strict通过。CUA实际进入“应用设置 → 软件更新”，版本210、五项行、默认检查/测试版开启、自动安装关闭及开发签名说明均显示正确，浅色布局无裁切。未触发下载安装、提交反馈或操作业务数据。源码推送/公开发布另记。
