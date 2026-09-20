@@ -71,6 +71,15 @@ if (updateConfiguration.enabled) {
 
 let mainWindow = null;
 let accountService = null;
+const canAutoInstall = (() => {
+  if (!app.isPackaged) return false;
+  if (process.platform !== 'darwin') return true;
+  try {
+    const result = require('child_process').spawnSync('/usr/bin/codesign', ['-dv', '--verbose=4', path.resolve(process.resourcesPath, '../..')], { encoding: 'utf8' });
+    return result.status === 0 && /Authority=Developer ID Application:/.test(result.stderr);
+  } catch { return false; }
+})();
+const openFeedback = () => shell.openExternal(`https://github.com/goldf2/GitFinder/issues/new?title=${encodeURIComponent(`[${app.getVersion()}] 问题或建议`)}`);
 const updateService = createUpdateService({
   app,
   autoUpdater,
@@ -80,6 +89,11 @@ const updateService = createUpdateService({
   getMainWindow: () => mainWindow,
   getAutomaticChecks: () => configService.get('automaticUpdateChecks') !== false,
   setAutomaticChecks: enabled => configService.set('automaticUpdateChecks', enabled),
+  getPrerelease: () => configService.get('prereleaseUpdates') !== false,
+  setPrerelease: enabled => configService.set('prereleaseUpdates', enabled),
+  getAutoInstall: () => configService.get('automaticUpdateInstall') === true,
+  setAutoInstall: enabled => configService.set('automaticUpdateInstall', enabled),
+  canAutoInstall,
 });
 const windowContexts = new Map();
 const startupLogPath = path.join(os.tmpdir(), 'gitfinder-2-startup.log');
@@ -199,6 +213,7 @@ function setupApplicationMenu() {
       submenu: [
         { role: 'about' },
         updateItem(),
+        { label: '反馈问题 / 建议…', click: openFeedback },
         { type: 'separator' },
         settingsItem(),
         { type: 'separator' },
@@ -281,7 +296,7 @@ function setupApplicationMenu() {
     },
     ...(process.platform === 'darwin' ? [] : [{
       label: '帮助',
-      submenu: [updateItem(), { type: 'separator' }, { role: 'about', label: '关于 GitFinder 2' }]
+      submenu: [updateItem(), { label: '反馈问题 / 建议…', click: openFeedback }, { type: 'separator' }, { role: 'about', label: '关于 GitFinder 2' }]
     }]),
     { role: 'windowMenu', label: '窗口' }
   ];
@@ -292,6 +307,9 @@ function setupApplicationMenu() {
 registerTrustedHandler('updater:get-status', () => updateService.status());
 registerTrustedHandler('updater:check', () => updateService.checkForUpdates());
 registerTrustedHandler('updater:set-automatic-checks', (_event, enabled) => updateService.setAutomaticChecks(enabled));
+registerTrustedHandler('updater:set-prerelease', (_event, enabled) => updateService.setPrerelease(enabled));
+registerTrustedHandler('updater:set-auto-install', (_event, enabled) => updateService.setAutoInstall(enabled));
+registerTrustedHandler('updater:feedback', openFeedback);
 
 // IPC:获取当前版本
 registerTrustedHandler('app:get-version', () => {

@@ -1,5 +1,9 @@
 # GitFinder 2 发布记录
 
+## 2026-09-21T04:02:02+08:00 · alpha209公开测试版发布
+
+按用户新授权执行既有bf4f25b制品发布，未重建或改动版本。两个主包SHA-512和大小通过，分发与更新验收状态独立记录于[alpha209发布记录](RELEASE_ALPHA209_PUBLIC.md)。本条不表示官网或原生自动安装已完成。
+
 ## 2026-09-20T14:58:00+08:00 · alpha209本机候选
 
 源码bf4f25b已推送，干净worktree构建并安装/Applications/GitFinder 2.app。builder生成DMG/ZIP/元数据，包门禁及YAML两制品摘要、隔离UI读取GitHub207通过。Developer ID为0，仅ad-hoc；未公开新Release、未更新商店、未完成旧版自动升级。原205与中间208备份保留。详见MATURE_UPDATES_ALPHA208.md。

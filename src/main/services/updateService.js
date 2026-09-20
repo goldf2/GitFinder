@@ -97,6 +97,11 @@ function createUpdateService({
   getMainWindow,
   getAutomaticChecks = () => true,
   setAutomaticChecks: persistAutomaticChecks = () => {},
+  getPrerelease = () => true,
+  setPrerelease: persistPrerelease = () => {},
+  getAutoInstall = () => false,
+  setAutoInstall: persistAutoInstall = () => {},
+  canAutoInstall = false,
   schedule = setTimeout,
   logger = console,
 }) {
@@ -105,6 +110,14 @@ function createUpdateService({
   let downloadPromise = null;
   let promptedVersion = null;
   let availableVersion = null;
+  let downloading = false, downloaded = false;
+  const applyPolicy = () => {
+    if (!autoUpdater) return;
+    autoUpdater.allowPrerelease = getPrerelease() !== false;
+    autoUpdater.allowDowngrade = false;
+    autoUpdater.autoDownload = getAutoInstall() === true && canAutoInstall;
+    autoUpdater.autoInstallOnAppQuit = getAutoInstall() === true && canAutoInstall;
+  };
 
   const getWindow = () => {
     const window = getMainWindow?.();
@@ -155,6 +168,9 @@ function createUpdateService({
       reason: configuration?.enabled && autoUpdater ? null : disabledReason(),
       currentVersion: app.getVersion(),
       automaticChecks: automaticChecksEnabled(),
+      prerelease: getPrerelease() !== false,
+      autoInstall: getAutoInstall() === true,
+      canAutoInstall,
       releasePageUrl: configuration?.releasePageUrl || null,
       feedHost: configuration?.feedUrl ? new URL(configuration.feedUrl).host : null,
     };
@@ -194,6 +210,7 @@ function createUpdateService({
 
   function bindEvents() {
     autoUpdater.on('update-available', (info = {}) => {
+      if (autoUpdater.autoDownload) downloading = true;
       const version = info.version || '新版本';
       availableVersion = version;
       send('updater:available', {
@@ -214,7 +231,9 @@ function createUpdateService({
       total: Number(progress.total) || 0,
     }));
     autoUpdater.on('update-downloaded', () => {
+      downloading = false; downloaded = true;
       send('updater:downloaded');
+      if (autoUpdater.autoInstallOnAppQuit) return;
       const window = getWindow();
       if (!window) return;
       dialog.showMessageBox(window, {
@@ -230,6 +249,7 @@ function createUpdateService({
       }).catch((error) => logger.warn('处理安装提示失败:', error?.message || error));
     });
     autoUpdater.on('error', (error) => {
+      downloading = false;
       logger.error('自动升级错误:', error);
       send('updater:error', error?.message || String(error));
     });
@@ -242,10 +262,7 @@ function createUpdateService({
     if (configuration.overrideFeed) autoUpdater.setFeedURL({
       provider: 'generic', url: configuration.feedUrl, channel: 'latest',
     });
-    autoUpdater.allowPrerelease = Boolean(parseVersion(app.getVersion())?.prerelease.length);
-    autoUpdater.allowDowngrade = false;
-    autoUpdater.autoDownload = false;
-    autoUpdater.autoInstallOnAppQuit = false;
+    applyPolicy();
     bindEvents();
     if (automaticChecksEnabled()) {
       schedule(() => {
@@ -262,6 +279,25 @@ function createUpdateService({
     const next = status();
     send('updater:policy-changed', next);
     return next;
+  }
+
+  function setPrerelease(enabled) {
+    if (typeof enabled !== 'boolean') throw new Error('更新渠道无效');
+    if (checkPromise || downloadPromise || downloading || downloaded) throw new Error('请结束当前更新任务后切换渠道');
+    persistPrerelease(enabled);
+    applyPolicy();
+    availableVersion = null; promptedVersion = null;
+    send('updater:policy-changed', { ...status(), resetResult: true });
+    return status();
+  }
+
+  function setAutoInstall(enabled) {
+    if (typeof enabled !== 'boolean') throw new Error('自动安装选项无效');
+    if (checkPromise || downloadPromise || downloading) throw new Error('请等待当前更新任务完成');
+    persistAutoInstall(enabled);
+    applyPolicy();
+    send('updater:policy-changed', status());
+    return status();
   }
 
   async function checkForUpdates() {
@@ -294,7 +330,7 @@ function createUpdateService({
     return checkPromise;
   }
 
-  return { checkForUpdates, downloadUpdate, installUpdate, setAutomaticChecks, setup, status };
+  return { checkForUpdates, downloadUpdate, installUpdate, setAutomaticChecks, setPrerelease, setAutoInstall, setup, status };
 }
 
 module.exports = {

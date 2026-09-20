@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-20T14:58:00+08:00",
+  "updatedAt": "2026-09-21T05:15:32+08:00",
   "scope": "以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。",
   "baseline": {
     "version": "2.0.0-alpha.193",
@@ -36,13 +36,20 @@
   ],
   "tasks": [
     {
+      "id": "GF-UPDATE-003", "milestone": "GF-P3", "title": "更新渠道、手动安装默认值与用户反馈", "priority": "P0",
+      "status": "in_progress", "owner": "Codex", "updatedAt": "2026-09-21T05:15:32+08:00", "dependsOn": [],
+      "sourcePaths": ["main.js", "preload.js", "src/main/services/updateService.js", "src/renderer/scripts/updateController.js"],
+      "acceptance": ["默认接收正式和测试版，保留已有退出测试版偏好。", "默认手动安装，自动下载退出安装独立明确开启，保留签名门禁。", "设置及原生菜单可打开固定公开反馈入口。"],
+      "evidence": [], "nextAction": "完成回归与 alpha210 构建和真实界面验证", "blocker": "", "userAcceptance": "pending"
+    },
+    {
       "id": "GF-UPDATE-002",
       "milestone": "GF-P3",
       "title": "成熟安装与更新方案迁移",
       "priority": "P0",
       "status": "blocked",
       "owner": "Codex",
-      "updatedAt": "2026-09-20T14:58:00+08:00",
+      "updatedAt": "2026-09-21T04:02:02+08:00",
       "dependsOn": [],
       "sourcePaths": [
         "src/main/services/updateService.js",
@@ -54,10 +61,11 @@
         "保留签名门禁，构建及本机检查验证；正式升级单独验收。"
       ],
       "evidence": [
-        "docs/00-handoff/MATURE_UPDATES_ALPHA208.md"
+        "docs/00-handoff/MATURE_UPDATES_ALPHA208.md",
+        "docs/00-handoff/RELEASE_ALPHA209_PUBLIC.md"
       ],
-      "nextAction": "取得签名及发布条件，完成正式构建、草稿公开回读和跨版本升级。",
-      "blocker": "有效Developer ID为0，正式签名/公证和真实旧版自动安装未验收。",
+      "nextAction": "GitHub alpha209测试包和原生更新清单已公开；恢复官网管理连接同步制品，配置Developer ID并完成正式自动安装验收。",
+      "blocker": "官网浏览器连接失败且无发布凭据；有效Developer ID为0，正式签名/公证和真实旧版自动安装未验收。",
       "userAcceptance": "pending"
     },
     {

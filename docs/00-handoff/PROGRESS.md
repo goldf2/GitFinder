@@ -2,7 +2,7 @@
 
 > 自动生成。只编辑 `management/development-tasks.json`，然后执行 `npm run handoff:update`。
 
-更新时间：2026-09-20T14:58:00+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
+更新时间：2026-09-21T05:15:32+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
 
 核验基线：2.0.0-alpha.193 / `99eef1d2992e389f32a48182a25fda3b9adf1958`；证据：[docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md](LAYOUT_OPTIONS_ALPHA193.md)。
 
@@ -15,7 +15,7 @@
 | GF-P0 接续工程 | 2 | 2 | 0 | 0 |
 | GF-P1 桌面稳定 | 19 | 14 | 0 | 1 |
 | GF-P2 可维护与性能 | 4 | 0 | 0 | 0 |
-| GF-P3 可分发 | 6 | 0 | 0 | 4 |
+| GF-P3 可分发 | 7 | 0 | 1 | 4 |
 | GF-P4 全流程事件 | 5 | 0 | 0 | 1 |
 | GF-P5 Web与同步（需授权） | 4 | 0 | 0 | 4 |
 
@@ -25,6 +25,7 @@
 
 | 编号 | 优先级 | 状态 | 负责人 | 任务 |
 | --- | --- | --- | --- | --- |
+| GF-UPDATE-003 | P0 | 开发中 | Codex | 更新渠道、手动安装默认值与用户反馈 |
 | GF-UPDATE-002 | P0 | 阻塞 | Codex | 成熟安装与更新方案迁移 |
 | GF-PANEL-MANAGE-001 | P1 | 已交付 | Codex | 应用面板Coolify管理入口 |
 | GF-CARD-NAME-001 | P1 | 已交付 | Codex | 部署名称独立整行显示 |
@@ -68,23 +69,40 @@
 
 ## 可执行任务卡
 
+### GF-UPDATE-003 · 更新渠道、手动安装默认值与用户反馈
+
+阶段：GF-P3；优先级：P0；状态：**开发中**；负责人：Codex；用户验收：待用户反馈。
+
+更新：2026-09-21T05:15:32+08:00。依赖：无。
+
+**验收标准**
+1. 默认接收正式和测试版，保留已有退出测试版偏好。
+2. 默认手动安装，自动下载退出安装独立明确开启，保留签名门禁。
+3. 设置及原生菜单可打开固定公开反馈入口。
+
+**接续动作：** 完成回归与 alpha210 构建和真实界面验证
+
+源码/设计入口：[main.js](../../main.js)；[preload.js](../../preload.js)；[src/main/services/updateService.js](../../src/main/services/updateService.js)；[src/renderer/scripts/updateController.js](../../src/renderer/scripts/updateController.js)。
+
+证据：尚无本任务完成证据；源码文件存在不表示验收通过。
+
 ### GF-UPDATE-002 · 成熟安装与更新方案迁移
 
 阶段：GF-P3；优先级：P0；状态：**阻塞**；负责人：Codex；用户验收：待用户反馈。
 
-更新：2026-09-20T14:58:00+08:00。依赖：无。
+更新：2026-09-21T04:02:02+08:00。依赖：无。
 
 **验收标准**
 1. electron-builder生成制品与元数据，electron-updater读取GitHub源。
 2. 保留签名门禁，构建及本机检查验证；正式升级单独验收。
 
-**接续动作：** 取得签名及发布条件，完成正式构建、草稿公开回读和跨版本升级。
+**接续动作：** GitHub alpha209测试包和原生更新清单已公开；恢复官网管理连接同步制品，配置Developer ID并完成正式自动安装验收。
 
 源码/设计入口：[src/main/services/updateService.js](../../src/main/services/updateService.js)；[scripts/build-mac.sh](../../scripts/build-mac.sh)；[package.json](../../package.json)。
 
-证据：[docs/00-handoff/MATURE_UPDATES_ALPHA208.md](MATURE_UPDATES_ALPHA208.md)
+证据：[docs/00-handoff/MATURE_UPDATES_ALPHA208.md](MATURE_UPDATES_ALPHA208.md)；[docs/00-handoff/RELEASE_ALPHA209_PUBLIC.md](RELEASE_ALPHA209_PUBLIC.md)
 
-**阻塞/暂缓原因：** 有效Developer ID为0，正式签名/公证和真实旧版自动安装未验收。
+**阻塞/暂缓原因：** 官网浏览器连接失败且无发布凭据；有效Developer ID为0，正式签名/公证和真实旧版自动安装未验收。
 
 ### GF-PANEL-MANAGE-001 · 应用面板Coolify管理入口
 

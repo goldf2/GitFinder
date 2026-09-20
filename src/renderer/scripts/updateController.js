@@ -56,6 +56,9 @@
         currentVersion: '',
         feedHost: '',
         automaticChecks: true,
+        prerelease: true,
+        autoInstall: false,
+        canAutoInstall: false,
         phase: 'idle',
         availableVersion: '',
         remoteVersion: '',
@@ -71,12 +74,18 @@
       if (this.bound) return;
       this.bound = true;
       this.document.addEventListener('click', event => {
+        if (event.target.closest?.('[data-update-feedback]')) {
+          void this.bridge.updater.feedback().catch(() => this.onStatusMessage('无法打开反馈页面', 'error'));
+          return;
+        }
         const button = event.target.closest?.('[data-update-action="primary"]');
         if (!button) return;
         event.preventDefault();
         this.performPrimaryAction();
       });
       this.document.addEventListener('change', event => {
+        const policy = event.target.closest?.('[data-update-policy]');
+        if (policy) { void this.setPolicy(policy.dataset.updatePolicy, policy.checked === true); return; }
         const toggle = event.target.closest?.('[data-update-auto-check]');
         if (!toggle) return;
         this.setAutomaticChecks(toggle.checked === true);
@@ -100,7 +109,8 @@
         this.onStatusMessage(`更新失败：${error}`, 'error');
       });
       this.bridge.updater.onPolicyChanged?.(status => {
-        this.setState({ automaticChecks: status?.automaticChecks !== false });
+        this.setState({ automaticChecks: status?.automaticChecks !== false, prerelease: status?.prerelease !== false, autoInstall: status?.autoInstall === true, canAutoInstall: status?.canAutoInstall === true,
+          ...(status?.resetResult ? { phase: 'idle', availableVersion: '', remoteVersion: '', error: '' } : {}) });
       });
 
       try {
@@ -114,6 +124,9 @@
           reason: status?.reason || null,
           feedHost: status?.feedHost || '',
           automaticChecks: status?.automaticChecks !== false,
+          prerelease: status?.prerelease !== false,
+          autoInstall: status?.autoInstall === true,
+          canAutoInstall: status?.canAutoInstall === true,
         });
       } catch (error) {
         this.setState({ enabled: false, reason: 'unavailable', error: error?.message || String(error) });
@@ -124,7 +137,7 @@
       return `<section class="app-settings-section" id="settings-updates" role="tabpanel" aria-labelledby="settings-navigation-updates">
         <div class="app-settings-section-heading">
           <h2 id="settings-updates-title">软件更新</h2>
-          <p>你可以手动检查；开启自动检查后，启动时发现新版本只会提醒，不会自动下载安装。</p>
+          <p>默认接收版本通知，由你确认安装；自动下载安装需要单独开启。</p>
         </div>
         <div class="app-settings-controls">
           <div class="app-settings-row software-update-row">
@@ -135,6 +148,9 @@
             <span><strong>启动时自动检查</strong><small>关闭后不进行启动联网检查；手动检查仍可使用，下载前会再次征求确认</small></span>
             <input class="app-settings-toggle" id="settings-update-auto-check" data-update-auto-check type="checkbox">
           </label>
+          <label class="app-settings-row"><span><strong>接收测试版更新</strong><small>默认开启；关闭后只接收正式版，不自动降级</small></span><input class="app-settings-toggle" data-update-policy="prerelease" type="checkbox"></label>
+          <label class="app-settings-row"><span><strong>自动下载并在退出时安装</strong><small id="settings-update-install-help">默认关闭，不强制重启</small></span><input class="app-settings-toggle" data-update-policy="autoInstall" type="checkbox"></label>
+          <div class="app-settings-row"><span><strong>反馈问题 / 建议</strong><small>打开GitHub公开反馈页，需要登录；不会上传工程或日志</small></span><button class="btn" data-update-feedback type="button">反馈问题 / 建议</button></div>
         </div>
       </section>`;
     }
@@ -185,11 +201,21 @@
       }
     }
 
+    async setPolicy(key, enabled) {
+      const method = key === 'prerelease' ? 'setPrerelease' : key === 'autoInstall' ? 'setAutoInstall' : null;
+      if (!method) return;
+      try {
+        const status = await this.bridge.updater[method](enabled);
+        this.setState({ ...status, ...(key === 'prerelease' ? { phase: 'idle', availableVersion: '', remoteVersion: '', error: '' } : {}) });
+      } catch (error) { this.onStatusMessage(error?.message || '保存失败', 'error'); this.render(); }
+    }
+
     async check() {
       if (!this.state.enabled || this.state.phase === 'checking' || this.state.phase === 'downloading') return false;
       this.setState({ phase: 'checking', errorCode: '', error: '' });
       try {
         const result = await this.bridge.updater.check();
+        if (['downloading', 'downloaded'].includes(this.state.phase)) return result;
         if (result?.available) {
           this.setState({ phase: 'available', availableVersion: result.version || '', remoteVersion: result.version || '', errorCode: '', error: '' });
         } else if (result?.reason) {
@@ -244,6 +270,12 @@
         automaticChecks.checked = this.state.automaticChecks !== false;
         automaticChecks.disabled = !this.state.enabled;
       }
+      this.document.querySelectorAll('[data-update-policy]').forEach(toggle => {
+        toggle.checked = this.state[toggle.dataset.updatePolicy] === true;
+        toggle.disabled = !this.state.enabled || ['checking', 'downloading'].includes(this.state.phase);
+      });
+      const installHelp = this.document.getElementById('settings-update-install-help');
+      if (installHelp) installHelp.textContent = this.state.canAutoInstall ? '开启后正常退出时安装；默认关闭，不强制重启' : '当前开发包未正式签名：可保存偏好，但仍需手动安装';
     }
   }
 

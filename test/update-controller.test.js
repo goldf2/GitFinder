@@ -45,6 +45,9 @@ test('更新设置提供自动检查开关并明确下载前需要确认', () =>
   assert.match(markup, /id="settings-update-auto-check"/);
   assert.match(markup, /data-update-auto-check/);
   assert.match(markup, /下载前会再次征求确认/);
+  assert.match(markup, /data-update-policy="prerelease"/);
+  assert.match(markup, /data-update-policy="autoInstall"/);
+  assert.match(markup, /data-update-feedback/);
 });
 
 test('无可用更新时显示线上版本，更新错误保留错误码', () => {

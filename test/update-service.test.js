@@ -42,6 +42,34 @@ class FakeNotification extends EventEmitter {
   show() { this.shown = true; }
 }
 
+test('测试版默认接收，安装默认手动；显式策略持久化并保留平台门禁', () => {
+  for (const canAutoInstall of [false, true]) {
+    let prerelease = true, autoInstall = false;
+    const updater = new FakeUpdater();
+    const service = createUpdateService({
+      app: { getVersion: () => '2.0.0' }, autoUpdater: updater,
+      configuration: resolveUpdateConfiguration({ isPackaged: true, env: {} }),
+      getPrerelease: () => prerelease, setPrerelease: value => { prerelease = value; },
+      getAutoInstall: () => autoInstall, setAutoInstall: value => { autoInstall = value; }, canAutoInstall,
+      schedule() {},
+    });
+    service.setup();
+    assert.equal(updater.allowPrerelease, true);
+    assert.equal(updater.autoDownload, false);
+    service.setPrerelease(false);
+    assert.equal(prerelease, false); assert.equal(updater.allowPrerelease, false);
+    assert.equal(updater.allowDowngrade, false);
+    service.setAutoInstall(true);
+    assert.equal(autoInstall, true);
+    assert.equal(updater.autoDownload, canAutoInstall);
+    assert.equal(updater.autoInstallOnAppQuit, canAutoInstall);
+    assert.throws(() => service.setPrerelease('true'));
+    assert.throws(() => service.setAutoInstall('true'));
+    service.setAutoInstall(false);
+    assert.equal(updater.autoInstallOnAppQuit, false);
+  }
+});
+
 test('Alpha 版本按语义版本比较，而不是只比较 2.0.0 主版本', () => {
   assert.equal(isNewerVersion('2.0.0-alpha.86', '2.0.0-alpha.85'), true);
   assert.equal(isNewerVersion('2.0.0-alpha.85', '2.0.0-alpha.85'), false);
