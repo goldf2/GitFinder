@@ -16,13 +16,6 @@ else
   BUILDER_ARGS+=(--config.mac.identity=-)
 fi
 node node_modules/electron-builder/out/cli/cli.js "${BUILDER_ARGS[@]}"
-APP_PATH="dist/mac-arm64/GitFinder 2 Alpha.app"
-if [ "$RELEASE_MODE" = official ]; then
-  xcrun notarytool submit "dist/GitFinder-2-$(node -p "require('./package.json').version")-arm64-mac.dmg" --keychain-profile "$GITFINDER_NOTARY_KEYCHAIN_PROFILE" --wait
-  xcrun stapler staple "$APP_PATH"
-  # Rebuild from the signed/stapled app so updater metadata matches the final archives.
-  node node_modules/electron-builder/out/cli/cli.js --prepackaged "$APP_PATH" --mac dmg zip --arm64 --publish never
-fi
 ARTIFACT_ARGS=(--phase artifact --mode "$RELEASE_MODE" --report dist/release-verification.json)
 if [ -n "${GITFINDER_EXPECTED_TAG:-}" ]; then ARTIFACT_ARGS+=(--expected-tag "$GITFINDER_EXPECTED_TAG"); fi
 if [ -n "${APPLE_TEAM_ID:-}" ]; then ARTIFACT_ARGS+=(--expected-team-id "$APPLE_TEAM_ID"); fi
