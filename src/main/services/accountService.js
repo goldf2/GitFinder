@@ -4,6 +4,21 @@ const { createCasdoorClient } = require('./casdoorClient');
 const REDIRECT_URI = 'http://127.0.0.1:43821/oauth/callback';
 const DEFAULT_CONFIGURATION = { issuer: 'https://casdoor.xiangshu.me', clientId: '' };
 
+// Older GitFinder builds saved a temporary Xiangshu host as the issuer. Those
+// hosts are not stable deployment addresses, so retry the current default only
+// for that narrow legacy shape; user-configured providers remain untouched.
+function isLegacyXiangshuIssuer(value) {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:'
+      && (url.pathname === '' || url.pathname === '/')
+      && /^[a-z0-9]{20,32}\.xiangshu\.me$/i.test(url.hostname)
+      && url.hostname !== new URL(DEFAULT_CONFIGURATION.issuer).hostname;
+  } catch (_) {
+    return false;
+  }
+}
+
 function normalizeConfiguration(input) {
   const issuer = new URL(String(input?.issuer || '').trim());
   const clientId = String(input?.clientId || '').trim();
@@ -126,8 +141,23 @@ function createAccountService({ store, openExternal, onChanged = () => {}, onSig
       if (!configuration.clientId) { error = '请先配置 GitFinder 的 Casdoor Client ID。'; return publish(); }
       const attempt = begin();
       try {
-        const client = await createClient({ ...configuration, redirectUri }, attempt.controller.signal);
-        const authorization = await client.authorization();
+        let activeConfiguration = configuration;
+        let client;
+        let authorization;
+        try {
+          client = await createClient({ ...activeConfiguration, redirectUri }, attempt.controller.signal);
+          authorization = await client.authorization();
+        } catch (cause) {
+          if (!isLegacyXiangshuIssuer(configuration.issuer) || pending !== attempt) throw cause;
+          activeConfiguration = { ...DEFAULT_CONFIGURATION, clientId: configuration.clientId };
+          client = await createClient({ ...activeConfiguration, redirectUri }, attempt.controller.signal);
+          authorization = await client.authorization();
+          if (pending !== attempt) return status();
+          configuration = activeConfiguration;
+          session = null;
+          persistent = false;
+          store.write(configuration, null);
+        }
         if (pending !== attempt) return status();
         attempt.server = http.createServer((req, res) => {
           handleCallback(req, res, attempt, client, authorization).catch(() => {
@@ -173,4 +203,4 @@ function createAccountService({ store, openExternal, onChanged = () => {}, onSig
   };
 }
 
-module.exports = { createAccountService, normalizeConfiguration, REDIRECT_URI };
+module.exports = { createAccountService, normalizeConfiguration, REDIRECT_URI, isLegacyXiangshuIssuer };

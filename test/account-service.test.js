@@ -53,6 +53,28 @@ test('configuration permits only HTTPS issuer and a public client ID', () => {
   assert.throws(() => normalizeConfiguration({ ...configuration, clientId: 'secret with spaces' }));
 });
 
+test('legacy temporary Xiangshu issuer retries the current default and persists the migration', async t => {
+  const legacy = { issuer: 'https://qtkqgiprku5ccvlzemjhz57j.xiangshu.me', clientId: 'gitfinder-desktop' };
+  const calls = [];
+  const h = await harness(t, {
+    saved: { configuration: legacy, session: null },
+    createClient: async settings => {
+      calls.push(settings.issuer);
+      if (settings.issuer === legacy.issuer) throw new Error('legacy issuer unavailable');
+      return {
+        authorization: async () => ({ url: 'https://casdoor.xiangshu.me/login', state: 'state' }),
+        exchange: async () => session(),
+      };
+    },
+  });
+
+  const state = await h.service.signIn();
+  assert.deepEqual(calls, [legacy.issuer, 'https://casdoor.xiangshu.me']);
+  assert.equal(state.configuration.issuer, 'https://casdoor.xiangshu.me');
+  assert.equal(h.writes.at(-1).configuration.issuer, 'https://casdoor.xiangshu.me');
+  assert.equal(h.opened.length, 1);
+});
+
 test('startup restores cached identity without discovery and never exposes tokens', async t => {
   const h = await harness(t, { saved: { configuration, session: session() },
     createClient: () => { throw new Error('startup must be offline'); } });

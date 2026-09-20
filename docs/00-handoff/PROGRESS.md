@@ -2,11 +2,11 @@
 
 > 自动生成。只编辑 `management/development-tasks.json`，然后执行 `npm run handoff:update`。
 
-更新时间：2026-09-21T05:15:32+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
+更新时间：2026-09-21T07:28:00+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
 
 核验基线：2.0.0-alpha.193 / `99eef1d2992e389f32a48182a25fda3b9adf1958`；证据：[docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md](LAYOUT_OPTIONS_ALPHA193.md)。
 
-**唯一下一任务：GF-UPDATE-003**
+**唯一下一任务：GF-AUTH-001**
 
 ## 阶段汇总
 
@@ -15,7 +15,7 @@
 | GF-P0 接续工程 | 2 | 2 | 0 | 0 |
 | GF-P1 桌面稳定 | 19 | 14 | 0 | 1 |
 | GF-P2 可维护与性能 | 4 | 0 | 0 | 0 |
-| GF-P3 可分发 | 7 | 0 | 1 | 4 |
+| GF-P3 可分发 | 7 | 0 | 2 | 3 |
 | GF-P4 全流程事件 | 5 | 0 | 0 | 1 |
 | GF-P5 Web与同步（需授权） | 4 | 0 | 0 | 4 |
 
@@ -46,7 +46,7 @@
 | GF-WIN-001 | P2 | 计划中 | unassigned | Windows x64正常安装与默认GPU路径验收 |
 | GF-UPDATE-001 | P2 | 阻塞 | unassigned | 正式签名与旧版到新版更新链路 |
 | GF-RELEASE-001 | P2 | 暂缓 | unassigned | 公开发布控制面、manifest与回退联合验收 |
-| GF-AUTH-001 | P2 | 阻塞 | unassigned | 现有独立账户的真实登录/刷新/退出验收 |
+| GF-AUTH-001 | P2 | 开发中 | Codex | 现有独立账户的真实登录/刷新/退出验收 |
 | GF-EVENT-001 | P2 | 计划中 | unassigned | 部署事件模型与有界历史增量契约 |
 | GF-EVENT-002 | P2 | 计划中 | unassigned | 一个仓库双环境的项目事件时间线 |
 | GF-NOTIFY-001 | P2 | 计划中 | unassigned | 桌面通知去重、免打扰与白板定位 |
@@ -442,22 +442,22 @@
 
 ### GF-AUTH-001 · 现有独立账户的真实登录/刷新/退出验收
 
-阶段：GF-P3；优先级：P2；状态：**阻塞**；负责人：unassigned；用户验收：待用户反馈。
+阶段：GF-P3；优先级：P2；状态：**开发中**；负责人：Codex；用户验收：待用户反馈。
 
-更新：2026-09-16T15:52:24+08:00。依赖：无。
+更新：2026-09-21T07:28:00+08:00。依赖：无。
 
 **验收标准**
 1. 用户自行输入真实账号，完成登录、刷新、退出和会话错误恢复。
 2. 未登录/离线不阻断目录、Git与白板核心功能。
 3. 不新建账号体系，不把第三方Token或账号凭据写入任务/日志。
 
-**接续动作：** 与用户确认测试账户和交互窗口，仅准备隔离流程不代填密码。
+**接续动作：** alpha211完成旧临时Issuer兼容迁移与安装验证；仍需用户自行完成真实账号登录、刷新、退出验收。
 
 源码/设计入口：[src/main/services/accountService.js](../../src/main/services/accountService.js)；[src/main/services/accountStore.js](../../src/main/services/accountStore.js)；[docs/casdoor-desktop-login.md](../casdoor-desktop-login.md)。
 
-证据：尚无本任务完成证据；源码文件存在不表示验收通过。
+证据：[docs/00-handoff/LOGIN_FIX_ALPHA211.md](LOGIN_FIX_ALPHA211.md)
 
-**阻塞/暂缓原因：** 真实账号交互与授权待用户配合；客户端模块存在不是账号验收证据。
+**阻塞/暂缓原因：** 真实账号交互与授权待用户配合；Casdoor注册邮件提供商仍需服务端配置。
 
 ### GF-EVENT-001 · 部署事件模型与有界历史增量契约
 
