@@ -2,7 +2,7 @@
 
 > 自动生成。只编辑 `management/development-tasks.json`，然后执行 `npm run handoff:update`。
 
-更新时间：2026-09-21T07:28:00+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
+更新时间：2026-09-21T07:36:00+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
 
 核验基线：2.0.0-alpha.193 / `99eef1d2992e389f32a48182a25fda3b9adf1958`；证据：[docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md](LAYOUT_OPTIONS_ALPHA193.md)。
 
@@ -444,14 +444,14 @@
 
 阶段：GF-P3；优先级：P2；状态：**开发中**；负责人：Codex；用户验收：待用户反馈。
 
-更新：2026-09-21T07:28:00+08:00。依赖：无。
+更新：2026-09-21T07:36:00+08:00。依赖：无。
 
 **验收标准**
 1. 用户自行输入真实账号，完成登录、刷新、退出和会话错误恢复。
 2. 未登录/离线不阻断目录、Git与白板核心功能。
 3. 不新建账号体系，不把第三方Token或账号凭据写入任务/日志。
 
-**接续动作：** alpha211完成旧临时Issuer兼容迁移与安装验证；仍需用户自行完成真实账号登录、刷新、退出验收。
+**接续动作：** alpha211源码9d5fa07已推送并安装验证；仍需用户自行完成真实账号登录、刷新、退出验收。
 
 源码/设计入口：[src/main/services/accountService.js](../../src/main/services/accountService.js)；[src/main/services/accountStore.js](../../src/main/services/accountStore.js)；[docs/casdoor-desktop-login.md](../casdoor-desktop-login.md)。
 

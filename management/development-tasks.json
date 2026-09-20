@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-21T07:28:00+08:00",
+  "updatedAt": "2026-09-21T07:36:00+08:00",
   "scope": "以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。",
   "baseline": {
     "version": "2.0.0-alpha.193",
@@ -597,7 +597,7 @@
       "priority": "P2",
       "status": "in_progress",
       "owner": "Codex",
-      "updatedAt": "2026-09-21T07:28:00+08:00",
+      "updatedAt": "2026-09-21T07:36:00+08:00",
       "dependsOn": [],
       "sourcePaths": [
         "src/main/services/accountService.js",
@@ -610,7 +610,7 @@
         "不新建账号体系，不把第三方Token或账号凭据写入任务/日志。"
       ],
       "evidence": ["docs/00-handoff/LOGIN_FIX_ALPHA211.md"],
-      "nextAction": "alpha211完成旧临时Issuer兼容迁移与安装验证；仍需用户自行完成真实账号登录、刷新、退出验收。",
+      "nextAction": "alpha211源码9d5fa07已推送并安装验证；仍需用户自行完成真实账号登录、刷新、退出验收。",
       "blocker": "真实账号交互与授权待用户配合；Casdoor注册邮件提供商仍需服务端配置。",
       "delivery": null,
       "userAcceptance": "pending"
