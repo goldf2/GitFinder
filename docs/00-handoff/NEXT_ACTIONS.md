@@ -1,11 +1,11 @@
 # GitFinder 2 下一步
 
 <!-- BEGIN NEXT_ACTIONS -->
-## GF-SAVE-212 · 完成白板保存冲突保护的交付
+## GF-DATA-001 · 补齐未覆盖的保存故障与中断恢复矩阵
 
-在独立worktree继续执行alpha.212全量检查、可追溯开发包、隔离安装版冲突/恢复验收，然后保留原dirty增量合入main并推送。证据见[SAVE_CONFLICTS_ALPHA212.md](SAVE_CONFLICTS_ALPHA212.md)。
+先阅读[SAVE_CONFLICTS_ALPHA212.md](SAVE_CONFLICTS_ALPHA212.md)和`test/whiteboard-save-conflicts.test.js`，确认内容冲突、写入失败重试与正常重启已覆盖；从独立临时目录/子进程建立“保存中断”和“资源库登记写入失败”的最小失败用例，再决定修复范围。不得在真实用户白板制造故障，不把正常退出重启当作崩溃恢复。
 
-GF-DATA-001的断电/进程中断及更广泛恢复矩阵仍未完成；真实账号验收GF-AUTH-001仍需要用户自行操作，不阻塞此独立切片。
+GF-SAVE-212的alpha.212已安装、源码与安装记录已推送main，用户验收仍pending；更广泛断电/任意外部写进程竞态并未因此全部解决。真实账号GF-AUTH-001和macOS文稿访问授权仍由用户自行操作。
 <!-- END NEXT_ACTIONS -->
 
 ## 历史兼容记录（以下旧下一步已被顶部接续块取代）

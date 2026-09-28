@@ -2,18 +2,18 @@
 
 > 自动生成。只编辑 `management/development-tasks.json`，然后执行 `npm run handoff:update`。
 
-更新时间：2026-09-28T20:27:16+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
+更新时间：2026-09-28T20:29:49+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
 
 核验基线：2.0.0-alpha.193 / `99eef1d2992e389f32a48182a25fda3b9adf1958`；证据：[docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md](LAYOUT_OPTIONS_ALPHA193.md)。
 
-**唯一下一任务：GF-SAVE-212**
+**唯一下一任务：GF-DATA-001**
 
 ## 阶段汇总
 
 | 阶段 | 纳入任务 | 已交付 | 开发中/已验证 | 阻塞/暂缓 |
 | --- | ---: | ---: | ---: | ---: |
 | GF-P0 接续工程 | 2 | 2 | 0 | 0 |
-| GF-P1 桌面稳定 | 20 | 14 | 1 | 1 |
+| GF-P1 桌面稳定 | 20 | 15 | 0 | 1 |
 | GF-P2 可维护与性能 | 4 | 0 | 0 | 0 |
 | GF-P3 可分发 | 7 | 0 | 2 | 3 |
 | GF-P4 全流程事件 | 5 | 0 | 0 | 1 |
@@ -66,7 +66,7 @@
 | GF-TEXT-RANGE-001 | P1 | 已交付 | ChatGPT / AgentDock Cloudflare | 扩大白板文字与容器标题字号范围 |
 | GF-CONTAINER-RESIZE-001 | P0 | 已交付 | ChatGPT / AgentDock Cloudflare | 四边四角容器缩放与成员自适应换行 |
 | GF-CONTAINER-HEADER-001 | P0 | 已交付 | ChatGPT / AgentDock Cloudflare | 嵌套容器标题安全区与拖拽防重叠 |
-| GF-SAVE-212 | P1 | 已验证 | AgentDock-ChatGPT | 白板内容版本校验与保存冲突保护 |
+| GF-SAVE-212 | P1 | 已交付 | AgentDock-ChatGPT | 白板内容版本校验与保存冲突保护 |
 
 ## 可执行任务卡
 
@@ -295,7 +295,7 @@
 2. 失败后原内容可见、可重试、不会跨文档写入；正常退出与崩溃分别测试。
 3. 原始文件/重开读回一致，失败证据与恢复步骤可复跑。
 
-**接续动作：** 列出当前保存回归未覆盖的IO边界，先补临时文件故障与旧revision测试。
+**接续动作：** 先阅读GF-SAVE-212验收与whiteboard-save-conflicts.test.js已覆盖的内容，再补子进程中断、资源库登记写入失败与重开恢复；不重复实现内容revision，不宣称断电无损。
 
 源码/设计入口：[src/renderer/scripts/relationshipBoardPersistence.js](../../src/renderer/scripts/relationshipBoardPersistence.js)；[src/main/services/whiteboardDocumentService.js](../../src/main/services/whiteboardDocumentService.js)；[test/relationship-save-lifecycle.test.js](../../test/relationship-save-lifecycle.test.js)。
 
@@ -814,9 +814,9 @@
 
 ### GF-SAVE-212 · 白板内容版本校验与保存冲突保护
 
-阶段：GF-P1；优先级：P1；状态：**已验证**；负责人：AgentDock-ChatGPT；用户验收：待用户反馈。
+阶段：GF-P1；优先级：P1；状态：**已交付**；负责人：AgentDock-ChatGPT；用户验收：待用户反馈。
 
-更新：2026-09-28T20:27:16+08:00。依赖：GF-SAVE-191。
+更新：2026-09-28T20:29:49+08:00。依赖：GF-SAVE-191。
 
 **验收标准**
 1. 同大小、同修改时间的外部修改不能被覆盖；仅修改时间不产生内容冲突。
@@ -824,8 +824,10 @@
 3. 打开/保存返回的revision必须对应实际读取/写入的快照；冲突后当前编辑保留且可另存为。
 4. 完成本轮源码回归、macOS开发包和隔离安装验收；不宣称完成全部进程中断/多进程原子比较矩阵。
 
-**接续动作：** alpha.212已完成development构建、安装、14+12项实际保存回归及3+5项正常重启验证。仅剩main集成、推送与最终交接；用户文稿目录授权未代操作。
+**接续动作：** alpha.212源码、安装和远端main核对完成。用户验收仍pending，系统文稿目录授权由用户自行选择；后续GF-DATA-001处理未覆盖的进程中断/资源库写入失败矩阵。
 
 源码/设计入口：[src/main/services/whiteboardDocumentService.js](../../src/main/services/whiteboardDocumentService.js)；[src/main/services/relationshipBoardExportService.js](../../src/main/services/relationshipBoardExportService.js)；[test/whiteboard-save-conflicts.test.js](../../test/whiteboard-save-conflicts.test.js)。
 
 证据：[docs/00-handoff/SAVE_CONFLICTS_ALPHA212.md](SAVE_CONFLICTS_ALPHA212.md)
+
+交付：2.0.0-alpha.212；源码 `9b14b62284257674b67e039c3a7cff9639434e3d`。

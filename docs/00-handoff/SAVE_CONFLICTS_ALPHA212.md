@@ -42,7 +42,9 @@
 
 原12项工作区修改哈希在合入前全部未变；5个真实白板与索引文件在正常启动后仍与基线字节哈希一致。证据`installation.json`、`data-protection-after.json`、`user-whiteboards-before.json`仅留本机，不含账户凭据。
 
-当前源码仍在独立分支，main集成和推送待执行，用户验收仍pending。
+源码`9b14b62`及安装记录提交`15a46edbda42736530f7ca2e9eace85b4aaeba7c`已快进合入main并普通推送；`git ls-remote origin refs/heads/main`已核对为15a46ed。原用户修改没有混入提交，用户验收仍pending；本次文档收尾不重建已验收产物。
+
+合入时3份共享交接文档的本地草稿发生autostash冲突，未重发stash pop或覆盖整份文件。CURRENT_STATE/NEXT_ACTIONS仅替换有效块，历史内容逐字保留；SESSION_LOG保留完整原文后追加本轮记录。9份无关原文件字节与基线一致，索引干净，原12项仍保持本地未提交状态；旧完整快照及autostash `4a8cac4`保留作恢复依据。详见本机`integration-protection.json`、`main-integration.log`、`push-source.log`和`remote-source.txt`。
 
 ## 保留边界
 
