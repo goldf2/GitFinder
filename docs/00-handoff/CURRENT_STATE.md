@@ -1,11 +1,11 @@
 # GitFinder 2 当前状态
 
 <!-- BEGIN CURRENT_STATE -->
-## alpha209 已安装 · GF-UPDATE-002 正式升级验收待条件
+## GF-SAVE-212 · alpha.212 白板保存冲突保护正在验收
 
-2026-09-20T14:58:00+08:00。builder/updater原生GitHub迁移，源码bf4f25b已推送。干净构建、本机签名结构、DMG/元数据和隔离设置更新检查通过；公开源返回207，不降级。全量1414/1414、298JS，专项24/24。
+本轮仅处理独立白板保存安全：内容版本校验、替换前复核、打开/保存快照与版本绑定。新增10项回归在alpha.211上3通过/7失败，修复后保存相关53/53通过；全量1426/1426、299JS检查已通过；打包、安装、推送待核实。详见[SAVE_CONFLICTS_ALPHA212.md](SAVE_CONFLICTS_ALPHA212.md)。
 
-有效Developer ID为0，尚未公证/发布新候选/执行旧版自动安装。GF-UPDATE-002 blocked；下一步准备签名、公证与真实跨版本验收。保留原未提交文档与数据，不进入服务器操作。详见[MATURE_UPDATES_ALPHA208.md](MATURE_UPDATES_ALPHA208.md)。
+此前alpha.211登录修复及用户真实账号验收边界保持不变；GF-AUTH-001未代做账号交互。主工作树原12项修改与本轮隔离，未改真实白板、凭据、布局或其他项目。
 <!-- END CURRENT_STATE -->
 
 ## 历史兼容记录（以下不再表示当前状态）

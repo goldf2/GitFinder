@@ -2,7 +2,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const Model = require('../../shared/relationshipGraphModel');
-const { RelationshipBoardExportService } = require('./relationshipBoardExportService');
+const { RelationshipBoardExportService, contentRevision } = require('./relationshipBoardExportService');
 const { unwrapRelationshipBoardFile, containsHighConfidenceSecret } = require('./relationshipBoardFileFormat');
 const { resolveDefaultBaseDirectory, MAX_FILE_BYTES } = require('./relationshipBoardService');
 
@@ -42,14 +42,18 @@ class WhiteboardDocumentService {
     return this._records().map(item => ({ ...item, missing: !fs.existsSync(item.path) }));
   }
 
-  _revision(filePath) {
+  _readSnapshot(filePath) {
     const stat = fs.lstatSync(filePath);
     if (stat.isSymbolicLink() || !stat.isFile()) throw new Error('请选择普通白板文件');
     if (stat.size > MAX_FILE_BYTES) throw new Error('白板文件超过 32 MB 限制');
-    return `${stat.mtimeMs}:${stat.size}`;
+    const contents = fs.readFileSync(filePath);
+    if (contents.length > MAX_FILE_BYTES) throw new Error('白板文件超过 32 MB 限制');
+    return { contents, revision: contentRevision(contents) };
   }
 
-  _register(filePath, store) {
+  _revision(filePath) { return this._readSnapshot(filePath).revision; }
+
+  _register(filePath, store, revision) {
     const records = this._records();
     let record = records.find(item => item.path === filePath);
     if (!record) { record = { id: crypto.randomUUID(), path: filePath }; records.push(record); }
@@ -58,20 +62,22 @@ class WhiteboardDocumentService {
     record.nodeCount = store.entities.length;
     if (path.basename(filePath) === 'board.json' && path.dirname(filePath).endsWith('.gitfinder-board')) record.projectDirectory = path.dirname(filePath);
     this._writeRecords(records);
-    return { ...record, revision: this._revision(filePath) };
+    // The token belongs to the snapshot the editor received, not to a newer
+    // external write that may have happened while the library was updated.
+    return { ...record, revision };
   }
 
   openPath(filePath) {
     if (!path.isAbsolute(filePath)) throw new Error('白板路径无效');
     filePath = path.resolve(filePath);
     if (fs.lstatSync(filePath).isDirectory()) filePath = path.join(filePath, 'board.json');
-    const revision = this._revision(filePath);
-    const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    const { contents, revision } = this._readSnapshot(filePath);
+    const parsed = JSON.parse(contents);
     if (this._revision(filePath) !== revision) throw new Error('文件正在被修改，请重试');
     if (containsHighConfidenceSecret(parsed)) throw new Error('白板疑似包含凭据，已拒绝打开');
     const store = Model.assertValidStore(unwrapRelationshipBoardFile(parsed).store);
     if (store.boards.length !== 1) throw new Error('请选择只包含一个白板的文件；多个白板请使用导入合并');
-    return { record: this._register(filePath, store), store };
+    return { record: this._register(filePath, store, revision), store };
   }
 
   open(id) { return this.openPath(this.record(id).path); }
@@ -79,12 +85,15 @@ class WhiteboardDocumentService {
   save(request, destination) {
     const record = destination ? null : this.record(request.id);
     const filePath = destination || record.path;
-    if (record && (!fs.existsSync(filePath) || this._revision(filePath) !== request.revision)) {
-      throw new Error('白板文件已在外部修改或移除。请重新打开，或另存为以保留当前内容');
-    }
+    const beforeReplace = () => {
+      if (record && (!fs.existsSync(filePath) || this._revision(filePath) !== request.revision)) {
+        throw new Error('白板文件已在外部修改或移除。请重新打开，或另存为以保留当前内容');
+      }
+    };
+    beforeReplace();
     const store = record?.projectDirectory ? this._materializeImages(request.store, record.projectDirectory) : request.store;
-    this.exporter.exportToFile(filePath, store);
-    return { record: this._register(path.resolve(filePath), store), store };
+    const exported = this.exporter.exportToFile(filePath, store, { beforeReplace });
+    return { record: this._register(path.resolve(filePath), store, exported.revision), store };
   }
 
   _assetFile(directory, relative) {
@@ -132,8 +141,8 @@ class WhiteboardDocumentService {
     }
     const store = this._materializeImages(validated, directory);
     const filePath = path.join(directory, 'board.json');
-    this.exporter.exportToFile(filePath, store);
-    const record = this._register(filePath, store);
+    const exported = this.exporter.exportToFile(filePath, store);
+    const record = this._register(filePath, store, exported.revision);
     if (source?.approvedReferences?.length) {
       const records = this._records(); records.find(item => item.id === record.id).approvedReferences = source.approvedReferences;
       this._writeRecords(records);
@@ -174,8 +183,8 @@ class WhiteboardDocumentService {
 
   inspectAssets(id) {
     const record = this.record(id);
-    this._revision(record.path);
-    const store = Model.assertValidStore(unwrapRelationshipBoardFile(JSON.parse(fs.readFileSync(record.path, 'utf8'))).store);
+    const { contents } = this._readSnapshot(record.path);
+    const store = Model.assertValidStore(unwrapRelationshipBoardFile(JSON.parse(contents)).store);
     return store.entities.filter(entity => ['image', 'attachment'].includes(entity.type)).map(entity => {
       const details = entity.details;
       try {

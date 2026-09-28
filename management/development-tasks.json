@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-21T07:36:00+08:00",
+  "updatedAt": "2026-09-28T20:17:35+08:00",
   "scope": "以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。",
   "baseline": {
     "version": "2.0.0-alpha.193",
     "sourceCommit": "99eef1d2992e389f32a48182a25fda3b9adf1958",
     "evidence": "docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md"
   },
-  "nextTaskId": "GF-AUTH-001",
+  "nextTaskId": "GF-SAVE-212",
   "milestones": [
     {
       "id": "GF-P0",
@@ -1193,6 +1193,36 @@
         "version": "2.0.0-alpha.203",
         "sourceCommit": "3dd763907c48bd88b6598bb2940989397d0bee19"
       },
+      "userAcceptance": "pending"
+    },
+    {
+      "id": "GF-SAVE-212",
+      "milestone": "GF-P1",
+      "title": "白板内容版本校验与保存冲突保护",
+      "priority": "P1",
+      "status": "verified",
+      "owner": "AgentDock-ChatGPT",
+      "updatedAt": "2026-09-28T20:17:35+08:00",
+      "dependsOn": [
+        "GF-SAVE-191"
+      ],
+      "sourcePaths": [
+        "src/main/services/whiteboardDocumentService.js",
+        "src/main/services/relationshipBoardExportService.js",
+        "test/whiteboard-save-conflicts.test.js"
+      ],
+      "acceptance": [
+        "同大小、同修改时间的外部修改不能被覆盖；仅修改时间不产生内容冲突。",
+        "写入准备阶段发生外部修改时保留外部文件，并清理临时文件。",
+        "打开/保存返回的revision必须对应实际读取/写入的快照；冲突后当前编辑保留且可另存为。",
+        "完成本轮源码回归、macOS开发包和隔离安装验收；不宣称完成全部进程中断/多进程原子比较矩阵。"
+      ],
+      "evidence": [
+        "docs/00-handoff/SAVE_CONFLICTS_ALPHA212.md"
+      ],
+      "nextAction": "全量1426/1426与299JS检查通过。提交可追溯源码并构建alpha.212，完成隔离安装保存冲突与重启验证后交付。",
+      "blocker": "",
+      "delivery": null,
       "userAcceptance": "pending"
     }
   ]

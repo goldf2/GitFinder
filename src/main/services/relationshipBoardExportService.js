@@ -10,6 +10,10 @@ const {
 } = require('./relationshipBoardFileFormat');
 const MAX_EXPORT_BYTES = relationshipBoardService.MAX_FILE_BYTES;
 
+function contentRevision(contents) {
+  return `sha256:${crypto.createHash('sha256').update(contents).digest('hex')}`;
+}
+
 function safeBaseName(value) {
   const cleaned = RelationshipGraphModel.cleanText(value, 120, '关系白板')
     .replace(/[<>:"/\\|?*\u0000-\u001f]/g, '-')
@@ -49,7 +53,7 @@ class RelationshipBoardExportService {
     };
   }
 
-  exportToFile(filePath, rawStore) {
+  exportToFile(filePath, rawStore, { beforeReplace } = {}) {
     if (typeof filePath !== 'string' || !path.isAbsolute(filePath) || filePath.includes('\0')) {
       throw new Error('关系白板导出路径无效');
     }
@@ -80,6 +84,9 @@ class RelationshipBoardExportService {
       this.fs.fsyncSync(handle);
       this.fs.closeSync(handle);
       handle = null;
+      // Preparing and syncing the temporary file can take time. Document saves
+      // must recheck their source snapshot immediately before replacing it.
+      if (beforeReplace) beforeReplace();
       if (this.fs.existsSync(destinationPath)) {
         this.fs.renameSync(destinationPath, previousPath);
         previousMoved = true;
@@ -107,6 +114,7 @@ class RelationshipBoardExportService {
     return {
       cancelled: false,
       fileName: path.basename(destinationPath),
+      revision: contentRevision(serialized),
       bytes,
       nodeCount: envelope.store.entities.length,
       relationshipCount: envelope.store.relationships.length,
@@ -129,5 +137,6 @@ module.exports = {
   EXPORT_FORMAT,
   EXPORT_FORMAT_VERSION,
   MAX_EXPORT_BYTES,
+  contentRevision,
   safeBaseName
 };
