@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-28T20:17:35+08:00",
+  "updatedAt": "2026-09-28T20:27:16+08:00",
   "scope": "以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。",
   "baseline": {
     "version": "2.0.0-alpha.193",
@@ -1202,7 +1202,7 @@
       "priority": "P1",
       "status": "verified",
       "owner": "AgentDock-ChatGPT",
-      "updatedAt": "2026-09-28T20:17:35+08:00",
+      "updatedAt": "2026-09-28T20:27:16+08:00",
       "dependsOn": [
         "GF-SAVE-191"
       ],
@@ -1220,7 +1220,7 @@
       "evidence": [
         "docs/00-handoff/SAVE_CONFLICTS_ALPHA212.md"
       ],
-      "nextAction": "全量1426/1426与299JS检查通过。提交可追溯源码并构建alpha.212，完成隔离安装保存冲突与重启验证后交付。",
+      "nextAction": "alpha.212已完成development构建、安装、14+12项实际保存回归及3+5项正常重启验证。仅剩main集成、推送与最终交接；用户文稿目录授权未代操作。",
       "blocker": "",
       "delivery": null,
       "userAcceptance": "pending"

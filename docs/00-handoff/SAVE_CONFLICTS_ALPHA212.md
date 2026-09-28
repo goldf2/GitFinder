@@ -25,7 +25,24 @@
 
 ## 打包、安装与推送
 
-待执行。源码通过不等于安装、用户确认或公开发行。计划从本轮提交生成macOS ARM64 development/ad-hoc包，备份alpha.211后验收安装版，成功再推送。
+构建源码：`9b14b62284257674b67e039c3a7cff9639434e3d`。`npm run pack`成功，development源码与产物门禁通过；ARM64 DMG/ZIP已生成，报告`work/dist/release-verification.json`的issues为空。仅ad-hoc签名，未公证，不具备正式分发资格。
+
+已将alpha.212安装到`/Applications/GitFinder 2.app`，版本、codesign及ASAR与产物一致，ASAR SHA-256为`75e6f2c52b9eba4795499eda98110df67285e90ddf65b8f7f9161975eb6ed62d`。旧alpha.211可恢复备份：`~/Library/Application Support/GitFinder App Backups/alpha211-before-alpha212-20260928/GitFinder 2.app`。
+
+### 实际安装版验收
+
+在独立profile `work/dist/panel-resize-test-profile`、仅回环CDP9448，以正常`open -n`启动已安装App（未使用disable-gpu）。
+
+- 原保存生命周期脚本14/14通过，实际IPC写入、保存中编辑、取消/失败受控注入均有日志，`installed-lifecycle.log`。
+- 新冲突专项12/12通过：实际点击保存按钮，模拟同大小同时间的外部文件写入，界面显示保存失败、未保存内容保留、外部字节未覆盖、阻止冲突时切换文档。将隔离fixture的外部改动人工恢复后，实际点击保存可重试落盘；不把此受控fixture恢复称为产品自动合并。`installed-conflicts.log`与`work/dist/installed-conflict-results/`保留JSON和截图。
+- 正常退出测试App，确认调试端口关闭，再启动同一已安装App和同一profile；生命周期重开3/3、新冲突重开5/5通过。不是仅刷新页面。日志`installed-lifecycle-reopen.log`、`installed-conflicts-reopen.log`。各组未捕获renderer异常均为0。
+- 冲突截图已实际查看，显示alpha.212、“保存失败”、仍保留的编辑文字及外部修改提示。
+
+安装后已退出隔离实例并用原用户配置正常启动（无调试或profile参数），桌面截图可见主界面和alpha.212；macOS弹出“文稿”文件夹访问请求，未代用户授权，原配置下受该权限影响的操作未进一步验收。桌面核验artifact `d1d23ef11a1dc94dc7ee2027c5c50dd0`（2026-09-28，临时截图）。
+
+原12项工作区修改哈希在合入前全部未变；5个真实白板与索引文件在正常启动后仍与基线字节哈希一致。证据`installation.json`、`data-protection-after.json`、`user-whiteboards-before.json`仅留本机，不含账户凭据。
+
+当前源码仍在独立分支，main集成和推送待执行，用户验收仍pending。
 
 ## 保留边界
 

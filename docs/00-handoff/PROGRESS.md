@@ -2,7 +2,7 @@
 
 > 自动生成。只编辑 `management/development-tasks.json`，然后执行 `npm run handoff:update`。
 
-更新时间：2026-09-28T20:17:35+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
+更新时间：2026-09-28T20:27:16+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
 
 核验基线：2.0.0-alpha.193 / `99eef1d2992e389f32a48182a25fda3b9adf1958`；证据：[docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md](LAYOUT_OPTIONS_ALPHA193.md)。
 
@@ -816,7 +816,7 @@
 
 阶段：GF-P1；优先级：P1；状态：**已验证**；负责人：AgentDock-ChatGPT；用户验收：待用户反馈。
 
-更新：2026-09-28T20:17:35+08:00。依赖：GF-SAVE-191。
+更新：2026-09-28T20:27:16+08:00。依赖：GF-SAVE-191。
 
 **验收标准**
 1. 同大小、同修改时间的外部修改不能被覆盖；仅修改时间不产生内容冲突。
@@ -824,7 +824,7 @@
 3. 打开/保存返回的revision必须对应实际读取/写入的快照；冲突后当前编辑保留且可另存为。
 4. 完成本轮源码回归、macOS开发包和隔离安装验收；不宣称完成全部进程中断/多进程原子比较矩阵。
 
-**接续动作：** 全量1426/1426与299JS检查通过。提交可追溯源码并构建alpha.212，完成隔离安装保存冲突与重启验证后交付。
+**接续动作：** alpha.212已完成development构建、安装、14+12项实际保存回归及3+5项正常重启验证。仅剩main集成、推送与最终交接；用户文稿目录授权未代操作。
 
 源码/设计入口：[src/main/services/whiteboardDocumentService.js](../../src/main/services/whiteboardDocumentService.js)；[src/main/services/relationshipBoardExportService.js](../../src/main/services/relationshipBoardExportService.js)；[test/whiteboard-save-conflicts.test.js](../../test/whiteboard-save-conflicts.test.js)。
 
