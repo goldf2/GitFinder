@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-30T18:53:48+08:00",
+  "updatedAt": "2026-09-30T18:58:47+08:00",
   "scope": "以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。",
   "baseline": {
     "version": "2.0.0-alpha.193",
     "sourceCommit": "99eef1d2992e389f32a48182a25fda3b9adf1958",
     "evidence": "docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md"
   },
-  "nextTaskId": "GF-UI-215",
+  "nextTaskId": "GF-DATA-001",
   "milestones": [
     {
       "id": "GF-P0",
@@ -1326,9 +1326,9 @@
       "milestone": "GF-P1",
       "title": "标题栏显示控制与最近/类型侧栏",
       "priority": "P1",
-      "status": "in_progress",
+      "status": "delivered",
       "owner": "Codex",
-      "updatedAt": "2026-09-30T18:53:48+08:00",
+      "updatedAt": "2026-09-30T18:58:47+08:00",
       "dependsOn": [],
       "sourcePaths": [
         "src/renderer/index.html",
@@ -1350,9 +1350,13 @@
       "evidence": [
         "docs/00-handoff/TITLEBAR_ALPHA215.md"
       ],
-      "nextAction": "源码及隔离应用验证通过；提交、干净克隆打包、安装版验收后推送。",
+      "nextAction": "alpha.215最终安装版21项交互、真实项目/仓库筛选、正常启动通过，源码已推送；等待用户反馈。",
       "blocker": "",
-      "userAcceptance": "pending"
+      "userAcceptance": "pending",
+      "delivery": {
+        "version": "2.0.0-alpha.215",
+        "sourceCommit": "df2da8b7f92337d71e91f4c309b62f6098d497e3"
+      }
     }
   ]
 }

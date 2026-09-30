@@ -2,18 +2,18 @@
 
 > 自动生成。只编辑 `management/development-tasks.json`，然后执行 `npm run handoff:update`。
 
-更新时间：2026-09-30T18:53:48+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
+更新时间：2026-09-30T18:58:47+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
 
 核验基线：2.0.0-alpha.193 / `99eef1d2992e389f32a48182a25fda3b9adf1958`；证据：[docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md](LAYOUT_OPTIONS_ALPHA193.md)。
 
-**唯一下一任务：GF-UI-215**
+**唯一下一任务：GF-DATA-001**
 
 ## 阶段汇总
 
 | 阶段 | 纳入任务 | 已交付 | 开发中/已验证 | 阻塞/暂缓 |
 | --- | ---: | ---: | ---: | ---: |
 | GF-P0 接续工程 | 2 | 2 | 0 | 0 |
-| GF-P1 桌面稳定 | 23 | 17 | 1 | 1 |
+| GF-P1 桌面稳定 | 23 | 18 | 0 | 1 |
 | GF-P2 可维护与性能 | 4 | 0 | 0 | 0 |
 | GF-P3 可分发 | 7 | 0 | 2 | 3 |
 | GF-P4 全流程事件 | 5 | 0 | 0 | 1 |
@@ -69,7 +69,7 @@
 | GF-SAVE-212 | P1 | 已交付 | AgentDock-ChatGPT | 白板内容版本校验与保存冲突保护 |
 | GF-PROJECT-213 | P1 | 已交付 | Codex | 项目卡片对齐与文件夹项目类型入口 |
 | GF-UI-214 | P1 | 已交付 | Codex | 工作区工具入口、同步筛选与目录预览 |
-| GF-UI-215 | P1 | 开发中 | Codex | 标题栏显示控制与最近/类型侧栏 |
+| GF-UI-215 | P1 | 已交付 | Codex | 标题栏显示控制与最近/类型侧栏 |
 
 ## 可执行任务卡
 
@@ -880,9 +880,9 @@
 
 ### GF-UI-215 · 标题栏显示控制与最近/类型侧栏
 
-阶段：GF-P1；优先级：P1；状态：**开发中**；负责人：Codex；用户验收：待用户反馈。
+阶段：GF-P1；优先级：P1；状态：**已交付**；负责人：Codex；用户验收：待用户反馈。
 
-更新：2026-09-30T18:53:48+08:00。依赖：无。
+更新：2026-09-30T18:58:47+08:00。依赖：无。
 
 **验收标准**
 1. 项目类型标题和显示控制置于顶部标题栏，卡片大小在显示控制菜单内，移除设为项目按钮并保留右键。
@@ -890,8 +890,10 @@
 3. 点击项目、Git仓库、目录导航同步主显示区，类型筛选同步左右列表。
 4. 完成源码、隔离应用、安装版验收与推送，保护已有dirty。
 
-**接续动作：** 源码及隔离应用验证通过；提交、干净克隆打包、安装版验收后推送。
+**接续动作：** alpha.215最终安装版21项交互、真实项目/仓库筛选、正常启动通过，源码已推送；等待用户反馈。
 
 源码/设计入口：[src/renderer/index.html](../../src/renderer/index.html)；[src/renderer/scripts/app.js](../../src/renderer/scripts/app.js)；[src/renderer/scripts/directoryNavigationController.js](../../src/renderer/scripts/directoryNavigationController.js)；[src/renderer/scripts/projectShortcutsController.js](../../src/renderer/scripts/projectShortcutsController.js)；[src/renderer/styles/main.css](../../src/renderer/styles/main.css)；[src/renderer/scripts/contentQuery.js](../../src/renderer/scripts/contentQuery.js)；[src/renderer/scripts/repositoryDetailController.js](../../src/renderer/scripts/repositoryDetailController.js)；[src/main/services/configService.js](../../src/main/services/configService.js)；[scripts/verify-titlebar-sidebar.js](../../scripts/verify-titlebar-sidebar.js)。
 
 证据：[docs/00-handoff/TITLEBAR_ALPHA215.md](TITLEBAR_ALPHA215.md)
+
+交付：2.0.0-alpha.215；源码 `df2da8b7f92337d71e91f4c309b62f6098d497e3`。

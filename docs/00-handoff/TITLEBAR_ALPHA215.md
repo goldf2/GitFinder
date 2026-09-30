@@ -15,4 +15,16 @@
 
 ## 交付
 
-源码验证完成，干净克隆构建、安装验收和推送待完成。alpha.214仍为当前已安装版本。未执行Windows或公开发行。
+- 干净构建：`/Volumes/project/临时文件/gitfinder-titlebar-alpha215`，check 1433测试/301JS通过，arm64 DMG/ZIP开发产物门禁通过。
+- 首次源码提交 `b9d828745755584475fd871c9c27533bdbaaa86b` 已推送，安装alpha.215并通过21项实际窗口验收，截图目录 `dist/titlebar-sidebar-ui-F1icy6`。
+- 实际用户配置：86项目/58仓库；交易研究8项目，左右8/8；所属仓库左右4/4；顶部标题、3档卡片尺寸菜单、移除原头部均通过。记录 `dist/titlebar-alpha215/live-ui.json`，截图 `live-trading.png`。
+- 目视检查发现最近标题默认边框，补充 `df2da8b` CSS修正并重新干净构建/安装，最终21项交互通过且目视确认边框已消除。源码已推送origin/main。
+- alpha.214备份：`/Volumes/project/制品与备份/GitFinder应用备份/2026-09-30-alpha214-before215/GitFinder 2.app`；另保留 `/Applications/.GitFinder-2-alpha214-backup.app`。
+- 9项无关文件逐字节不变，3项共享交接文档仅暂存本轮块/追加。未执行Windows或公开发行。
+
+## 最终安装证据
+
+- 最终源码：`df2da8b7f92337d71e91f4c309b62f6098d497e3`，版本2.0.0-alpha.215。干净克隆开发产物门禁通过，macOS arm64 DMG/ZIP已生成。
+- `/Applications/GitFinder 2.app`代码签名校验通过，ASAR与构建包逐字节一致（SHA256 `aaebf2f1ed1553958b9f81672ebe88ec757a155deb97cea00a3e9320502d80af`）。记录 `dist/titlebar-alpha215/install-proof.json`。
+- 最终安装版21项专项检查通过，日志 `dist/titlebar-alpha215/installed-final-ui.log`；目视截图 `dist/titlebar-sidebar-ui-tqq2hU/projects-titlebar.png`。已恢复普通启动，无调试参数。
+- 源码及UI已验证、已安装、已推送；用户验收pending，非正式发行。唯一后续建议GF-DATA-001仍需按既有优先级接续，本轮不自动扩展。
