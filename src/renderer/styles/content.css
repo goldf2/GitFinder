@@ -125,7 +125,7 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--project-card-width, 310px)), 1fr));
   align-content: start;
-  align-items: start;
+  align-items: stretch;
   gap: 14px;
   padding: 18px;
 }
@@ -133,6 +133,8 @@
 .local-project-grid[data-size="small"] { --project-card-width: 240px; gap: 10px; }
 .local-project-grid[data-size="large"] { --project-card-width: 400px; }
 .local-project-grid[data-size="small"] .local-project-card { gap: 8px; padding: 10px; }
+.local-project-grid[data-size="small"] { --project-description-lines: 2; }
+.local-project-grid[data-size="large"] { --project-description-lines: 4; }
 .local-project-grid[data-size="small"] .local-project-repositories { display: none; }
 .local-project-card.selected { border-color: var(--accent-primary); background: var(--accent-bg); }
 .local-project-card:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 2px; }
@@ -185,7 +187,12 @@
 }
 
 .local-project-card > p {
-  min-height: 34px;
+  height: calc(11px * 1.55 * var(--project-description-lines, 3));
+  flex: 0 0 auto;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: var(--project-description-lines, 3);
+  overflow: hidden;
   margin: 0;
   color: var(--text-secondary);
   font-size: 11px;
@@ -205,7 +212,9 @@
 }
 
 .local-project-repositories {
-  min-height: 32px;
+  height: 70px;
+  flex: 0 0 auto;
+  overflow: hidden;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -232,12 +241,18 @@
 }
 
 .local-project-card footer {
-  display: flex;
-  justify-content: flex-end;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
   margin-top: auto;
   padding-top: 4px;
 }
+
+.local-project-card footer .btn { min-width: 0; padding-inline: 4px; white-space: nowrap; }
+
+.local-project-type-options { display: flex; flex-wrap: wrap; gap: 8px 14px; }
+.local-project-type-options label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.local-project-type-options input { width: auto; margin: 0; }
 
 .local-project-empty {
   min-height: 360px;

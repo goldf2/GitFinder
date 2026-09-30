@@ -512,6 +512,7 @@
     <button class="finder-menu-item finder-menu-command" data-context-action="open-editor" type="button" role="menuitem"><span>在代码编辑器中打开</span></button>
     <div class="finder-menu-separator" role="separator"></div>
     <button class="finder-menu-item finder-menu-command" data-context-action="project" type="button" role="menuitem"><span id="file-context-project-label">设为项目…</span></button>
+    <button class="finder-menu-item finder-menu-command" data-context-action="project-types" type="button" role="menuitem"><span>项目类型…</span></button>
     <button class="finder-menu-item finder-menu-command" data-context-action="relationship" type="button" role="menuitem"><span>关系白板</span></button>
     <button class="finder-menu-item finder-menu-command" data-context-action="toggle-pin" type="button" role="menuitem" hidden><span id="file-context-pin-label">固定到项目区</span></button>
     <button class="finder-menu-item finder-menu-command finder-menu-danger" data-context-action="trash" type="button" role="menuitem"><span>移到废纸篓</span><kbd>⌘⌫</kbd></button>
@@ -874,12 +875,17 @@
             </select>
           </div>
         </div>
+        <div class="form-group" id="local-project-types-section">
+          <label id="local-project-types-label">项目类型</label>
+          <div class="local-project-type-options" id="local-project-types" role="group" aria-labelledby="local-project-types-label"></div>
+          <div class="file-operation-hint">勾选加入，取消勾选退出；可以属于多个类型。未设为项目的文件夹会在保存时创建项目身份。</div>
+        </div>
         <div class="form-group">
           <label for="local-project-excluded">排除的仓库目录</label>
           <textarea id="local-project-excluded" rows="3" spellcheck="false" placeholder="每行一个项目内相对路径，例如 vendor/reference"></textarea>
           <div class="file-operation-hint">仅保存相对路径；嵌套项目会自动从父项目仓库扫描中排除。</div>
         </div>
-        <div class="local-project-boundary-note">这里只创建或更新 <code>.gitfinder/project.json</code>，不会执行 git init、暂存、提交或推送。</div>
+        <div class="local-project-boundary-note">项目设置保存在 <code>.gitfinder/project.json</code>，类型归属保存在本机；不会移动文件夹，不会执行 git init、暂存、提交或推送。</div>
       </div>
       <footer class="modal-footer">
         <span id="local-project-feedback" role="status" aria-live="polite"></span>

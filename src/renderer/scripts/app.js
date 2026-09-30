@@ -4804,7 +4804,7 @@ const App = {
       contentArea.innerHTML = `${projectsToolbar}<div class="local-project-grid" data-size="${cardSize}" role="listbox" aria-label="项目" aria-multiselectable="true">${projects.map(project => {
         const projectItem = { isProject: true, project };
         const lifecycle = window.FileBrowser.projectLifecycleLabel(projectItem);
-        const repositories = (project.repositories || []).slice(0, 6);
+        const repositories = (project.repositories || []).slice(0, 2);
         const repositoryRows = repositories.length
           ? repositories.map(repo => `<li title="${this.escapeHtml(repo.path)}"><span class="local-project-repo-mark">⑂</span><span>${this.escapeHtml(repo.relativePath)}</span></li>`).join('')
           : '<li class="local-project-no-repo">尚未发现 Git 仓库</li>';
@@ -4813,10 +4813,10 @@ const App = {
           <article class="local-project-card"${this.getProjectSemanticStyle(projectItem)} data-project-path="${this.escapeHtml(project.path)}" data-project-id="${this.escapeHtml(project.projectId)}" data-path="${this.escapeHtml(project.path)}" data-type="directory" data-is-project="true" data-is-git="${project.rootIsGitRepo === true}">
             <header>
               ${this.getItemKindIconHtml({ type: 'directory', isProject: true, isGitRepo: project.rootIsGitRepo, project }, 'local-project-icon')}
-              <div><h3>${this.escapeHtml(project.name)}</h3><div class="local-project-path">${this.escapeHtml(project.path)}</div></div>
+              <div><h3 title="${this.escapeHtml(project.name)}">${this.escapeHtml(project.name)}</h3><div class="local-project-path" title="${this.escapeHtml(project.path)}">${this.escapeHtml(project.path)}</div></div>
               ${this.getProjectLifecycleBadgeHtml(projectItem, lifecycle)}
             </header>
-            <p>${this.escapeHtml(project.description || '暂无项目简介')}</p>
+            <p title="${this.escapeHtml(project.description || '暂无项目简介')}">${this.escapeHtml(project.description || '暂无项目简介')}</p>
             <div class="local-project-repo-heading"><span>内部仓库</span><strong>${Number(project.repositoryCount || 0)}</strong></div>
             <ul class="local-project-repositories">${repositoryRows}${hiddenCount ? `<li>另有 ${hiddenCount} 个仓库…</li>` : ''}</ul>
             <footer>
@@ -6608,6 +6608,7 @@ const App = {
       menu.querySelector('[data-context-action="open-terminal"]').disabled = items.length !== 1;
       menu.querySelector('[data-context-action="open-editor"]').disabled = items.length !== 1;
       menu.querySelector('[data-context-action="project"]').disabled = !singleDirectory;
+      menu.querySelector('[data-context-action="project-types"]').disabled = !singleDirectory;
       menu.querySelector('[data-context-action="trash"]').disabled = this._fileContextUsesDirectItem || items.length === 0;
       menu.hidden = false;
       const width = menu.offsetWidth || 220;
@@ -6655,6 +6656,7 @@ const App = {
         if (contextPath) this.openLocalProjectDialog(contextPath);
         else this.openSelectedProjectSettings();
       }
+      if (action === 'project-types' && contextPath) this.openLocalProjectDialog(contextPath, { focusTypes: true });
       if (action === 'relationship') this.showResourceInRelationshipBoard({
         kind: contextKind === 'project' ? 'project' : 'repository',
         refId: contextKind === 'project' ? projectId : '',
@@ -6672,16 +6674,25 @@ const App = {
     window.addEventListener('blur', close);
   },
 
-  async openLocalProjectDialog(directoryPath) {
+  async openLocalProjectDialog(directoryPath, { focusTypes = false } = {}) {
     const projectPath = String(directoryPath || '');
     if (!projectPath || AppState.fileOperationBusy) return;
     const modal = document.getElementById('local-project-modal');
     if (!modal) return;
     const feedback = document.getElementById('local-project-feedback');
+    const saveButton = document.getElementById('local-project-save-btn');
+    const typeOptions = document.getElementById('local-project-types');
+    AppState.projectDialog = null;
+    saveButton.disabled = true;
+    typeOptions.textContent = '正在读取项目类型…';
     feedback.textContent = '正在读取项目身份…';
     modal.style.display = 'flex';
     try {
-      const identity = await window.gitFinder.localProjects.describe(projectPath);
+      const [identity, typeStore] = await Promise.all([
+        window.gitFinder.localProjects.describe(projectPath),
+        window.gitFinder.projectGroups.list()
+      ]);
+      if (modal.style.display === 'none') return;
       const fallbackName = projectPath.split(/[\\/]/).filter(Boolean).at(-1) || '未命名项目';
       const project = identity.project || {
         name: fallbackName,
@@ -6691,6 +6702,9 @@ const App = {
         repositories: { excluded: [] }
       };
       AppState.projectDialog = { path: projectPath, existing: identity.isProject };
+      typeOptions.innerHTML = typeStore.groups.length
+        ? typeStore.groups.map(group => `<label><input type="checkbox" data-local-project-type="${this.escapeHtml(group.groupId)}"${group.projectIds.includes(project.projectId) ? ' checked' : ''}><span>${this.escapeHtml(group.name)}</span></label>`).join('')
+        : '<span class="file-operation-hint">暂无项目类型，可在左侧“项目类型”中新建。</span>';
       document.getElementById('local-project-title').textContent = identity.isProject ? '项目设置' : '设为项目';
       document.getElementById('local-project-path').textContent = projectPath;
       document.getElementById('local-project-name').value = project.name || fallbackName;
@@ -6702,10 +6716,15 @@ const App = {
       feedback.textContent = identity.isProject
         ? `项目 ID：${project.projectId}`
         : '尚未写入；不会初始化或修改 Git';
-      requestAnimationFrame(() => document.getElementById('local-project-name')?.focus());
+      requestAnimationFrame(() => {
+        if (focusTypes) document.getElementById('local-project-types-section')?.scrollIntoView({ block: 'nearest' });
+        (focusTypes ? typeOptions.querySelector('input') : document.getElementById('local-project-name'))?.focus();
+      });
     } catch (error) {
       AppState.projectDialog = null;
       feedback.textContent = error?.message || String(error);
+    } finally {
+      saveButton.disabled = !AppState.projectDialog;
     }
   },
 
@@ -6732,6 +6751,16 @@ const App = {
       const result = dialogState.existing
         ? await window.gitFinder.localProjects.update(dialogState.path, values)
         : (await window.gitFinder.localProjects.initialize(dialogState.path, values)).project;
+      const choices = new Map([...document.querySelectorAll('[data-local-project-type]')]
+        .map(input => [input.dataset.localProjectType, input.checked]));
+      const typeStore = await window.gitFinder.projectGroups.list();
+      for (const group of typeStore.groups) {
+        if (!choices.has(group.groupId) || choices.get(group.groupId) === group.projectIds.includes(result.projectId)) continue;
+        const projectIds = group.projectIds.filter(id => id !== result.projectId);
+        if (choices.get(group.groupId)) projectIds.push(result.projectId);
+        await window.gitFinder.projectGroups.update(group.groupId, { projectIds });
+      }
+      await this.loadProjectGroups();
       await window.gitFinder.content.invalidateIndex();
       Promise.resolve(this.projectShortcutsController?.upsertLocalProject?.(result)).catch(error => {
         console.warn('项目快捷入口局部更新失败:', error);
