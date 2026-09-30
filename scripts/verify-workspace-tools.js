@@ -143,6 +143,7 @@ async function main() {
     await click(`.finder-gallery-item[data-path="${directories[0]}"]`);
     await wait("document.querySelector('#finder-gallery-preview-body .directory-preview-images img')?.naturalWidth>0");
     await check('图库目录概览包含本层数量、缩略图和文件样本', "document.querySelector('#finder-gallery-preview-body').textContent.includes('note.txt')&&document.querySelector('#finder-gallery-preview-body').textContent.includes('本层内容')");
+    await check('图库名称和缩略图在数量加载后仍完整可见', `(()=>{const e=document.querySelector('.finder-gallery-item[data-path="${directories[0]}"]');const n=e.querySelector('.finder-gallery-item-name').getBoundingClientRect();const i=e.querySelector('.directory-preview-images img').getBoundingClientRect();const v=e.querySelector('.finder-gallery-item-visual').getBoundingClientRect();return n.height>=10&&i.height>0&&i.bottom<=v.bottom+1;})()`);
     await shot('directory-gallery.png');
     fs.writeFileSync(path.join(output,'results.json'),JSON.stringify({executable,passed:results.length,checks:results},null,2));console.log('PASSED',results.length);
   } finally {

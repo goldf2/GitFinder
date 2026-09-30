@@ -64,7 +64,9 @@
             target.append(samples);
           }
           const counts = doc.createElement('small');
-          counts.textContent = `${preview.fileCount} 个文件 · ${preview.directoryCount} 个文件夹${preview.symlinkCount ? ` · ${preview.symlinkCount} 个链接` : ''}`;
+          const isGallery = job.element.classList.contains('finder-gallery-item');
+          counts.textContent = isGallery ? `${preview.fileCount} 文件 · ${preview.directoryCount} 文件夹` : `${preview.fileCount} 个文件 · ${preview.directoryCount} 个文件夹${preview.symlinkCount ? ` · ${preview.symlinkCount} 个链接` : ''}`;
+          target.title = `${preview.fileCount} 个文件 · ${preview.directoryCount} 个文件夹${preview.symlinkCount ? ` · ${preview.symlinkCount} 个链接` : ''}`;
           counts.title = job.showHidden ? '本层内容，包含隐藏项目' : '本层内容，不含隐藏项目';
           target.append(counts);
           target.dataset.previewState = 'ready';

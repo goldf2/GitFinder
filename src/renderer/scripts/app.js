@@ -6118,8 +6118,7 @@ const App = {
           ${this.getItemKindIconHtml(item, 'finder-gallery-item-icon')}
         </span>
         <span class="finder-gallery-item-name" title="${this.escapeHtml(item.name)}">${this.escapeHtml(item.name)}</span>
-        <span class="finder-gallery-item-meta">${this.escapeHtml(metadata)}</span>
-        ${item.type === 'directory' ? '<span data-directory-preview class="directory-content-preview gallery-folder-summary"></span>' : ''}
+        <span class="finder-gallery-item-meta"${item.type === 'directory' ? ' data-directory-preview' : ''}>${this.escapeHtml(metadata)}</span>
       </div>`;
   },
 

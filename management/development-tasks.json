@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-30T17:03:24+08:00",
+  "updatedAt": "2026-09-30T17:10:14+08:00",
   "scope": "以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。",
   "baseline": {
     "version": "2.0.0-alpha.193",
@@ -1287,7 +1287,7 @@
       "priority": "P1",
       "status": "in_progress",
       "owner": "Codex",
-      "updatedAt": "2026-09-30T17:03:24+08:00",
+      "updatedAt": "2026-09-30T17:10:14+08:00",
       "dependsOn": [],
       "sourcePaths": [
         "src/renderer/scripts/sidebarTreeController.js",
@@ -1307,7 +1307,7 @@
       "evidence": [
         "docs/00-handoff/FRONTEND_TOOLS_ALPHA214.md"
       ],
-      "nextAction": "源码1430/1430、301JS、项目17/17、工具29/29通过，待干净构建和安装验收。",
+      "nextAction": "图库截图发现名称被数量行挤压，已修复并增加可见断言，工具30/30通过；重新构建安装验收。",
       "blocker": "",
       "userAcceptance": "pending"
     }

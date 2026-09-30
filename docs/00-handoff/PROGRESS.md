@@ -2,7 +2,7 @@
 
 > 自动生成。只编辑 `management/development-tasks.json`，然后执行 `npm run handoff:update`。
 
-更新时间：2026-09-30T17:03:24+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
+更新时间：2026-09-30T17:10:14+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
 
 核验基线：2.0.0-alpha.193 / `99eef1d2992e389f32a48182a25fda3b9adf1958`；证据：[docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md](LAYOUT_OPTIONS_ALPHA193.md)。
 
@@ -857,7 +857,7 @@
 
 阶段：GF-P1；优先级：P1；状态：**开发中**；负责人：Codex；用户验收：待用户反馈。
 
-更新：2026-09-30T17:03:24+08:00。依赖：无。
+更新：2026-09-30T17:10:14+08:00。依赖：无。
 
 **验收标准**
 1. 位置别名可新增/修改/恢复默认，目录路径不变。
@@ -869,7 +869,7 @@
 7. 项目卡片与右键可在访达显示。
 8. 目录卡片与图库显示本层图片缩略图、文件及文件夹数量，遵循隐藏开关。
 
-**接续动作：** 源码1430/1430、301JS、项目17/17、工具29/29通过，待干净构建和安装验收。
+**接续动作：** 图库截图发现名称被数量行挤压，已修复并增加可见断言，工具30/30通过；重新构建安装验收。
 
 源码/设计入口：[src/renderer/scripts/sidebarTreeController.js](../../src/renderer/scripts/sidebarTreeController.js)；[src/renderer/scripts/app.js](../../src/renderer/scripts/app.js)；[src/renderer/styles/content.css](../../src/renderer/styles/content.css)。
 
