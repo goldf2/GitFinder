@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-30T21:15:40+08:00",
+  "updatedAt": "2026-09-30T21:23:25+08:00",
   "scope": "以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。",
   "baseline": {
     "version": "2.0.0-alpha.193",
     "sourceCommit": "99eef1d2992e389f32a48182a25fda3b9adf1958",
     "evidence": "docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md"
   },
-  "nextTaskId": "GF-SIDEBAR-219",
+  "nextTaskId": "GF-DATA-001",
   "milestones": [
     {
       "id": "GF-P0",
@@ -1453,9 +1453,9 @@
       "milestone": "GF-P1",
       "title": "类别导航保持未选中分组的展开内容",
       "priority": "P1",
-      "status": "in_progress",
+      "status": "delivered",
       "owner": "Codex",
-      "updatedAt": "2026-09-30T21:15:40+08:00",
+      "updatedAt": "2026-09-30T21:23:25+08:00",
       "dependsOn": [],
       "sourcePaths": [
         "src/renderer/scripts/app.js",
@@ -1468,9 +1468,13 @@
       "evidence": [
         "docs/00-handoff/SIDEBAR_CATEGORY_ALPHA219.md"
       ],
-      "nextAction": "先用隔离窗口复现类别切换隐藏成员，再修复并安装验收。",
+      "nextAction": "alpha.219已安装、正常启动并推送；23项安装交互及真实研发工具23成员跨类别保留通过。等待用户确认后归档修复报告；不自动启动GF-DATA-001。",
       "blocker": "",
-      "userAcceptance": "pending"
+      "userAcceptance": "pending",
+      "delivery": {
+        "version": "2.0.0-alpha.219",
+        "sourceCommit": "542297961aaa482a2f7102a40a7ba9b35d40727d"
+      }
     }
   ]
 }
