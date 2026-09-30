@@ -173,6 +173,7 @@ const App = {
       document,
       terminal: typeof Terminal !== 'undefined' ? Terminal : null
     }));
+    this.workspaceController = new window.WorkspaceController.Controller(this, AppState, window.gitFinder);
     this.updaterController = new window.UpdateController.Controller({
       bridge: window.gitFinder,
       document,
@@ -529,7 +530,7 @@ const App = {
       if (action === 'collection-repositories') this.setContentQuery({ ...window.ContentQuery.queryForPreset('all-repositories'), projectType: event.target.closest('[data-collection-id]').dataset.collectionId });
       if (action === 'new-project-collection') this.openProjectGroupDialog('', 'collection');
       if (action === 'browse-directories') this.projectShortcutsController.setNavigationMode('directories');
-      if (action === 'open-local-project') this.openLocalProject(event.target.closest('[data-project-path]')?.dataset.projectPath);
+      if (action === 'open-local-project') { const path = event.target.closest('[data-project-path]')?.dataset.projectPath; const project = AppState.localProjects.find(p=>p.path===path); if(project)this.openWorkspaceProject(project); }
       if (action === 'reveal-local-project') window.gitFinder.fs.showInFinder(event.target.closest('[data-project-path]')?.dataset.projectPath).catch(error => this._showStatusMessage(error.message, 'error'));
       if (action === 'edit-local-project') this.openLocalProjectDialog(event.target.closest('[data-project-path]')?.dataset.projectPath);
       if (action === 'show-relationship-resource') {
@@ -567,7 +568,7 @@ const App = {
       if (action === 'cancel-panel-edit') this.panelDeploymentController.cancelEditFromSettings();
       if (action === 'open-theme-settings') this.openThemeSettings();
       if (action === 'file-project-settings') this.openLocalProjectDialog(event.target.closest('[data-project-path]')?.dataset.projectPath);
-      if (this.isFileBrowsingContext() && !event.target.closest('.repo-card, .repo-list-item') && !action) {
+      if (this.isFileBrowsingContext() && !event.target.closest('.repo-card, .repo-list-item, .workspace-overview') && !action) {
         this.clearFileSelection();
         this.updateStatusBar();
       }
@@ -1726,7 +1727,7 @@ const App = {
   updateToolbarMenuState() {
     const viewLabels = { tree: '文件浏览', dashboard: '仪表盘', tasks: '开发任务', relationships: '关系白板', panel: '应用面板', settings: '设置' };
     const viewLabel = document.getElementById('view-menu-label');
-    if (viewLabel) viewLabel.textContent = viewLabels[AppState.currentMode] || '文件浏览';
+    if (viewLabel) viewLabel.textContent = AppState.currentMode === 'tree' && AppState.sidebarNavigationMode === 'projects' ? (AppState.workspaceRepository?.view === 'git' ? 'Git 工作区' : '工作区') : viewLabels[AppState.currentMode] || '文件浏览';
     const activeWorkspaceView = AppState.currentMode;
     document.querySelectorAll('.view-btn[data-view]').forEach(button => {
       const active = button.dataset.view === activeWorkspaceView;
@@ -2265,6 +2266,7 @@ const App = {
 
   applyWorkspaceTabState(tab, { render = true } = {}) {
     if (!tab) return;
+    this.workspaceController?.clear();
     this.stopGlobalIndexStatusPolling();
     this.closeQuickLook();
     AppState.selectedPaths.clear();
@@ -2383,7 +2385,7 @@ const App = {
   },
 
   isFileBrowsingContext() {
-    return this.isDirectoryBrowsingContext();
+    return this.isDirectoryBrowsingContext() && !AppState.workspaceProject && (!AppState.workspaceRepository || AppState.workspaceRepository.view === 'files');
   },
 
   isDirectoryLoadBlocked() {
@@ -3794,6 +3796,7 @@ const App = {
   },
 
   setContentQuery(query) {
+    this.workspaceController?.clear();
     this.closeQuickLook();
     this.clearFileSelection();
     AppState.currentMode = 'tree';
@@ -4404,6 +4407,8 @@ const App = {
     this.syncCurrentDirectoryWatch();
     const contentArea = document.getElementById('content-area');
     const emptyState = document.getElementById('empty-state');
+    this.workspaceController?.header();
+    if (AppState.currentMode === 'tree' && await this.workspaceController?.render(contentArea, renderRequestId)) return;
     if (AppState.currentMode !== 'relationships') this.relationshipBoardController?.close();
     if (AppState.currentMode !== 'panel') this.nativePanelController?.close();
     const panelView = document.getElementById('xiangshu-panel-view');
@@ -4785,7 +4790,7 @@ const App = {
           isGitRepo: project.rootIsGitRepo === true,
           modifiedTime: project.modifiedTime,
           project
-        }, AppState.contentQuery)) return false;
+        }, forSidebar ? { ...AppState.contentQuery, repositoryOnly: false } : AppState.contentQuery)) return false;
         if (!query) return true;
         const repositoryText = (project.repositories || []).map(repo => repo.relativePath).join(' ');
         return `${project.name} ${project.description} ${project.path} ${project.lifecycle} ${(project.memberProjects || []).map(member => `${member.name} ${member.path}`).join(' ')} ${repositoryText}`.toLowerCase().includes(query);
@@ -6861,8 +6866,13 @@ const App = {
       isProject: true, isGitRepo: project.rootIsGitRepo === true, project }] : [];
   },
 
+  openWorkspaceRepository(repoPath) { return this.workspaceController.openRepository(repoPath); },
+
+  openWorkspaceProject(project) { return this.workspaceController.openProject(project); },
+
   openLocalProject(projectPath) {
     if (!projectPath) return;
+    this.workspaceController?.clear();
     AppState.currentMode = 'tree';
     AppState.contentQuery = window.ContentQuery.queryForPreset('current-all');
     AppState.searchScope = 'current';

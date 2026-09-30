@@ -68,6 +68,7 @@
           const path = element.dataset.path;
           const isGit = element.dataset.isGit === 'true';
           if (this.app.isFileBrowsingContext() || element.classList.contains('local-project-card')) {
+            if (element.classList.contains('local-project-card') && this.app.openWorkspaceProject && !event.metaKey && !event.ctrlKey && !event.shiftKey) { const project = this.state.localProjects.find(p=>p.path===path); if(project)this.app.openWorkspaceProject(project); return; }
             this.handleFileSelectionClick(event, element);
             this.state.fileKeyboardFocusPath = path;
             element.focus({ preventScroll: true });
@@ -78,7 +79,7 @@
             this.document.querySelectorAll('.repo-card.selected, .repo-list-item.selected')
               .forEach(item => item.classList.remove('selected'));
             element.classList.add('selected');
-            if (isGit) this.app.selectRepo(path);
+            if (isGit) this.app.openWorkspaceRepository ? this.app.openWorkspaceRepository(path) : this.app.selectRepo(path);
           }
         });
 

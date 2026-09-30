@@ -161,14 +161,13 @@
     <div class="main-container">
       <aside class="sidebar" id="sidebar">
         <div class="sidebar-navigation" id="sidebar-navigation" role="tablist" aria-label="侧栏导航">
-          <button type="button" role="tab" id="sidebar-navigation-projects" data-sidebar-navigation="projects" aria-controls="project-shortcuts-sidebar-section" aria-selected="false" tabindex="-1">项目</button>
-          <button type="button" role="tab" id="sidebar-navigation-repositories" data-sidebar-navigation="repositories" aria-controls="repository-shortcuts-sidebar-section" aria-selected="false" tabindex="-1">Git 仓库</button>
-          <button type="button" role="tab" id="sidebar-navigation-directories" data-sidebar-navigation="directories" aria-controls="locations-sidebar-section" aria-selected="true" tabindex="0">目录</button>
+          <button type="button" role="tab" id="sidebar-navigation-projects" data-sidebar-navigation="projects" aria-controls="project-shortcuts-sidebar-section" aria-selected="false" tabindex="-1">工作区</button>
+          <button type="button" role="tab" id="sidebar-navigation-directories" data-sidebar-navigation="directories" aria-controls="locations-sidebar-section" aria-selected="true" tabindex="0">文件浏览</button>
         </div>
         <div class="sidebar-section" id="project-shortcuts-sidebar-section" data-section-id="projects" role="tabpanel" aria-labelledby="sidebar-navigation-projects" hidden>
           <div class="sidebar-title">
             <span class="sidebar-drag-handle" title="拖拽排序">⋮⋮</span>
-            <span class="sidebar-title-text">项目</span>
+            <span class="sidebar-title-text">工作区</span>
             <span class="sidebar-toggle" title="折叠/展开">▼</span>
           </div>
           <div id="project-shortcuts-list"></div>
@@ -252,6 +251,7 @@
           <div class="filter-summary" id="filter-summary"></div>
           <button class="clear-filter-btn" id="clear-all-filters">清除全部</button>
         </div>
+        <div id="repository-workspace-tabs" class="repository-workspace-tabs" hidden></div>
         <div class="file-action-bar" id="file-action-bar">
           <div class="finder-menu-host">
             <button class="file-action-btn finder-menu-trigger" id="file-create-menu-trigger" aria-haspopup="menu" aria-expanded="false" aria-controls="file-create-menu" data-menu-trigger="file-create-menu" type="button">
@@ -1466,6 +1466,7 @@
   <script src="scripts/projectProgressModel.js"></script>
   <script src="../shared/experimentalFeatures.js"></script>
   <script src="scripts/workspaceToolsController.js"></script>
+  <script src="scripts/workspaceController.js"></script>
   <script src="scripts/app.js"></script>
   <script src="scripts/experimentalFeaturesController.js"></script>
   <script src="scripts/projectProgress.js"></script>

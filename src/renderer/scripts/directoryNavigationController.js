@@ -171,6 +171,8 @@
     }
 
     applyPath(path) {
+      if (this.state.workspaceRepository && !root.ProjectShortcuts.pathIsWithin(path, this.state.workspaceRepository.path, this.platform)) this.app.workspaceController?.clear();
+      if (this.state.workspaceProject && !pathsEqual(path, this.state.workspaceProject.path, this.platform)) this.app.workspaceController?.clear();
       this.app.closeQuickLook();
       this.app.clearFileSelection();
       if (this.contentQuery?.isCollection(this.state.contentQuery)) {

@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-30T19:47:49+08:00",
+  "updatedAt": "2026-09-30T20:15:38+08:00",
   "scope": "以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。",
   "baseline": {
     "version": "2.0.0-alpha.193",
     "sourceCommit": "99eef1d2992e389f32a48182a25fda3b9adf1958",
     "evidence": "docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md"
   },
-  "nextTaskId": "GF-DATA-001",
+  "nextTaskId": "GF-WORKSPACE-218",
   "milestones": [
     {
       "id": "GF-P0",
@@ -1415,6 +1415,34 @@
         "version": "2.0.0-alpha.217",
         "sourceCommit": "3d3815ef8067d410c3b48c1a6e12ba63a0975b7c"
       }
+    },
+    {
+      "id": "GF-WORKSPACE-218",
+      "milestone": "GF-P1",
+      "title": "统一工作区导航与Git仓库三视图联动",
+      "priority": "P1",
+      "status": "in_progress",
+      "owner": "Codex",
+      "updatedAt": "2026-09-30T20:15:38+08:00",
+      "dependsOn": [],
+      "sourcePaths": [
+        "src/renderer/scripts/projectShortcutsController.js",
+        "src/renderer/scripts/app.js",
+        "src/renderer/index.html",
+        "src/renderer/scripts/workspaceController.js",
+        "scripts/verify-unified-workspace.js"
+      ],
+      "acceptance": [
+        "工作区/文件浏览双入口，统一项目/仓库/目录树及所有仓库快捷筛选。",
+        "点击仓库进入Git视图，可切换文件与所属项目，定位左侧层级；项目点击显示成员。",
+        "独立仓库和非Git目录可访问，既有项目身份/归属不被改写，安装验证后推送。"
+      ],
+      "evidence": [
+        "docs/00-handoff/WORKSPACE_ALPHA218.md"
+      ],
+      "nextAction": "1439测试/302JS、18项真实窗口交互通过，干净构建安装后验证真实仓库并推送。",
+      "blocker": "",
+      "userAcceptance": "pending"
     }
   ]
 }

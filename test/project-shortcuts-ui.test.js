@@ -22,18 +22,17 @@ test('类型行紧凑横排，编辑按钮常显且类型设置保留新增和�
 
 test('左侧项目区承载快捷入口和项目组，不提升为一级视图', () => {
   assert.match(html, /id="project-shortcuts-sidebar-section"[^>]+data-section-id="projects"[^>]+hidden/);
-  assert.match(html, /<span class="sidebar-title-text">项目<\/span>/);
+  assert.match(html, /<span class="sidebar-title-text">工作区<\/span>/);
   assert.doesNotMatch(html, /<span class="sidebar-title-text">项目分类<\/span>/);
   assert.doesNotMatch(html, /class="view-btn[^>]+data-view="projects"/);
   assert.match(controllerSource, /data-project-shortcut-all[\s\S]*?applyContentPreset\('all-projects'\)/);
   assert.match(controllerSource, /项目类型/);
-  assert.match(controllerSource, /data-project-types-toggle/);
+  assert.match(controllerSource, /id="sidebar-project-list"/);
   assert.match(html, /id="sidebar-navigation"[^>]*role="tablist"/);
   assert.match(html, /data-sidebar-navigation="projects"/);
-  assert.match(html, /data-sidebar-navigation="repositories"/);
+  assert.doesNotMatch(html, /data-sidebar-navigation="repositories"/);
   assert.match(html, /data-sidebar-navigation="directories"/);
-  assert.ok(html.indexOf('data-sidebar-navigation="projects"') < html.indexOf('data-sidebar-navigation="repositories"'));
-  assert.ok(html.indexOf('data-sidebar-navigation="repositories"') < html.indexOf('data-sidebar-navigation="directories"'));
+  assert.ok(html.indexOf('data-sidebar-navigation="projects"') < html.indexOf('data-sidebar-navigation="directories"'));
   assert.match(html, /id="repository-shortcuts-sidebar-section"[^>]+data-section-id="repositories"[^>]+hidden/);
   assert.match(controllerSource, /config\.get\('sidebarNavigationMode'\)/);
   assert.match(controllerSource, /data-repository-shortcut-all[\s\S]*?applyContentPreset\('all-repositories'\)/);
