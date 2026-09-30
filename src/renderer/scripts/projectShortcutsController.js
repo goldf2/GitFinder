@@ -412,7 +412,7 @@
         if (project?.isProjectCollection) {
           const id = this.app.escapeHtml(project.projectId);
           const expanded = this.expandedProjectIds.has(project.projectId);
-          return `<div class="project-shortcut-row"><button class="tree-node-toggle" data-collection-toggle="${id}" aria-expanded="${expanded}" aria-label="展开或折叠 ${this.app.escapeHtml(project.name)}">${expanded ? '▼' : '▶'}</button><button class="sidebar-item sidebar-shortcut-open project-shortcut-open ${this.state.contentQuery?.projectType === project.projectId ? 'active' : ''}" data-project-collection="${id}" title="${this.app.escapeHtml(project.name)}">${this.app.getItemKindIconHtml({type: 'directory', isProject: true, project}, 'sidebar-kind-icon')}<span class="sidebar-item-name">${this.app.escapeHtml(project.name)}</span><span class="badge">${project.memberProjects.length}</span></button><button class="project-type-edit" data-project-type-edit="${id}" title="大项目设置">⋯</button></div>${expanded ? `<div class="project-tree-children project-collection-children">${project.memberProjects.map(member => renderEntry({projectId: member.projectId, project: member, available: true}, false, 'collection', project.memberProjects)).join('')}</div>` : ''}`;
+          return `<div class="project-shortcut-row"><button class="tree-node-toggle" data-collection-toggle="${id}" aria-expanded="${expanded}" aria-label="展开或折叠 ${this.app.escapeHtml(project.name)}">${expanded ? '▼' : '▶'}</button><button class="sidebar-item sidebar-shortcut-open project-shortcut-open ${this.state.contentQuery?.projectType === project.projectId ? 'active' : ''}" data-project-collection="${id}" title="${this.app.escapeHtml(project.name)}">${this.app.getItemKindIconHtml({type: 'directory', isProject: true, project}, 'sidebar-kind-icon')}<span class="sidebar-item-name">${this.app.escapeHtml(project.name)}</span><span class="badge">${project.memberProjects.length}</span></button><button class="project-type-edit" data-project-type-edit="${id}" title="大项目设置">⋯</button></div>${expanded ? `<div class="project-tree-children project-collection-children">${project.memberProjects.map(member => renderEntry({projectId: member.projectId, project: member, available: true}, false, `${instanceKey}-collection`, project.memberProjects)).join('')}</div>` : ''}`;
         }
         const available = entry.available && project?.path;
         const active = available && activeProject?.projectId === entry.projectId && !this.app.isContentCollection();
@@ -474,6 +474,7 @@
           ${group.groupId !== 'unclassified' ? `<button class="project-type-edit" data-project-type-edit="${id}" type="button" title="编辑项目类型 ${this.app.escapeHtml(group.name)}">编辑</button>` : ''}
         </div>${expanded ? `<div class="sidebar-type-members" data-type-members="${id}">${children.map(project => renderEntry(projectsById.get(project.projectId), false, `type-${id}`, members)).join('') || '<div class="sidebar-shortcut-empty">没有匹配的项目</div>'}</div>` : ''}`;
       };
+      const projectList = [...directoryProjects.filter(project => project.isProjectCollection), ...ProjectShortcuts.projectChildren(directoryProjects.filter(project => !project.isProjectCollection), null, this.platform)];
       const unclassified = { groupId: 'unclassified', name: '未分类', color: 'gray', projects: sortedProjects.filter(entry => !groupedProjectIds.has(entry.projectId)) };
       const allProjectsActive = this.app.contentCollectionKind() === 'projects' && !this.state.contentQuery?.projectType;
       container.innerHTML = `
@@ -494,6 +495,10 @@
           ${renderProjectGroup(unclassified)}
           <button class="sidebar-item sidebar-shortcut-open" data-project-type-edit="" type="button">＋ 新建项目类型</button>
         </div>` : ''}
+        <div class="sidebar-shortcut-heading project-shortcut-heading" id="sidebar-project-list-heading">项目列表</div>
+        <div id="sidebar-project-list" role="group" aria-labelledby="sidebar-project-list-heading">
+          ${projectList.map(project => renderEntry(projectsById.get(project.projectId) || { projectId: project.projectId, project, available: Boolean(project.path) }, false, 'list', directoryProjects)).join('') || '<div class="sidebar-shortcut-empty">没有匹配的项目</div>'}
+        </div>
         ${this.state.localProjects.length ? '' : '<div class="sidebar-shortcut-empty">尚未识别到本地项目</div>'}`;
       this.renderRepositoryShortcuts();
     }

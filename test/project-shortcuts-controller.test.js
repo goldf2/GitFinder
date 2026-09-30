@@ -114,13 +114,14 @@ test('项目树显示全部项目，展开后显示现有关联仓库并可打�
   assert.equal(controller.toggleExpandedProject('missing'), false);
 });
 
-test('项目按类型展开并合并原平铺项目目录', async () => {
+test('类型折叠时仍显示独立项目列表', async () => {
   const { controller, state, container } = createHarness();
   state.projectGroups = [{ groupId: 'project_group_22222222-2222-4222-8222-222222222222', name: '创作类', projectIds: [project.projectId] }];
   await controller.load();
   assert.match(container.innerHTML, /项目类型/);
   assert.match(container.innerHTML, /data-project-type="/);
-  assert.doesNotMatch(container.innerHTML, /data-project-shortcut-id="/);
+  assert.match(container.innerHTML, /id="sidebar-project-list"/);
+  assert.match(container.innerHTML, /data-project-shortcut-id="/);
   controller.expandedTypeIds.add('projects:project_group_22222222-2222-4222-8222-222222222222');
   controller.projectTypesExpanded = true;
   controller.render();
@@ -237,7 +238,7 @@ test('项目目录和仓库列表采用主内容区的筛选，固定/最近记�
   state.localProjects.push(other);
   controller.app.filteredLocalProjects = () => [other];
   await controller.load();
-  const directory = container.innerHTML.split('data-type-members=')[1];
+  const directory = container.innerHTML.split('id="sidebar-project-list"')[1];
   assert.match(directory, /Other/);
   assert.doesNotMatch(directory, /data-project-shortcut-path="\/workspace\/alpha"/);
   controller.app._prepareDisplayRepos = () => [{ path: '/workspace/one', name: 'One' }, { path: '/workspace/two', name: 'Two' }];
@@ -269,6 +270,7 @@ test('类型展开只显示该类型成员，不因物理嵌套带入其他类�
   controller.expandedTypeIds.add(`projects:${typeA}`);
   controller.expandedProjectIds.add(project.projectId);
   await controller.load();
-  assert.match(container.innerHTML, /data-project-shortcut-id="project_11111111/);
-  assert.doesNotMatch(container.innerHTML, /data-project-shortcut-id="project_22222222/);
+  const categoryTree = container.innerHTML.split(`data-type-members="${typeA}"`)[1].split('<div class="project-type-row">')[0];
+  assert.match(categoryTree, /data-project-shortcut-id="project_11111111/);
+  assert.doesNotMatch(categoryTree, /data-project-shortcut-id="project_22222222/);
 });

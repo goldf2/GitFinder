@@ -2,18 +2,18 @@
 
 > 自动生成。只编辑 `management/development-tasks.json`，然后执行 `npm run handoff:update`。
 
-更新时间：2026-09-30T19:40:48+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
+更新时间：2026-09-30T19:45:30+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
 
 核验基线：2.0.0-alpha.193 / `99eef1d2992e389f32a48182a25fda3b9adf1958`；证据：[docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md](LAYOUT_OPTIONS_ALPHA193.md)。
 
-**唯一下一任务：GF-DATA-001**
+**唯一下一任务：GF-SIDEBAR-217**
 
 ## 阶段汇总
 
 | 阶段 | 纳入任务 | 已交付 | 开发中/已验证 | 阻塞/暂缓 |
 | --- | ---: | ---: | ---: | ---: |
 | GF-P0 接续工程 | 2 | 2 | 0 | 0 |
-| GF-P1 桌面稳定 | 24 | 19 | 0 | 1 |
+| GF-P1 桌面稳定 | 25 | 19 | 1 | 1 |
 | GF-P2 可维护与性能 | 4 | 0 | 0 | 0 |
 | GF-P3 可分发 | 7 | 0 | 2 | 3 |
 | GF-P4 全流程事件 | 5 | 0 | 0 | 1 |
@@ -71,6 +71,7 @@
 | GF-UI-214 | P1 | 已交付 | Codex | 工作区工具入口、同步筛选与目录预览 |
 | GF-UI-215 | P1 | 已交付 | Codex | 标题栏显示控制与最近/类型侧栏 |
 | GF-PROJECT-216 | P1 | 已交付 | Codex | 嵌套大项目、四个粗类别与选择性归并 |
+| GF-SIDEBAR-217 | P1 | 开发中 | Codex | 恢复左侧独立项目列表与嵌套导航 |
 
 ## 可执行任务卡
 
@@ -917,3 +918,20 @@
 证据：[docs/00-handoff/PROJECT_COLLECTIONS_ALPHA216.md](PROJECT_COLLECTIONS_ALPHA216.md)
 
 交付：2.0.0-alpha.216；源码 `0d16d2136c90dc2f22514681374c0a2b527bbdd6`。
+
+### GF-SIDEBAR-217 · 恢复左侧独立项目列表与嵌套导航
+
+阶段：GF-P1；优先级：P1；状态：**开发中**；负责人：Codex；用户验收：待用户反馈。
+
+更新：2026-09-30T19:45:30+08:00。依赖：无。
+
+**验收标准**
+1. 左侧直接显示项目列表，不必展开类型也能进入项目及子项目。
+2. 项目列表复用主区筛选和嵌套关系，保留最近与类别入口。
+3. 安装版验证点击、展开、筛选后交付，保留现有用户归属。
+
+**接续动作：** 1439测试/301JS和37项源码界面通过；干净打包、安装验证后推送。
+
+源码/设计入口：[src/renderer/scripts/projectShortcutsController.js](../../src/renderer/scripts/projectShortcutsController.js)。
+
+证据：[docs/00-handoff/SIDEBAR_LIST_ALPHA217.md](SIDEBAR_LIST_ALPHA217.md)

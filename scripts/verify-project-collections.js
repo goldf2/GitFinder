@@ -120,6 +120,19 @@ async function main() {
     await click(`[data-collection-toggle="${childId}"]`);
     await check('侧栏按嵌套层级展开且实际目录仍可访问',`!!document.querySelector('[data-project-collection="${childId}"]')&&!!document.querySelector('[data-project-shortcut-id="${ids[0]}"]')`);
     await shot('nested-sidebar.png');
+    await click('[data-project-types-toggle]');
+    await check('类型收起后独立项目列表仍显示父子层级', `!document.querySelector('#project-type-options')&&!!document.querySelector('#sidebar-project-list [data-project-collection="${childId}"]')`);
+    await click(`#sidebar-project-list [data-project-collection="${childId}"]`);await wait(`AppState.contentQuery.projectType==='${childId}'&&!AppState.localProjectsLoading`);
+    await check('左侧独立列表点击子项目同步主区', "document.querySelectorAll('.local-project-card').length===2&&!document.querySelector('.project-collection-card')");
+    await click(`#sidebar-project-list [data-project-shortcut-id="${ids[0]}"]`);await wait(`AppState.currentPath===${JSON.stringify(directories[0])}&&App.isFileBrowsingContext()`);
+    await check('左侧成员项目可直接进入真实目录', `AppState.currentPath===${JSON.stringify(directories[0])}`);
+    await click('#sidebar-navigation-projects');await wait("!AppState.localProjectsLoading");
+    await evaluate("AppState.searchQuery='不存在的项目名称';App.projectShortcutsController.render();App.renderProjectsView()");await wait("!AppState.localProjectsLoading");
+    await check('独立列表与主区共享搜索空结果', "!document.querySelector('#sidebar-project-list [data-project-collection]')&&!document.querySelector('#sidebar-project-list [data-project-shortcut-id]')&&!document.querySelector('.local-project-card')");
+    await evaluate("AppState.searchQuery='';App.projectShortcutsController.render();App.renderProjectsView()");await wait("!AppState.localProjectsLoading");
+    await shot('independent-project-list.png');
+    await click('[data-project-types-toggle]');
+
     await click(`[data-project-type-edit="${childId}"]`);await members([parentId]);await click('#project-group-save-btn');
     await wait("document.querySelector('#project-group-feedback').textContent.includes('自己的子项目')");
     await check('循环引用失败且既有成员不变',`(async()=>{const g=(await gitFinder.projectGroups.list()).groups.find(g=>g.groupId==='${childId}');return g.collectionIds.length===0&&g.projectIds.length===2})()`);
