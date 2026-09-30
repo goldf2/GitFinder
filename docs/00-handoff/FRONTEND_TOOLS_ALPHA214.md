@@ -39,3 +39,14 @@ GF-UI-214。保留项目（聚合零/一/多仓库）、Git仓库与普通目录
 - 工作区工具：30/30隔离应用交互通过；`source-tools-ui-final.log`，包含窄窗口、左右筛选、位置名称、分支/远程/标签、登记恢复/清除、目录缩略图和图库。
 - 后端目录测试验证本层计数、隐藏开关、图片失败继续、最多4张、不读取外部链接。隔离UI的确认/取消由受控confirm返回值覆盖，不修改用户真实仓库。
 - 首次安装产物通过17项项目卡片和29项工具检查，但截图发现图库名称受新增数量行挤压；数量并入原有元信息行，缩略图网格限制在原视觉区域，增加名称/图片可见断言后源码30/30通过。最终重新构建安装及推送待验。
+
+## 最终交付 · 2026-09-30T17:18:44+08:00
+
+- 运行源码 `58a337c5c9b7fbcf477d21b6d9b94b029a8254b5`；干净克隆 `/Volumes/project/临时文件/gitfinder-workspace-alpha214` 最终1430/1430、301JS通过，日志 `clean-check-final.log`。
+- macOS arm64 DMG/ZIP、签名和产物门禁通过；可追溯报告 `dist/release-verification.json` 在干净构建目录。ASAR与安装包内容一致。本机开发/ad-hoc产物，无正式分发资格。
+- `/Applications/GitFinder 2.app` 已安装最终alpha.214；安装版项目17/17、工具30/30通过，`installed-cards-final.log` / `installed-tools-final.log`。截图 `dist/workspace-tools-ui-To163E/`，图库名称可见修正已实测。
+- 真实用户配置：86个项目，交易类型左右各8项且ID集合一致；GitFinder仓库名称搜索左右各1项，仓库默认全量58项，临时/备份副本0项。项目头部36px。日志 `actual-projects-final.json` / `actual-repositories.json`。
+- 项目访达按钮实际定位 `/Volumes/Trading/聪明钱追踪系统-多维资金对比/`，`finder-selection.txt`。实际GitFinder public目录显示5文件/1文件夹和2张已加载图片，`actual-directory.json/png`。
+- 最终正常退出并无调试参数启动，留在所有项目视图。原2套白板JSON哈希与本轮安装前备份一致，原9项无关dirty字节不变；Trading旧路径链接保持。
+- 旧alpha.213备份 `/Volumes/project/制品与备份/GitFinder应用备份/2026-09-30-alpha213-before214/GitFinder 2.app`，同卷备用 `/Applications/.GitFinder-2-alpha213-backup.app`；首次alpha.214包保留 `/Applications/.GitFinder-2-alpha214-before-gallery-fix.app`。本机业务元数据备份留在同一备份目录，未提交运行配置。
+- 源码推送origin/main并核对远端 `58a337c5c9b7fbcf477d21b6d9b94b029a8254b5`。用户确认仍pending。

@@ -2,18 +2,18 @@
 
 > 自动生成。只编辑 `management/development-tasks.json`，然后执行 `npm run handoff:update`。
 
-更新时间：2026-09-30T17:10:14+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
+更新时间：2026-09-30T17:18:44+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
 
 核验基线：2.0.0-alpha.193 / `99eef1d2992e389f32a48182a25fda3b9adf1958`；证据：[docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md](LAYOUT_OPTIONS_ALPHA193.md)。
 
-**唯一下一任务：GF-UI-214**
+**唯一下一任务：GF-DATA-001**
 
 ## 阶段汇总
 
 | 阶段 | 纳入任务 | 已交付 | 开发中/已验证 | 阻塞/暂缓 |
 | --- | ---: | ---: | ---: | ---: |
 | GF-P0 接续工程 | 2 | 2 | 0 | 0 |
-| GF-P1 桌面稳定 | 22 | 16 | 1 | 1 |
+| GF-P1 桌面稳定 | 22 | 17 | 0 | 1 |
 | GF-P2 可维护与性能 | 4 | 0 | 0 | 0 |
 | GF-P3 可分发 | 7 | 0 | 2 | 3 |
 | GF-P4 全流程事件 | 5 | 0 | 0 | 1 |
@@ -68,7 +68,7 @@
 | GF-CONTAINER-HEADER-001 | P0 | 已交付 | ChatGPT / AgentDock Cloudflare | 嵌套容器标题安全区与拖拽防重叠 |
 | GF-SAVE-212 | P1 | 已交付 | AgentDock-ChatGPT | 白板内容版本校验与保存冲突保护 |
 | GF-PROJECT-213 | P1 | 已交付 | Codex | 项目卡片对齐与文件夹项目类型入口 |
-| GF-UI-214 | P1 | 开发中 | Codex | 工作区工具入口、同步筛选与目录预览 |
+| GF-UI-214 | P1 | 已交付 | Codex | 工作区工具入口、同步筛选与目录预览 |
 
 ## 可执行任务卡
 
@@ -855,9 +855,9 @@
 
 ### GF-UI-214 · 工作区工具入口、同步筛选与目录预览
 
-阶段：GF-P1；优先级：P1；状态：**开发中**；负责人：Codex；用户验收：待用户反馈。
+阶段：GF-P1；优先级：P1；状态：**已交付**；负责人：Codex；用户验收：待用户反馈。
 
-更新：2026-09-30T17:10:14+08:00。依赖：无。
+更新：2026-09-30T17:18:44+08:00。依赖：无。
 
 **验收标准**
 1. 位置别名可新增/修改/恢复默认，目录路径不变。
@@ -869,8 +869,10 @@
 7. 项目卡片与右键可在访达显示。
 8. 目录卡片与图库显示本层图片缩略图、文件及文件夹数量，遵循隐藏开关。
 
-**接续动作：** 图库截图发现名称被数量行挤压，已修复并增加可见断言，工具30/30通过；重新构建安装验收。
+**接续动作：** 最终源码、干净开发包、安装版17+30项交互、真实用户配置及正常启动已验证，源码已推送；等待用户反馈。
 
-源码/设计入口：[src/renderer/scripts/sidebarTreeController.js](../../src/renderer/scripts/sidebarTreeController.js)；[src/renderer/scripts/app.js](../../src/renderer/scripts/app.js)；[src/renderer/styles/content.css](../../src/renderer/styles/content.css)。
+源码/设计入口：[src/renderer/scripts/sidebarTreeController.js](../../src/renderer/scripts/sidebarTreeController.js)；[src/renderer/scripts/app.js](../../src/renderer/scripts/app.js)；[src/renderer/styles/content.css](../../src/renderer/styles/content.css)；[src/renderer/scripts/workspaceToolsController.js](../../src/renderer/scripts/workspaceToolsController.js)；[src/renderer/scripts/directoryPreviews.js](../../src/renderer/scripts/directoryPreviews.js)；[src/renderer/scripts/projectShortcutsController.js](../../src/renderer/scripts/projectShortcutsController.js)；[src/main/services/workspaceContentService.js](../../src/main/services/workspaceContentService.js)；[src/main/services/localProjectService.js](../../src/main/services/localProjectService.js)；[src/main/services/fileService.js](../../src/main/services/fileService.js)。
 
 证据：[docs/00-handoff/FRONTEND_TOOLS_ALPHA214.md](FRONTEND_TOOLS_ALPHA214.md)
+
+交付：2.0.0-alpha.214；源码 `58a337c5c9b7fbcf477d21b6d9b94b029a8254b5`。
