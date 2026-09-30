@@ -4782,9 +4782,9 @@ const App = {
     const inCollection = group?.kind === 'collection';
     const entries = inCollection && !forSidebar ? window.ProjectGroups.projectEntries(AppState.localProjects, AppState.projectGroups, group.groupId) : this.projectEntries();
     return entries.filter(project => {
-        if (inCollection && forSidebar && !window.ProjectGroups.containsCollection(project, group.groupId)) return false;
-        if (!inCollection && !window.ProjectGroups.matchesCategory(project, AppState.projectGroups, AppState.contentQuery.projectType)) return false;
-        if (this.contentCollectionKind() === 'project-repositories' && project.rootIsGitRepo !== true) return false;
+        // Category selection controls the main view, not other branches of the navigation tree.
+        if (!forSidebar && !inCollection && !window.ProjectGroups.matchesCategory(project, AppState.projectGroups, AppState.contentQuery.projectType)) return false;
+        if (!forSidebar && this.contentCollectionKind() === 'project-repositories' && project.rootIsGitRepo !== true) return false;
         if (!window.ContentQuery.matchesAttributes({
           type: 'directory',
           isProject: true,

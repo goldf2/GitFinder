@@ -92,7 +92,16 @@ async function main() {
     await check('文件浏览返回真实目录且清除仓库专用视图',"!document.querySelector('#locations-sidebar-section').hidden&&document.querySelector('#repository-workspace-tabs').hidden");
     await click('#sidebar-navigation-projects');await wait("!AppState.localProjectsLoading");
     await click(`#sidebar-project-list [data-project-type="${groups[1]}"]`);await wait("!AppState.localProjectsLoading");
-    await check('类别筛选同步左右空结果',"!document.querySelector('.local-project-card')&&!document.querySelector('#sidebar-project-list [data-project-collection]')");
+    await check('右侧类别过滤不清空其他类别的导航成员',`!document.querySelector('.local-project-card')&&!!document.querySelector('#sidebar-project-list [data-type-members="${groups[0]}"] [data-project-collection="${parentId}"]')`);
+    await click(`#sidebar-project-list [data-type-toggle="${groups[0]}"]`);
+    await click(`#sidebar-project-list [data-project-type="${groups[0]}"]`);await wait("!AppState.localProjectsLoading");
+    await check('选择类别不会擅自展开手动折叠的分组',`!document.querySelector('#sidebar-project-list [data-type-members="${groups[0]}"]')&&!!document.querySelector('.project-collection-card')`);
+    await click(`#sidebar-project-list [data-type-toggle="${groups[0]}"]`);
+    await click(`#sidebar-project-list [data-project-collection="${childId}"]`);await wait("!AppState.localProjectsLoading");
+    await check('选择嵌套项目保留类别内完整导航',`!!document.querySelector('#sidebar-project-list [data-project-collection="${parentId}"]')&&!!document.querySelector('#sidebar-project-list [data-project-repository-path="${directories[2]}"]')`);
+    await evaluate("AppState.searchQuery='no-matching-project-219';AppState.searchScope='current';App.projectShortcutsController.render()");
+    await check('左侧仍响应搜索过滤',"!document.querySelector('#sidebar-project-list [data-project-collection]')");
+    await evaluate("AppState.searchQuery='';App.projectShortcutsController.render()");
     await click('#sidebar-navigation-projects');await wait("!AppState.localProjectsLoading");
     await click(`#sidebar-project-list [data-project-shortcut-id="${ids[1]}"]`);await wait(`AppState.currentPath===${JSON.stringify(directories[1])}&&App.isFileBrowsingContext()`);
     await check('无Git资料目录直接浏览',"!AppState.workspaceRepository&&!AppState.workspaceProject");

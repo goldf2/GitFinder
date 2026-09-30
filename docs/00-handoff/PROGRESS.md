@@ -2,18 +2,18 @@
 
 > 自动生成。只编辑 `management/development-tasks.json`，然后执行 `npm run handoff:update`。
 
-更新时间：2026-09-30T20:23:52+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
+更新时间：2026-09-30T21:15:40+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
 
 核验基线：2.0.0-alpha.193 / `99eef1d2992e389f32a48182a25fda3b9adf1958`；证据：[docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md](LAYOUT_OPTIONS_ALPHA193.md)。
 
-**唯一下一任务：GF-DATA-001**
+**唯一下一任务：GF-SIDEBAR-219**
 
 ## 阶段汇总
 
 | 阶段 | 纳入任务 | 已交付 | 开发中/已验证 | 阻塞/暂缓 |
 | --- | ---: | ---: | ---: | ---: |
 | GF-P0 接续工程 | 2 | 2 | 0 | 0 |
-| GF-P1 桌面稳定 | 26 | 21 | 0 | 1 |
+| GF-P1 桌面稳定 | 27 | 21 | 1 | 1 |
 | GF-P2 可维护与性能 | 4 | 0 | 0 | 0 |
 | GF-P3 可分发 | 7 | 0 | 2 | 3 |
 | GF-P4 全流程事件 | 5 | 0 | 0 | 1 |
@@ -73,6 +73,7 @@
 | GF-PROJECT-216 | P1 | 已交付 | Codex | 嵌套大项目、四个粗类别与选择性归并 |
 | GF-SIDEBAR-217 | P1 | 已交付 | Codex | 恢复左侧独立项目列表与嵌套导航 |
 | GF-WORKSPACE-218 | P1 | 已交付 | Codex | 统一工作区导航与Git仓库三视图联动 |
+| GF-SIDEBAR-219 | P1 | 开发中 | Codex | 类别导航保持未选中分组的展开内容 |
 
 ## 可执行任务卡
 
@@ -957,3 +958,19 @@
 证据：[docs/00-handoff/WORKSPACE_ALPHA218.md](WORKSPACE_ALPHA218.md)
 
 交付：2.0.0-alpha.218；源码 `034fe5063857b999581a22caa8b0f9e813763a0a`。
+
+### GF-SIDEBAR-219 · 类别导航保持未选中分组的展开内容
+
+阶段：GF-P1；优先级：P1；状态：**开发中**；负责人：Codex；用户验收：待用户反馈。
+
+更新：2026-09-30T21:15:40+08:00。依赖：无。
+
+**验收标准**
+1. 选择其他类别或子项目不清空已展开类别的成员；手动折叠保持独立。
+2. 右侧类别筛选保持，左侧搜索/属性过滤保留；安装验证后推送。
+
+**接续动作：** 先用隔离窗口复现类别切换隐藏成员，再修复并安装验收。
+
+源码/设计入口：[src/renderer/scripts/app.js](../../src/renderer/scripts/app.js)；[scripts/verify-unified-workspace.js](../../scripts/verify-unified-workspace.js)。
+
+证据：[docs/00-handoff/SIDEBAR_CATEGORY_ALPHA219.md](SIDEBAR_CATEGORY_ALPHA219.md)

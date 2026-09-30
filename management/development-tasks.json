@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-30T20:23:52+08:00",
+  "updatedAt": "2026-09-30T21:15:40+08:00",
   "scope": "以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。",
   "baseline": {
     "version": "2.0.0-alpha.193",
     "sourceCommit": "99eef1d2992e389f32a48182a25fda3b9adf1958",
     "evidence": "docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md"
   },
-  "nextTaskId": "GF-DATA-001",
+  "nextTaskId": "GF-SIDEBAR-219",
   "milestones": [
     {
       "id": "GF-P0",
@@ -1447,6 +1447,30 @@
         "version": "2.0.0-alpha.218",
         "sourceCommit": "034fe5063857b999581a22caa8b0f9e813763a0a"
       }
+    },
+    {
+      "id": "GF-SIDEBAR-219",
+      "milestone": "GF-P1",
+      "title": "类别导航保持未选中分组的展开内容",
+      "priority": "P1",
+      "status": "in_progress",
+      "owner": "Codex",
+      "updatedAt": "2026-09-30T21:15:40+08:00",
+      "dependsOn": [],
+      "sourcePaths": [
+        "src/renderer/scripts/app.js",
+        "scripts/verify-unified-workspace.js"
+      ],
+      "acceptance": [
+        "选择其他类别或子项目不清空已展开类别的成员；手动折叠保持独立。",
+        "右侧类别筛选保持，左侧搜索/属性过滤保留；安装验证后推送。"
+      ],
+      "evidence": [
+        "docs/00-handoff/SIDEBAR_CATEGORY_ALPHA219.md"
+      ],
+      "nextAction": "先用隔离窗口复现类别切换隐藏成员，再修复并安装验收。",
+      "blocker": "",
+      "userAcceptance": "pending"
     }
   ]
 }
