@@ -1,9 +1,11 @@
 # GitFinder 2 当前状态
 
 <!-- BEGIN CURRENT_STATE -->
-## alpha.213 项目卡片与类型入口已通过源码验证
+## alpha.213 项目卡片与类型入口已交付
 
-GF-PROJECT-213：卡片简介、仓库区域及三枚按钮对齐；文件夹右键“项目类型…”和项目设置支持多类型勾选。全量1426/1426、299JS及17项真实Electron UI回归通过。正在提交、构建安装验收，尚未推送。详见 [PROJECT_CARDS_ALPHA213.md](PROJECT_CARDS_ALPHA213.md)。
+GF-PROJECT-213：卡片简介、仓库区域和三枚按钮对齐；文件夹右键“项目类型…”和项目设置提供多类型勾选。源码/构建`6d14ac1`，1426/1426、299JS、源码与安装版各17项Electron UI通过；真实交易列表7卡在中档均高280.148px。alpha.213已安装、普通启动、推送origin/main并核对远端。详见 [PROJECT_CARDS_ALPHA213.md](PROJECT_CARDS_ALPHA213.md)。
+
+原12项dirty保留，真实项目成员、标签分配集合和白板未改；用户验收pending，仅macOS开发包。下一开发任务GF-DATA-001。
 <!-- END CURRENT_STATE -->
 
 ## 历史兼容记录（以下不再表示当前状态）

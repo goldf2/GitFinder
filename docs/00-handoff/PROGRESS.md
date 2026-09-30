@@ -2,18 +2,18 @@
 
 > 自动生成。只编辑 `management/development-tasks.json`，然后执行 `npm run handoff:update`。
 
-更新时间：2026-09-30T12:13:36.480244+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
+更新时间：2026-09-30T12:28:14+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
 
 核验基线：2.0.0-alpha.193 / `99eef1d2992e389f32a48182a25fda3b9adf1958`；证据：[docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md](LAYOUT_OPTIONS_ALPHA193.md)。
 
-**唯一下一任务：GF-PROJECT-213**
+**唯一下一任务：GF-DATA-001**
 
 ## 阶段汇总
 
 | 阶段 | 纳入任务 | 已交付 | 开发中/已验证 | 阻塞/暂缓 |
 | --- | ---: | ---: | ---: | ---: |
 | GF-P0 接续工程 | 2 | 2 | 0 | 0 |
-| GF-P1 桌面稳定 | 21 | 15 | 1 | 1 |
+| GF-P1 桌面稳定 | 21 | 16 | 0 | 1 |
 | GF-P2 可维护与性能 | 4 | 0 | 0 | 0 |
 | GF-P3 可分发 | 7 | 0 | 2 | 3 |
 | GF-P4 全流程事件 | 5 | 0 | 0 | 1 |
@@ -67,7 +67,7 @@
 | GF-CONTAINER-RESIZE-001 | P0 | 已交付 | ChatGPT / AgentDock Cloudflare | 四边四角容器缩放与成员自适应换行 |
 | GF-CONTAINER-HEADER-001 | P0 | 已交付 | ChatGPT / AgentDock Cloudflare | 嵌套容器标题安全区与拖拽防重叠 |
 | GF-SAVE-212 | P1 | 已交付 | AgentDock-ChatGPT | 白板内容版本校验与保存冲突保护 |
-| GF-PROJECT-213 | P1 | 已验证 | Codex | 项目卡片对齐与文件夹项目类型入口 |
+| GF-PROJECT-213 | P1 | 已交付 | Codex | 项目卡片对齐与文件夹项目类型入口 |
 
 ## 可执行任务卡
 
@@ -835,17 +835,19 @@
 
 ### GF-PROJECT-213 · 项目卡片对齐与文件夹项目类型入口
 
-阶段：GF-P1；优先级：P1；状态：**已验证**；负责人：Codex；用户验收：待用户反馈。
+阶段：GF-P1；优先级：P1；状态：**已交付**；负责人：Codex；用户验收：待用户反馈。
 
-更新：2026-09-30T12:13:36.480244+08:00。依赖：无。
+更新：2026-09-30T12:28:14+08:00。依赖：无。
 
 **验收标准**
 1. 不同简介和仓库数量的卡片等高，内容与按钮对齐，支持三档尺寸与窄窗口。
 2. 文件夹右键与项目设置可以勾选类型，保存保留其他项目成员且不移动目录。
 3. macOS源码检查、可追溯构建、安装交互与推送完成。
 
-**接续动作：** 1426项源码测试与299JS检查通过，17项真实Electron UI回归通过；提交后从干净checkout构建安装并验证。
+**接续动作：** alpha.213已安装、正常启动并推送；收集用户对卡片和类型入口的反馈，后续GF-DATA-001处理保存中断/资源库失败恢复。
 
 源码/设计入口：[src/renderer/scripts/app.js](../../src/renderer/scripts/app.js)；[src/renderer/styles/content.css](../../src/renderer/styles/content.css)；[src/renderer/index.html](../../src/renderer/index.html)。
 
 证据：[docs/00-handoff/PROJECT_CARDS_ALPHA213.md](PROJECT_CARDS_ALPHA213.md)
+
+交付：2.0.0-alpha.213；源码 `6d14ac1ba6a90adaef6a3147dfb918aa4223855d`。

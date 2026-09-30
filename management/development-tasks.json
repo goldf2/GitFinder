@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-30T12:13:36.480244+08:00",
+  "updatedAt": "2026-09-30T12:28:14+08:00",
   "scope": "以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。",
   "baseline": {
     "version": "2.0.0-alpha.193",
     "sourceCommit": "99eef1d2992e389f32a48182a25fda3b9adf1958",
     "evidence": "docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md"
   },
-  "nextTaskId": "GF-PROJECT-213",
+  "nextTaskId": "GF-DATA-001",
   "milestones": [
     {
       "id": "GF-P0",
@@ -1233,9 +1233,9 @@
       "milestone": "GF-P1",
       "title": "项目卡片对齐与文件夹项目类型入口",
       "priority": "P1",
-      "status": "verified",
+      "status": "delivered",
       "owner": "Codex",
-      "updatedAt": "2026-09-30T12:13:36.480244+08:00",
+      "updatedAt": "2026-09-30T12:28:14+08:00",
       "dependsOn": [],
       "sourcePaths": [
         "src/renderer/scripts/app.js",
@@ -1250,9 +1250,13 @@
       "evidence": [
         "docs/00-handoff/PROJECT_CARDS_ALPHA213.md"
       ],
-      "nextAction": "1426项源码测试与299JS检查通过，17项真实Electron UI回归通过；提交后从干净checkout构建安装并验证。",
+      "nextAction": "alpha.213已安装、正常启动并推送；收集用户对卡片和类型入口的反馈，后续GF-DATA-001处理保存中断/资源库失败恢复。",
       "blocker": "",
-      "userAcceptance": "pending"
+      "userAcceptance": "pending",
+      "delivery": {
+        "version": "2.0.0-alpha.213",
+        "sourceCommit": "6d14ac1ba6a90adaef6a3147dfb918aa4223855d"
+      }
     }
   ]
 }
