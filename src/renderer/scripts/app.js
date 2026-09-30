@@ -4409,6 +4409,7 @@ const App = {
     const emptyState = document.getElementById('empty-state');
     this.workspaceController?.header();
     if (AppState.currentMode === 'tree' && await this.workspaceController?.render(contentArea, renderRequestId)) return;
+    if (renderRequestId !== AppState.directoryRenderRequestId) return;
     if (AppState.currentMode !== 'relationships') this.relationshipBoardController?.close();
     if (AppState.currentMode !== 'panel') this.nativePanelController?.close();
     const panelView = document.getElementById('xiangshu-panel-view');
@@ -4798,6 +4799,9 @@ const App = {
   },
 
   async renderProjectsView(forceRefresh = false) {
+    const renderRequestId = AppState.directoryRenderRequestId;
+    const isCurrent = () => renderRequestId === AppState.directoryRenderRequestId
+      && !AppState.workspaceRepository && !AppState.workspaceProject;
     const contentArea = document.getElementById('content-area');
     const emptyState = document.getElementById('empty-state');
     if (emptyState) emptyState.style.display = 'none';
@@ -4806,6 +4810,8 @@ const App = {
     contentArea.innerHTML = '<div style="text-align:center;padding:40px;color:#86868b;"><div class="loading-spinner" style="margin:0 auto 10px;"></div>正在识别本地项目与内部仓库…</div>';
     try {
       await this.refreshProjectShortcuts(forceRefresh);
+      const storedSize = await window.gitFinder.config.get('projectCardSize');
+      if (!isCurrent()) return;
       this.updateDirectoryTypeFilterUI();
       const query = AppState.searchScope === 'current' ? AppState.searchQuery.trim().toLowerCase() : '';
       const projects = this.filteredLocalProjects();
@@ -4819,7 +4825,6 @@ const App = {
         project,
         modifiedTime: project.modifiedTime
       }));
-      const storedSize = await window.gitFinder.config.get('projectCardSize');
       AppState.projectCardSize = ['small', 'medium', 'large'].includes(storedSize) ? storedSize : 'medium';
       const cardSize = AppState.projectCardSize;
       this.updateBreadcrumbs();
@@ -4881,6 +4886,7 @@ const App = {
       this.updateDirectoryTypeFilterUI();
       this.updateStatusBar();
     } catch (error) {
+      if (!isCurrent()) return;
       contentArea.innerHTML = `<div class="local-project-empty"><strong>项目扫描失败</strong><span>${this.escapeHtml(error?.message || String(error))}</span><button class="btn" data-app-action="refresh-local-projects" type="button">重试</button></div>`;
     } finally {
       AppState.localProjectsLoading = false;

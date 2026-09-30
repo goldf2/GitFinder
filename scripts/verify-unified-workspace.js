@@ -67,6 +67,9 @@ async function main() {
     await check('点击仓库进入Git主视图',`AppState.workspaceRepository.path===${JSON.stringify(firstRepo)}&&document.querySelector('#git-workspace-view').textContent.includes('note.txt')&&document.querySelectorAll('[data-workspace-view]').length===3`);
     await wait(`AppState.selectedRepo?.path===${JSON.stringify(firstRepo)}`);
     await check('左侧定位仓库并同步右侧详情',`!!document.querySelector('#sidebar-project-list [data-project-repository-path="${firstRepo}"].active')&&AppState.selectedRepo.path===${JSON.stringify(firstRepo)}`);
+    await evaluate(`(async()=>{const refresh=App.refreshProjectShortcuts;let release;App.refreshProjectShortcuts=()=>new Promise(r=>{release=r});App.workspaceController.clear();const pending=App.renderProjectsView();App.openWorkspaceRepository(${JSON.stringify(firstRepo)});release();await pending;App.refreshProjectShortcuts=refresh;})()`);
+    await wait("!!document.querySelector('#git-workspace-view')");
+    await check('迟到项目列表不覆盖仓库页面',"!document.querySelector('.local-project-grid')&&AppState.visibleItems.length===0");
     await click('[data-workspace-diff="0"]');await wait("!document.querySelector('#workspace-file-diff').hidden");
     await check('Git视图可读取实际文本差异',"document.querySelector('#workspace-file-diff').textContent.includes('+updated')");
     await click('[data-workspace-git="review"]');await wait("document.querySelector('#commit-modal').style.display==='flex'&&!!document.querySelector('[data-review-file]')");
