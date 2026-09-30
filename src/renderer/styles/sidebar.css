@@ -781,7 +781,7 @@
 .tree-node-edit:hover { background: var(--bg-hover); }
 
 .sidebar-type-members { padding-left: 18px; }
-.sidebar-section-toggle { width: 100%; font-size: 11px; color: var(--text-secondary); margin-top: 10px; }
+.sidebar-section-toggle { width: calc(100% - 8px); border: 0; background: transparent; text-align: left; font-family: inherit; font-size: 11px; color: var(--text-secondary); margin-top: 10px; }
 .project-type-row > .tree-node-toggle { flex-shrink: 0; }
 
 .project-type-row:not(:has(.project-type-edit)) > .sidebar-shortcut-open { grid-column: 2 / -1; }
