@@ -2,18 +2,18 @@
 
 > 自动生成。只编辑 `management/development-tasks.json`，然后执行 `npm run handoff:update`。
 
-更新时间：2026-09-30T20:15:38+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
+更新时间：2026-09-30T20:23:52+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
 
 核验基线：2.0.0-alpha.193 / `99eef1d2992e389f32a48182a25fda3b9adf1958`；证据：[docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md](LAYOUT_OPTIONS_ALPHA193.md)。
 
-**唯一下一任务：GF-WORKSPACE-218**
+**唯一下一任务：GF-DATA-001**
 
 ## 阶段汇总
 
 | 阶段 | 纳入任务 | 已交付 | 开发中/已验证 | 阻塞/暂缓 |
 | --- | ---: | ---: | ---: | ---: |
 | GF-P0 接续工程 | 2 | 2 | 0 | 0 |
-| GF-P1 桌面稳定 | 26 | 20 | 1 | 1 |
+| GF-P1 桌面稳定 | 26 | 21 | 0 | 1 |
 | GF-P2 可维护与性能 | 4 | 0 | 0 | 0 |
 | GF-P3 可分发 | 7 | 0 | 2 | 3 |
 | GF-P4 全流程事件 | 5 | 0 | 0 | 1 |
@@ -72,7 +72,7 @@
 | GF-UI-215 | P1 | 已交付 | Codex | 标题栏显示控制与最近/类型侧栏 |
 | GF-PROJECT-216 | P1 | 已交付 | Codex | 嵌套大项目、四个粗类别与选择性归并 |
 | GF-SIDEBAR-217 | P1 | 已交付 | Codex | 恢复左侧独立项目列表与嵌套导航 |
-| GF-WORKSPACE-218 | P1 | 开发中 | Codex | 统一工作区导航与Git仓库三视图联动 |
+| GF-WORKSPACE-218 | P1 | 已交付 | Codex | 统一工作区导航与Git仓库三视图联动 |
 
 ## 可执行任务卡
 
@@ -941,17 +941,19 @@
 
 ### GF-WORKSPACE-218 · 统一工作区导航与Git仓库三视图联动
 
-阶段：GF-P1；优先级：P1；状态：**开发中**；负责人：Codex；用户验收：待用户反馈。
+阶段：GF-P1；优先级：P1；状态：**已交付**；负责人：Codex；用户验收：待用户反馈。
 
-更新：2026-09-30T20:15:38+08:00。依赖：无。
+更新：2026-09-30T20:23:52+08:00。依赖：无。
 
 **验收标准**
 1. 工作区/文件浏览双入口，统一项目/仓库/目录树及所有仓库快捷筛选。
 2. 点击仓库进入Git视图，可切换文件与所属项目，定位左侧层级；项目点击显示成员。
 3. 独立仓库和非Git目录可访问，既有项目身份/归属不被改写，安装验证后推送。
 
-**接续动作：** 1439测试/302JS、18项真实窗口交互通过，干净构建安装后验证真实仓库并推送。
+**接续动作：** alpha.218统一工作区已安装验证并推送；1439测试/302JS、19项安装交互与真实股票研究仓库三视图通过，原分类归属不变。等待用户反馈，不自动启动后续任务。
 
 源码/设计入口：[src/renderer/scripts/projectShortcutsController.js](../../src/renderer/scripts/projectShortcutsController.js)；[src/renderer/scripts/app.js](../../src/renderer/scripts/app.js)；[src/renderer/index.html](../../src/renderer/index.html)；[src/renderer/scripts/workspaceController.js](../../src/renderer/scripts/workspaceController.js)；[scripts/verify-unified-workspace.js](../../scripts/verify-unified-workspace.js)。
 
 证据：[docs/00-handoff/WORKSPACE_ALPHA218.md](WORKSPACE_ALPHA218.md)
+
+交付：2.0.0-alpha.218；源码 `034fe5063857b999581a22caa8b0f9e813763a0a`。

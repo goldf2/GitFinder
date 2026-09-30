@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-30T20:15:38+08:00",
+  "updatedAt": "2026-09-30T20:23:52+08:00",
   "scope": "以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。",
   "baseline": {
     "version": "2.0.0-alpha.193",
     "sourceCommit": "99eef1d2992e389f32a48182a25fda3b9adf1958",
     "evidence": "docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md"
   },
-  "nextTaskId": "GF-WORKSPACE-218",
+  "nextTaskId": "GF-DATA-001",
   "milestones": [
     {
       "id": "GF-P0",
@@ -1421,9 +1421,9 @@
       "milestone": "GF-P1",
       "title": "统一工作区导航与Git仓库三视图联动",
       "priority": "P1",
-      "status": "in_progress",
+      "status": "delivered",
       "owner": "Codex",
-      "updatedAt": "2026-09-30T20:15:38+08:00",
+      "updatedAt": "2026-09-30T20:23:52+08:00",
       "dependsOn": [],
       "sourcePaths": [
         "src/renderer/scripts/projectShortcutsController.js",
@@ -1440,9 +1440,13 @@
       "evidence": [
         "docs/00-handoff/WORKSPACE_ALPHA218.md"
       ],
-      "nextAction": "1439测试/302JS、18项真实窗口交互通过，干净构建安装后验证真实仓库并推送。",
+      "nextAction": "alpha.218统一工作区已安装验证并推送；1439测试/302JS、19项安装交互与真实股票研究仓库三视图通过，原分类归属不变。等待用户反馈，不自动启动后续任务。",
       "blocker": "",
-      "userAcceptance": "pending"
+      "userAcceptance": "pending",
+      "delivery": {
+        "version": "2.0.0-alpha.218",
+        "sourceCommit": "034fe5063857b999581a22caa8b0f9e813763a0a"
+      }
     }
   ]
 }
