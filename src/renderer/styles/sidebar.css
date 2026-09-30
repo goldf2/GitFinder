@@ -785,3 +785,9 @@
 .project-type-row > .tree-node-toggle { flex-shrink: 0; }
 
 .project-type-row:not(:has(.project-type-edit)) > .sidebar-shortcut-open { grid-column: 2 / -1; }
+
+/* Nested business projects keep enough room for names in a narrow sidebar. */
+.project-collection-children { margin-left: 6px; margin-right: 0; padding-left: 5px; }
+.project-collection-children .project-shortcut-row { grid-template-columns: 18px minmax(0, 1fr) 20px; }
+.project-collection-children .sidebar-item { gap: 5px; }
+.project-collection-children .project-tree-toggle { margin-left: 0; }

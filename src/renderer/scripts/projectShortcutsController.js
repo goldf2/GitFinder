@@ -50,6 +50,19 @@
       });
       this.element('project-shortcuts-list')?.addEventListener('click', event => {
         if (this.handleSectionToggle(event, 'projects')) return;
+        if (event.target.closest?.('[data-new-project-collection]')) { this.app.openProjectGroupDialog('', 'collection'); return; }
+        const collection = event.target.closest?.('[data-project-collection]');
+        if (collection) {
+          this.expandedProjectIds.add(collection.dataset.projectCollection);
+          this.app.applyProjectType(collection.dataset.projectCollection);
+          this.render(); return;
+        }
+        const collectionToggle = event.target.closest?.('[data-collection-toggle]');
+        if (collectionToggle) {
+          const id = collectionToggle.dataset.collectionToggle;
+          this.expandedProjectIds.has(id) ? this.expandedProjectIds.delete(id) : this.expandedProjectIds.add(id);
+          this.render(); return;
+        }
         const pinButton = event.target.closest?.('[data-project-shortcut-pin]');
         if (pinButton) {
           event.stopPropagation();
@@ -375,22 +388,20 @@
       const display = ProjectShortcuts.resolveDisplay(this.state.projectShortcuts, this.state.localProjects);
       const recent = preferences.visible && preferences.showRecent ? display.recent.slice(0, preferences.recentLimit) : [];
       const pinned = preferences.visible ? display.pinned : [];
-      const sortedProjects = [...this.state.localProjects]
+      const sortedProjects = [...(this.app.projectEntries?.() || this.state.localProjects)]
         .filter(project => project?.projectId)
         .sort((left, right) => String(left.name || left.path).localeCompare(String(right.name || right.path), 'zh-CN'))
         .map(project => ({ projectId: project.projectId, project, available: Boolean(project.path) }));
       const projectsById = new Map(sortedProjects.map(entry => [entry.projectId, entry]));
       const groupedProjectIds = new Set();
       const projectGroups = (Array.isArray(this.state.projectGroups) ? this.state.projectGroups : [])
-        .filter(group => group?.groupId)
+        .filter(group => group?.groupId && group.kind !== 'collection')
         .map(group => {
-          const projects = (Array.isArray(group.projectIds) ? group.projectIds : [])
-            .map(projectId => projectsById.get(projectId))
-            .filter(Boolean);
+          const projects = sortedProjects.filter(entry => entry.project.isProjectCollection ? entry.project.categoryId === group.groupId : group.projectIds.includes(entry.projectId));
           projects.forEach(entry => groupedProjectIds.add(entry.projectId));
           return { ...group, projects };
         });
-      const directoryProjects = this.app.filteredLocalProjects?.() || this.state.localProjects;
+      const directoryProjects = this.app.filteredLocalProjects?.({ forSidebar: true }) || this.state.localProjects;
       const activeProject = ProjectShortcuts.findProjectForPath(
         this.state.localProjects,
         this.state.currentPath,
@@ -398,6 +409,11 @@
       );
       const renderEntry = (entry, pinned, instanceKey = 'root', treeProjects = sortedProjects.map(item => item.project)) => {
         const project = entry.project;
+        if (project?.isProjectCollection) {
+          const id = this.app.escapeHtml(project.projectId);
+          const expanded = this.expandedProjectIds.has(project.projectId);
+          return `<div class="project-shortcut-row"><button class="tree-node-toggle" data-collection-toggle="${id}" aria-expanded="${expanded}" aria-label="展开或折叠 ${this.app.escapeHtml(project.name)}">${expanded ? '▼' : '▶'}</button><button class="sidebar-item sidebar-shortcut-open project-shortcut-open ${this.state.contentQuery?.projectType === project.projectId ? 'active' : ''}" data-project-collection="${id}" title="${this.app.escapeHtml(project.name)}">${this.app.getItemKindIconHtml({type: 'directory', isProject: true, project}, 'sidebar-kind-icon')}<span class="sidebar-item-name">${this.app.escapeHtml(project.name)}</span><span class="badge">${project.memberProjects.length}</span></button><button class="project-type-edit" data-project-type-edit="${id}" title="大项目设置">⋯</button></div>${expanded ? `<div class="project-tree-children project-collection-children">${project.memberProjects.map(member => renderEntry({projectId: member.projectId, project: member, available: true}, false, 'collection', project.memberProjects)).join('')}</div>` : ''}`;
+        }
         const available = entry.available && project?.path;
         const active = available && activeProject?.projectId === entry.projectId && !this.app.isContentCollection();
         const item = project
@@ -440,7 +456,7 @@
             <button class="project-shortcut-pin ${pinned ? 'active' : ''}" data-project-shortcut-pin="${this.app.escapeHtml(entry.projectId)}" type="button" title="${pinned ? '取消固定' : '固定到项目区'}" aria-label="${pinned ? '取消固定' : '固定'} ${this.app.escapeHtml(name)}">${pinned ? '●' : '○'}</button>
           </div>
           ${expanded ? `<div class="project-tree-children" id="${childrenId}" role="group" aria-label="${this.app.escapeHtml(name)} 的子项目与仓库">
-            ${subprojects.map(child => renderEntry(projectsById.get(child.projectId), pinned, `${instanceKey}-child`, treeProjects)).join('')}
+            ${subprojects.map(child => renderEntry(projectsById.get(child.projectId) || { projectId: child.projectId, project: child, available: Boolean(child.path) }, pinned, `${instanceKey}-child`, treeProjects)).join('')}
             ${repositoryRows || (subprojects.length ? '' : '<div class="sidebar-shortcut-empty project-tree-empty">暂无子项目或关联 Git 仓库</div>')}
           </div>` : ''}`;
       };
@@ -449,7 +465,7 @@
         const id = this.app.escapeHtml(group.groupId);
         const expanded = this.expandedTypeIds.has(`projects:${group.groupId}`);
         const members = directoryProjects.filter(project => group.projects.some(entry => entry.projectId === project.projectId));
-        const children = ProjectShortcuts.projectChildren(members, null, this.platform);
+        const children = [...members.filter(project => project.isProjectCollection), ...ProjectShortcuts.projectChildren(members.filter(project => !project.isProjectCollection), null, this.platform)];
         return `<div class="project-type-row">
           <button class="tree-node-toggle" data-type-toggle="${id}" type="button" aria-expanded="${expanded}" aria-label="${expanded ? '折叠' : '展开'} ${this.app.escapeHtml(group.name)}">${expanded ? '▼' : '▶'}</button>
           <button class="sidebar-item sidebar-shortcut-open ${this.state.contentQuery?.projectType === group.groupId && this.app.isContentCollection() ? 'active' : ''}" data-project-type="${id}" type="button" title="筛选：${this.app.escapeHtml(group.name)}">
@@ -464,8 +480,9 @@
         <button class="sidebar-item sidebar-shortcut-all project-shortcut-all ${allProjectsActive ? 'active' : ''}" data-project-shortcut-all type="button" title="显示所有受管位置中的项目">
           <span class="sidebar-icon sidebar-shortcut-all-icon project-shortcut-all-icon" aria-hidden="true">▦</span>
           <span class="sidebar-item-name">所有项目</span>
-          <span class="badge">${this.state.localProjects.length}</span>
+          <span class="badge">${sortedProjects.length}</span>
         </button>
+        <button class="sidebar-item sidebar-shortcut-open" data-new-project-collection type="button">＋ 新建大项目</button>
         ${recent.length ? `${this.recentHeading('projects')}${this.collapsedRecent.has('projects') ? '' : recent.map(entry => renderEntry(entry, false, 'recent')).join('')}` : ''}
         ${pinned.length ? `<div class="sidebar-shortcut-heading project-shortcut-heading">已固定</div>${pinned.map(entry => renderEntry(entry, true)).join('')}` : ''}
         <button class="sidebar-item project-group-tree-toggle" data-project-types-toggle type="button" aria-expanded="${this.projectTypesExpanded}" aria-controls="project-type-options">
@@ -496,9 +513,10 @@
       };
       const allRepos = this.state.allRepos || [];
       const recent = this.recentRepositoryPaths.map(path => allRepos.find(repo => pathsEqual(repo.path, path))).filter(Boolean).slice(0, 8);
-      const groups = [...(this.state.projectGroups || []), { groupId: 'unclassified', name: '未分类', color: 'gray' }];
+      const groups = [...(this.state.projectGroups || []).filter(group => group.kind !== 'collection'), { groupId: 'unclassified', name: '未分类', color: 'gray' }];
       const inGroup = (repo, group) => {
         const project = ProjectShortcuts.findProjectForPath(this.state.localProjects || [], repo.path, this.platform);
+        if (root.ProjectGroups?.repositoryMatchesType) return root.ProjectGroups.repositoryMatchesType(project, this.state.projectGroups || [], group.groupId);
         return group.groupId === 'unclassified'
           ? !project || !(this.state.projectGroups || []).some(type => type.projectIds?.includes(project.projectId))
           : group.projectIds?.includes(project?.projectId);

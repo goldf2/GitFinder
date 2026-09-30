@@ -62,3 +62,58 @@ test('项目组数据规范化会丢弃非法组 ID并限制字段', () => {
   assert.deepEqual(store.groups[0].projectIds, [projectA]);
   assert.equal(store.groups[0].color, 'purple');
 });
+
+const categoryId = 'project_group_33333333-3333-4333-8333-333333333333';
+const childId = 'project_group_44444444-4444-4444-8444-444444444444';
+const parentId = 'project_group_55555555-5555-4555-8555-555555555555';
+function collectionFixture() {
+  return ProjectGroups.normalizeStore({ groups: [
+    {groupId:categoryId,name:'业务系统',projectIds:[]},
+    {groupId:childId,name:'商城产品',kind:'collection',projectIds:[projectA],collectionIds:[]},
+    {groupId:parentId,name:'在线商城',kind:'collection',categoryId,projectIds:[projectB],collectionIds:[childId]}
+  ]});
+}
+const physicalProjects = [
+  { projectId:projectA,name:'前端',path:'/a',repositories:[{path:'/a',relativePath:'.'}] },
+  { projectId:projectB,name:'支付',path:'/b',repositories:[{path:'/b',relativePath:'.'}] }
+];
+test('嵌套项目投影只在顶层显示父项目，内部仓库去重且原对象不变',()=>{
+  const original=JSON.stringify(physicalProjects), store=collectionFixture();
+  const entries=ProjectGroups.projectEntries(physicalProjects,store.groups);
+  assert.equal(entries.length,1);assert.equal(entries[0].projectId,parentId);
+  assert.equal(entries[0].repositoryCount,2);assert.equal(entries[0].memberProjects[0].projectId,childId);
+  assert.equal(entries[0].memberProjects[0].categoryId,categoryId);
+  assert.deepEqual(ProjectGroups.projectEntries(physicalProjects,store.groups,childId),[physicalProjects[0]]);
+  assert.equal(JSON.stringify(physicalProjects),original);
+});
+test('父项目仓库筛选包含嵌套子项目，分类继承粗类别',()=>{
+  const groups=collectionFixture().groups;
+  assert.equal(ProjectGroups.repositoryMatchesType(physicalProjects[0],groups,parentId),true);
+  assert.equal(ProjectGroups.repositoryMatchesType(physicalProjects[0],groups,categoryId),true);
+  assert.equal(ProjectGroups.repositoryMatchesType(physicalProjects[1],groups,childId),false);
+  assert.equal(ProjectGroups.repositoryMatchesType(physicalProjects[0],groups,'unclassified'),false);
+});
+test('拒绝把祖先放入后代，失败时保留原成员关系',()=>{
+  const store=collectionFixture(),before=JSON.stringify(store);
+  assert.throws(()=>ProjectGroups.updateGroup(store,childId,{collectionIds:[parentId]}),/子项目/);
+  assert.throws(()=>ProjectGroups.updateGroup(store,parentId,{collectionIds:[parentId]}),/自身/);
+  assert.equal(JSON.stringify(store),before);
+});
+test('解除嵌套子项目合并时成员回到父层，不删除项目身份',()=>{
+  const result=ProjectGroups.deleteGroup(collectionFixture(),childId);
+  const parent=result.store.groups.find(g=>g.groupId===parentId);
+  assert.deepEqual(parent.collectionIds,[]);assert.deepEqual(new Set(parent.projectIds),new Set([projectA,projectB]));
+  assert.equal(ProjectGroups.projectEntries(physicalProjects,result.store.groups)[0].memberProjects.length,2);
+});
+test('解除根项目合并恢复独立子项目；未参与合并的项目仍独立',()=>{
+  const extra={projectId:'project_66666666-6666-4666-8666-666666666666',name:'独立项目',path:'/extra',repositories:[]};
+  const result=ProjectGroups.deleteGroup(collectionFixture(),parentId);
+  const entries=ProjectGroups.projectEntries([...physicalProjects,extra],result.store.groups);
+  assert.deepEqual(new Set(entries.map(p=>p.projectId)),new Set([childId,projectB,extra.projectId]));
+});
+test('暂不可用成员保留引用与提示，不把其它目录强制纳入项目',()=>{
+  const store=collectionFixture();const entries=ProjectGroups.projectEntries([],store.groups);
+  assert.equal(entries.length,1);assert.equal(entries[0].missingMemberCount,1);
+  assert.equal(entries[0].memberProjects[0].missingMemberCount,1);
+  assert.deepEqual(ProjectGroups.projectEntries([],[]),[]);
+});

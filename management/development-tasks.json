@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-30T18:58:47+08:00",
+  "updatedAt": "2026-09-30T19:35:41+08:00",
   "scope": "以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。",
   "baseline": {
     "version": "2.0.0-alpha.193",
     "sourceCommit": "99eef1d2992e389f32a48182a25fda3b9adf1958",
     "evidence": "docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md"
   },
-  "nextTaskId": "GF-DATA-001",
+  "nextTaskId": "GF-PROJECT-216",
   "milestones": [
     {
       "id": "GF-P0",
@@ -1357,6 +1357,32 @@
         "version": "2.0.0-alpha.215",
         "sourceCommit": "df2da8b7f92337d71e91f4c309b62f6098d497e3"
       }
+    },
+    {
+      "id": "GF-PROJECT-216",
+      "milestone": "GF-P1",
+      "title": "嵌套大项目、四个粗类别与选择性归并",
+      "priority": "P1",
+      "status": "in_progress",
+      "owner": "Codex",
+      "updatedAt": "2026-09-30T19:35:41+08:00",
+      "dependsOn": [],
+      "sourcePaths": [
+        "src/shared/projectGroups.js",
+        "src/renderer/scripts/app.js",
+        "src/renderer/scripts/projectShortcutsController.js"
+      ],
+      "acceptance": [
+        "项目可跨目录嵌套，成员原路径与Git保持独立；拒绝循环归属，不强制覆盖所有目录，不设其它兜底。",
+        "大项目可分类，前端可新增/编辑名称、成员与类别，以及解除合并。",
+        "源码与安装界面验证后应用业务系统/内容创作/研发工具/投资研究四类，36个项目收拢为9个顶层项目及5个嵌套集合，50个保持独立。"
+      ],
+      "evidence": [
+        "docs/00-handoff/PROJECT_COLLECTIONS_ALPHA216.md"
+      ],
+      "nextAction": "1439测试、301JS与33项源码界面通过；干净构建安装验收，应用已备份的4类9组配置后推送。",
+      "blocker": "",
+      "userAcceptance": "pending"
     }
   ]
 }

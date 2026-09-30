@@ -524,6 +524,10 @@ const App = {
       if (action === 'choose-unavailable-location') this.openFolderDialog();
       if (action === 'add-root') this.addTreeRootDialog();
       if (action === 'tree-mode') this.switchMode('tree');
+      if (action === 'open-project-collection') this.applyProjectType(event.target.closest('[data-collection-id]').dataset.collectionId);
+      if (action === 'edit-project-collection') this.openProjectGroupDialog(event.target.closest('[data-collection-id]').dataset.collectionId);
+      if (action === 'collection-repositories') this.setContentQuery({ ...window.ContentQuery.queryForPreset('all-repositories'), projectType: event.target.closest('[data-collection-id]').dataset.collectionId });
+      if (action === 'new-project-collection') this.openProjectGroupDialog('', 'collection');
       if (action === 'browse-directories') this.projectShortcutsController.setNavigationMode('directories');
       if (action === 'open-local-project') this.openLocalProject(event.target.closest('[data-project-path]')?.dataset.projectPath);
       if (action === 'reveal-local-project') window.gitFinder.fs.showInFinder(event.target.closest('[data-project-path]')?.dataset.projectPath).catch(error => this._showStatusMessage(error.message, 'error'));
@@ -3949,7 +3953,7 @@ const App = {
       modifiedFrom: query.modifiedFrom,
       modifiedTo: query.modifiedTo
     });
-    const projectCount = AppState.localProjects.filter(project => window.ContentQuery.matchesAttributes({
+    const projectCount = this.projectEntries().filter(project => window.ContentQuery.matchesAttributes({
       type: 'directory',
       isProject: true,
       isGitRepo: project.rootIsGitRepo === true,
@@ -4663,28 +4667,38 @@ const App = {
   },
 
 
-  openProjectGroupDialog(groupId = '') {
+  openProjectGroupDialog(groupId = '', kind = '') {
     const modal = document.getElementById('project-group-modal');
     const select = document.getElementById('project-group-projects');
     if (!modal || !select) return;
     const group = (AppState.projectGroups || []).find(item => item?.groupId === groupId) || null;
+    const isCollection = group?.kind === 'collection' || kind === 'collection';
     const projects = [...(AppState.localProjects || [])]
       .filter(project => project?.projectId && project?.path)
       .sort((left, right) => String(left.name || left.path).localeCompare(String(right.name || right.path), 'zh-CN'));
-    const selected = new Set(group?.projectIds || []);
+    const selected = new Set([...(group?.projectIds || []), ...(group?.collectionIds || [])]);
+    if (isCollection) projects.unshift(...AppState.projectGroups.filter(item => item.kind === 'collection' && item.groupId !== groupId).map(item => ({projectId: item.groupId, name: `▦ ${item.name}`, path: '子项目集合'})));
+    if (isCollection) for (const id of selected) { if (!projects.some(project => project.projectId === id)) projects.push({projectId:id,name:'暂不可用的成员',path:id}); }
     select.innerHTML = projects.length
       ? projects.map(project => `<option value="${this.escapeHtml(project.projectId)}"${selected.has(project.projectId) ? ' selected' : ''}>${this.escapeHtml(project.name)} · ${this.escapeHtml(project.path)}</option>`).join('')
       : '<option disabled>暂无可加入的本地项目</option>';
-    document.getElementById('project-group-title').textContent = group ? '项目类型设置' : '新建项目类型';
+    document.getElementById('project-group-title').textContent = isCollection ? (group ? '大项目设置' : '新建大项目') : (group ? '项目类型设置' : '新建项目类型');
+    document.getElementById('project-group-name-label').textContent = isCollection ? '项目名称' : '项目类型名称';
+    document.getElementById('project-group-explanation').textContent = isCollection ? '将不同目录的项目收拢为一个大项目，成员保留原路径及 Git 历史。' : '项目类型用于分类筛选。';
+    const categorySelect = document.getElementById('project-collection-category');
+    document.getElementById('project-collection-category-field').hidden = !isCollection;
+    categorySelect.innerHTML = '<option value="">暂不分类</option>' + AppState.projectGroups.filter(item => item.kind !== 'collection').map(item => `<option value="${this.escapeHtml(item.groupId)}">${this.escapeHtml(item.name)}</option>`).join('');
+    categorySelect.value = group?.categoryId || '';
+    document.getElementById('project-type-delete-btn').textContent = isCollection ? '解除合并' : '删除类型';
     document.getElementById('project-type-delete-btn').hidden = !group;
     document.getElementById('project-group-name').value = group?.name || '';
     document.getElementById('project-group-description').value = group?.description || '';
     document.getElementById('project-group-color').value = group?.color || 'purple';
-    document.getElementById('project-group-feedback').textContent = group
+    document.getElementById('project-group-feedback').textContent = isCollection ? '选择要合并显示的成员；子项目可继续包含子项目；解除合并后成员回到上一级。' : group
       ? '编辑此类型包含的项目，不改变目录层级'
       : '项目类型只用于分类筛选，不移动文件夹';
-    document.getElementById('project-group-save-btn').textContent = group ? '保存设置' : '创建项目类型';
-    AppState.projectGroupDialog = { groupId: group?.groupId || '' };
+    document.getElementById('project-group-save-btn').textContent = group ? '保存设置' : (isCollection ? '创建大项目' : '创建项目类型');
+    AppState.projectGroupDialog = { groupId: group?.groupId || '', kind: isCollection ? 'collection' : '' };
     modal.style.display = 'flex';
     requestAnimationFrame(() => document.getElementById('project-group-name')?.focus());
   },
@@ -4701,7 +4715,7 @@ const App = {
     const feedback = document.getElementById('project-group-feedback');
     const saveButton = document.getElementById('project-group-save-btn');
     if (!name) {
-      if (feedback) feedback.textContent = '请填写项目类型名称';
+      if (feedback) feedback.textContent = '请填写名称';
       document.getElementById('project-group-name')?.focus();
       return;
     }
@@ -4712,10 +4726,11 @@ const App = {
       name,
       description: document.getElementById('project-group-description')?.value || '',
       color: document.getElementById('project-group-color')?.value || 'purple',
-      projectIds
+      projectIds: projectIds.filter(id => !id.startsWith('project_group_')),
+      ...(dialogState.kind === 'collection' ? { kind: 'collection', categoryId: document.getElementById('project-collection-category').value, collectionIds: projectIds.filter(id => id.startsWith('project_group_')) } : {})
     };
     if (saveButton) saveButton.disabled = true;
-    if (feedback) feedback.textContent = '正在保存项目类型…';
+    if (feedback) feedback.textContent = '正在保存…';
     try {
       const result = dialogState.groupId
         ? await window.gitFinder.projectGroups.update(dialogState.groupId, values)
@@ -4727,7 +4742,7 @@ const App = {
       this.projectShortcutsController?.render();
       this.closeProjectGroupDialog();
       if (this.contentCollectionKind() === 'projects') await this.renderProjectsView(false);
-      this._showStatusMessage(`已保存项目类型“${result.name}”`, 'success');
+      this._showStatusMessage(`已保存${result.kind === 'collection' ? '大项目' : '项目类型'}“${result.name}”`, 'success');
     } catch (error) {
       if (feedback) feedback.textContent = error?.message || String(error);
     } finally {
@@ -4737,24 +4752,32 @@ const App = {
 
   async deleteProjectGroup(groupId) {
     const group = (AppState.projectGroups || []).find(item => item?.groupId === groupId);
-    if (!group || !confirm(`删除项目类型“${group.name}”？不会删除其中的项目或文件。`)) return;
+    if (!group || !confirm(group.kind === 'collection' ? `解除“${group.name}”的合并？成员会恢复独立显示，文件保持原位。` : `删除项目类型“${group.name}”？不会删除其中的项目或文件。`)) return;
     try {
       await window.gitFinder.projectGroups.delete(groupId);
-      AppState.projectGroups = AppState.projectGroups.filter(item => item.groupId !== groupId);
+      await this.loadProjectGroups();
       this.closeProjectGroupDialog();
       if (AppState.contentQuery.projectType === groupId) this.applyContentPreset('all-projects');
       this.projectShortcutsController?.render();
       if (this.contentCollectionKind() === 'projects') await this.renderProjectsView(false);
-      this._showStatusMessage(`已删除项目类型“${group.name}”`, 'success');
+      this._showStatusMessage(`已${group.kind === 'collection' ? '解除合并' : '删除项目类型'}“${group.name}”`, 'success');
     } catch (error) {
       this._showStatusMessage(`删除项目类型失败：${error?.message || String(error)}`, 'error');
     }
   },
 
-  filteredLocalProjects() {
+  projectEntries() {
+    return window.ProjectGroups.projectEntries(AppState.localProjects, AppState.projectGroups);
+  },
+
+  filteredLocalProjects({ forSidebar = false } = {}) {
     const query = AppState.searchScope === 'current' ? AppState.searchQuery.trim().toLowerCase() : '';
-    return AppState.localProjects.filter(project => {
-        if (!window.ProjectShortcuts.projectsForType([project], AppState.projectGroups, AppState.contentQuery.projectType).length) return false;
+    const group = AppState.projectGroups.find(item => item.groupId === AppState.contentQuery.projectType);
+    const inCollection = group?.kind === 'collection';
+    const entries = inCollection && !forSidebar ? window.ProjectGroups.projectEntries(AppState.localProjects, AppState.projectGroups, group.groupId) : this.projectEntries();
+    return entries.filter(project => {
+        if (inCollection && forSidebar && !window.ProjectGroups.containsCollection(project, group.groupId)) return false;
+        if (!inCollection && !window.ProjectGroups.matchesCategory(project, AppState.projectGroups, AppState.contentQuery.projectType)) return false;
         if (this.contentCollectionKind() === 'project-repositories' && project.rootIsGitRepo !== true) return false;
         if (!window.ContentQuery.matchesAttributes({
           type: 'directory',
@@ -4765,7 +4788,7 @@ const App = {
         }, AppState.contentQuery)) return false;
         if (!query) return true;
         const repositoryText = (project.repositories || []).map(repo => repo.relativePath).join(' ');
-        return `${project.name} ${project.description} ${project.path} ${project.lifecycle} ${repositoryText}`.toLowerCase().includes(query);
+        return `${project.name} ${project.description} ${project.path} ${project.lifecycle} ${(project.memberProjects || []).map(member => `${member.name} ${member.path}`).join(' ')} ${repositoryText}`.toLowerCase().includes(query);
       });
   },
 
@@ -4782,7 +4805,7 @@ const App = {
       const query = AppState.searchScope === 'current' ? AppState.searchQuery.trim().toLowerCase() : '';
       const projects = this.filteredLocalProjects();
       this.projectShortcutsController.render();
-      AppState.visibleItems = projects.map(project => ({
+      AppState.visibleItems = projects.filter(project => !project.isProjectCollection).map(project => ({
         type: 'directory',
         name: project.name,
         path: project.path,
@@ -4814,9 +4837,10 @@ const App = {
         this.updateStatusBar();
         return;
       }
-      AppState.fileDisplayOrder = projects.map(project => project.path);
+      AppState.fileDisplayOrder = projects.map(project => project.path).filter(Boolean);
       AppState.selectedPaths = new Set([...AppState.selectedPaths].filter(path => AppState.fileDisplayOrder.includes(path)));
       contentArea.innerHTML = `<div class="local-project-grid" data-size="${cardSize}" role="listbox" aria-label="项目" aria-multiselectable="true">${projects.map(project => {
+        if (project.isProjectCollection) return this.getProjectCollectionCardHtml(project);
         const projectItem = { isProject: true, project };
         const lifecycle = window.FileBrowser.projectLifecycleLabel(projectItem);
         const repositories = (project.repositories || []).slice(0, 2);
@@ -4843,7 +4867,7 @@ const App = {
           </article>`;
       }).join('')}</div>`;
       contentArea.querySelectorAll('.local-project-card').forEach(card => {
-        card.setAttribute('role', 'option');
+        card.setAttribute('role', card.dataset.collectionId ? 'group' : 'option');
         card.setAttribute('aria-label', card.querySelector('h3').textContent);
       });
       this.bindCardEvents(contentArea);
@@ -4856,6 +4880,17 @@ const App = {
     } finally {
       AppState.localProjectsLoading = false;
     }
+  },
+
+  getProjectCollectionCardHtml(project) {
+    const escape = value => this.escapeHtml(value);
+    return `<article class="local-project-card project-collection-card" data-collection-id="${escape(project.projectId)}">
+      <header>${this.getItemKindIconHtml({ type: 'directory', isProject: true, project }, 'local-project-icon')}<div><h3 title="${escape(project.name)}">${escape(project.name)}</h3><div class="local-project-path">${project.memberProjects.length} 个子项目</div></div><span class="project-lifecycle-badge">大项目</span></header>
+      <p title="${escape(project.description)}">${escape(project.description || project.memberProjects.map(member => member.name).join('、'))}</p>
+      <div class="local-project-repo-heading"><span>关联仓库</span><strong>${project.repositoryCount}</strong></div>
+      <ul class="local-project-repositories">${project.memberProjects.slice(0, 2).map(member => `<li title="${escape(member.path)}">${escape(member.name)}</li>`).join('')}${project.memberProjects.length > 2 ? `<li>另有 ${project.memberProjects.length - 2} 个成员…</li>` : ''}${project.missingMemberCount ? `<li>${project.missingMemberCount} 个成员位置暂不可用</li>` : ''}</ul>
+      <footer><button class="btn btn-small" data-app-action="edit-project-collection">项目设置</button><button class="btn btn-small" data-app-action="collection-repositories">查看仓库</button><button class="btn btn-small btn-primary" data-app-action="open-project-collection">打开项目</button></footer>
+    </article>`;
   },
 
   async chooseLocalProjectDirectory() {
@@ -5519,9 +5554,7 @@ const App = {
     if (repositoryCollection && AppState.contentQuery.projectType) {
       filtered = filtered.filter(repo => {
         const project = window.ProjectShortcuts.findProjectForPath(AppState.localProjects, repo.path, window.gitFinder.platform);
-        return AppState.contentQuery.projectType === 'unclassified'
-          ? !project || !AppState.projectGroups.some(group => group.projectIds.includes(project.projectId))
-          : AppState.projectGroups.some(group => group.groupId === AppState.contentQuery.projectType && group.projectIds.includes(project?.projectId));
+        return window.ProjectGroups.repositoryMatchesType(project, AppState.projectGroups, AppState.contentQuery.projectType);
       });
     }
     const selected = repositoryCollection
@@ -6737,7 +6770,7 @@ const App = {
       };
       AppState.projectDialog = { path: projectPath, existing: identity.isProject };
       typeOptions.innerHTML = typeStore.groups.length
-        ? typeStore.groups.map(group => `<label><input type="checkbox" data-local-project-type="${this.escapeHtml(group.groupId)}"${group.projectIds.includes(project.projectId) ? ' checked' : ''}><span>${this.escapeHtml(group.name)}</span></label>`).join('')
+        ? typeStore.groups.filter(group => group.kind !== 'collection').map(group => `<label><input type="checkbox" data-local-project-type="${this.escapeHtml(group.groupId)}"${group.projectIds.includes(project.projectId) ? ' checked' : ''}><span>${this.escapeHtml(group.name)}</span></label>`).join('')
         : '<span class="file-operation-hint">暂无项目类型，可在左侧“项目类型”中新建。</span>';
       document.getElementById('local-project-title').textContent = identity.isProject ? '项目设置' : '设为项目';
       document.getElementById('local-project-path').textContent = projectPath;
@@ -6788,7 +6821,7 @@ const App = {
       const choices = new Map([...document.querySelectorAll('[data-local-project-type]')]
         .map(input => [input.dataset.localProjectType, input.checked]));
       const typeStore = await window.gitFinder.projectGroups.list();
-      for (const group of typeStore.groups) {
+      for (const group of typeStore.groups.filter(group => group.kind !== 'collection')) {
         if (!choices.has(group.groupId) || choices.get(group.groupId) === group.projectIds.includes(result.projectId)) continue;
         const projectIds = group.projectIds.filter(id => id !== result.projectId);
         if (choices.get(group.groupId)) projectIds.push(result.projectId);
@@ -7987,7 +8020,7 @@ const App = {
     } else if (['projects', 'project-repositories'].includes(this.contentCollectionKind())) {
       const visibleProjects = this.contentCollectionKind() === 'project-repositories'
         ? AppState.localProjects.filter(project => project.rootIsGitRepo === true)
-        : AppState.localProjects;
+        : this.projectEntries();
       const totalRepositories = AppState.localProjects.reduce((total, project) => total + Number(project.repositoryCount || 0), 0);
       leftText = `所有位置 · ${visibleProjects.length} 个本地项目`;
       rightText = `${totalRepositories} 个内部仓库 · 项目身份与 Git 属性独立`;

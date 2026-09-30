@@ -52,6 +52,16 @@
 
     bindCardElements(elements) {
       elements.forEach(element => {
+        if (element.dataset.collectionId) {
+          element.tabIndex = 0;
+          element.addEventListener('click', event => {
+            if (!event.target.closest('button, input, select, textarea, a')) this.app.applyProjectType(element.dataset.collectionId);
+          });
+          element.addEventListener('keydown', event => {
+            if (event.target === element && event.key === 'Enter') { event.preventDefault(); this.app.applyProjectType(element.dataset.collectionId); }
+          });
+          return;
+        }
         this.app.bindFileDragSource(element);
         element.addEventListener('click', event => {
           if (event.target?.closest?.('button, input, select, textarea, a')) return;

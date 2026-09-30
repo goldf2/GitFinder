@@ -924,13 +924,14 @@
       <header class="modal-header">
         <div>
           <h3 id="project-group-title">新建项目类型</h3>
-          <div class="external-import-description">项目类型仅用于分类筛选；父子项目关系由真实目录决定，不移动或修改项目目录。</div>
+          <div class="external-import-description" id="project-group-explanation">项目类型用于分类筛选。</div>
         </div>
         <button class="modal-close" id="project-group-close-btn" type="button" aria-label="关闭项目类型设置">×</button>
       </header>
       <div class="modal-body project-group-form">
+        <div class="form-group" id="project-collection-category-field" hidden><label for="project-collection-category">项目类别</label><select id="project-collection-category"></select></div>
         <div class="form-group">
-          <label for="project-group-name">项目类型名称</label>
+          <label for="project-group-name" id="project-group-name-label">项目类型名称</label>
           <input type="text" id="project-group-name" maxlength="160" autocomplete="off" placeholder="例如：AI 工具链">
         </div>
         <div class="form-group">

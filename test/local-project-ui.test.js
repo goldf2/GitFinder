@@ -29,7 +29,7 @@ test('文件夹可从右键菜单和详情入口设为项目', () => {
   assert.match(html, /id="detail-project-settings"/);
   assert.match(appSource, /data-project-id="\$\{this\.escapeHtml\(project\.projectId\)\}"/);
   assert.match(appSource, /data-path="\$\{this\.escapeHtml\(project\.path\)\}" data-type="directory"/);
-  assert.match(appSource, /AppState\.visibleItems = projects\.map\(project =>/);
+  assert.match(appSource, /AppState\.visibleItems = projects\.filter\(project => !project\.isProjectCollection\)\.map\(project =>/);
   assert.match(appSource, /openSelectedProjectSettings\(\)/);
   assert.match(selectionDetailSource, /data-app-action="file-project-settings"/);
   assert.doesNotMatch(appSource.slice(appSource.indexOf("  async renderProjectsView("), appSource.indexOf("  _prepareDisplayRepos(")), /data-app-action="choose-local-project"/);
@@ -55,7 +55,7 @@ test('项目页支持创建项目组并选择多个子项目，项目组不修�
   assert.match(html, /id="project-group-projects"[^>]+multiple/);
   assert.match(appSource, /loadProjectGroups\(\)/);
   assert.match(appSource, /applyProjectType\(projectType\)/);
-  assert.match(appSource, /projectsForType/);
+  assert.match(appSource, /matchesCategory/);
   assert.doesNotMatch(appSource, /project-group-grid|project-group-card/);
   assert.match(html, /id="project-type-delete-btn"/);
   assert.match(preload, /projectGroups:\s*\{/);
