@@ -72,7 +72,8 @@ function createHarness() {
       localProjects: { list: async () => [project] }
     },
     app: {
-      applyContentPreset() {},
+      applyContentPreset(preset) { this.lastPreset = preset; },
+      applyCurrentContentPreset(preset) { this.lastPreset = preset; },
       contentCollectionKind: () => '',
       escapeHtml: value => String(value),
       getItemKindIconHtml: () => '<span class="icon"></span>',
@@ -113,18 +114,20 @@ test('项目树显示全部项目，展开后显示现有关联仓库并可打�
   assert.equal(controller.toggleExpandedProject('missing'), false);
 });
 
-test('项目类型默认为一个折叠入口，类型不替代项目目录树', async () => {
+test('项目按类型展开并合并原平铺项目目录', async () => {
   const { controller, state, container } = createHarness();
   state.projectGroups = [{ groupId: 'project_group_22222222-2222-4222-8222-222222222222', name: '创作类', projectIds: [project.projectId] }];
   await controller.load();
   assert.match(container.innerHTML, /项目类型/);
-  assert.doesNotMatch(container.innerHTML, /data-project-type="/);
-  assert.match(container.innerHTML, /data-project-shortcut-id="/);
+  assert.match(container.innerHTML, /data-project-type="/);
+  assert.doesNotMatch(container.innerHTML, /data-project-shortcut-id="/);
+  controller.expandedTypeIds.add('projects:project_group_22222222-2222-4222-8222-222222222222');
   controller.projectTypesExpanded = true;
   controller.render();
   assert.match(container.innerHTML, /data-project-type="project_group_22222222-2222-4222-8222-222222222222"/);
   assert.match(container.innerHTML, /data-project-type="unclassified"/);
-  assert.match(container.innerHTML, /项目目录/);
+  assert.doesNotMatch(container.innerHTML, /项目目录/);
+  assert.match(container.innerHTML, /data-type-toggle=/);
   assert.doesNotMatch(container.innerHTML, /data-project-group-toggle/);
 });
 
@@ -160,6 +163,7 @@ test('修改项目区偏好立即更新侧边栏，清除最近记录保留其�
 
   await controller.savePreferences({ visible: true, showRecent: true, recentLimit: 3 });
   await controller.setNavigationMode('projects');
+  assert.equal(controller.app.lastPreset, 'all-projects');
   assert.equal(section.hidden, false);
   assert.match(container.innerHTML, /所有项目/);
   assert.match(container.innerHTML, /最近/);
@@ -186,12 +190,13 @@ test('保存项目后可先局部更新侧边栏，不必等待全量项目扫�
   assert.match(container.innerHTML, /Alpha 更新/);
 });
 
-test('项目、Git 仓库与目录只切换侧栏，并记住选择', async () => {
+test('项目、Git 仓库与目录同时切换主显示区，并记住选择', async () => {
   const { controller, state, section, repositories, locations, tabs, container, repositoryContainer, writes } = createHarness();
   await controller.load();
   assert.equal(state.sidebarNavigationMode, 'directories');
   assert.equal(locations.hidden, false);
   await controller.setNavigationMode('projects');
+  assert.equal(controller.app.lastPreset, 'all-projects');
   assert.equal(section.hidden, false);
   assert.equal(locations.hidden, true);
   assert.equal(tabs.projects.attributes['aria-selected'], 'true');
@@ -199,6 +204,7 @@ test('项目、Git 仓库与目录只切换侧栏，并记住选择', async () =
   assert.equal(tabs.directories.tabIndex, -1);
   assert.equal(state.currentPath, project.path);
   await controller.setNavigationMode('repositories');
+  assert.equal(controller.app.lastPreset, 'all-repositories');
   assert.equal(section.hidden, true);
   assert.equal(repositories.hidden, false);
   assert.equal(locations.hidden, true);
@@ -211,12 +217,14 @@ test('项目、Git 仓库与目录只切换侧栏，并记住选择', async () =
   assert.equal(state.sidebarNavigationMode, 'repositories');
   assert.ok(writes.some(([key, value]) => key === 'sidebarNavigationMode' && value === 'repositories'));
   await controller.setNavigationMode('projects');
+  assert.equal(controller.app.lastPreset, 'all-projects');
   state.localProjects = [];
   state.projectShortcuts = ProjectShortcuts.defaultStore();
   controller.render();
   assert.equal(section.hidden, false);
   assert.match(container.innerHTML, /所有项目/);
   await controller.setNavigationMode('directories');
+  assert.equal(controller.app.lastPreset, 'current-all');
   assert.equal(section.hidden, true);
   assert.equal(locations.hidden, false);
   await controller.setNavigationMode('invalid');
@@ -229,7 +237,7 @@ test('项目目录和仓库列表采用主内容区的筛选，固定/最近记�
   state.localProjects.push(other);
   controller.app.filteredLocalProjects = () => [other];
   await controller.load();
-  const directory = container.innerHTML.split('项目目录')[1];
+  const directory = container.innerHTML.split('data-type-members=')[1];
   assert.match(directory, /Other/);
   assert.doesNotMatch(directory, /data-project-shortcut-path="\/workspace\/alpha"/);
   controller.app._prepareDisplayRepos = () => [{ path: '/workspace/one', name: 'One' }, { path: '/workspace/two', name: 'Two' }];
@@ -238,4 +246,29 @@ test('项目目录和仓库列表采用主内容区的筛选，固定/最近记�
   const repositoryContainer = controller.document.getElementById('repository-shortcuts-list');
   assert.match(repositoryContainer.innerHTML, /Two/);
   assert.doesNotMatch(repositoryContainer.innerHTML, />One</);
+});
+
+test('最近仓库去重、按最近访问排序并可重新加载', async () => {
+  const { controller } = createHarness();
+  await controller.load();
+  await controller.recordRepositoryVisit('/workspace/alpha/repo');
+  await controller.recordRepositoryVisit('/workspace/other/repo');
+  await controller.recordRepositoryVisit('/workspace/alpha/repo');
+  assert.deepEqual(controller.recentRepositoryPaths, ['/workspace/alpha/repo', '/workspace/other/repo']);
+  controller.recentRepositoryPaths = [];
+  await controller.load();
+  assert.deepEqual(controller.recentRepositoryPaths, ['/workspace/alpha/repo', '/workspace/other/repo']);
+});
+
+test('类型展开只显示该类型成员，不因物理嵌套带入其他类型的子项目', async () => {
+  const { controller, state, container } = createHarness();
+  const child = { ...project, projectId: 'project_22222222-2222-4222-8222-222222222222', path: '/workspace/alpha/child', name: 'Other type child' };
+  const typeA = 'project_group_aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  state.localProjects.push(child);
+  state.projectGroups = [{ groupId: typeA, name: 'A', projectIds: [project.projectId] }, { groupId: 'project_group_bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', name: 'B', projectIds: [child.projectId] }];
+  controller.expandedTypeIds.add(`projects:${typeA}`);
+  controller.expandedProjectIds.add(project.projectId);
+  await controller.load();
+  assert.match(container.innerHTML, /data-project-shortcut-id="project_11111111/);
+  assert.doesNotMatch(container.innerHTML, /data-project-shortcut-id="project_22222222/);
 });

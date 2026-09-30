@@ -1868,3 +1868,11 @@ body {
   font-size: 12px;
   white-space: nowrap;
 }
+
+#sort-menu-trigger { gap: 5px; }
+#sort-menu { max-height: calc(100vh - 70px); overflow-y: auto; }
+#project-display-options[hidden], #directory-display-options[hidden] { display: none; }
+@media (max-width: 1100px) { .toolbar .app-version-badge { display: none; } }
+@media (max-width: 900px) { #sort-menu-label { display: none; } }
+
+@media (max-width: 900px) { .toolbar-left { min-width: 230px; } }

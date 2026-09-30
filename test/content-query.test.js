@@ -228,3 +228,11 @@ test('仓库分类作为全局仓库查询条件保存，不形成独立视图',
     repositoryCategory: 'group-tools'
   }).repositoryCategory, 'all');
 });
+
+test('所属项目类型在全局仓库筛选中保留，离开集合后清除', () => {
+  const projectType = 'project_group_aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  const query = ContentQuery.normalize({ ...ContentQuery.queryForPreset('all-repositories'), projectType });
+  assert.equal(query.projectType, projectType);
+  assert.equal(ContentQuery.collectionKind(query), 'repositories');
+  assert.equal(ContentQuery.normalize({ ...query, scope: 'current' }).projectType, '');
+});

@@ -195,6 +195,7 @@
     updateBreadcrumbs() {
       const container = this.document.getElementById('current-path');
       if (!container) return;
+      container.removeAttribute?.('title');
       if (this.state.currentMode === 'settings') {
         container.textContent = '应用设置';
         return;
@@ -214,16 +215,17 @@
       const collectionKind = this.state.currentMode === 'tree'
         ? this.contentQuery?.collectionKind(this.state.contentQuery)
         : '';
-      if (collectionKind === 'projects') {
-        container.textContent = '所有受管位置 · 项目';
+      if (collectionKind === 'projects' || collectionKind === 'project-repositories') {
+        const group = this.state.projectGroups?.find(item => item.groupId === this.state.contentQuery?.projectType);
+        const label = group?.name || (this.state.contentQuery?.projectType ? '未分类' : '所有项目');
+        const count = this.app.filteredLocalProjects?.().length;
+        container.textContent = `${label}${Number.isInteger(count) ? ` · ${count}` : ''}`;
+        container.title = container.textContent;
         return;
       }
       if (collectionKind === 'repositories') {
-        container.textContent = '所有受管位置 · Git 仓库';
-        return;
-      }
-      if (collectionKind === 'project-repositories') {
-        container.textContent = '所有受管位置 · 项目 + Git 仓库';
+        const type = this.state.projectGroups?.find(item => item.groupId === this.state.contentQuery?.projectType);
+        container.textContent = this.state.contentQuery?.projectType ? `${type?.name || '未分类'} · Git 仓库` : '所有 Git 仓库';
         return;
       }
       if (this.state.currentMode !== 'tree' || !this.state.currentPath) {

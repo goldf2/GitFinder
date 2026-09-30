@@ -12,7 +12,7 @@ const css = fs.readFileSync(path.join(projectRoot, 'src/renderer/styles/sidebar.
 
 test('类型行紧凑横排，编辑按钮常显且类型设置保留新增和删除入口', () => {
   assert.match(controllerSource, /class="project-type-row"/);
-  assert.match(css, /\.project-type-row\s*\{[\s\S]*?display: grid;[\s\S]*?grid-template-columns: minmax\(0, 1fr\) 40px;/);
+  assert.match(css, /\.project-type-row\s*\{[\s\S]*?display: grid;[\s\S]*?grid-template-columns: 18px minmax\(0, 1fr\) 40px;/);
   assert.match(controllerSource, /class="project-type-edit"[^>]+data-project-type-edit/);
   assert.doesNotMatch(controllerSource, /class="project-shortcut-pin"[^>]+data-project-type-edit/);
   assert.match(controllerSource, /新建项目类型/);
@@ -47,7 +47,7 @@ test('项目快捷入口显示固定与最近项目，进入目录仍使用统�
   assert.ok(html.indexOf('../shared/projectShortcuts.js') < html.indexOf('scripts/app.js'));
   assert.ok(html.indexOf('scripts/projectShortcutsController.js') < html.indexOf('scripts/app.js'));
   assert.match(controllerSource, /project-shortcut-heading">已固定/);
-  assert.match(controllerSource, /project-shortcut-heading">最近/);
+  assert.match(controllerSource, /data-recent-toggle[\s\S]*?<span>最近<\/span>/);
   assert.match(controllerSource, /async open\(projectId\)[\s\S]*?this\.app\.openLocalProject\(project\.path\)/);
   assert.match(navigationSource, /recordProjectVisit\?\.\(path\)/);
   assert.match(css, /\.project-shortcut-row/);

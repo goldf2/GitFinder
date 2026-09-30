@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-30T17:18:44+08:00",
+  "updatedAt": "2026-09-30T18:53:48+08:00",
   "scope": "以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。",
   "baseline": {
     "version": "2.0.0-alpha.193",
     "sourceCommit": "99eef1d2992e389f32a48182a25fda3b9adf1958",
     "evidence": "docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md"
   },
-  "nextTaskId": "GF-DATA-001",
+  "nextTaskId": "GF-UI-215",
   "milestones": [
     {
       "id": "GF-P0",
@@ -1320,6 +1320,39 @@
         "version": "2.0.0-alpha.214",
         "sourceCommit": "58a337c5c9b7fbcf477d21b6d9b94b029a8254b5"
       }
+    },
+    {
+      "id": "GF-UI-215",
+      "milestone": "GF-P1",
+      "title": "标题栏显示控制与最近/类型侧栏",
+      "priority": "P1",
+      "status": "in_progress",
+      "owner": "Codex",
+      "updatedAt": "2026-09-30T18:53:48+08:00",
+      "dependsOn": [],
+      "sourcePaths": [
+        "src/renderer/index.html",
+        "src/renderer/scripts/app.js",
+        "src/renderer/scripts/directoryNavigationController.js",
+        "src/renderer/scripts/projectShortcutsController.js",
+        "src/renderer/styles/main.css",
+        "src/renderer/scripts/contentQuery.js",
+        "src/renderer/scripts/repositoryDetailController.js",
+        "src/main/services/configService.js",
+        "scripts/verify-titlebar-sidebar.js"
+      ],
+      "acceptance": [
+        "项目类型标题和显示控制置于顶部标题栏，卡片大小在显示控制菜单内，移除设为项目按钮并保留右键。",
+        "左侧最近优先、类型可展开，Git仓库按所属项目类型提供相同逻辑。",
+        "点击项目、Git仓库、目录导航同步主显示区，类型筛选同步左右列表。",
+        "完成源码、隔离应用、安装版验收与推送，保护已有dirty。"
+      ],
+      "evidence": [
+        "docs/00-handoff/TITLEBAR_ALPHA215.md"
+      ],
+      "nextAction": "源码及隔离应用验证通过；提交、干净克隆打包、安装版验收后推送。",
+      "blocker": "",
+      "userAcceptance": "pending"
     }
   ]
 }

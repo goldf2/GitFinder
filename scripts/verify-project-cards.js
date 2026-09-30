@@ -53,7 +53,7 @@ async function main() {
     for (const width of [1560, 900, 620]) {
       await send('Emulation.setDeviceMetricsOverride', { width, height: 980, deviceScaleFactor: 1, mobile: false });
       for (const size of ['small', 'medium', 'large']) {
-        await evaluate(`(()=>{const e=document.querySelector('#project-card-size');e.value=${JSON.stringify(size)};e.dispatchEvent(new Event('change',{bubbles:true}));})()`); await delay(60);
+        await evaluate(`(()=>{document.querySelector('[data-project-card-size="'+${JSON.stringify(size)}+'"]').click();})()`); await delay(60);
         await check(`${width}px ${size}: cards, descriptions and actions align without clipped buttons`, aligned);
         if (width === 1560 && size === 'medium') await shot('cards-medium.png');
       }

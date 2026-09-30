@@ -89,6 +89,38 @@
         </div>
       </div>
       <div class="toolbar-right">
+          <div class="finder-menu-host" id="directory-sort-menu-host">
+            <button class="finder-toolbar-button" id="sort-menu-trigger" title="显示控制" aria-label="显示控制" aria-haspopup="menu" aria-expanded="false" aria-controls="sort-menu" data-menu-trigger="sort-menu" type="button">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3" fill="var(--bg-secondary)"/><circle cx="15" cy="17" r="3" fill="var(--bg-secondary)"/></svg><span id="sort-menu-label">显示控制</span> <span class="finder-menu-chevron" aria-hidden="true">⌄</span>
+            </button>
+            <div class="finder-menu finder-menu-wide finder-menu-align-end" id="sort-menu" role="menu" hidden aria-label="排列与显示选项">
+              <div id="project-display-options" hidden><div class="finder-menu-heading">项目卡片大小</div><button class="finder-menu-item" data-project-card-size="small" role="menuitemradio" aria-checked="false" type="button"><span class="finder-menu-check" aria-hidden="true">✓</span><span>小</span></button><button class="finder-menu-item" data-project-card-size="medium" role="menuitemradio" aria-checked="false" type="button"><span class="finder-menu-check" aria-hidden="true">✓</span><span>中</span></button><button class="finder-menu-item" data-project-card-size="large" role="menuitemradio" aria-checked="false" type="button"><span class="finder-menu-check" aria-hidden="true">✓</span><span>大</span></button></div>
+              <div id="directory-display-options"><div class="finder-menu-heading">排列</div>
+              <button class="sort-btn finder-menu-item active" data-sort="name" type="button" role="menuitemradio" aria-checked="true"><span class="finder-menu-check" aria-hidden="true">✓</span><span>名称</span></button>
+              <button class="sort-btn finder-menu-item" data-sort="path" type="button" role="menuitemradio" aria-checked="false"><span class="finder-menu-check" aria-hidden="true">✓</span><span>路径</span></button>
+              <button class="sort-btn finder-menu-item" data-sort="dir" type="button" role="menuitemradio" aria-checked="false"><span class="finder-menu-check" aria-hidden="true">✓</span><span>目录</span></button>
+              <button class="sort-btn finder-menu-item" data-sort="status" type="button" role="menuitemradio" aria-checked="false"><span class="finder-menu-check" aria-hidden="true">✓</span><span>Git 状态</span></button>
+              <button class="sort-btn finder-menu-item" data-sort="time" type="button" role="menuitemradio" aria-checked="false"><span class="finder-menu-check" aria-hidden="true">✓</span><span>修改时间</span></button>
+              <button class="sort-btn finder-menu-item" data-sort="size" type="button" role="menuitemradio" aria-checked="false"><span class="finder-menu-check" aria-hidden="true">✓</span><span>大小</span></button>
+              <button class="sort-btn finder-menu-item" data-sort="branch" type="button" role="menuitemradio" aria-checked="false"><span class="finder-menu-check" aria-hidden="true">✓</span><span>分支</span></button>
+              <div class="finder-menu-separator" role="separator"></div>
+              <div class="finder-menu-heading">方向</div>
+              <button class="dir-btn finder-menu-item active" data-dir="asc" type="button" role="menuitemradio" aria-checked="true"><span class="finder-menu-check" aria-hidden="true">✓</span><span>升序</span></button>
+              <button class="dir-btn finder-menu-item" data-dir="desc" type="button" role="menuitemradio" aria-checked="false"><span class="finder-menu-check" aria-hidden="true">✓</span><span>降序</span></button>
+              <div class="finder-menu-separator" role="separator"></div>
+              <div class="finder-menu-heading">视图</div>
+              <button class="style-btn finder-menu-item active" data-style="card" type="button" role="menuitemradio" aria-checked="true"><span class="finder-menu-check" aria-hidden="true">✓</span><span>图标</span><kbd>⌘1</kbd></button>
+              <button class="style-btn finder-menu-item" data-style="list" type="button" role="menuitemradio" aria-checked="false"><span class="finder-menu-check" aria-hidden="true">✓</span><span>列表</span><kbd>⌘2</kbd></button>
+              <button class="style-btn finder-menu-item" data-style="column" type="button" role="menuitemradio" aria-checked="false"><span class="finder-menu-check" aria-hidden="true">✓</span><span>分栏</span><kbd>⌘3</kbd></button>
+              <button class="style-btn finder-menu-item" data-style="gallery" type="button" role="menuitemradio" aria-checked="false"><span class="finder-menu-check" aria-hidden="true">✓</span><span>图库</span><kbd>⌘4</kbd></button>
+              <div class="finder-menu-separator" role="separator"></div>
+              <div class="finder-menu-heading">显示</div>
+              <button class="finder-menu-item finder-menu-command" id="toggle-hidden-files" type="button" role="menuitemcheckbox" aria-checked="false"><span class="finder-menu-check" aria-hidden="true">✓</span><span>显示隐藏项目</span><kbd>⌘⇧.</kbd></button>
+              <div class="finder-menu-separator" role="separator"></div>
+              <button class="finder-menu-item finder-menu-command" id="directory-performance-diagnostics" type="button" role="menuitem" disabled><span>性能诊断…</span><small>当前目录本次读取</small></button>
+              </div>
+            </div>
+          </div>
         <button class="btn btn-small" id="toggle-sidebar" type="button" aria-expanded="true" aria-controls="sidebar">左侧栏</button>
         <button class="btn btn-small" id="toggle-detail-panel" type="button" aria-expanded="true" aria-controls="detail-panel">详情栏</button>
         <span id="app-version" class="app-version-badge" title="点击检查更新">v-</span>
@@ -291,37 +323,7 @@
               <button class="content-preset-btn finder-menu-item" data-content-preset="all-repositories" type="button" role="menuitemradio" aria-checked="false"><span class="finder-menu-check" aria-hidden="true">✓</span><span>所有 Git 仓库</span></button>
             </div>
           </div>
-          <span class="sort-divider directory-type-divider" id="directory-type-divider"></span>
-          <div class="finder-menu-host" id="directory-sort-menu-host">
-            <button class="sort-btn finder-menu-trigger" id="sort-menu-trigger" aria-haspopup="menu" aria-expanded="false" aria-controls="sort-menu" data-menu-trigger="sort-menu" type="button">
-              <span id="sort-menu-label">名称 · 升序 · 图标</span> <span class="finder-menu-chevron" aria-hidden="true">⌄</span>
-            </button>
-            <div class="finder-menu finder-menu-wide finder-menu-align-end" id="sort-menu" role="menu" hidden aria-label="排列与显示选项">
-              <div class="finder-menu-heading">排列</div>
-              <button class="sort-btn finder-menu-item active" data-sort="name" type="button" role="menuitemradio" aria-checked="true"><span class="finder-menu-check" aria-hidden="true">✓</span><span>名称</span></button>
-              <button class="sort-btn finder-menu-item" data-sort="path" type="button" role="menuitemradio" aria-checked="false"><span class="finder-menu-check" aria-hidden="true">✓</span><span>路径</span></button>
-              <button class="sort-btn finder-menu-item" data-sort="dir" type="button" role="menuitemradio" aria-checked="false"><span class="finder-menu-check" aria-hidden="true">✓</span><span>目录</span></button>
-              <button class="sort-btn finder-menu-item" data-sort="status" type="button" role="menuitemradio" aria-checked="false"><span class="finder-menu-check" aria-hidden="true">✓</span><span>Git 状态</span></button>
-              <button class="sort-btn finder-menu-item" data-sort="time" type="button" role="menuitemradio" aria-checked="false"><span class="finder-menu-check" aria-hidden="true">✓</span><span>修改时间</span></button>
-              <button class="sort-btn finder-menu-item" data-sort="size" type="button" role="menuitemradio" aria-checked="false"><span class="finder-menu-check" aria-hidden="true">✓</span><span>大小</span></button>
-              <button class="sort-btn finder-menu-item" data-sort="branch" type="button" role="menuitemradio" aria-checked="false"><span class="finder-menu-check" aria-hidden="true">✓</span><span>分支</span></button>
-              <div class="finder-menu-separator" role="separator"></div>
-              <div class="finder-menu-heading">方向</div>
-              <button class="dir-btn finder-menu-item active" data-dir="asc" type="button" role="menuitemradio" aria-checked="true"><span class="finder-menu-check" aria-hidden="true">✓</span><span>升序</span></button>
-              <button class="dir-btn finder-menu-item" data-dir="desc" type="button" role="menuitemradio" aria-checked="false"><span class="finder-menu-check" aria-hidden="true">✓</span><span>降序</span></button>
-              <div class="finder-menu-separator" role="separator"></div>
-              <div class="finder-menu-heading">视图</div>
-              <button class="style-btn finder-menu-item active" data-style="card" type="button" role="menuitemradio" aria-checked="true"><span class="finder-menu-check" aria-hidden="true">✓</span><span>图标</span><kbd>⌘1</kbd></button>
-              <button class="style-btn finder-menu-item" data-style="list" type="button" role="menuitemradio" aria-checked="false"><span class="finder-menu-check" aria-hidden="true">✓</span><span>列表</span><kbd>⌘2</kbd></button>
-              <button class="style-btn finder-menu-item" data-style="column" type="button" role="menuitemradio" aria-checked="false"><span class="finder-menu-check" aria-hidden="true">✓</span><span>分栏</span><kbd>⌘3</kbd></button>
-              <button class="style-btn finder-menu-item" data-style="gallery" type="button" role="menuitemradio" aria-checked="false"><span class="finder-menu-check" aria-hidden="true">✓</span><span>图库</span><kbd>⌘4</kbd></button>
-              <div class="finder-menu-separator" role="separator"></div>
-              <div class="finder-menu-heading">显示</div>
-              <button class="finder-menu-item finder-menu-command" id="toggle-hidden-files" type="button" role="menuitemcheckbox" aria-checked="false"><span class="finder-menu-check" aria-hidden="true">✓</span><span>显示隐藏项目</span><kbd>⌘⇧.</kbd></button>
-              <div class="finder-menu-separator" role="separator"></div>
-              <button class="finder-menu-item finder-menu-command" id="directory-performance-diagnostics" type="button" role="menuitem" disabled><span>性能诊断…</span><small>当前目录本次读取</small></button>
-            </div>
-          </div>
+
         </div>
         <div class="content-scroll" id="content-scroll">
           <section id="xiangshu-panel-view" aria-label="应用面板" hidden>

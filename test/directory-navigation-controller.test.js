@@ -279,10 +279,10 @@ test('面包屑转义特殊目录名，并为工作区和全局筛选显示明�
   state.currentMode = 'tree';
   state.contentQuery = ContentQuery.queryForPreset('all-projects');
   controller.updateBreadcrumbs();
-  assert.equal(elements.get('current-path').textContent, '所有受管位置 · 项目');
+  assert.equal(elements.get('current-path').textContent, '所有项目');
   state.contentQuery = ContentQuery.queryForPreset('all-repositories');
   controller.updateBreadcrumbs();
-  assert.equal(elements.get('current-path').textContent, '所有受管位置 · Git 仓库');
+  assert.equal(elements.get('current-path').textContent, '所有 Git 仓库');
 });
 
 test('导航按钮显示真实的前后和 Windows 上级目标', () => {

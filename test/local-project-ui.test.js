@@ -23,7 +23,7 @@ test('项目与仓库作为内容筛选而不是顶层工作区入口', () => {
   assert.match(appSource, /repositoryCount/);
 });
 
-test('文件夹可从工具栏、右键菜单和详情入口设为项目', () => {
+test('文件夹可从右键菜单和详情入口设为项目', () => {
   assert.match(html, /id="file-project-settings"/);
   assert.match(html, /data-context-action="project"/);
   assert.match(html, /id="detail-project-settings"/);
@@ -32,8 +32,7 @@ test('文件夹可从工具栏、右键菜单和详情入口设为项目', () =>
   assert.match(appSource, /AppState\.visibleItems = projects\.map\(project =>/);
   assert.match(appSource, /openSelectedProjectSettings\(\)/);
   assert.match(selectionDetailSource, /data-app-action="file-project-settings"/);
-  assert.match(appSource, /data-app-action="choose-local-project"/);
-  assert.match(appSource, /选择文件夹并设为项目…/);
+  assert.doesNotMatch(appSource.slice(appSource.indexOf("  async renderProjectsView("), appSource.indexOf("  _prepareDisplayRepos(")), /data-app-action="choose-local-project"/);
   assert.match(appSource, /window\.gitFinder\.fs\.selectFolder\(\)/);
 });
 
@@ -56,7 +55,7 @@ test('项目页支持创建项目组并选择多个子项目，项目组不修�
   assert.match(html, /id="project-group-projects"[^>]+multiple/);
   assert.match(appSource, /loadProjectGroups\(\)/);
   assert.match(appSource, /applyProjectType\(projectType\)/);
-  assert.match(appSource, /项目类型用于筛选/);
+  assert.match(appSource, /projectsForType/);
   assert.doesNotMatch(appSource, /project-group-grid|project-group-card/);
   assert.match(html, /id="project-type-delete-btn"/);
   assert.match(preload, /projectGroups:\s*\{/);

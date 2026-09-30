@@ -75,14 +75,14 @@ async function main() {
     await check('访达操作在项目卡片和右键菜单可发现', "document.querySelectorAll('[data-app-action=reveal-local-project]').length===3&&!!document.querySelector('[data-context-action=reveal]')");
     for (const width of [1560, 900, 620]) {
       await send('Emulation.setDeviceMetricsOverride', { width, height: 980, deviceScaleFactor: 1, mobile: false });
-      await check(`${width}px项目头部紧凑且不溢出`, `(()=>{const e=document.querySelector('.local-project-view-toolbar');return e.getBoundingClientRect().height<=${width===620?76:40}&&e.scrollWidth<=e.clientWidth;})()`);
+      await check(`${width}px项目头部紧凑且不溢出`, `(()=>{const e=document.querySelector('.toolbar');return e.getBoundingClientRect().height<=76&&e.scrollWidth<=e.clientWidth;})()`);
       if (width===1560) await shot('compact-header.png');
     }
     await send('Emulation.clearDeviceMetricsOverride');
-    await evaluate(`App.applyProjectType(${JSON.stringify(groups[1])})`);await wait("!AppState.localProjectsLoading&&document.querySelectorAll('.local-project-card').length===1");
-    await check('项目类型筛选同时作用于左侧项目目录和右侧卡片', `(()=>{const h=document.querySelector('#project-shortcuts-list').innerHTML.split('项目目录')[1];return h.includes(${JSON.stringify(directories[2])})&&!h.includes(${JSON.stringify(directories[0])})&&!h.includes(${JSON.stringify(directories[1])});})()`);
-    await evaluate("App.applyContentPreset('all-projects');AppState.searchQuery='短简介';AppState.searchScope='current'");await evaluate('App.renderProjectsView(false)');
-    await check('项目名称搜索左右一致', "document.querySelectorAll('.local-project-card').length===1&&document.querySelector('#project-shortcuts-list').innerHTML.split('项目目录')[1].includes('短简介项目')&&!document.querySelector('#project-shortcuts-list').innerHTML.split('项目目录')[1].includes('长简介')");
+    await evaluate(`App.projectShortcutsController.expandedTypeIds.add('projects:${groups[1]}');App.applyProjectType(${JSON.stringify(groups[1])})`);await wait("!AppState.localProjectsLoading&&document.querySelectorAll('.local-project-card').length===1");
+    await check('项目类型筛选同时作用于左侧项目目录和右侧卡片', `(()=>{const h=document.querySelector('#project-shortcuts-list').querySelector('[data-type-members]').innerHTML;return h.includes(${JSON.stringify(directories[2])})&&!h.includes(${JSON.stringify(directories[0])})&&!h.includes(${JSON.stringify(directories[1])});})()`);
+    await evaluate(`App.projectShortcutsController.expandedTypeIds=new Set(['projects:${groups[0]}']);App.applyContentPreset('all-projects');AppState.searchQuery='短简介';AppState.searchScope='current'`);await evaluate('App.renderProjectsView(false)');
+    await check('项目名称搜索左右一致', "document.querySelectorAll('.local-project-card').length===1&&document.querySelector('#project-shortcuts-list').querySelector('[data-type-members]').innerHTML.includes('短简介项目')&&!document.querySelector('#project-shortcuts-list').querySelector('[data-type-members]').innerHTML.includes('长简介')");
     await evaluate("AppState.searchQuery='';App.applyContentPreset('all-projects')");
     await click('#sidebar-navigation-directories');
     await click('#sidebar-tree .tree-node.is-root .tree-node-edit');

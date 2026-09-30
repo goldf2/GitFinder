@@ -524,6 +524,7 @@ const App = {
       if (action === 'choose-unavailable-location') this.openFolderDialog();
       if (action === 'add-root') this.addTreeRootDialog();
       if (action === 'tree-mode') this.switchMode('tree');
+      if (action === 'browse-directories') this.projectShortcutsController.setNavigationMode('directories');
       if (action === 'open-local-project') this.openLocalProject(event.target.closest('[data-project-path]')?.dataset.projectPath);
       if (action === 'reveal-local-project') window.gitFinder.fs.showInFinder(event.target.closest('[data-project-path]')?.dataset.projectPath).catch(error => this._showStatusMessage(error.message, 'error'));
       if (action === 'edit-local-project') this.openLocalProjectDialog(event.target.closest('[data-project-path]')?.dataset.projectPath);
@@ -1617,6 +1618,16 @@ const App = {
   setupToolbarMenus() {
     if (this._toolbarMenusBound) return;
     this._toolbarMenusBound = true;
+    document.querySelectorAll('[data-project-card-size]').forEach(button => {
+      button.addEventListener('click', () => {
+        AppState.projectCardSize = button.dataset.projectCardSize;
+        const grid = document.querySelector('.local-project-grid');
+        if (grid) grid.dataset.size = AppState.projectCardSize;
+        this.updateToolbarMenuState();
+        window.gitFinder.config.set('projectCardSize', AppState.projectCardSize)
+          .catch(error => this._showStatusMessage(error.message, 'error'));
+      });
+    });
     const triggers = [...document.querySelectorAll('[data-menu-trigger]')];
 
     triggers.forEach(trigger => {
@@ -1648,7 +1659,7 @@ const App = {
         if (item && !item.disabled) this.closeToolbarMenus();
       });
       menu.addEventListener('keydown', event => {
-        const items = [...menu.querySelectorAll('.finder-menu-item:not(:disabled)')];
+        const items = [...menu.querySelectorAll('.finder-menu-item:not(:disabled)')].filter(item => !item.closest('[hidden]'));
         if (!items.length) return;
         const currentIndex = Math.max(0, items.indexOf(document.activeElement));
         let nextIndex = null;
@@ -1693,7 +1704,7 @@ const App = {
     trigger.closest('.finder-menu-host')?.classList.add('open');
     if (!focusFirst) return;
     requestAnimationFrame(() => {
-      const items = [...menu.querySelectorAll('.finder-menu-item:not(:disabled)')];
+      const items = [...menu.querySelectorAll('.finder-menu-item:not(:disabled)')].filter(item => !item.closest('[hidden]'));
       (fromEnd ? items.at(-1) : items[0])?.focus();
     });
   },
@@ -1710,7 +1721,6 @@ const App = {
 
   updateToolbarMenuState() {
     const viewLabels = { tree: '文件浏览', dashboard: '仪表盘', tasks: '开发任务', relationships: '关系白板', panel: '应用面板', settings: '设置' };
-    const sortLabels = { name: '名称', path: '路径', dir: '目录', status: 'Git 状态', time: '修改时间', size: '大小', branch: '分支' };
     const viewLabel = document.getElementById('view-menu-label');
     if (viewLabel) viewLabel.textContent = viewLabels[AppState.currentMode] || '文件浏览';
     const activeWorkspaceView = AppState.currentMode;
@@ -1746,14 +1756,16 @@ const App = {
       hiddenToggle.setAttribute('aria-checked', AppState.showHiddenFiles ? 'true' : 'false');
     }
     this.directoryPerformanceController.updateMenu();
-    const sortLabel = document.getElementById('sort-menu-label');
-    if (sortLabel) {
-      const direction = AppState.sortOrder === 'desc' ? '降序' : '升序';
-      const style = effectiveStyle === 'list'
-        ? '列表'
-        : (effectiveStyle === 'column' ? '分栏' : (effectiveStyle === 'gallery' ? '图库' : '图标'));
-      sortLabel.textContent = `${sortLabels[AppState.sortBy] || '名称'} · ${direction} · ${style}`;
-    }
+    const projects = ['projects', 'project-repositories'].includes(this.contentCollectionKind());
+    const projectOptions = document.getElementById('project-display-options');
+    const directoryOptions = document.getElementById('directory-display-options');
+    if (projectOptions) projectOptions.hidden = !projects;
+    if (directoryOptions) directoryOptions.hidden = projects;
+    document.querySelectorAll('[data-project-card-size]').forEach(button => {
+      const active = button.dataset.projectCardSize === (AppState.projectCardSize || 'medium');
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-checked', String(active));
+    });
   },
 
   _showStatusMessage(msg, type) {
@@ -3848,12 +3860,10 @@ const App = {
     const filterBar = document.getElementById('filter-bar');
     const fileActionBar = document.getElementById('file-action-bar');
     const directoryTypeFilter = document.getElementById('directory-type-filter');
-    const directoryTypeDivider = document.getElementById('directory-type-divider');
     const directorySortMenuHost = document.getElementById('directory-sort-menu-host');
     const showDirectoryTypeFilter = AppState.currentMode === 'tree' && !this.isGlobalSearchActive();
-    const showDirectorySortMenu = !projectsMode;
+    const showDirectorySortMenu = !tasksMode && !settingsMode && !relationshipsMode && !panelMode;
     if (directoryTypeFilter) directoryTypeFilter.style.display = showDirectoryTypeFilter ? 'inline-flex' : 'none';
-    if (directoryTypeDivider) directoryTypeDivider.style.display = showDirectoryTypeFilter && showDirectorySortMenu ? '' : 'none';
     if (directorySortMenuHost) directorySortMenuHost.style.display = showDirectorySortMenu ? '' : 'none';
     this.updateDirectoryTypeFilterUI();
     if (tasksMode || settingsMode || relationshipsMode || panelMode) {
@@ -4623,13 +4633,6 @@ const App = {
 
     let displayRepos = this._prepareDisplayRepos();
 
-    if (!displayRepos.length) {
-      contentArea.innerHTML = '';
-      this.updateDirectoryTypeFilterUI();
-      this.updateStatusBar();
-      return;
-    }
-
     this._renderGridContent(displayRepos, contentArea);
 
     if (!AppState.repoEnrichmentComplete || forceRefresh) {
@@ -4788,28 +4791,23 @@ const App = {
         project,
         modifiedTime: project.modifiedTime
       }));
-      const activeType = AppState.projectGroups.find(group => group.groupId === AppState.contentQuery.projectType);
-      const typeLabel = activeType?.name || (AppState.contentQuery.projectType ? '未分类' : '所有项目');
       const storedSize = await window.gitFinder.config.get('projectCardSize');
-      const cardSize = ['small', 'medium', 'large'].includes(storedSize) ? storedSize : 'medium';
-      const projectsToolbar = `
-        <div class="local-project-view-toolbar">
-          <h2 title="项目类型用于筛选；项目与子项目按真实目录层级显示。"><span class="local-project-view-label">${this.escapeHtml(typeLabel)}</span><span class="local-project-count">${projects.length}</span></h2>
-          <label class="local-project-size-control">卡片大小 <select id="project-card-size" aria-label="项目卡片大小">${[['small', '小'], ['medium', '中'], ['large', '大']].map(([value, label]) => `<option value="${value}"${cardSize === value ? ' selected' : ''}>${label}</option>`).join('')}</select></label>
-          <button class="btn btn-small" data-app-action="choose-local-project" type="button" title="选择文件夹并设为项目" aria-label="选择文件夹并设为项目">设为项目…</button>
-        </div>`;
+      AppState.projectCardSize = ['small', 'medium', 'large'].includes(storedSize) ? storedSize : 'medium';
+      const cardSize = AppState.projectCardSize;
+      this.updateBreadcrumbs();
+      this.updateToolbarMenuState();
       if (!projects.length) {
         const emptyActions = query
           ? '<button class="btn" data-app-action="refresh-local-projects" type="button">重新扫描</button>'
           : `<div class="local-project-empty-actions">
-              <button class="btn btn-primary" data-app-action="choose-local-project" type="button">选择文件夹并设为项目…</button>
+              <button class="btn" data-app-action="browse-directories" type="button">浏览目录</button>
               <button class="btn" data-app-action="open-settings" type="button">打开应用设置</button>
             </div>`;
-        contentArea.innerHTML = `${projectsToolbar}
+        contentArea.innerHTML = `
           <div class="local-project-empty">
             <div class="empty-icon">📁</div>
             <strong>${query || AppState.contentQuery.projectType ? '没有匹配的项目' : '尚未设置本地项目'}</strong>
-            <span>${query || AppState.contentQuery.projectType ? '清除搜索条件或选择左侧“所有项目”。' : '选择一个文件夹建立项目身份；也可以在目录页的“操作”菜单中设置。Git 仓库不会自动成为项目。'}</span>
+            <span>${query || AppState.contentQuery.projectType ? '清除搜索条件或选择左侧“所有项目”。' : '在目录中右键文件夹，选择“项目设置”建立项目身份。'}</span>
             ${emptyActions}
           </div>`;
         this.updateDirectoryTypeFilterUI();
@@ -4818,7 +4816,7 @@ const App = {
       }
       AppState.fileDisplayOrder = projects.map(project => project.path);
       AppState.selectedPaths = new Set([...AppState.selectedPaths].filter(path => AppState.fileDisplayOrder.includes(path)));
-      contentArea.innerHTML = `${projectsToolbar}<div class="local-project-grid" data-size="${cardSize}" role="listbox" aria-label="项目" aria-multiselectable="true">${projects.map(project => {
+      contentArea.innerHTML = `<div class="local-project-grid" data-size="${cardSize}" role="listbox" aria-label="项目" aria-multiselectable="true">${projects.map(project => {
         const projectItem = { isProject: true, project };
         const lifecycle = window.FileBrowser.projectLifecycleLabel(projectItem);
         const repositories = (project.repositories || []).slice(0, 2);
@@ -4851,12 +4849,6 @@ const App = {
       this.bindCardEvents(contentArea);
       this.syncFileSelectionUI();
       this.showFileSelectionDetail(this.getSelectedFileItems());
-      contentArea.querySelector('#project-card-size').addEventListener('change', event => {
-        const size = event.target.value;
-        if (!['small', 'medium', 'large'].includes(size)) return;
-        contentArea.querySelector('.local-project-grid').dataset.size = size;
-        window.gitFinder.config.set('projectCardSize', size);
-      });
       this.updateDirectoryTypeFilterUI();
       this.updateStatusBar();
     } catch (error) {
@@ -4892,7 +4884,7 @@ const App = {
     AppState.visibleItems = filtered;
     this.projectShortcutsController.render();
 
-    // 平铺展示：所有仓库一个网格，分类只作为筛选条件，不再形成侧栏导航分区。
+    // 主区平铺筛选后的仓库，与侧栏类型成员共享筛选结果。
     if (AppState.cardStyle === 'list') {
       this.renderListView(filtered, contentArea);
     } else {
@@ -5523,6 +5515,14 @@ const App = {
         type: 'directory',
         isGitRepo: true
       }, repositoryQuery));
+    }
+    if (repositoryCollection && AppState.contentQuery.projectType) {
+      filtered = filtered.filter(repo => {
+        const project = window.ProjectShortcuts.findProjectForPath(AppState.localProjects, repo.path, window.gitFinder.platform);
+        return AppState.contentQuery.projectType === 'unclassified'
+          ? !project || !AppState.projectGroups.some(group => group.projectIds.includes(project.projectId))
+          : AppState.projectGroups.some(group => group.groupId === AppState.contentQuery.projectType && group.projectIds.includes(project?.projectId));
+      });
     }
     const selected = repositoryCollection
       ? []

@@ -250,7 +250,7 @@
 
 .project-type-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 40px;
+  grid-template-columns: 18px minmax(0, 1fr) 40px;
   align-items: center;
   gap: 2px;
   margin: 1px 4px;
@@ -779,3 +779,9 @@
 .tree-node-edit { flex-shrink: 0; border: 0; background: transparent; color: var(--text-secondary); font-size: 11px; padding: 3px 5px; border-radius: 4px; cursor: pointer; opacity: 0; }
 .tree-node.is-root:hover .tree-node-edit, .tree-node-edit:focus-visible { opacity: 1; }
 .tree-node-edit:hover { background: var(--bg-hover); }
+
+.sidebar-type-members { padding-left: 18px; }
+.sidebar-section-toggle { width: 100%; font-size: 11px; color: var(--text-secondary); margin-top: 10px; }
+.project-type-row > .tree-node-toggle { flex-shrink: 0; }
+
+.project-type-row:not(:has(.project-type-edit)) > .sidebar-shortcut-open { grid-column: 2 / -1; }

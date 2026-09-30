@@ -74,6 +74,7 @@
         };
         this.terminal?.setCwd?.(repoPath);
         await this.render();
+        if (info.isGitRepo) void this.app.projectShortcutsController?.recordRepositoryVisit(repoPath);
         return true;
       } catch (error) {
         if (requestId !== this.selectionRequestId) return false;

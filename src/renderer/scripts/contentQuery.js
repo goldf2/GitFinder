@@ -219,7 +219,7 @@
     if (!(query.scope === 'all' && query.repositoryOnly && !query.projectOnly)) {
       query.repositoryCategory = 'all';
     }
-    if (!(query.scope === 'all' && query.projectOnly)) query.projectType = '';
+    if (!(query.scope === 'all' && (query.projectOnly || query.repositoryOnly))) query.projectType = '';
     return query;
   }
 

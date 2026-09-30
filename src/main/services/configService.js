@@ -31,6 +31,7 @@ const RENDERER_PREFERENCE_KEYS = new Set([
   'sidebarNavigationMode',
   'smartCollections',
   'projectShortcuts',
+  'recentRepositoryPaths',
   'projectGroups',
   'projectShortcutPreferences',
   'sidebarWidth',
