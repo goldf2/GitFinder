@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-30T19:45:30+08:00",
+  "updatedAt": "2026-09-30T19:47:49+08:00",
   "scope": "以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。",
   "baseline": {
     "version": "2.0.0-alpha.193",
     "sourceCommit": "99eef1d2992e389f32a48182a25fda3b9adf1958",
     "evidence": "docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md"
   },
-  "nextTaskId": "GF-SIDEBAR-217",
+  "nextTaskId": "GF-DATA-001",
   "milestones": [
     {
       "id": "GF-P0",
@@ -1393,9 +1393,9 @@
       "milestone": "GF-P1",
       "title": "恢复左侧独立项目列表与嵌套导航",
       "priority": "P1",
-      "status": "in_progress",
+      "status": "delivered",
       "owner": "Codex",
-      "updatedAt": "2026-09-30T19:45:30+08:00",
+      "updatedAt": "2026-09-30T19:47:49+08:00",
       "dependsOn": [],
       "sourcePaths": [
         "src/renderer/scripts/projectShortcutsController.js"
@@ -1408,9 +1408,13 @@
       "evidence": [
         "docs/00-handoff/SIDEBAR_LIST_ALPHA217.md"
       ],
-      "nextAction": "1439测试/301JS和37项源码界面通过；干净打包、安装验证后推送。",
+      "nextAction": "独立项目列表已安装并推送，37项安装交互及真实59项/商城子项目导航通过。等待用户反馈；仓库目录/项目联动属于新讨论，尚未实现。",
       "blocker": "",
-      "userAcceptance": "pending"
+      "userAcceptance": "pending",
+      "delivery": {
+        "version": "2.0.0-alpha.217",
+        "sourceCommit": "3d3815ef8067d410c3b48c1a6e12ba63a0975b7c"
+      }
     }
   ]
 }
