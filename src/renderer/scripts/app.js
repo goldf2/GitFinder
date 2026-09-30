@@ -4890,6 +4890,11 @@ const App = {
       contentArea.innerHTML = `<div class="local-project-empty"><strong>项目扫描失败</strong><span>${this.escapeHtml(error?.message || String(error))}</span><button class="btn" data-app-action="refresh-local-projects" type="button">重试</button></div>`;
     } finally {
       AppState.localProjectsLoading = false;
+      if (renderRequestId !== AppState.directoryRenderRequestId
+        && !AppState.workspaceRepository && !AppState.workspaceProject
+        && ['projects', 'project-repositories'].includes(this.contentCollectionKind())) {
+        void this.renderContent();
+      }
     }
   },
 

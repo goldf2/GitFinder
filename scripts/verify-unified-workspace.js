@@ -55,6 +55,9 @@ async function main() {
     await wait("typeof App!=='undefined'&&typeof AppState!=='undefined'&&AppState.localProjects.length===3");
     await click('#sidebar-navigation-projects');await wait("!AppState.localProjectsLoading&&!!document.querySelector('.project-collection-card')");
     await check('导航合并为工作区和文件浏览',"document.querySelectorAll('#sidebar-navigation [role=tab]').length===2&&document.querySelector('#sidebar-navigation-projects').textContent==='工作区'&&document.querySelector('#sidebar-navigation-directories').textContent==='文件浏览'");
+    await evaluate(`(async()=>{const refresh=App.refreshProjectShortcuts;let release;App.refreshProjectShortcuts=()=>new Promise(r=>{release=r});const pending=App.renderProjectsView();await App.renderContent();App.refreshProjectShortcuts=refresh;release();await pending;})()`);
+    await wait("!AppState.localProjectsLoading&&!!document.querySelector('.project-collection-card')");
+    await check('连续刷新项目列表后显示最新内容',"!!document.querySelector('.local-project-grid')");
     await check('统一树包含项目类别和所有仓库入口',`!!document.querySelector('#sidebar-project-list [data-project-collection="${parentId}"]')&&!!document.querySelector('#project-shortcuts-list [data-repository-shortcut-all]')&&document.querySelector('#repository-shortcuts-sidebar-section').hidden`);
     await click(`#sidebar-project-list [data-project-collection="${parentId}"]`);await wait("!AppState.localProjectsLoading&&document.querySelectorAll('.local-project-card').length===2");
     await click(`#sidebar-project-list [data-project-collection="${childId}"]`);await wait("!AppState.localProjectsLoading&&document.querySelectorAll('.local-project-card').length===2&&!document.querySelector('.project-collection-card')");
