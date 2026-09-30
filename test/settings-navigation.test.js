@@ -16,6 +16,7 @@ test('设置分类保持稳定顺序并规范化外部深链接', () => {
       'settings-appearance',
       'settings-panel-provider',
       'settings-developer-tools',
+      'settings-maintenance',
       'settings-projects',
       'settings-testing',
       'settings-updates'

@@ -75,6 +75,7 @@
       const selection = await this.bridge.fs.selectFolder();
       if (!selection?.path) return false;
       await this.addRoot(selection.path, undefined, selection.grantToken);
+      await this.app.workspaceToolsController?.openLocation(selection.path);
       return true;
     }
 
@@ -199,7 +200,7 @@
           ${this.app.getItemKindIconHtml(directoryItem, 'tree-node-icon')}
           <span class="tree-node-name" title="${safePath}">${safeName}</span>
           ${available ? '' : '<span class="tree-node-badge">位置不可用</span>'}
-          ${isRoot ? `<button class="tree-node-remove" type="button" aria-label="移除位置 ${safeName}" title="从位置列表移除（不会删除磁盘文件）">×</button>` : ''}
+          ${isRoot ? `<button class="tree-node-edit" type="button" aria-label="修改位置显示名称 ${safeName}" title="修改位置显示名称">编辑</button><button class="tree-node-remove" type="button" aria-label="移除位置 ${safeName}" title="从位置列表移除（不会删除磁盘文件）">×</button>` : ''}
         </div>`;
 
       if (isExpanded) {
@@ -228,6 +229,10 @@
         const toggle = node.querySelector('.tree-node-toggle');
         const name = node.querySelector('.tree-node-name');
         const remove = node.querySelector('.tree-node-remove');
+        node.querySelector('.tree-node-edit')?.addEventListener('click', event => {
+          event.stopPropagation();
+          this.app.workspaceToolsController?.openLocation(pathValue).catch(error => this.app._showStatusMessage(error.message, 'error'));
+        });
         const pathValue = node.dataset.path;
         const unavailable = node.getAttribute('aria-disabled') === 'true';
 

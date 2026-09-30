@@ -261,7 +261,7 @@ class WorkspaceContentService {
       modifiedTime: stat.mtime.toISOString()
     };
 
-    if (stat.isDirectory()) return this._previewDirectory(realPath, base);
+    if (stat.isDirectory()) return this._previewDirectory(realPath, base, options);
     if (!stat.isFile()) {
       return { ...base, kind: 'unsupported', reason: '暂不支持预览此项目类型' };
     }
@@ -412,22 +412,30 @@ class WorkspaceContentService {
     return { ...base, kind: 'thumbnail', mimeType: 'image/png', dataUrl, cached: false };
   }
 
-  async _previewDirectory(realPath, base) {
-    const entries = await fs.promises.readdir(realPath, { withFileTypes: true });
-    const directories = entries.filter(entry => entry.isDirectory()).length;
-    const files = entries.filter(entry => entry.isFile()).length;
-    const symlinks = entries.filter(entry => entry.isSymbolicLink()).length;
+  async _previewDirectory(realPath, base, options = {}) {
+    const allEntries = await fs.promises.readdir(realPath, { withFileTypes: true });
+    const entries = allEntries.filter(entry => options.showHidden !== false || !entry.name.startsWith('.'));
+    const thumbnails = [];
+    if (options.directoryThumbnails === true) {
+      const candidates = entries.filter(entry => entry.isFile() && IMAGE_TYPES.has(path.extname(entry.name).toLowerCase())).slice(0, 8);
+      for (const entry of candidates) {
+        try {
+          const thumbnail = await this.getThumbnail(path.join(base.path, entry.name));
+          if (thumbnail.kind === 'thumbnail') thumbnails.push({ name: entry.name, dataUrl: thumbnail.dataUrl });
+        } catch { /* A removed or unreadable image must not prevent folder counts. */ }
+        if (thumbnails.length === 4) break;
+      }
+    }
     return {
       ...base,
       kind: 'directory',
-      isGitRepo: entries.some(entry => entry.name === '.git' && entry.isDirectory()),
-      directoryCount: directories,
-      fileCount: files,
-      symlinkCount: symlinks,
-      samples: entries
-        .filter(entry => !entry.name.startsWith('.'))
-        .slice(0, 12)
-        .map(entry => ({ name: entry.name, type: entry.isDirectory() ? 'directory' : 'file' }))
+      isGitRepo: allEntries.some(entry => entry.name === '.git' && (entry.isDirectory() || entry.isFile())),
+      directoryCount: entries.filter(entry => entry.isDirectory()).length,
+      fileCount: entries.filter(entry => entry.isFile()).length,
+      symlinkCount: entries.filter(entry => entry.isSymbolicLink()).length,
+      thumbnails,
+      samples: entries.filter(entry => options.showHidden === true || !entry.name.startsWith('.')).slice(0, 12)
+        .map(entry => ({ name: entry.name, type: entry.isSymbolicLink() ? 'symlink' : entry.isDirectory() ? 'directory' : 'file' }))
     };
   }
 

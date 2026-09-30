@@ -155,6 +155,8 @@
             <div><strong>${finiteCount(preview.fileCount)}</strong><span>文件</span></div>
             <div><strong>${finiteCount(preview.symlinkCount)}</strong><span>符号链接</span></div>
           </div>
+          <div class="directory-preview-images">${(preview.thumbnails || []).filter(image => SAFE_IMAGE_DATA_URL.test(String(image.dataUrl || ''))).slice(0, 4).map(image => `<img src="${image.dataUrl}" alt="${escapeHtml(image.name)}">`).join('')}</div>
+          <small>本层内容</small>
           <div class="finder-gallery-samples">${samples || '<div class="finder-gallery-empty-preview">此目录没有可显示的普通项目</div>'}</div>
         </div>`
       };

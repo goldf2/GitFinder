@@ -1,9 +1,9 @@
 # GitFinder 2 下一步
 
 <!-- BEGIN NEXT_ACTIONS -->
-## GF-DATA-001 · 补齐保存中断与登记失败恢复
+## 当前唯一接续：GF-UI-214 / alpha.214 安装与验收
 
-GF-PROJECT-213已安装验证并推送；仅等待用户对卡片与类型入口的体验反馈。先阅读 [SAVE_CONFLICTS_ALPHA212.md](SAVE_CONFLICTS_ALPHA212.md)，在隔离临时目录/子进程补保存中断与资源库登记失败的最小用例；不在真实白板制造故障，不把正常退出重启当作崩溃恢复。
+从本轮源码提交干净构建macOS开发包，备份alpha.213，验证安装版项目/仓库筛选和目录预览，再推送main。不得删除Trading兼容链接或混入原有dirty。GF-DATA-001继续暂缓。
 <!-- END NEXT_ACTIONS -->
 
 ## 历史兼容记录（以下旧下一步已被顶部接续块取代）

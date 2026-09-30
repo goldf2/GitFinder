@@ -775,3 +775,7 @@
 .sidebar-item:hover .sidebar-item-remove {
   display: flex;
 }
+
+.tree-node-edit { flex-shrink: 0; border: 0; background: transparent; color: var(--text-secondary); font-size: 11px; padding: 3px 5px; border-radius: 4px; cursor: pointer; opacity: 0; }
+.tree-node.is-root:hover .tree-node-edit, .tree-node-edit:focus-visible { opacity: 1; }
+.tree-node-edit:hover { background: var(--bg-hover); }

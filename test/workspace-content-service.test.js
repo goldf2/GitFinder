@@ -752,3 +752,35 @@ test('索引达到上限时按广度覆盖多个受管根目录', async (t) => {
   assert.deepEqual(result.items.map(item => item.name), ['other-root-target.md']);
   assert.equal(result.truncated, true);
 });
+
+test('目录缩略图只读取本层真实图片，数量遵循隐藏开关且不跟随链接', async t => {
+  const { firstRoot, tempRoot, service } = createFixture(t, { createThumbnail: async () => 'data:image/png;base64,YQ==' });
+  fs.mkdirSync(path.join(firstRoot, 'child'));
+  fs.mkdirSync(path.join(firstRoot, '.hidden'));
+  fs.writeFileSync(path.join(firstRoot, 'child', 'nested.png'), 'image');
+  fs.writeFileSync(path.join(firstRoot, 'readme.txt'), 'text');
+  fs.writeFileSync(path.join(firstRoot, '.secret.png'), 'image');
+  for (let i = 0; i < 6; i++) fs.writeFileSync(path.join(firstRoot, `${i}.png`), 'image');
+  fs.writeFileSync(path.join(tempRoot, 'outside.png'), 'image');
+  fs.symlinkSync(path.join(tempRoot, 'outside.png'), path.join(firstRoot, 'link.png'));
+  const preview = await service.getPreview(firstRoot, { showHidden: false, directoryThumbnails: true });
+  assert.equal(preview.fileCount, 7);
+  assert.equal(preview.directoryCount, 1);
+  assert.equal(preview.symlinkCount, 1);
+  assert.equal(preview.thumbnails.length, 4);
+  assert.ok(preview.thumbnails.every(image => !image.name.startsWith('.') && image.name !== 'link.png' && image.name !== 'nested.png'));
+  const hidden = await service.getPreview(firstRoot, { showHidden: true });
+  assert.equal(hidden.fileCount, 8);
+  assert.equal(hidden.directoryCount, 2);
+  assert.equal(hidden.thumbnails.length, 0);
+  await assert.rejects(service.getPreview(tempRoot, { directoryThumbnails: true }), /受管/);
+});
+
+test('单张图片预览失败不影响目录统计和其他缩略图', async t => {
+  const { firstRoot, service } = createFixture(t, { createThumbnail: async name => { if (name.endsWith('bad.png')) throw Error('Unreadable'); return 'data:image/png;base64,YQ=='; } });
+  fs.writeFileSync(path.join(firstRoot, 'bad.png'), 'bad');
+  fs.writeFileSync(path.join(firstRoot, 'good.png'), 'good');
+  const preview = await service.getPreview(firstRoot, { directoryThumbnails: true });
+  assert.equal(preview.fileCount, 2);
+  assert.deepEqual(preview.thumbnails.map(image => image.name), ['good.png']);
+});

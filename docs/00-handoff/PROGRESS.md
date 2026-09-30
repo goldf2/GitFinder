@@ -2,18 +2,18 @@
 
 > 自动生成。只编辑 `management/development-tasks.json`，然后执行 `npm run handoff:update`。
 
-更新时间：2026-09-30T12:28:14+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
+更新时间：2026-09-30T17:03:24+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
 
 核验基线：2.0.0-alpha.193 / `99eef1d2992e389f32a48182a25fda3b9adf1958`；证据：[docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md](LAYOUT_OPTIONS_ALPHA193.md)。
 
-**唯一下一任务：GF-DATA-001**
+**唯一下一任务：GF-UI-214**
 
 ## 阶段汇总
 
 | 阶段 | 纳入任务 | 已交付 | 开发中/已验证 | 阻塞/暂缓 |
 | --- | ---: | ---: | ---: | ---: |
 | GF-P0 接续工程 | 2 | 2 | 0 | 0 |
-| GF-P1 桌面稳定 | 21 | 16 | 0 | 1 |
+| GF-P1 桌面稳定 | 22 | 16 | 1 | 1 |
 | GF-P2 可维护与性能 | 4 | 0 | 0 | 0 |
 | GF-P3 可分发 | 7 | 0 | 2 | 3 |
 | GF-P4 全流程事件 | 5 | 0 | 0 | 1 |
@@ -68,6 +68,7 @@
 | GF-CONTAINER-HEADER-001 | P0 | 已交付 | ChatGPT / AgentDock Cloudflare | 嵌套容器标题安全区与拖拽防重叠 |
 | GF-SAVE-212 | P1 | 已交付 | AgentDock-ChatGPT | 白板内容版本校验与保存冲突保护 |
 | GF-PROJECT-213 | P1 | 已交付 | Codex | 项目卡片对齐与文件夹项目类型入口 |
+| GF-UI-214 | P1 | 开发中 | Codex | 工作区工具入口、同步筛选与目录预览 |
 
 ## 可执行任务卡
 
@@ -851,3 +852,25 @@
 证据：[docs/00-handoff/PROJECT_CARDS_ALPHA213.md](PROJECT_CARDS_ALPHA213.md)
 
 交付：2.0.0-alpha.213；源码 `6d14ac1ba6a90adaef6a3147dfb918aa4223855d`。
+
+### GF-UI-214 · 工作区工具入口、同步筛选与目录预览
+
+阶段：GF-P1；优先级：P1；状态：**开发中**；负责人：Codex；用户验收：待用户反馈。
+
+更新：2026-09-30T17:03:24+08:00。依赖：无。
+
+**验收标准**
+1. 位置别名可新增/修改/恢复默认，目录路径不变。
+2. 已存在的用户功能具备前端入口，内部/兼容接口列出用途，不重复制造入口。
+3. 项目标题、卡片尺寸和设为项目按钮紧凑显示，窄窗口不溢出。
+4. 完成源码、隔离UI、可追溯构建、安装及推送。
+5. 左侧项目目录保留，并与右侧共享筛选；Git仓库列表同理。
+6. 临时文件与制品备份默认不扫描成项目，明确添加的位置仍可扫描。
+7. 项目卡片与右键可在访达显示。
+8. 目录卡片与图库显示本层图片缩略图、文件及文件夹数量，遵循隐藏开关。
+
+**接续动作：** 源码1430/1430、301JS、项目17/17、工具29/29通过，待干净构建和安装验收。
+
+源码/设计入口：[src/renderer/scripts/sidebarTreeController.js](../../src/renderer/scripts/sidebarTreeController.js)；[src/renderer/scripts/app.js](../../src/renderer/scripts/app.js)；[src/renderer/styles/content.css](../../src/renderer/styles/content.css)。
+
+证据：[docs/00-handoff/FRONTEND_TOOLS_ALPHA214.md](FRONTEND_TOOLS_ALPHA214.md)

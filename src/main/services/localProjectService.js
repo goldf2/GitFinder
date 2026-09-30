@@ -13,7 +13,7 @@ const PROJECT_LIFECYCLES = Object.freeze([
   'inbox', 'planned', 'active', 'validation', 'deployed', 'maintenance', 'paused', 'frozen', 'abandoned', 'archived'
 ]);
 const SCAN_SKIPPED_DIRECTORIES = new Set([
-  '.git', '.gitfinder', 'node_modules', 'dist', 'build', '.cache', '.next', '.turbo', 'coverage'
+  '.git', '.gitfinder', 'node_modules', 'dist', 'build', '.cache', '.next', '.turbo', 'coverage', '临时文件', '制品与备份'
 ]);
 
 class LocalProjectService {

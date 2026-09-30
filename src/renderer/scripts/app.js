@@ -183,6 +183,8 @@ const App = {
       document,
       onStatusMessage: (message, tone) => this._showStatusMessage(message, tone),
     });
+    this.workspaceToolsController = new window.WorkspaceToolsController.Controller({ app: this, state: AppState, bridge: window.gitFinder, document });
+    document.getElementById('detail-repository-tools')?.addEventListener('click', () => { if (AppState.selectedRepo) this.workspaceToolsController.openRepository(AppState.selectedRepo.path); });
     this.setupEventListeners();
     // 初始化内嵌终端
     if (typeof Terminal !== 'undefined') {
@@ -523,6 +525,7 @@ const App = {
       if (action === 'add-root') this.addTreeRootDialog();
       if (action === 'tree-mode') this.switchMode('tree');
       if (action === 'open-local-project') this.openLocalProject(event.target.closest('[data-project-path]')?.dataset.projectPath);
+      if (action === 'reveal-local-project') window.gitFinder.fs.showInFinder(event.target.closest('[data-project-path]')?.dataset.projectPath).catch(error => this._showStatusMessage(error.message, 'error'));
       if (action === 'edit-local-project') this.openLocalProjectDialog(event.target.closest('[data-project-path]')?.dataset.projectPath);
       if (action === 'show-relationship-resource') {
         const button = event.target.closest('[data-relationship-kind]');
@@ -538,6 +541,7 @@ const App = {
       if (action === 'edit-project-group') this.openProjectGroupDialog(event.target.closest('[data-project-group-id]')?.dataset.projectGroupId);
       if (action === 'delete-project-group') this.deleteProjectGroup(event.target.closest('[data-project-group-id]')?.dataset.projectGroupId);
       if (action === 'open-settings') this.openSettingsPage();
+      if (action === 'open-repository-maintenance') this.workspaceToolsController.openMaintenance();
       if (action === 'close-settings') this.closeSettingsPage();
       if (action === 'save-settings') this.saveAppSettings();
       if (action === 'clear-directory-view-preferences') this.clearDirectoryViewPreferences();
@@ -1191,6 +1195,11 @@ const App = {
             </div>
             <div class="developer-git-status" id="developer-git-status"></div>
           </div>
+        </section>
+
+        <section class="app-settings-section" id="settings-maintenance" role="tabpanel" aria-labelledby="settings-navigation-maintenance">
+          <div class="app-settings-section-heading"><h2>仓库维护</h2><p>查看活跃及归档登记、恢复与清除记录、重新计算标识、按目录生成仓库分组。</p></div>
+          <div class="app-settings-controls"><button class="btn" type="button" data-app-action="open-repository-maintenance">打开仓库维护…</button></div>
         </section>
 
         <section class="app-settings-section" id="settings-projects" role="tabpanel" aria-labelledby="settings-navigation-projects">
@@ -4322,6 +4331,7 @@ const App = {
     const elements = [...template.content.children];
     target.appendChild(template.content);
     this.bindCardElements(elements);
+    this.bindDirectoryPreviews(elements);
     elements.forEach(element => this.syncFileItemElement(element));
     if (typeof afterBind === 'function') afterBind(elements);
     return elements;
@@ -4373,6 +4383,7 @@ const App = {
   async renderContent() {
     if (this.isExperimentalViewEnabled?.(AppState.currentMode) === false) { AppState.currentMode = 'tree'; this.updateModeUI(); }
     this.cancelDirectoryItemRendering('view-changed');
+    this.directoryPreviewLoader?.disconnect();
     AppState.galleryPreviewRequestId += 1;
     const renderRequestId = ++AppState.directoryRenderRequestId;
     const renderContext = this.createDirectoryRenderContext(renderRequestId);
@@ -4737,18 +4748,9 @@ const App = {
     }
   },
 
-  async renderProjectsView(forceRefresh = false) {
-    const contentArea = document.getElementById('content-area');
-    const emptyState = document.getElementById('empty-state');
-    if (emptyState) emptyState.style.display = 'none';
-    if (AppState.localProjectsLoading) return;
-    AppState.localProjectsLoading = true;
-    contentArea.innerHTML = '<div style="text-align:center;padding:40px;color:#86868b;"><div class="loading-spinner" style="margin:0 auto 10px;"></div>正在识别本地项目与内部仓库…</div>';
-    try {
-      await this.refreshProjectShortcuts(forceRefresh);
-      this.updateDirectoryTypeFilterUI();
-      const query = AppState.searchScope === 'current' ? AppState.searchQuery.trim().toLowerCase() : '';
-      const projects = AppState.localProjects.filter(project => {
+  filteredLocalProjects() {
+    const query = AppState.searchScope === 'current' ? AppState.searchQuery.trim().toLowerCase() : '';
+    return AppState.localProjects.filter(project => {
         if (!window.ProjectShortcuts.projectsForType([project], AppState.projectGroups, AppState.contentQuery.projectType).length) return false;
         if (this.contentCollectionKind() === 'project-repositories' && project.rootIsGitRepo !== true) return false;
         if (!window.ContentQuery.matchesAttributes({
@@ -4762,6 +4764,21 @@ const App = {
         const repositoryText = (project.repositories || []).map(repo => repo.relativePath).join(' ');
         return `${project.name} ${project.description} ${project.path} ${project.lifecycle} ${repositoryText}`.toLowerCase().includes(query);
       });
+  },
+
+  async renderProjectsView(forceRefresh = false) {
+    const contentArea = document.getElementById('content-area');
+    const emptyState = document.getElementById('empty-state');
+    if (emptyState) emptyState.style.display = 'none';
+    if (AppState.localProjectsLoading) return;
+    AppState.localProjectsLoading = true;
+    contentArea.innerHTML = '<div style="text-align:center;padding:40px;color:#86868b;"><div class="loading-spinner" style="margin:0 auto 10px;"></div>正在识别本地项目与内部仓库…</div>';
+    try {
+      await this.refreshProjectShortcuts(forceRefresh);
+      this.updateDirectoryTypeFilterUI();
+      const query = AppState.searchScope === 'current' ? AppState.searchQuery.trim().toLowerCase() : '';
+      const projects = this.filteredLocalProjects();
+      this.projectShortcutsController.render();
       AppState.visibleItems = projects.map(project => ({
         type: 'directory',
         name: project.name,
@@ -4777,9 +4794,9 @@ const App = {
       const cardSize = ['small', 'medium', 'large'].includes(storedSize) ? storedSize : 'medium';
       const projectsToolbar = `
         <div class="local-project-view-toolbar">
-          <div><h2>${this.escapeHtml(typeLabel)}（${projects.length}）</h2><p>项目类型用于筛选；项目与子项目按真实目录层级显示。</p></div>
+          <h2 title="项目类型用于筛选；项目与子项目按真实目录层级显示。"><span class="local-project-view-label">${this.escapeHtml(typeLabel)}</span><span class="local-project-count">${projects.length}</span></h2>
           <label class="local-project-size-control">卡片大小 <select id="project-card-size" aria-label="项目卡片大小">${[['small', '小'], ['medium', '中'], ['large', '大']].map(([value, label]) => `<option value="${value}"${cardSize === value ? ' selected' : ''}>${label}</option>`).join('')}</select></label>
-          <button class="btn" data-app-action="choose-local-project" type="button">选择文件夹并设为项目…</button>
+          <button class="btn btn-small" data-app-action="choose-local-project" type="button" title="选择文件夹并设为项目" aria-label="选择文件夹并设为项目">设为项目…</button>
         </div>`;
       if (!projects.length) {
         const emptyActions = query
@@ -4822,6 +4839,7 @@ const App = {
             <footer>
               <button class="btn btn-small" data-app-action="edit-local-project" type="button">项目设置</button>
               <button class="btn btn-small" data-app-action="show-relationship-resource" data-relationship-kind="project" data-relationship-ref="${this.escapeHtml(project.projectId)}" data-relationship-path="${this.escapeHtml(project.path)}" type="button">关系白板</button>
+              <button class="btn btn-small" data-app-action="reveal-local-project" title="在访达中显示" aria-label="在访达中显示">访达</button>
               <button class="btn btn-small btn-primary" data-app-action="open-local-project" type="button">打开项目</button>
             </footer>
           </article>`;
@@ -4872,6 +4890,7 @@ const App = {
     // 按选中分类过滤
     const filtered = this._filterByCategory(displayRepos);
     AppState.visibleItems = filtered;
+    this.projectShortcutsController.render();
 
     // 平铺展示：所有仓库一个网格，分类只作为筛选条件，不再形成侧栏导航分区。
     if (AppState.cardStyle === 'list') {
@@ -5598,6 +5617,7 @@ const App = {
     if (!context) {
       container.innerHTML = this.getCardsHtml(orderedItems);
       this.bindCardEvents(container);
+      this.bindDirectoryPreviews([...container.querySelectorAll('.repo-card')]);
       return;
     }
 
@@ -5678,6 +5698,13 @@ const App = {
         item => this.getCardHtml(item)
       );
     });
+  },
+
+  bindDirectoryPreviews(elements) {
+    if (!this.isFileBrowsingContext()) return;
+    this.directoryPreviewLoader ||= new window.DirectoryPreviews.Loader((folderPath, showHidden) =>
+      window.gitFinder.content.getPreview(folderPath, { showHidden, directoryThumbnails: true }));
+    this.directoryPreviewLoader.observe(elements, AppState.showHiddenFiles);
   },
 
   getCardsHtml(items, label = '目录项目') {
@@ -5767,6 +5794,7 @@ const App = {
           </div>` : ''}
         </div>
         <div class="repo-path">${itemPath}</div>
+        ${item.type === 'directory' && this.isFileBrowsingContext() ? '<div class="directory-content-preview" data-directory-preview aria-live="polite"><small>正在读取本层内容…</small></div>' : ''}
         ${projectLifecycle ? `<div>${this.getProjectLifecycleBadgeHtml(item, projectLifecycle)}</div>` : ''}
         ${tags.length > 0 ? `
           <div class="repo-tags">
@@ -6091,6 +6119,7 @@ const App = {
         </span>
         <span class="finder-gallery-item-name" title="${this.escapeHtml(item.name)}">${this.escapeHtml(item.name)}</span>
         <span class="finder-gallery-item-meta">${this.escapeHtml(metadata)}</span>
+        ${item.type === 'directory' ? '<span data-directory-preview class="directory-content-preview gallery-folder-summary"></span>' : ''}
       </div>`;
   },
 
@@ -6118,7 +6147,7 @@ const App = {
     };
     this.renderGalleryPresentation(window.GalleryView.renderLoading(item, formatters));
     try {
-      const preview = await window.gitFinder.content.getPreview(item.path);
+      const preview = await window.gitFinder.content.getPreview(item.path, { showHidden: AppState.showHiddenFiles, directoryThumbnails: true });
       const browser = document.querySelector('#content-area .finder-gallery-browser');
       const currentRequest = window.GalleryView.isPreviewRequestCurrent(
         { requestId, directoryPath },
@@ -6608,7 +6637,10 @@ const App = {
       menu.querySelector('[data-context-action="open-terminal"]').disabled = items.length !== 1;
       menu.querySelector('[data-context-action="open-editor"]').disabled = items.length !== 1;
       menu.querySelector('[data-context-action="project"]').disabled = !singleDirectory;
+      menu.querySelector('[data-context-action="reveal"]').disabled = items.length !== 1;
       menu.querySelector('[data-context-action="project-types"]').disabled = !singleDirectory;
+      menu.querySelector('[data-context-action="location-name"]').hidden = !(isSidebarTreeItem && element.dataset.isRoot === 'true');
+      menu.querySelector('[data-context-action="repository-tools"]').disabled = !(singleDirectory && (items[0]?.isGitRepo || element.dataset.isGit === 'true'));
       menu.querySelector('[data-context-action="trash"]').disabled = this._fileContextUsesDirectItem || items.length === 0;
       menu.hidden = false;
       const width = menu.offsetWidth || 220;
@@ -6651,12 +6683,15 @@ const App = {
       if (action === 'open-terminal') usesDirectItem
         ? this.directoryTerminalController?.openPath?.(contextPath)
         : this.openSelectedInTerminal();
+      if (action === 'reveal' && contextPath) window.gitFinder.fs.showInFinder(contextPath).catch(error => this._showStatusMessage(error.message, 'error'));
       if (action === 'open-editor') usesDirectItem ? this.openPathInEditor(contextPath) : this.openSelectedInEditor();
       if (action === 'project') {
         if (contextPath) this.openLocalProjectDialog(contextPath);
         else this.openSelectedProjectSettings();
       }
       if (action === 'project-types' && contextPath) this.openLocalProjectDialog(contextPath, { focusTypes: true });
+      if (action === 'location-name' && contextPath) this.workspaceToolsController.openLocation(contextPath);
+      if (action === 'repository-tools' && contextPath) this.workspaceToolsController.openRepository(contextPath);
       if (action === 'relationship') this.showResourceInRelationshipBoard({
         kind: contextKind === 'project' ? 'project' : 'repository',
         refId: contextKind === 'project' ? projectId : '',

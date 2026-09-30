@@ -10,6 +10,7 @@
     Object.freeze({ id: 'settings-appearance', label: '外观', summary: '主题与语义色彩', glyph: '◐' }),
     Object.freeze({ id: 'settings-panel-provider', label: 'Coolify 数据源', summary: '服务器与部署连接', glyph: '⌁' }),
     Object.freeze({ id: 'settings-developer-tools', label: '开发工具', summary: '终端、Git 与编辑器', glyph: '⌘' }),
+    Object.freeze({ id: 'settings-maintenance', label: '仓库维护', summary: '登记、归档与目录分组', glyph: '▥' }),
     Object.freeze({ id: 'settings-projects', label: '项目身份', summary: '本地项目初始化', glyph: '◇' }),
     Object.freeze({ id: 'settings-testing', label: '测试功能', summary: '未完善功能 · 默认关闭', glyph: '⚗' }),
     Object.freeze({ id: 'settings-updates', label: '软件更新', summary: '版本、下载与安装', glyph: '↻' })

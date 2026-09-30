@@ -148,3 +148,15 @@ test('项目清单不能通过符号链接写到受管根之外', (t) => {
   assert.throws(() => service.initializeProject(link, {}), /符号链接|受管开发目录/);
   assert.equal(fs.existsSync(path.join(outside, '.gitfinder')), false);
 });
+
+ test('项目扫描排除临时及备份副本，显式加入的位置仍可查看', async t => {
+  const { managedRoot, service } = createFixture(t);
+  const normal = path.join(managedRoot, '项目', 'real');
+  const temporary = path.join(managedRoot, '临时文件', 'build-copy');
+  const backup = path.join(managedRoot, '制品与备份', 'snapshot');
+  for (const directory of [normal, temporary, backup]) { fs.mkdirSync(directory, { recursive: true }); service.initializeProject(directory); }
+  assert.deepEqual((await service.listProjects()).map(item => item.path), [normal]);
+  service.configService.getTreeRoots = () => [{ path: managedRoot }, { path: temporary }];
+  assert.deepEqual(new Set((await service.listProjects()).map(item => item.path)), new Set([normal, temporary]));
+  assert.equal(fs.existsSync(path.join(temporary, '.gitfinder', 'project.json')), true);
+});

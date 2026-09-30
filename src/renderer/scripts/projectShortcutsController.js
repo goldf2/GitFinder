@@ -333,7 +333,8 @@
           projects.forEach(entry => groupedProjectIds.add(entry.projectId));
           return { ...group, projects };
         });
-      const rootProjects = ProjectShortcuts.projectChildren(sortedProjects.map(entry => entry.project), null, this.platform);
+      const directoryProjects = this.app.filteredLocalProjects?.() || this.state.localProjects;
+      const rootProjects = ProjectShortcuts.projectChildren(directoryProjects, null, this.platform);
       const activeProject = ProjectShortcuts.findProjectForPath(
         this.state.localProjects,
         this.state.currentPath,
@@ -348,7 +349,7 @@
           : { type: 'directory', isProject: true, isGitRepo: false, project: { color: 'gray' } };
         const name = project?.name || entry.name || '未命名项目';
         const title = available ? project.path : `${name} · 项目位置不可用`;
-        const subprojects = available ? ProjectShortcuts.projectChildren(sortedProjects.map(item => item.project), entry.projectId, this.platform) : [];
+        const subprojects = available ? ProjectShortcuts.projectChildren(instanceKey.startsWith('directory') ? directoryProjects : sortedProjects.map(item => item.project), entry.projectId, this.platform) : [];
         const repositories = [...(Array.isArray(project?.repositories) ? project.repositories : [])]
           .filter(repository => repository?.path)
           .filter(repository => !subprojects.some(child => ProjectShortcuts.pathIsWithin(repository.path, child.path, this.platform)))
@@ -425,7 +426,7 @@
     renderRepositoryShortcuts() {
       const container = this.element('repository-shortcuts-list');
       if (!container) return;
-      const repositories = [...(this.state.allRepos || [])]
+      const repositories = [...(this.app._prepareDisplayRepos ? this.app._filterByCategory(this.app._prepareDisplayRepos()) : (this.state.allRepos || []))]
         .filter(repository => repository?.path)
         .sort((left, right) => String(left.name || left.path).localeCompare(String(right.name || right.path), 'zh-CN'));
       const activePath = String(this.state.currentPath || '');

@@ -356,6 +356,7 @@
             <div class="detail-status" id="detail-status"></div>
             <div class="detail-header-toolbar">
               <button class="btn btn-tiny" id="toggle-assignments-btn" title="隐藏/显示未选中的分类和标签气泡">隐藏未选</button>
+              <button class="btn btn-tiny" id="detail-repository-tools" type="button">仓库工具</button>
               <button class="btn btn-tiny" id="detail-project-settings" type="button" style="display:none;">项目设置</button>
               <button class="btn btn-tiny" id="detail-relationship-board" type="button" style="display:none;">关系白板</button>
               <button class="btn btn-tiny" id="detail-architecture" type="button" style="display:none;">代码架构</button>
@@ -512,6 +513,9 @@
     <button class="finder-menu-item finder-menu-command" data-context-action="open-editor" type="button" role="menuitem"><span>在代码编辑器中打开</span></button>
     <div class="finder-menu-separator" role="separator"></div>
     <button class="finder-menu-item finder-menu-command" data-context-action="project" type="button" role="menuitem"><span id="file-context-project-label">设为项目…</span></button>
+    <button class="finder-menu-item finder-menu-command" data-context-action="location-name" type="button" role="menuitem" hidden><span>修改位置显示名称…</span></button>
+    <button class="finder-menu-item finder-menu-command" data-context-action="reveal" type="button" role="menuitem"><span>在访达中显示</span></button>
+    <button class="finder-menu-item finder-menu-command" data-context-action="repository-tools" type="button" role="menuitem"><span>仓库工具…</span></button>
     <button class="finder-menu-item finder-menu-command" data-context-action="project-types" type="button" role="menuitem"><span>项目类型…</span></button>
     <button class="finder-menu-item finder-menu-command" data-context-action="relationship" type="button" role="menuitem"><span>关系白板</span></button>
     <button class="finder-menu-item finder-menu-command" data-context-action="toggle-pin" type="button" role="menuitem" hidden><span id="file-context-pin-label">固定到项目区</span></button>
@@ -836,6 +840,22 @@
           <button class="btn btn-primary" id="go-to-folder-submit-btn" type="submit">前往</button>
         </footer>
       </form>
+    </section>
+  </div>
+
+  <div class="modal-overlay" id="location-name-modal" style="display:none;">
+    <form class="modal" id="location-name-form">
+      <header class="modal-header"><h2>位置显示名称</h2><button class="modal-close" type="button" data-location-close aria-label="关闭位置名称编辑">×</button></header>
+      <div class="modal-body"><div class="workspace-tool-hint" id="location-name-path"></div><label for="location-name-input">显示名称</label><input id="location-name-input" required maxlength="160" autocomplete="off"><p class="workspace-tool-hint" id="location-name-feedback">只修改显示名称，磁盘目录不改名。</p></div>
+      <footer class="modal-footer"><button class="btn" id="location-name-reset" type="button">恢复默认名称</button><button class="btn" type="button" data-location-close>取消</button><button class="btn btn-primary" id="location-name-save" type="submit">保存</button></footer>
+    </form>
+  </div>
+  <div class="modal-overlay" id="workspace-tools-modal" style="display:none;">
+    <section class="modal workspace-tools-dialog" role="dialog" aria-labelledby="workspace-tools-title" aria-modal="true">
+      <header class="modal-header"><div><h2 id="workspace-tools-title">仓库工具</h2><div class="workspace-tool-hint" id="workspace-tools-path"></div></div><button class="modal-close" data-workspace-tool="close" type="button" aria-label="关闭仓库工具">×</button></header>
+      <nav class="workspace-tools-tabs" id="workspace-tools-tabs" aria-label="仓库工具类别"></nav>
+      <div class="modal-body" id="workspace-tools-body"></div>
+      <footer class="modal-footer"><span id="workspace-tools-feedback" role="status" aria-live="polite"></span><button class="btn" data-workspace-tool="close" type="button">关闭</button></footer>
     </section>
   </div>
 
@@ -1421,6 +1441,7 @@
   <script src="scripts/quickLookController.js"></script>
   <script src="scripts/galleryView.js"></script>
   <script src="scripts/galleryThumbnails.js"></script>
+  <script src="scripts/directoryPreviews.js"></script>
   <script src="scripts/workspaceTabs.js"></script>
   <script src="scripts/workspaceTabOverflowController.js"></script>
   <script src="scripts/repoStatusBatch.js"></script>
@@ -1441,6 +1462,7 @@
   <script src="scripts/nativePanelController.js"></script>
   <script src="scripts/projectProgressModel.js"></script>
   <script src="../shared/experimentalFeatures.js"></script>
+  <script src="scripts/workspaceToolsController.js"></script>
   <script src="scripts/app.js"></script>
   <script src="scripts/experimentalFeaturesController.js"></script>
   <script src="scripts/projectProgress.js"></script>

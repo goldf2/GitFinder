@@ -352,7 +352,7 @@ class FileService {
         const childDirs = [];
         for (const entry of entries) {
           if (!showHidden && entry.name.startsWith('.')) continue;
-          if (entry.name === 'node_modules') continue;
+          if (['node_modules', '临时文件', '制品与备份'].includes(entry.name)) continue;
           if (!entry.isDirectory()) continue;
 
           const fullPath = path.join(dir, entry.name);

@@ -73,15 +73,21 @@
 }
 
 .local-project-view-toolbar {
-  justify-content: space-between;
-  gap: 16px;
-  padding: 18px 18px 4px;
+  gap: 8px 12px;
+  padding: 8px 18px 0;
+  min-width: 0;
 }
 
 .local-project-view-toolbar h2 {
-  margin: 0;
-  font-size: 18px;
+  display: flex; align-items: center; gap: 8px;
+  margin: 0 auto 0 0;
+  font-size: 13px; line-height: 28px; min-width: 0;
 }
+.local-project-count { color: var(--text-secondary); font-size: 11px; font-weight: 400; }
+.local-project-view-toolbar .local-project-size-control { font-size: 11px; }
+.local-project-view-toolbar select { height: 24px; font-size: 11px; }
+.local-project-view-toolbar > .btn { height: 28px; font-size: 11px; }
+.local-project-view-toolbar + .local-project-grid { padding-top: 10px; }
 
 .local-project-view-toolbar p {
   margin: 4px 0 0;
@@ -242,8 +248,8 @@
 
 .local-project-card footer {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
   margin-top: auto;
   padding-top: 4px;
 }
@@ -6354,13 +6360,13 @@ body.file-drag-active.file-drag-copy {
   inset: 0 0 auto;
   width: 100%;
   grid-template-columns: repeat(var(--virtual-card-columns, 1), minmax(0, 1fr));
-  grid-auto-rows: 120px;
+  grid-auto-rows: 180px;
   will-change: transform;
 }
 
 .virtual-directory-card-window .repo-card {
   box-sizing: border-box;
-  height: 120px;
+  height: 180px;
 }
 
 .virtual-directory-card-window .repo-readme {
@@ -7312,3 +7318,38 @@ body.file-drag-active.file-drag-copy {
 
 /* Feature wording is independent from the observation provider. */
 .native-panel-description { margin: 0; padding: 0 14px 10px; flex: 0 0 auto; }
+
+.workspace-tools-dialog { width: 760px; }
+.workspace-tools-dialog .modal-body { min-height: 180px; overflow: auto; }
+.workspace-tools-tabs { display: flex; gap: 8px; padding: 12px 20px 0; flex-wrap: wrap; }
+.workspace-tool-row { display: flex; align-items: center; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--border-light); }
+.workspace-tool-row > span { min-width: 0; flex: 1; overflow-wrap: anywhere; }
+.workspace-tool-row small { display: block; color: var(--text-secondary); font-size: 11px; }
+.workspace-tool-row button { flex-shrink: 0; }
+.workspace-tool-hint { font-size: 12px; color: var(--text-secondary); line-height: 1.5; overflow-wrap: anywhere; }
+.workspace-tool-form { display: flex; gap: 8px; flex-wrap: wrap; align-items: end; margin-top: 16px; }
+.workspace-tool-form label { flex: 1; min-width: 120px; }
+.workspace-tool-form input, #location-name-input { display: block; width: 100%; margin-top: 6px; }
+.workspace-tool-options { display: flex; gap: 12px; flex-wrap: wrap; margin: 16px 0; }
+.workspace-tool-options label { display: flex; gap: 6px; align-items: center; }
+.workspace-tool-index-toolbar { display: flex; justify-content: space-between; align-items: center; }
+#workspace-tools-feedback { min-width: 0; flex: 1; font-size: 12px; overflow-wrap: anywhere; }
+#workspace-tools-feedback.error { color: var(--status-dirty); }
+@media (max-width: 640px) { .workspace-tool-row { flex-wrap: wrap; } .workspace-tool-row > span { flex-basis: 100%; } }
+
+.local-project-grid[data-size="small"] .local-project-card footer .btn { font-size: 10px; padding-inline: 2px; }
+
+.local-project-view-toolbar h2 { flex: 1; overflow: hidden; white-space: nowrap; }
+.local-project-view-label { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.local-project-count { flex-shrink: 0; }
+
+.directory-content-preview { margin: 6px 0; min-width: 0; }
+.directory-content-preview small { display: block; color: var(--text-secondary); font-size: 11px; }
+.directory-preview-images { display: flex; gap: 4px; min-width: 0; }
+.directory-preview-images img { width: 64px; height: 48px; object-fit: cover; border-radius: 5px; background: var(--bg-tertiary); }
+.directory-preview-samples { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: var(--text-secondary); }
+.finder-gallery-item-visual .directory-preview-images { display: grid; grid-template-columns: repeat(2, 1fr); gap: 3px; width: 100%; }
+.finder-gallery-item-visual .directory-preview-images img { width: 100%; height: 44px; }
+.gallery-folder-summary { margin: 0; }
+.gallery-folder-summary small { font-size: 10px; }
+.finder-gallery-directory > .directory-preview-images img { width: 120px; height: 90px; }
