@@ -2,7 +2,7 @@
 
 > 自动生成。只编辑 `management/development-tasks.json`，然后执行 `npm run handoff:update`。
 
-更新时间：2026-10-02T06:33:51+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
+更新时间：2026-10-02T06:38:11+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
 
 核验基线：2.0.0-alpha.193 / `99eef1d2992e389f32a48182a25fda3b9adf1958`；证据：[docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md](LAYOUT_OPTIONS_ALPHA193.md)。
 
@@ -1204,14 +1204,14 @@
 
 阶段：GF-P2；优先级：P1；状态：**已验证**；负责人：Codex；用户验收：待用户反馈。
 
-更新：2026-10-02T06:33:51+08:00。依赖：无。
+更新：2026-10-02T06:38:11+08:00。依赖：无。
 
 **验收标准**
 1. 标题栏只保留应用名称和当前位置。
 2. 常用导航、搜索及显示操作迁至标题栏下方独立工具条。
 3. 窄窗口无重叠，原按钮和菜单仍可使用。
 
-**接续动作：** 1460测试、311JS和宽窄窗口10项UI检查通过，待干净构建及安装验收。
+**接续动作：** 源码和打包版10项UI验证均通过。等待用户退出当前GitFinder后安装alpha231并验收；CUA连续提示用户操作中断，未强制终止旧版。
 
 源码/设计入口：[src/renderer/index.html](../../src/renderer/index.html)；[src/renderer/styles/main.css](../../src/renderer/styles/main.css)；[src/renderer/styles/apple-ui/app-shell.css](../../src/renderer/styles/apple-ui/app-shell.css)；[src/renderer/styles/relationships.css](../../src/renderer/styles/relationships.css)。
 
