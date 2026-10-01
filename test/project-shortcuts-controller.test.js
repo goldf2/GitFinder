@@ -197,12 +197,13 @@ test('工作区与文件浏览切换，旧仓库偏好合并到工作区', async
   assert.equal(state.sidebarNavigationMode, 'projects');
   assert.equal(section.hidden, false);
   await controller.setNavigationMode('repositories');
-  assert.equal(controller.app.lastPreset, 'all-repositories');
+  assert.equal(controller.app.lastPreset, 'all-projects');
   assert.equal(section.hidden, false);
   assert.equal(repositories.hidden, true);
   assert.equal(locations.hidden, true);
   assert.equal(tabs.projects.attributes['aria-selected'], 'true');
-  assert.match(container.innerHTML, /所有 Git 仓库/);
+  assert.doesNotMatch(container.innerHTML, /所有 Git 仓库/);
+  assert.match(container.innerHTML, /所有项目/);
   assert.equal(controller.openRepository('/workspace/alpha/repo'), true);
   assert.equal(controller.app.openedPath, '/workspace/alpha/repo');
   await controller.load();

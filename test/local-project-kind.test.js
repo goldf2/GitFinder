@@ -8,7 +8,8 @@ const LocalProjectService = require('../src/main/services/localProjectService').
 function fixture(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'gitfinder-kind-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
-  const configService = { getTreeRoots: () => [{ path: root }] };
+  const localConfig = {};
+  const configService = { get: key => localConfig[key], set: (key, value) => { localConfig[key] = value; }, getTreeRoots: () => [{ path: root }] };
   const service = new LocalProjectService({ configService });
   const project = path.join(root, 'sample'); fs.mkdirSync(project);
   return { root, project, service, configService, manifest: path.join(project, '.gitfinder', 'project.json') };

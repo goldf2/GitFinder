@@ -163,9 +163,9 @@ test('项目详情使用顶部内容布局、真实简介和最近层级子项�
   assert.ok(h.empty.classes.has('project-detail-view'));
   assert.match(h.empty.innerHTML, /项目简介/);
   assert.match(h.empty.innerHTML, /&lt;script&gt;示例&lt;\/script&gt;/);
-  assert.match(h.empty.innerHTML, /内部仓库（1）/);
-  assert.match(h.empty.innerHTML, /data-detail-repo-path="\/p"/);
-  assert.match(h.empty.innerHTML, /子项目（1）/);
+  assert.doesNotMatch(h.empty.innerHTML, /内部仓库/);
+  assert.doesNotMatch(h.empty.innerHTML, /data-detail-repo-path/);
+  assert.match(h.empty.innerHTML, /相关项目（1）/);
   assert.match(h.empty.innerHTML, /直接子项目/);
   assert.doesNotMatch(h.empty.innerHTML, /孙项目/);
   h.controller.show([]);

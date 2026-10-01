@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-01T15:06:21+08:00",
+  "updatedAt": "2026-10-01T15:26:42+08:00",
   "scope": "以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。",
   "baseline": {
     "version": "2.0.0-alpha.193",
     "sourceCommit": "99eef1d2992e389f32a48182a25fda3b9adf1958",
     "evidence": "docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md"
   },
-  "nextTaskId": "GF-DATA-001",
+  "nextTaskId": "GF-PROJECT-223",
   "milestones": [
     {
       "id": "GF-P0",
@@ -1571,6 +1571,32 @@
         "version": "2.0.0-alpha.222",
         "sourceCommit": "cb6c7644219375a9a46a3b5eddef946796f332b9"
       }
+    },
+    {
+      "id": "GF-PROJECT-223",
+      "milestone": "GF-P2",
+      "title": "统一仓库与项目入口，减少重复层级",
+      "priority": "P1",
+      "status": "in_progress",
+      "owner": "Codex",
+      "updatedAt": "2026-10-01T15:26:42+08:00",
+      "dependsOn": [],
+      "sourcePaths": [
+        "src/main/services/localProjectService.js",
+        "src/renderer/scripts/workspaceController.js",
+        "src/renderer/scripts/projectShortcutsController.js"
+      ],
+      "acceptance": [
+        "Git仓库自动展示为项目，原项目ID及会话关联保留，不批量改写仓库文件。",
+        "只保留所有项目入口，相关项目用分组归类，普通目录项目仍可使用。",
+        "项目内可访问代码、文件、任务、会话及发布和接续记录入口。",
+        "源码、安装版与重开验证通过，保护已有未提交修改。"
+      ],
+      "evidence": [
+        "docs/00-handoff/PROJECT_UNIFICATION_ALPHA223.md"
+      ],
+      "nextAction": "从本轮提交打包alpha223，备份旧应用并完成安装版及重开验收后推送。",
+      "userAcceptance": "pending"
     }
   ]
 }

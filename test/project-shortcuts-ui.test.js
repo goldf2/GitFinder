@@ -15,7 +15,7 @@ test('类型行紧凑横排，编辑按钮常显且类型设置保留新增和�
   assert.match(css, /\.project-type-row\s*\{[\s\S]*?display: grid;[\s\S]*?grid-template-columns: 18px minmax\(0, 1fr\) 40px;/);
   assert.match(controllerSource, /class="project-type-edit"[^>]+data-project-type-edit/);
   assert.doesNotMatch(controllerSource, /class="project-shortcut-pin"[^>]+data-project-type-edit/);
-  assert.match(controllerSource, /新建项目类型/);
+  assert.match(controllerSource, /新建分类/);
   assert.match(html, /id="project-type-delete-btn"/);
   assert.match(appSource, /project-type-delete-btn'\)\?\.addEventListener\('click', \(\) => this.deleteProjectGroup/);
 });

@@ -12,7 +12,8 @@ function createFixture(t) {
   const managedRoot = path.join(tempRoot, 'managed');
   fs.mkdirSync(managedRoot);
   t.after(() => fs.rmSync(tempRoot, { recursive: true, force: true }));
-  const configService = { getTreeRoots: () => [{ path: managedRoot, name: 'managed' }] };
+  const localConfig = {};
+  const configService = { get: key => localConfig[key], set: (key, value) => { localConfig[key] = value; }, getTreeRoots: () => [{ path: managedRoot, name: 'managed' }] };
   return {
     tempRoot,
     managedRoot,
@@ -116,26 +117,38 @@ test('嵌套 project.json 建立独立子项目并截断父项目仓库扫描', 
   const child = projects.find(project => project.path === childRoot);
 
   assert.deepEqual(parent.repositories.map(repo => repo.relativePath), ['packages/one']);
-  assert.deepEqual(child.repositories.map(repo => repo.relativePath), ['.', 'repo']);
+  assert.deepEqual(child.repositories.map(repo => repo.relativePath), ['.']);
+  assert.ok(projects.some(project => project.path === childRepo && project.rootIsGitRepo));
   assert.equal(projects.filter(project => [parentRoot, childRoot].includes(project.path)).length, 2);
 });
 
-test('Git 仓库不会自动成为项目，目录条目只叠加项目元数据', (t) => {
+test('Git仓库自动成为项目，身份和设置重开保留且不改写仓库文件', async t => {
   const { managedRoot, service } = createFixture(t);
-  const plainRepo = path.join(managedRoot, 'clone');
-  const projectRepo = path.join(managedRoot, 'product');
-  fs.mkdirSync(plainRepo);
-  fs.mkdirSync(projectRepo);
-  createRepo(plainRepo);
-  createRepo(projectRepo);
-  service.initializeProject(projectRepo, { color: 'orange' });
+  const repo = path.join(managedRoot, 'clone'); createRepo(repo);
+  const first = service.describeDirectory(repo);
+  assert.equal(first.isProject, true);
+  assert.match(first.project.projectId, /^project_[0-9a-f-]{36}$/);
+  service.updateProject(repo, { name: '产品', color: 'orange', projectKind: 'app' });
+  const restarted = new LocalProjectService({ configService: service.configService });
+  const projects = await restarted.listProjects();
+  assert.equal(projects.length, 1);
+  assert.equal(projects[0].projectId, first.project.projectId);
+  assert.equal(projects[0].name, '产品');
+  assert.equal(projects[0].color, 'orange');
+  assert.equal(projects[0].projectKind, 'app');
+  assert.equal(projects[0].rootIsGitRepo, true);
+  assert.deepEqual(fs.readdirSync(repo), ['.git']);
+});
 
-  const plain = service.describeDirectory(plainRepo);
-  const project = service.describeDirectory(projectRepo);
-
-  assert.deepEqual(plain, { isProject: false, project: null });
-  assert.equal(project.isProject, true);
-  assert.equal(project.project.color, 'orange');
+test('已有Git项目的清单ID优先，扫描不会覆盖旧会话和分组的身份', async t => {
+  const { managedRoot, service } = createFixture(t);
+  const repo = path.join(managedRoot, 'existing'); fs.mkdirSync(repo);
+  const initial = service.initializeProject(repo, { name: '已有项目' }).project;
+  const bytes = fs.readFileSync(initial.manifestPath); createRepo(repo);
+  const projects = await service.listProjects();
+  assert.equal(projects[0].projectId, initial.projectId);
+  assert.deepEqual(fs.readFileSync(initial.manifestPath), bytes);
+  assert.equal(service.configService.get('repositoryProjects'), undefined);
 });
 
 test('项目清单不能通过符号链接写到受管根之外', (t) => {

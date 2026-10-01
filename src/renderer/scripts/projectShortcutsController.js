@@ -184,7 +184,7 @@
       if (!NAVIGATION_MODES.includes(mode)) return;
       this.state.sidebarNavigationMode = mode;
       this.app.workspaceController?.clear();
-      if (mode === 'projects') this.app.applyContentPreset(repositoriesOnly ? 'all-repositories' : 'all-projects');
+      if (mode === 'projects') this.app.applyContentPreset('all-projects');
       else if (mode === 'repositories') this.app.applyContentPreset('all-repositories');
       else this.app.applyCurrentContentPreset('current-all');
       this.render();
@@ -417,7 +417,7 @@
         if (project?.isProjectCollection) {
           const id = this.app.escapeHtml(project.projectId);
           const expanded = this.expandedProjectIds.has(project.projectId);
-          return `<div class="project-shortcut-row"><button class="tree-node-toggle" data-collection-toggle="${id}" aria-expanded="${expanded}" aria-label="展开或折叠 ${this.app.escapeHtml(project.name)}">${expanded ? '▼' : '▶'}</button><button class="sidebar-item sidebar-shortcut-open project-shortcut-open ${this.state.contentQuery?.projectType === project.projectId ? 'active' : ''}" data-project-collection="${id}" title="${this.app.escapeHtml(project.name)}">${this.app.getItemKindIconHtml({type: 'directory', isProject: true, project}, 'sidebar-kind-icon')}<span class="sidebar-item-name">${this.app.escapeHtml(project.name)}</span><span class="badge">${project.memberProjects.length}</span></button><button class="project-type-edit" data-project-type-edit="${id}" title="大项目设置">⋯</button></div>${expanded ? `<div class="project-tree-children project-collection-children">${project.memberProjects.map(member => renderEntry({projectId: member.projectId, project: member, available: true}, false, `${instanceKey}-collection`, project.memberProjects)).join('')}</div>` : ''}`;
+          return `<div class="project-shortcut-row"><button class="tree-node-toggle" data-collection-toggle="${id}" aria-expanded="${expanded}" aria-label="展开或折叠 ${this.app.escapeHtml(project.name)}">${expanded ? '▼' : '▶'}</button><button class="sidebar-item sidebar-shortcut-open project-shortcut-open ${this.state.contentQuery?.projectType === project.projectId ? 'active' : ''}" data-project-collection="${id}" title="${this.app.escapeHtml(project.name)}">${this.app.getItemKindIconHtml({type: 'directory', isProject: true, project}, 'sidebar-kind-icon')}<span class="sidebar-item-name">${this.app.escapeHtml(project.name)}</span><span class="badge">${project.memberProjects.length}</span></button><button class="project-type-edit" data-project-type-edit="${id}" title="分组设置">⋯</button></div>${expanded ? `<div class="project-tree-children project-collection-children">${project.memberProjects.map(member => renderEntry({projectId: member.projectId, project: member, available: true}, false, `${instanceKey}-collection`, project.memberProjects)).join('')}</div>` : ''}`;
         }
         const isRepositoryLeaf = project?.rootIsGitRepo && (project.repositories || []).length === 1 && project.repositories[0].path === project.path && !ProjectShortcuts.projectChildren(treeProjects, entry.projectId, this.platform).length;
         if (isRepositoryLeaf) return `<button class="sidebar-item sidebar-shortcut-open project-tree-repository ${this.state.workspaceRepository?.path === project.path ? 'active' : ''}" data-project-repository-path="${this.app.escapeHtml(project.path)}" title="${this.app.escapeHtml(project.path)}">${this.app.getItemKindIconHtml({type:'directory',isGitRepo:true}, 'sidebar-kind-icon')}<span class="sidebar-item-name">${this.app.escapeHtml(project.name)}</span></button>`;
@@ -430,7 +430,7 @@
         const title = available ? project.path : `${name} · 项目位置不可用`;
         const subprojects = available ? ProjectShortcuts.projectChildren(treeProjects, entry.projectId, this.platform) : [];
         const repositories = [...(Array.isArray(project?.repositories) ? project.repositories : [])]
-          .filter(repository => repository?.path)
+          .filter(repository => repository?.path && repository.path !== project.path)
           .filter(repository => !subprojects.some(child => ProjectShortcuts.pathIsWithin(repository.path, child.path, this.platform)))
           .sort((left, right) => String(left.relativePath || left.name || left.path)
             .localeCompare(String(right.relativePath || right.name || right.path), 'zh-CN'));
@@ -451,20 +451,20 @@
         }).join('');
         return `
           <div class="sidebar-shortcut-row project-shortcut-row ${active ? 'active' : ''} ${available ? '' : 'is-unavailable'}">
-            ${available
+            ${available && (subprojects.length || repositories.length)
               ? `<button class="tree-node-toggle project-tree-toggle ${expanded ? 'expanded' : ''}" data-project-tree-toggle="${this.app.escapeHtml(entry.projectId)}" type="button" aria-expanded="${expanded}" aria-controls="${childrenId}" aria-label="${expanded ? '折叠' : '展开'} ${this.app.escapeHtml(name)}">${expanded ? '▼' : '▶'}</button>`
               : '<span class="tree-node-toggle tree-node-toggle-placeholder project-tree-toggle-placeholder" aria-hidden="true">•</span>'}
             <button class="sidebar-item sidebar-shortcut-open project-shortcut-open" data-project-shortcut-id="${this.app.escapeHtml(entry.projectId)}" data-project-shortcut-path="${this.app.escapeHtml(project?.path || '')}" type="button" title="${this.app.escapeHtml(title)}" aria-disabled="${available ? 'false' : 'true'}">
               ${this.app.getItemKindIconHtml(item, 'sidebar-kind-icon')}
               <span class="sidebar-item-name">${this.app.escapeHtml(name)}</span>
-              ${available ? `<span class="badge" title="${subprojects.length} 个子项目 · ${repositories.length} 个关联 Git 仓库">${subprojects.length ? `${subprojects.length} 子项目` : repositories.length}</span>` : ''}
+              ${available && (subprojects.length || repositories.length) ? `<span class="badge" title="${subprojects.length + repositories.length} 个相关项目">${subprojects.length ? `${subprojects.length} 子项目` : repositories.length}</span>` : ''}
               ${available ? '' : '<span class="project-shortcut-status">不可用</span>'}
             </button>
             <button class="project-shortcut-pin ${pinned ? 'active' : ''}" data-project-shortcut-pin="${this.app.escapeHtml(entry.projectId)}" type="button" title="${pinned ? '取消固定' : '固定到项目区'}" aria-label="${pinned ? '取消固定' : '固定'} ${this.app.escapeHtml(name)}">${pinned ? '●' : '○'}</button>
           </div>
-          ${expanded ? `<div class="project-tree-children" id="${childrenId}" role="group" aria-label="${this.app.escapeHtml(name)} 的子项目与仓库">
+          ${expanded ? `<div class="project-tree-children" id="${childrenId}" role="group" aria-label="${this.app.escapeHtml(name)} 的子项目">
             ${subprojects.map(child => renderEntry(projectsById.get(child.projectId) || { projectId: child.projectId, project: child, available: Boolean(child.path) }, pinned, `${instanceKey}-child`, treeProjects)).join('')}
-            ${repositoryRows || (subprojects.length ? '' : '<div class="sidebar-shortcut-empty project-tree-empty">暂无子项目或关联 Git 仓库</div>')}
+            ${repositoryRows || (subprojects.length ? '' : '<div class="sidebar-shortcut-empty project-tree-empty">暂无相关项目</div>')}
           </div>` : ''}`;
       };
       const renderProjectGroup = group => {
@@ -489,15 +489,14 @@
           <span class="sidebar-item-name">所有项目</span>
           <span class="badge">${sortedProjects.length}</span>
         </button>
-        <button id="sidebar-navigation-repositories" class="sidebar-item sidebar-shortcut-all" data-repository-shortcut-all type="button"><span class="sidebar-icon">⑂</span><span class="sidebar-item-name">所有 Git 仓库</span><span class="badge">${(this.state.allRepos || []).length}</span></button>
-        <button class="sidebar-item sidebar-shortcut-open" data-new-project-collection type="button">＋ 新建大项目</button>
+        <button class="sidebar-item sidebar-shortcut-open" data-new-project-collection type="button">＋ 新建分组</button>
         ${recent.length ? `${this.recentHeading('projects')}${this.collapsedRecent.has('projects') ? '' : recent.map(entry => renderEntry(entry, false, 'recent')).join('')}` : ''}
         ${pinned.length ? `<div class="sidebar-shortcut-heading project-shortcut-heading">已固定</div>${pinned.map(entry => renderEntry(entry, true)).join('')}` : ''}
-        <div class="sidebar-shortcut-heading project-shortcut-heading" id="sidebar-project-list-heading">项目与仓库</div>
+        <div class="sidebar-shortcut-heading project-shortcut-heading" id="sidebar-project-list-heading">项目</div>
         <div id="sidebar-project-list" role="group" aria-labelledby="sidebar-project-list-heading">
           ${projectGroups.map(renderProjectGroup).join('')}
           ${unclassified.projects.length ? renderProjectGroup(unclassified) : ''}
-          <button class="sidebar-item sidebar-shortcut-open" data-project-type-edit="" type="button">＋ 新建项目类型</button>
+          <button class="sidebar-item sidebar-shortcut-open" data-project-type-edit="" type="button">＋ 新建分类</button>
           ${(() => {
             const repos = (this.app._filterByCategory && this.app._prepareDisplayRepos ? this.app._filterByCategory(this.app._prepareDisplayRepos()) : this.state.allRepos || []).filter(repo => !ProjectShortcuts.findProjectForPath(this.state.localProjects, repo.path, this.platform));
             return repos.length ? `<div class="sidebar-shortcut-heading">独立仓库</div>${repos.map(repo => `<button class="sidebar-item sidebar-shortcut-open project-tree-repository ${this.state.workspaceRepository?.path === repo.path ? 'active' : ''}" data-project-repository-path="${this.app.escapeHtml(repo.path)}" type="button" title="${this.app.escapeHtml(repo.path)}">${this.app.getItemKindIconHtml({type:'directory',isGitRepo:true}, 'sidebar-kind-icon')}<span class="sidebar-item-name">${this.app.escapeHtml(repo.name || repo.path)}</span></button>`).join('')}` : '';

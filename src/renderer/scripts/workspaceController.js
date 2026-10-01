@@ -29,11 +29,11 @@
       this.header();
     }
 
-    openRepository(path) {
+    openRepository(path, view = 'git') {
       if (!this.app.isManagedPath(path)) return false;
       this.app.closeQuickLook();
       this.state.workspaceProject = null;
-      this.state.workspaceRepository = { path, view: 'git' };
+      this.state.workspaceRepository = { path, view };
       this.state.sidebarNavigationMode = 'projects';
       this.state.currentMode = 'tree';
       this.state.contentQuery = root.ContentQuery.queryForPreset('current-all');
@@ -51,21 +51,12 @@
       this.app.updateModeUI();
       this.app.navigateTo(path);
       sidebar.render();
-      void this.app.selectRepo(path);
+      if (view === 'git') void this.app.selectRepo(path);
       return true;
     }
 
     openProject(project) {
-      if (project.rootIsGitRepo && project.repositoryCount <= 1) return this.openRepository(project.path);
-      if (!(project.repositories || []).length) { this.app.openLocalProject(project.path); return true; }
-      this.clear();
-      this.state.workspaceProject = project;
-      this.state.currentMode = 'tree';
-      this.state.contentQuery = root.ContentQuery.queryForPreset('current-all');
-      this.state.searchQuery = '';
-      this.app.navigateTo(project.path);
-      this.app.projectShortcutsController.render();
-      return true;
+      return this.openRepository(project.path, project.rootIsGitRepo ? 'git' : 'project');
     }
 
     header() {
@@ -79,8 +70,9 @@
       const e = text => this.app.escapeHtml(text || '');
       const owner = root.ProjectShortcuts.findProjectForPath(this.state.localProjects, repo.path, this.bridge.platform);
       const kindPath = owner?.path || repo.path;
-      const kindTitle = owner ? `设置项目“${owner.name}”的形态` : '设为项目并选择 App/Web 形态';
-      el.innerHTML = `<strong id="repository-workspace-name" title="${e(repo.path)}">⑂ ${e(repo.path.split(/[\\/]/).pop())}</strong><button type="button" class="project-kind-badge project-kind-control" data-workspace-kind="${e(kindPath)}" title="${e(kindTitle)}">${e(root.ProjectKinds.label(owner?.projectKind))} ▾</button><div role="tablist" aria-label="仓库工作视图">${[['git','Git'],['files','文件'],['project','所属项目']].map(([id,label]) => `<button class="btn btn-small ${repo.view===id?'btn-primary':''}" role="tab" aria-selected="${repo.view===id}" data-workspace-view="${id}">${label}</button>`).join('')}</div>`;
+      const kindTitle = owner ? `设置项目“${owner.name}”的形态` : '项目设置';
+      const views = [['project','概览'], ...(owner?.rootIsGitRepo === false ? [] : [['git','代码']]), ['files','文件'], ['tasks','任务'], ['chats','会话'], ['release','发布'], ['records','记录']];
+      el.innerHTML = `<strong id="repository-workspace-name" title="${e(repo.path)}">⑂ ${e(owner?.name || repo.path.split(/[\\/]/).pop())}</strong><button type="button" class="project-kind-badge project-kind-control" data-workspace-kind="${e(kindPath)}" title="${e(kindTitle)}">${e(root.ProjectKinds.label(owner?.projectKind))} ▾</button><div role="tablist" aria-label="项目工作视图">${views.map(([id,label]) => `<button class="btn btn-small ${repo.view===id?'btn-primary':''}" role="tab" aria-selected="${repo.view===id}" data-workspace-view="${id}">${label}</button>`).join('')}</div>`;
     }
 
     projectContext(path) {
@@ -116,16 +108,40 @@
           const children = root.ProjectShortcuts.projectChildren(this.state.localProjects, project.projectId, this.bridge.platform);
           const dirs = entries.filter(item => item.type === 'directory' && !repos.some(r => r.path === item.path) && !children.some(p => p.path === item.path));
           container.innerHTML = `<section class="workspace-overview"><h2>${e(project.name)}</h2><p>${e(project.description)}</p><button class="btn" data-workspace-folder="${e(project.path)}">浏览项目文件</button><h3>子项目</h3>${children.map(projectButton).join('') || '<p>暂无子项目</p>'}<h3>Git 仓库</h3>${repos.map(r => `<button class="workspace-member" data-workspace-repository="${e(r.path)}">⑂ ${e(r.relativePath === '.' ? project.name : r.relativePath || r.name)}</button>`).join('') || '<p>暂无 Git 仓库</p>'}<h3>目录</h3>${dirs.map(d => `<button class="workspace-member" data-workspace-folder="${e(d.path)}">📁 ${e(d.name)}</button>`).join('') || '<p>暂无子目录</p>'}</section>`;
-        } else if (repo.view === 'project') {
-          const chains = this.projectContext(repo.path);
-          container.innerHTML = `<section class="workspace-overview"><h2>所属项目</h2>${chains.length ? chains.map(chain => `<div class="workspace-project-chain">${chain.map(projectButton).join('<span> › </span>')}</div>`).join('') : '<p>未归属项目。该仓库可独立使用。</p>'}<p>选择项目可查看同项目的其他仓库和资料目录。</p></section>`;
+        } else if (['project', 'tasks', 'chats', 'release', 'records'].includes(repo.view)) {
+          const owner = this.state.localProjects.find(p => p.path === repo.path);
+          if (!owner) throw Error('项目正在扫描，请刷新后重试');
+          const chats = this.app.projectConversationsController;
+          if (repo.view === 'chats') {
+            container.innerHTML = `<section class="workspace-overview project-workspace-content">${chats.detailMarkup(owner.projectId, { includeTasks: false })}</section>`;
+          } else if (repo.view === 'tasks') {
+            container.innerHTML = `<section class="workspace-overview project-workspace-content" data-project-task-board="${e(owner.projectId)}">正在读取项目任务…</section>`;
+            await chats.loadWorkspace(owner.projectId);
+          } else if (repo.view === 'release') {
+            const workspace = await this.bridge.projectConversations.workspace(owner.projectId);
+            if (!current()) return true;
+            container.innerHTML = `<section class="workspace-overview"><h2>发布</h2>${workspace.repositories.map(item => `<h3>${e(item.repository)}</h3><div class="project-chat-row-actions">${[['releases','GitHub Releases'],['actions','构建与发布流程']].map(([view, label]) => `<button class="btn" data-chat-action="open-repository" data-chat-project="${e(owner.projectId)}" data-chat-repository="${e(item.repository)}" data-chat-view="${view}">${label}</button>`).join('')}</div>`).join('') || '<p>添加 GitHub 远程仓库后可打开发布与构建页面。</p>'}</section>`;
+          } else if (repo.view === 'records') {
+            const documents = [['docs/ai-context/INDEX.md','会话与接续索引'],['docs/00-handoff/CURRENT_STATE.md','当前状态'],['docs/ai-context/CURRENT_STATE.md','项目状态摘要'],['docs/00-handoff/SESSION_LOG.md','研发日志'],['docs/00-handoff/RELEASE_LOG.md','发布记录']];
+            const available = (await Promise.all(documents.map(async ([file, label]) => {
+              try { const info = await this.bridge.fs.getFileInfo(`${owner.path}/${file}`); return info?.type === 'file' ? { path: `${owner.path}/${file}`, label } : null; } catch { return null; }
+            }))).filter(Boolean);
+            if (!current()) return true;
+            container.innerHTML = `<section class="workspace-overview"><h2>项目记录</h2><div class="project-chat-row-actions">${available.map(doc => `<button class="btn" data-workspace-record="${e(doc.path)}">${e(doc.label)}</button>`).join('') || '<p>暂无项目接续记录。</p>'}</div><button class="btn" data-workspace-folder="${e(owner.path)}">浏览项目文件</button></section>`;
+
+          } else {
+            const chains = this.projectContext(repo.path).map(chain => chain.filter(p => p.projectId !== owner.projectId));
+            const children = root.ProjectShortcuts.projectChildren(this.state.localProjects, owner.projectId, this.bridge.platform);
+            container.innerHTML = `<section class="workspace-overview"><h2>${e(owner.name)}</h2><p>${e(owner.description || '可在项目设置中补充简介。')}</p><p>${e(owner.path)}</p><button class="btn" data-app-action="file-project-settings" data-project-path="${e(owner.path)}">项目设置</button>${chains.some(c=>c.length) ? `<h3>分组</h3>${chains.map(chain=>chain.map(projectButton).join(' / ')).join(' · ')}` : ''}${children.length ? `<h3>相关项目</h3>${children.map(projectButton).join('')}` : ''}</section>`;
+          }
+
         } else {
           const [status, review, log] = await Promise.all([this.bridge.git.getStatus(repo.path, {autoFetch:false,forceRefresh:true}), this.bridge.git.getWorkingTree(repo.path), this.bridge.git.getLog(repo.path, 12)]);
           if (!current()) return true;
           if (!status.isGitRepo || !review.success) throw Error(review.error || status.error || '仓库不可用');
           const chains = this.projectContext(repo.path);
           const ancestors = chains.map(chain => chain.filter(project => project.path !== repo.path)).filter(chain => chain.length);
-          const contextHtml = ancestors.map(chain => chain.map(p => `<button type="button" class="workspace-context-link" data-workspace-project="${e(p.projectId)}">${e(p.name)}</button>`).join('<span aria-hidden="true"> / </span>')).join(' · ') || (!chains.length ? '<span>独立仓库 · 未归属项目</span>' : '');
+          const contextHtml = ancestors.map(chain => chain.map(p => `<button type="button" class="workspace-context-link" data-workspace-project="${e(p.projectId)}">${e(p.name)}</button>`).join('<span aria-hidden="true"> / </span>')).join(' · ') || (!chains.length ? '' : '');
           container.innerHTML = root.WorkspacePresentation.gitOverview({ status, review, log, contextHtml });
           container.querySelectorAll('[data-workspace-diff]').forEach(button => button.addEventListener('click', async () => {
             const token = this.diffRequest = (this.diffRequest || 0) + 1;
@@ -154,6 +170,7 @@
             else GitOps[action](repo.path);
           }));
         }
+        container.querySelectorAll('[data-workspace-record]').forEach(button => button.addEventListener('click', () => this.bridge.fs.openFile(button.dataset.workspaceRecord)));
         container.querySelectorAll('[data-workspace-project]').forEach(button=>button.addEventListener('click',()=>{
           const id=button.dataset.workspaceProject;
           if(id.startsWith('project_group_')) this.app.applyProjectType(id);

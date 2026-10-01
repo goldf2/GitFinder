@@ -809,7 +809,7 @@
 .workspace-overview-active #file-action-bar, .workspace-overview-active #directory-type-filter, .workspace-overview-active #sort-bar .sort-divider { display:none !important; }
 
 /* Compact repository overview. Existing project hierarchy and file view stay unchanged. */
-.workspace-git-active #sort-bar { display:none !important; }
+.workspace-overview-active #sort-bar { display:none !important; }
 .repository-workspace-tabs { flex-wrap:wrap; gap:8px 12px; }
 .repository-workspace-tabs > strong { flex:1 1 160px; font-size:14px; }
 .repository-workspace-tabs [role=tablist] { margin-left:auto; }

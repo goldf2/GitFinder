@@ -131,6 +131,24 @@ class LocalProjectService {
     return this._normalizeManifest(directory, parsed);
   }
 
+  // Unregistered Git repositories use local metadata; browsing never writes into a checkout.
+  _readProject(directory, { required = false } = {}) {
+    const manifest = this._readManifest(directory);
+    if (manifest) return manifest;
+    if (this._hasGitMetadata(directory)) {
+      const key = fs.realpathSync.native(directory);
+      const records = this.configService.get('repositoryProjects') || {};
+      if (records[key]) return this._normalizeManifest(directory, records[key]);
+      const project = this._normalizeManifest(directory, {
+        projectId: `project_${crypto.randomUUID()}`, name: path.basename(directory)
+      });
+      this.configService.set('repositoryProjects', { ...records, [key]: project });
+      return project;
+    }
+    if (required) throw new Error('此文件夹尚未设为 GitFinder 项目');
+    return null;
+  }
+
   _publicProject(directory, manifest) {
     return {
       ...manifest,
@@ -180,7 +198,7 @@ class LocalProjectService {
 
   initializeProject(candidatePath, values = {}) {
     const directory = this._assertManagedDirectory(candidatePath);
-    const existing = this._readManifest(directory);
+    const existing = this._readProject(directory);
     if (existing) return { created: false, project: this._publicProject(directory, existing) };
     const manifest = this._normalizeManifest(directory, {
       schemaVersion: MANIFEST_VERSION,
@@ -204,7 +222,7 @@ class LocalProjectService {
 
   updateProject(candidatePath, values = {}) {
     const directory = this._assertManagedDirectory(candidatePath);
-    const current = this._readManifest(directory, { required: true });
+    const current = this._readProject(directory, { required: true });
     const next = this._normalizeManifest(directory, {
       ...current,
       name: Object.hasOwn(values, 'name') ? values.name : current.name,
@@ -218,13 +236,17 @@ class LocalProjectService {
           : (values.repositories?.excluded ?? current.repositories.excluded)
       }
     });
-    this._writeManifestAtomic(directory, next);
+    if (this._readManifest(directory)) this._writeManifestAtomic(directory, next);
+    else {
+      const records = this.configService.get('repositoryProjects') || {};
+      this.configService.set('repositoryProjects', { ...records, [fs.realpathSync.native(directory)]: next });
+    }
     return this._publicProject(directory, next);
   }
 
   describeDirectory(candidatePath) {
     const directory = this._assertManagedDirectory(candidatePath);
-    const manifest = this._readManifest(directory);
+    const manifest = this._readProject(directory);
     return manifest
       ? { isProject: true, project: this._publicProject(directory, manifest) }
       : { isProject: false, project: null };
@@ -232,7 +254,7 @@ class LocalProjectService {
 
   getProject(candidatePath) {
     const directory = this._assertManagedDirectory(candidatePath);
-    const manifest = this._readManifest(directory, { required: true });
+    const manifest = this._readProject(directory, { required: true });
     return this._publicProject(directory, manifest);
   }
 
@@ -269,6 +291,7 @@ class LocalProjectService {
           isGitRepo: true
         });
       }
+      if (relativePath === '.' && this._hasGitMetadata(current)) return;
       let entries;
       try {
         entries = await fs.promises.readdir(current, { withFileTypes: true });
@@ -298,7 +321,7 @@ class LocalProjectService {
       visited.add(realDirectory);
 
       let manifest = null;
-      try { manifest = this._readManifest(directory); } catch (_) { manifest = null; }
+      try { manifest = this._readProject(directory); } catch (_) { manifest = null; }
       if (manifest) projectDirectories.set(realDirectory, { directory, manifest });
 
       let entries;

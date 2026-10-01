@@ -1,12 +1,9 @@
 # GitFinder 2 当前状态
 
 <!-- BEGIN CURRENT_STATE -->
-## GF-CHAT-001 / alpha.222 已安装验收
+## GF-PROJECT-223 / alpha.223 源码已验证
 
-项目协作入口分开Codex与ChatGPT各自主会话，支持本机编辑/合并导入、既有台账与GitHub Issue/PR双向关联、项目接续记录按需读取。保留alpha.221项目形态与仓库概览。
-源码与构建提交`cb6c7644219375a9a46a3b5eddef946796f332b9`；1457测试/310JS、源码实际Electron14项通过，macOS ARM64开发包与签名门禁通过。
-已安装至`/Applications/GitFinder 2.app`，真实26项目52关联通过正常IPC导入；安装可见5项与正常重开5项通过，已恢复无调试参数普通启动。旧alpha.221可恢复备份。
-私人会话原文及索引只留本地，不进入提交或安装包。详见PROJECT_CONVERSATIONS_ALPHA222.md；用户验收pending，后续GF-DATA-001不自动启动。
+统一项目入口与项目内工作视图；Git仓库自动列为项目，原ID和会话关联保留。全量1458测试通过，实际隔离窗口13项与重开通过。正在准备可追溯macOS包与安装验收，尚未推送。详见PROJECT_UNIFICATION_ALPHA223.md。
 <!-- END CURRENT_STATE -->
 
 ## 历史兼容记录（以下不再表示当前状态）

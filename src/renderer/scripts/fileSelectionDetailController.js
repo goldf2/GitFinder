@@ -111,7 +111,6 @@
     projectMarkup(item, lifecycle, summary) {
       const escape = value => this.app.escapeHtml(String(value || ''));
       const project = item.project || {};
-      const repositories = Array.isArray(project.repositories) ? project.repositories : [];
       const children = project.projectId ? ProjectShortcuts.projectChildren(this.state.localProjects || [], project.projectId) : [];
       return `<header class="detail-header">
         <div class="detail-header-top"><span class="detail-empty-icon-semantic">${this.app.getItemKindIconHtml(item, 'detail-empty-kind-icon')}</span><h3>${escape(item.name)}</h3></div>
@@ -123,8 +122,7 @@
         </div></header>
         <section class="project-detail-section"><h4>项目简介</h4><p>${escape(project.description || '暂无项目简介，可在“项目设置”中补充。')}</p></section>
         ${this.app.projectConversationsController?.detailMarkup(project.projectId) || ''}
-        <section class="project-detail-section"><h4>内部仓库（${repositories.length}）</h4><div class="project-detail-links">${repositories.length ? repositories.map(repo => `<button class="btn btn-small" data-detail-repo-path="${escape(repo.path)}">⑂ ${escape(repo.relativePath === '.' ? '项目根目录' : repo.relativePath || repo.path)}</button>`).join('') : '<p>尚未发现 Git 仓库</p>'}</div></section>
-        <section class="project-detail-section"><h4>子项目（${children.length}）</h4><div class="project-detail-links">${children.length ? children.map(child => `<button class="btn btn-small" data-detail-child-path="${escape(child.path)}">${escape(child.name)}</button>`).join('') : '<p>暂无子项目</p>'}</div></section>`;
+        ${children.length ? `<section class="project-detail-section"><h4>相关项目（${children.length}）</h4><div class="project-detail-links">${children.map(child => `<button class="btn btn-small" data-detail-child-path="${escape(child.path)}">${escape(child.name)}</button>`).join('')}</div></section>` : ''}`;
     }
 
     _element(id) {

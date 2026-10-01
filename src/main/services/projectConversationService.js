@@ -214,7 +214,7 @@ class ProjectConversationService {
   }
 
   async openRepository(projectId, repository, view = '') {
-    if (!['', 'issues', 'pulls'].includes(view)) throw new Error('仓库入口无效');
+    if (!['', 'issues', 'pulls', 'releases', 'actions'].includes(view)) throw new Error('仓库入口无效');
     const workspace = await this.workspace(projectId);
     const repo = workspace.repositories.find(item => item.repository === repository);
     if (!repo) throw new Error('该仓库未在项目中登记');

@@ -47,10 +47,10 @@
       else this.app._showStatusMessage(message, 'error');
     }
 
-    detailMarkup(projectId) {
+    detailMarkup(projectId, { includeTasks = true } = {}) {
       const escape = value => this.app.escapeHtml(String(value || ''));
       const rows = [...this.conversations(projectId)].sort((a, b) => Number(b.role === 'primary') - Number(a.role === 'primary'));
-      return `<section class="project-detail-section" data-project-chat-section><h4>项目会话</h4>${['codex', 'chatgpt'].map(source => `<h4>${source === 'codex' ? 'Codex' : 'ChatGPT'}</h4><div class="project-detail-links">${rows.filter(item => item.source === source).map(item => `<div><button class="btn btn-small" data-chat-action="open" data-chat-project="${escape(projectId)}" data-chat-source="${source}" data-chat-thread="${escape(item.threadId)}" title="${escape(item.summary || item.title)}">${item.role === 'primary' ? '主会话' : item.role === 'related' ? '关联' : '历史'} · ${escape(item.title)}</button>${item.summary ? `<details class="project-chat-summary"><summary>会话摘要</summary><p>${escape(item.summary)}</p></details>` : ''}${(item.taskRefs || []).map(ref => this.referenceMarkup(projectId, ref)).join('')}</div>`).join('') || '<p>尚未关联会话</p>'}</div>`).join('')}<button class="btn btn-small" data-chat-action="edit" data-chat-project="${escape(projectId)}">关联 / 编辑会话</button></section><section class="project-detail-section" data-project-task-board="${escape(projectId)}">正在读取项目任务与仓库…</section>`;
+      return `<section class="project-detail-section" data-project-chat-section><h4>项目会话</h4>${['codex', 'chatgpt'].map(source => `<h4>${source === 'codex' ? 'Codex' : 'ChatGPT'}</h4><div class="project-detail-links">${rows.filter(item => item.source === source).map(item => `<div><button class="btn btn-small" data-chat-action="open" data-chat-project="${escape(projectId)}" data-chat-source="${source}" data-chat-thread="${escape(item.threadId)}" title="${escape(item.summary || item.title)}">${item.role === 'primary' ? '主会话' : item.role === 'related' ? '关联' : '历史'} · ${escape(item.title)}</button>${item.summary ? `<details class="project-chat-summary"><summary>会话摘要</summary><p>${escape(item.summary)}</p></details>` : ''}${(item.taskRefs || []).map(ref => this.referenceMarkup(projectId, ref)).join('')}</div>`).join('') || '<p>尚未关联会话</p>'}</div>`).join('')}<button class="btn btn-small" data-chat-action="edit" data-chat-project="${escape(projectId)}">关联 / 编辑会话</button></section>${includeTasks ? `<section class="project-detail-section" data-project-task-board="${escape(projectId)}">正在读取项目任务…</section>` : ''}`;
     }
 
     referenceMarkup(projectId, ref) {
@@ -76,8 +76,7 @@
     async loadWorkspace(projectId, refreshGithub = false) {
       const workspace = await this.bridge.workspace(projectId, { refreshGithub });
       this.workspaces.set(projectId, workspace);
-      const section = this.document.querySelector(`[data-project-task-board="${projectId}"]`);
-      if (section) section.innerHTML = this.workspaceMarkup(workspace);
+      this.document.querySelectorAll(`[data-project-task-board="${projectId}"]`).forEach(section => { section.innerHTML = this.workspaceMarkup(workspace); });
       return workspace;
     }
 
@@ -93,6 +92,7 @@
     refreshDetail() {
       const detail = this.app.fileSelectionDetailController;
       if (detail?.item?.isProject && detail.activeTab === 'project') detail.show([detail.item]);
+      if (this.app.workspaceController?.state.workspaceRepository?.view === 'chats') this.app.renderContent();
     }
 
     show(projectId) {
