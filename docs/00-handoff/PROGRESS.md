@@ -2,7 +2,7 @@
 
 > 自动生成。只编辑 `management/development-tasks.json`，然后执行 `npm run handoff:update`。
 
-更新时间：2026-10-01T13:09:23+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
+更新时间：2026-10-01T13:13:26+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
 
 核验基线：2.0.0-alpha.193 / `99eef1d2992e389f32a48182a25fda3b9adf1958`；证据：[docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md](LAYOUT_OPTIONS_ALPHA193.md)。
 
@@ -982,13 +982,13 @@
 
 阶段：GF-P1；优先级：P1；状态：**已验证**；负责人：Codex；用户验收：待用户反馈。
 
-更新：2026-10-01T13:09:23+08:00。依赖：无。
+更新：2026-10-01T13:13:26+08:00。依赖：无。
 
 **验收标准**
 1. 独立仓库与其它仓库共享无边框侧栏样式，悬停、选中、键盘焦点可辨识。
 2. 安装版本通过真实窗口专项验收后推送。
 
-**接续动作：** 源码与27项窗口验收通过，提交并构建alpha.220安装包。
+**接续动作：** alpha.220安装通过27项交互与真实claude_ruler/server_docs无边框核验，已恢复正常启动；等待源码推送完成并收口记录。
 
 源码/设计入口：[src/renderer/scripts/projectShortcutsController.js](../../src/renderer/scripts/projectShortcutsController.js)；[scripts/verify-unified-workspace.js](../../scripts/verify-unified-workspace.js)。
 

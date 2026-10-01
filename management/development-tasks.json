@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-01T13:09:23+08:00",
+  "updatedAt": "2026-10-01T13:13:26+08:00",
   "scope": "以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。",
   "baseline": {
     "version": "2.0.0-alpha.193",
@@ -1483,7 +1483,7 @@
       "priority": "P1",
       "status": "verified",
       "owner": "Codex",
-      "updatedAt": "2026-10-01T13:09:23+08:00",
+      "updatedAt": "2026-10-01T13:13:26+08:00",
       "dependsOn": [],
       "sourcePaths": [
         "src/renderer/scripts/projectShortcutsController.js",
@@ -1496,7 +1496,7 @@
       "evidence": [
         "docs/00-handoff/SIDEBAR_BORDER_ALPHA220.md"
       ],
-      "nextAction": "源码与27项窗口验收通过，提交并构建alpha.220安装包。",
+      "nextAction": "alpha.220安装通过27项交互与真实claude_ruler/server_docs无边框核验，已恢复正常启动；等待源码推送完成并收口记录。",
       "blocker": "",
       "userAcceptance": "pending"
     }
