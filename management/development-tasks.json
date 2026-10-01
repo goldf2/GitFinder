@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-01T13:14:49+08:00",
+  "updatedAt": "2026-10-01T06:10:17+00:00",
   "scope": "以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。",
   "baseline": {
     "version": "2.0.0-alpha.193",
     "sourceCommit": "99eef1d2992e389f32a48182a25fda3b9adf1958",
     "evidence": "docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md"
   },
-  "nextTaskId": "GF-DATA-001",
+  "nextTaskId": "GF-WORKSPACE-221",
   "milestones": [
     {
       "id": "GF-P0",
@@ -1503,6 +1503,39 @@
         "version": "2.0.0-alpha.220",
         "sourceCommit": "1fbfc525ad6ffac41acc074c8703a37982ed3f31"
       }
+    },
+    {
+      "id": "GF-WORKSPACE-221",
+      "milestone": "GF-P1",
+      "title": "App/Web项目形态与精简仓库工作区",
+      "priority": "P1",
+      "status": "verified",
+      "owner": "ChatGPT / tsk_66c229cd7c352efd",
+      "updatedAt": "2026-10-01T06:10:17+00:00",
+      "dependsOn": [],
+      "sourcePaths": [
+        "src/main/services/localProjectService.js",
+        "src/renderer/scripts/app.js",
+        "src/renderer/scripts/workspaceController.js",
+        "src/renderer/index.html",
+        "src/renderer/styles/sidebar.css",
+        "src/shared/projectKinds.js",
+        "src/renderer/scripts/workspacePresentation.js",
+        "scripts/verify-unified-workspace.js",
+        "test/local-project-kind.test.js",
+        "test/workspace-presentation.test.js"
+      ],
+      "acceptance": [
+        "App/Web分类在项目设置保存并持久化；原分组、项目身份和Git状态保持不变",
+        "仓库概览减少重复标题/零值信息和常驻操作；变更、Diff、Git操作与完整近期记录仍可用",
+        "在隔离profile完成类型保存/重启及精简UI回归，可恢复安装后推送"
+      ],
+      "evidence": [
+        "docs/00-handoff/WORKSPACE_KIND_ALPHA221.md"
+      ],
+      "nextAction": "完成候选alpha.221最终检查、可追溯打包、可恢复安装及安装版49项复验，再推送",
+      "blocker": "",
+      "userAcceptance": "pending"
     }
   ]
 }

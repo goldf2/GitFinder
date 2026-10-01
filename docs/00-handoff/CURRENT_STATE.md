@@ -1,13 +1,9 @@
 # GitFinder 2 当前状态
 
 <!-- BEGIN CURRENT_STATE -->
-## GF-SIDEBAR-220 / alpha.220 已交付
+## GF-WORKSPACE-221 / alpha.221 候选已验证
 
-独立仓库统一按钮样式，修复默认黑框并同步选中高亮。
-源码1fbfc525ad6ffac41acc074c8703a37982ed3f31已推送；
-1439测试/302JS、安装版27项交互与真实两个独立仓库截图核验通过。
-已恢复正常启动，详见SIDEBAR_BORDER_ALPHA220.md。
-用户验收pending；下一任务GF-DATA-001，本轮不启动。
+App/Web项目形态与精简仓库概览已实现。1447源码测试、306JS、49项实际Electron交互与重启通过。当前安装alpha.220仍未替换；下一步可追溯打包、可恢复安装和安装版复验后推送。范围及证据见WORKSPACE_KIND_ALPHA221.md。
 <!-- END CURRENT_STATE -->
 
 ## 历史兼容记录（以下不再表示当前状态）

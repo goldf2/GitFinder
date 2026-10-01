@@ -807,3 +807,55 @@
 #workspace-file-diff { padding:12px; overflow:auto; max-height:420px; background:var(--bg-secondary); border:1px solid var(--border-color); border-radius:8px; }
 
 .workspace-overview-active #file-action-bar, .workspace-overview-active #directory-type-filter, .workspace-overview-active #sort-bar .sort-divider { display:none !important; }
+
+/* Compact repository overview. Existing project hierarchy and file view stay unchanged. */
+.workspace-git-active #sort-bar { display:none !important; }
+.repository-workspace-tabs { flex-wrap:wrap; gap:8px 12px; }
+.repository-workspace-tabs > strong { flex:1 1 160px; font-size:14px; }
+.repository-workspace-tabs [role=tablist] { margin-left:auto; }
+.project-kind-badge { display:inline-flex; align-items:center; width:max-content; max-width:100%; border:1px solid var(--border-light); border-radius:5px; padding:2px 7px; font-size:11px; line-height:18px; color:var(--text-secondary); background:var(--bg-secondary); white-space:nowrap; }
+.project-kind-control { cursor:pointer; }
+.project-kind-control:hover { color:var(--text-primary); border-color:var(--border-color); }
+.local-project-badges { display:flex; flex-direction:column; align-items:flex-end; gap:5px; flex:0 0 auto; }
+.workspace-git-overview { padding:16px 20px; min-width:0; }
+.workspace-context { display:flex; align-items:center; flex-wrap:wrap; gap:5px; margin:0 0 12px; color:var(--text-secondary); font-size:12px; }
+.workspace-context-link { padding:0; border:0; background:none; color:var(--text-secondary); cursor:pointer; font:inherit; overflow-wrap:anywhere; text-align:left; }
+.workspace-context-link:hover { color:var(--text-primary); text-decoration:underline; }
+.workspace-overview-toolbar { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; }
+.workspace-git-overview .workspace-git-summary { margin:0; gap:8px 14px; font-size:12px; color:var(--text-secondary); flex:1; min-width:180px; }
+.workspace-branch { font-weight:600; color:var(--text-primary); overflow-wrap:anywhere; }
+.workspace-has-changes { color:var(--text-primary); }
+.workspace-git-overview .workspace-git-actions { margin:0; gap:8px; }
+.workspace-more { position:relative; }
+.workspace-more > summary { list-style:none; cursor:pointer; }
+.workspace-more > summary::-webkit-details-marker { display:none; }
+.workspace-more-panel { position:absolute; z-index:60; right:0; top:calc(100% + 6px); min-width:220px; padding:5px; border:1px solid var(--border-color); border-radius:8px; background:var(--bg-primary); box-shadow:0 8px 24px rgba(0,0,0,.12); }
+.workspace-more-panel button { display:block; width:100%; padding:9px 10px; border:0; border-radius:5px; background:transparent; text-align:left; color:var(--text-primary); font:inherit; font-size:13px; cursor:pointer; }
+.workspace-more-panel button:hover { background:var(--bg-secondary); }
+.workspace-git-overview .workspace-section { margin-top:22px; }
+.workspace-git-overview .workspace-section h3 { display:flex; align-items:center; gap:8px; margin:0 0 10px; font-size:13px; font-weight:600; }
+.workspace-section h3 > span { font-size:11px; font-weight:500; color:var(--text-secondary); }
+.workspace-change-list { border-top:1px solid var(--border-light); }
+.workspace-change-row { display:flex; align-items:center; gap:14px; width:100%; min-height:36px; padding:8px 4px; background:transparent; border:0; border-bottom:1px solid var(--border-light); border-radius:0; color:var(--text-primary); text-align:left; cursor:pointer; font:inherit; font-size:13px; }
+.workspace-change-row:hover { background:var(--bg-secondary); }
+.workspace-file-name { min-width:0; flex:1; overflow-wrap:anywhere; }
+.workspace-change-row small { flex:0 0 auto; color:var(--text-secondary); font-size:11px; }
+.workspace-git-overview .workspace-commit { min-width:0; gap:12px; padding:8px 4px; align-items:baseline; border-color:var(--border-light); font-size:12px; }
+.workspace-git-overview .workspace-commit code { color:var(--text-secondary); font-size:11px; flex-shrink:0; }
+.workspace-git-overview .workspace-commit span { min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.workspace-commit-author { display:none; }
+.workspace-history-more, .workspace-extra-files { margin-top:8px; }
+.workspace-history-more > summary, .workspace-extra-files > summary { width:max-content; max-width:100%; padding:5px 0; color:var(--text-secondary); font-size:12px; cursor:pointer; }
+.workspace-empty-hint { font-size:12px; line-height:1.6; color:var(--text-secondary); margin:8px 0; }
+.workspace-diff-panel { margin-top:12px; border:1px solid var(--border-color); border-radius:8px; background:var(--bg-secondary); }
+.workspace-diff-heading { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:8px 10px; font-size:12px; }
+.workspace-diff-heading strong { min-width:0; overflow-wrap:anywhere; }
+.workspace-diff-heading button { flex-shrink:0; }
+.workspace-diff-panel #workspace-file-diff { border:0; border-top:1px solid var(--border-light); border-radius:0; margin:0; font-size:12px; line-height:1.6; }
+.workspace-change-row:focus-visible, .workspace-more summary:focus-visible, .workspace-more button:focus-visible, .workspace-history-more summary:focus-visible, .workspace-extra-files summary:focus-visible, .project-kind-control:focus-visible, .workspace-context-link:focus-visible { outline:2px solid var(--accent-color, #4076eb); outline-offset:2px; }
+@media (max-width:760px) {
+  .workspace-git-overview { padding:12px; }
+  .workspace-git-overview .workspace-git-summary { flex-basis:100%; }
+  .workspace-git-actions { margin-left:auto !important; }
+  .repository-workspace-tabs [role=tablist] { flex-wrap:wrap; }
+}

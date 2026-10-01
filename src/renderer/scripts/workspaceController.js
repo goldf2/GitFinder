@@ -5,12 +5,21 @@
       this.state = state;
       this.bridge = bridge;
       document.getElementById('repository-workspace-tabs').addEventListener('click', event => {
+        const kindPath = event.target.closest('[data-workspace-kind]')?.dataset.workspaceKind;
+        if (kindPath) { this.app.openLocalProjectDialog(kindPath); return; }
         const view = event.target.closest('[data-workspace-view]')?.dataset.workspaceView;
         if (!view || !this.state.workspaceRepository) return;
         this.state.workspaceRepository.view = view;
         this.app.clearFileSelection();
         if (view === 'files') this.app.navigateTo(this.state.workspaceRepository.path);
         else this.app.renderContent();
+      });
+      document.addEventListener('click', event => {
+        if (!event.target.closest('.workspace-more')) document.querySelectorAll('.workspace-more[open]').forEach(menu => { menu.open = false; });
+      });
+      document.addEventListener('keydown', event => {
+        if (event.key !== 'Escape') return;
+        document.querySelectorAll('.workspace-more[open]').forEach(menu => { menu.open = false; menu.querySelector('summary')?.focus(); });
       });
     }
 
@@ -63,11 +72,15 @@
       const el = document.getElementById('repository-workspace-tabs');
       const repo = this.state.workspaceRepository;
       document.body.classList.toggle('workspace-overview-active', this.state.currentMode === 'tree' && Boolean(this.state.workspaceProject || repo && repo.view !== 'files'));
+      document.body.classList.toggle('workspace-git-active', this.state.currentMode === 'tree' && repo?.view === 'git');
       this.app.updateToolbarMenuState();
       el.hidden = !repo || this.state.currentMode !== 'tree';
       if (el.hidden) return;
       const e = text => this.app.escapeHtml(text || '');
-      el.innerHTML = `<strong title="${e(repo.path)}">⑂ ${e(repo.path.split(/[\\/]/).pop())}</strong><div role="tablist" aria-label="仓库工作视图">${[['git','Git'],['files','文件'],['project','所属项目']].map(([id,label]) => `<button class="btn btn-small ${repo.view===id?'btn-primary':''}" role="tab" aria-selected="${repo.view===id}" data-workspace-view="${id}">${label}</button>`).join('')}</div>`;
+      const owner = root.ProjectShortcuts.findProjectForPath(this.state.localProjects, repo.path, this.bridge.platform);
+      const kindPath = owner?.path || repo.path;
+      const kindTitle = owner ? `设置项目“${owner.name}”的形态` : '设为项目并选择 App/Web 形态';
+      el.innerHTML = `<strong id="repository-workspace-name" title="${e(repo.path)}">⑂ ${e(repo.path.split(/[\\/]/).pop())}</strong><button type="button" class="project-kind-badge project-kind-control" data-workspace-kind="${e(kindPath)}" title="${e(kindTitle)}">${e(root.ProjectKinds.label(owner?.projectKind))} ▾</button><div role="tablist" aria-label="仓库工作视图">${[['git','Git'],['files','文件'],['project','所属项目']].map(([id,label]) => `<button class="btn btn-small ${repo.view===id?'btn-primary':''}" role="tab" aria-selected="${repo.view===id}" data-workspace-view="${id}">${label}</button>`).join('')}</div>`;
     }
 
     projectContext(path) {
@@ -111,17 +124,32 @@
           if (!current()) return true;
           if (!status.isGitRepo || !review.success) throw Error(review.error || status.error || '仓库不可用');
           const chains = this.projectContext(repo.path);
-          container.innerHTML = `<section class="workspace-overview" id="git-workspace-view"><h2>${e(repo.path.split(/[\\/]/).pop())}</h2><p class="workspace-project-chain">${chains.length ? chains.map(chain=>chain.map(projectButton).join('<span> › </span>')).join(' · ') : '未归属项目'}</p><div class="workspace-git-summary"><span>分支 <strong>${e(status.branch || '尚无提交')}</strong></span><span>已暂存 ${review.stagedCount}</span><span>未暂存 ${review.unstagedCount}</span><span>领先 ${status.ahead} · 落后 ${status.behind}</span></div><div class="workspace-git-actions"><button class="btn btn-primary" data-workspace-git="review">审查与提交</button><button class="btn" data-workspace-git="fetch">Fetch</button><button class="btn" data-workspace-git="pull">Pull</button><button class="btn" data-workspace-git="push">Push</button><button class="btn" data-workspace-git="tools">分支与远程</button></div><h3>工作区变更 (${review.totalCount})</h3>${review.files.map((f,i)=>`<button class="workspace-member" data-workspace-diff="${i}">${e(f.path)} <small>${f.staged?'已暂存 ':''}${f.unstaged?'未暂存':''}</small></button>`).join('') || '<p>工作区干净</p>'}${review.limited?'<p>变更较多，仅显示部分文件；可打开审查查看。</p>':''}<pre id="workspace-file-diff" hidden></pre><h3>最近提交</h3>${log.map(c=>`<div class="workspace-commit"><code>${e(c.hash)}</code><span>${e(c.message)}</span><small>${e(c.author)}</small></div>`).join('') || '<p>暂无提交记录</p>'}</section>`;
+          const ancestors = chains.map(chain => chain.filter(project => project.path !== repo.path)).filter(chain => chain.length);
+          const contextHtml = ancestors.map(chain => chain.map(p => `<button type="button" class="workspace-context-link" data-workspace-project="${e(p.projectId)}">${e(p.name)}</button>`).join('<span aria-hidden="true"> / </span>')).join(' · ') || (!chains.length ? '<span>独立仓库 · 未归属项目</span>' : '');
+          container.innerHTML = root.WorkspacePresentation.gitOverview({ status, review, log, contextHtml });
           container.querySelectorAll('[data-workspace-diff]').forEach(button => button.addEventListener('click', async () => {
             const token = this.diffRequest = (this.diffRequest || 0) + 1;
             const file = review.files[Number(button.dataset.workspaceDiff)];
             const diff = await this.bridge.git.getFileDiff(repo.path, file.path, { staged: !file.unstaged && file.staged });
             if (!current() || token !== this.diffRequest) return;
-            const output = container.querySelector('#workspace-file-diff');output.hidden=false;output.textContent=diff.success ? (diff.diff || '无文本差异') : diff.error;
+            const panel = container.querySelector('#workspace-diff-panel');
+            const output = container.querySelector('#workspace-file-diff');
+            panel.hidden = false;
+            output.hidden = false;
+            container.querySelector('#workspace-diff-name').textContent = file.path;
+            output.textContent = diff.success ? (diff.diff || '无文本差异') : diff.error;
+            panel.scrollIntoView({ block: 'nearest' });
           }));
+          container.querySelector('[data-workspace-close-diff]').addEventListener('click', () => {
+            this.diffRequest = (this.diffRequest || 0) + 1;
+            container.querySelector('#workspace-diff-panel').hidden = true;
+            container.querySelector('#workspace-file-diff').hidden = true;
+          });
           container.querySelectorAll('[data-workspace-git]').forEach(button => button.addEventListener('click', () => {
             const action=button.dataset.workspaceGit;
+            const menu = button.closest('details'); if (menu) menu.open = false;
             if(action==='review') GitOps.openCommitModal(repo.path);
+            else if(action==='refresh') this.app.renderContent();
             else if(action==='tools') this.app.workspaceToolsController.openRepository(repo.path);
             else GitOps[action](repo.path);
           }));
@@ -134,7 +162,10 @@
         container.querySelectorAll('[data-workspace-repository]').forEach(button=>button.addEventListener('click',()=>this.openRepository(button.dataset.workspaceRepository)));
         container.querySelectorAll('[data-workspace-folder]').forEach(button=>button.addEventListener('click',()=>this.app.openLocalProject(button.dataset.workspaceFolder)));
       } catch (error) {
-        if(current())container.innerHTML=`<section class="workspace-overview"><h2>无法读取工作区</h2><p>${e(error.message)}</p></section>`;
+        if(current()) {
+          container.innerHTML=`<section class="workspace-overview"><h2>无法读取工作区</h2><p>${e(error.message)}</p><button type="button" class="btn" data-workspace-retry>重新读取</button></section>`;
+          container.querySelector('[data-workspace-retry]').addEventListener('click', () => this.app.renderContent());
+        }
       }
       return true;
     }

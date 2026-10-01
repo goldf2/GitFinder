@@ -28,13 +28,19 @@ async function main() {
   execFileSync('git',['init','--quiet',standalone]);execFileSync('git',['init','--quiet',directories[2]]);
   fs.mkdirSync(path.join(directories[0],'design'));fs.writeFileSync(path.join(directories[0],'design','brief.txt'),'product design');
   const changedRepo=path.join(directories[0],'one');fs.writeFileSync(path.join(changedRepo,'note.txt'),'original\n');execFileSync('git',['-C',changedRepo,'add','note.txt']);execFileSync('git',['-C',changedRepo,'-c','user.name=Fixture','-c','user.email=fixture@example.invalid','commit','-qm','Initial']);fs.writeFileSync(path.join(changedRepo,'note.txt'),'updated\n');
+  for (let i = 2; i <= 12; i++) execFileSync('git', ['-C', changedRepo, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '--allow-empty', '-qm', `Fixture commit ${i}`]);
+  fs.writeFileSync(path.join(changedRepo, 'z-details.txt'), 'untracked fixture');
+  fs.writeFileSync(path.join(changedRepo, 'z-notes.txt'), 'another fixture');
+  const originalGit = execFileSync('git', ['-C', changedRepo, 'status', '--porcelain'], { encoding: 'utf8' });
+  const originalHead = execFileSync('git', ['-C', changedRepo, 'rev-parse', 'HEAD'], { encoding: 'utf8' });
   fs.writeFileSync(path.join(profile, 'config.json'), JSON.stringify({ treeRoots: [{ path: managed, name: '隔离项目', expanded: true }], lastPath: managed, defaultScanPath: managed, autoRefresh: false, automaticUpdateChecks: false, detailPanelHidden: true, projectCardSize: 'medium', themeMode: 'light', projectGroups: { version: 1, groups: [{ groupId: groups[0], name: '管理类', color: 'blue', projectIds: [ids[0], ids[1]] }, { groupId: groups[1], name: '工具类', color: 'purple', projectIds: [ids[2]] },{groupId:parentId,name:'在线商城',kind:'collection',color:'blue',categoryId:groups[0],projectIds:[ids[2]],collectionIds:[childId]},{groupId:childId,name:'商城子项目',kind:'collection',projectIds:[ids[0],ids[1]],collectionIds:[]}] } }));
   const server = net.createServer(); await new Promise(r => server.listen(0, '127.0.0.1', r));
   const port = server.address().port; await new Promise(r => server.close(r));
   const appIndex = process.argv.indexOf('--app'), executable = appIndex >= 0 ? path.resolve(process.argv[appIndex + 1]) : require('electron');
   const env = { ...process.env }; delete env.ELECTRON_RUN_AS_NODE;
   const log = fs.openSync(path.join(output, 'electron.log'), 'a');
-  const child = spawn(executable, [...(appIndex < 0 ? [root] : []), `--user-data-dir=${profile}`, `--remote-debugging-port=${port}`, '--remote-debugging-address=127.0.0.1'], { cwd: root, env, stdio: ['ignore', log, log] });
+  const launchArgs = [...(appIndex < 0 ? [root] : []), `--user-data-dir=${profile}`, `--remote-debugging-port=${port}`, '--remote-debugging-address=127.0.0.1'];
+  let child = spawn(executable, launchArgs, { cwd: root, env, stdio: ['ignore', log, log] });
   let socket; const pending = new Map(), results = []; let sequence = 0;
   console.log('Evidence:', output);
   try {
@@ -49,7 +55,14 @@ async function main() {
     const send = (method, params = {}) => new Promise((resolve, reject) => { const id = ++sequence, timer = setTimeout(() => { pending.delete(id); reject(Error(`${method} timeout`)); }, 25000); pending.set(id, { resolve, reject, timer }); socket.send(JSON.stringify({ id, method, params })); });
     const evaluate = async expression => { const reply = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true }); if (reply.exceptionDetails) throw Error(JSON.stringify(reply.exceptionDetails)); return reply.result.value; };
     const wait = async expression => { for (let i = 0; i < 200; i++) { if (await evaluate(expression)) return; await delay(100); } throw Error(`Condition timeout: ${expression}; state=${JSON.stringify(await evaluate("({query:AppState.contentQuery,visible:AppState.visibleItems.map(x=>x.path),filtered:App._filterByCategory(App._prepareDisplayRepos()).map(x=>x.path)})"))}`); };
-    const check = async (name, expression) => { assert.equal(await evaluate(expression), true, name); results.push(name); console.log('PASS', name); };
+    const check = async (name, expression) => {
+      const actual = await evaluate(expression);
+      if (actual !== true) {
+        await shot('failure.png');
+        console.log('CHECK_DIAGNOSTICS', JSON.stringify(await evaluate("({headings:document.querySelectorAll('#git-workspace-view h2').length,commits:[...document.querySelectorAll('.workspace-commit')].map(e=>({rects:e.getClientRects().length,closed:!!e.closest('details:not([open])')})),kind:document.querySelector('[data-workspace-kind]')?.textContent})")));
+      }
+      assert.equal(actual, true, name); results.push(name); console.log('PASS', name);
+    };
     const click = async (selector, button = 'left') => { const point = await evaluate(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});if(!e||e.disabled)throw Error('Control missing');e.scrollIntoView({block:'center'});const r=e.getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2};})()`); await send('Input.dispatchMouseEvent', { type: 'mousePressed', button, clickCount: 1, ...point }); await send('Input.dispatchMouseEvent', { type: 'mouseReleased', button, clickCount: 1, ...point }); };
     const shot = async name => { await delay(300); const r = await send('Page.captureScreenshot', { format: 'png' }); fs.writeFileSync(path.join(output, name), Buffer.from(r.data, 'base64')); };
     await wait("typeof App!=='undefined'&&typeof AppState!=='undefined'&&AppState.localProjects.length===3");
@@ -82,7 +95,7 @@ async function main() {
     await check('物理项目概览包含多个仓库和资料目录',"document.querySelectorAll('[data-workspace-repository]').length===3&&!!document.querySelector('[data-workspace-folder]')");
     const firstRepo=path.join(directories[0],'one');
     await click(`[data-workspace-repository="${firstRepo}"]`);await wait("!!document.querySelector('#git-workspace-view')");
-    await check('Git概览不显示文件操作栏',"getComputedStyle(document.querySelector('#file-action-bar')).display==='none'&&!App.isFileBrowsingContext()");
+    await check('Git概览不显示文件操作栏和仅刷新工具行',"getComputedStyle(document.querySelector('#file-action-bar')).display==='none'&&getComputedStyle(document.querySelector('#sort-bar')).display==='none'&&!App.isFileBrowsingContext()");
     await check('点击仓库进入Git主视图',`AppState.workspaceRepository.path===${JSON.stringify(firstRepo)}&&document.querySelector('#git-workspace-view').textContent.includes('note.txt')&&document.querySelectorAll('[data-workspace-view]').length===3`);
     await wait(`AppState.selectedRepo?.path===${JSON.stringify(firstRepo)}`);
     await check('左侧定位仓库并同步右侧详情',`!!document.querySelector('#sidebar-project-list [data-project-repository-path="${firstRepo}"].active')&&AppState.selectedRepo.path===${JSON.stringify(firstRepo)}`);
@@ -125,7 +138,71 @@ async function main() {
     await click(`#sidebar-project-list [data-project-shortcut-id="${ids[1]}"]`);await wait(`AppState.currentPath===${JSON.stringify(directories[1])}&&App.isFileBrowsingContext()`);
     await check('无Git资料目录直接浏览',"!AppState.workspaceRepository&&!AppState.workspaceProject");
     await click('#sidebar-navigation-projects');await wait("!AppState.localProjectsLoading");await shot('unified-workspace.png');
-    fs.writeFileSync(path.join(output, 'results.json'), JSON.stringify({ executable, checks: results, passed: results.length }, null, 2));
+    // Current task: classification is project metadata, not a new sidebar grouping.
+    const groupsBefore = JSON.stringify((await evaluate('window.gitFinder.projectGroups.list()')).groups);
+    await evaluate(`App.openWorkspaceRepository(${JSON.stringify(changedRepo)})`);
+    await wait("!!document.querySelector('#git-workspace-view')&&document.querySelectorAll('.workspace-commit').length===12");
+    await check('仓库正文不重复标题，默认只显示5条最近提交', "!document.querySelector('#git-workspace-view h2')&&[...document.querySelectorAll('.workspace-commit')].filter(e=>e.getClientRects().length&&!e.closest('details:not([open])')).length===5");
+    await check('Git概览隐藏零值计数，文件使用紧凑无圆角行', "!document.querySelector('.workspace-git-summary').textContent.match(/已暂存 0|领先 0|落后 0/)&&document.querySelectorAll('.workspace-change-row').length===3&&getComputedStyle(document.querySelector('.workspace-change-row')).borderRadius==='0px'");
+    await check('低频操作默认折叠且保留可见审查入口', "!document.querySelector('.workspace-more').open&&[...document.querySelectorAll('[data-workspace-git]')].filter(e=>e.getClientRects().length&&!e.closest('details:not([open])')).length===1");
+    await click('.workspace-history-more > summary');
+    await check('展开后仍可查看本次读取的全部12条提交', "[...document.querySelectorAll('.workspace-commit')].filter(e=>e.getClientRects().length&&!e.closest('details:not([open])')).length===12");
+    await click('.workspace-history-more > summary');
+    await click('.workspace-more > summary');
+    await check('更多菜单提供Fetch、Pull、Push和分支远程', "['fetch','pull','push','tools'].every(a=>document.querySelector('[data-workspace-git='+a+']').getClientRects().length>0)");
+    await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+    await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+    await check('Escape关闭更多菜单并保留键盘焦点', "!document.querySelector('.workspace-more').open&&document.activeElement===document.querySelector('.workspace-more > summary')");
+    // Exercise routing without mutating Git or contacting a remote.
+    await evaluate("window.__gitRouteCalls=[];window.__gitOriginals={};for(const a of ['fetch','pull','push']){window.__gitOriginals[a]=GitOps[a];GitOps[a]=p=>window.__gitRouteCalls.push({action:a,path:p});}");
+    for (const action of ['fetch','pull','push']) { await click('.workspace-more > summary'); await click(`[data-workspace-git="${action}"]`); }
+    await check('更多菜单操作传入当前仓库并自动关闭', `window.__gitRouteCalls.length===3&&window.__gitRouteCalls.every(x=>x.path===${JSON.stringify(changedRepo)})&&!document.querySelector('.workspace-more').open`);
+    await evaluate("for(const a of ['fetch','pull','push'])GitOps[a]=window.__gitOriginals[a];delete window.__gitOriginals;");
+    await click('[data-workspace-diff="0"]'); await wait("!document.querySelector('#workspace-diff-panel').hidden");
+    await check('紧凑文件行仍能读取真实Diff', "document.querySelector('#workspace-file-diff').textContent.includes('+updated')");
+    await click('[data-workspace-close-diff]');
+    await check('文件差异可关闭而不改变文件列表', "document.querySelector('#workspace-diff-panel').hidden&&document.querySelectorAll('.workspace-change-row').length===3");
+    await click('[data-workspace-kind]'); await wait("AppState.projectDialog&&document.querySelector('#local-project-modal').style.display==='flex'");
+    await check('未分类项目不自动猜测App/Web，分组与形态分别编辑', "document.querySelector('#local-project-kind').value==='unclassified'&&document.querySelectorAll('[data-local-project-type]').length===2");
+    for (const kind of ['app','web','mixed','unclassified','app']) {
+      await evaluate(`document.querySelector('#local-project-kind').value=${JSON.stringify(kind)}`);
+      await click('#local-project-save-btn');
+      await wait(`document.querySelector('#local-project-modal').style.display==='none'&&AppState.localProjects.find(p=>p.projectId==='${ids[0]}').projectKind==='${kind}'&&!!document.querySelector('#git-workspace-view')`);
+      assert.equal(JSON.parse(fs.readFileSync(path.join(directories[0],'.gitfinder','project.json'),'utf8')).projectKind, kind);
+      await click('[data-workspace-kind]'); await wait('!!AppState.projectDialog');
+      await check(`${kind}形态保存并在重新打开设置后恢复`, `document.querySelector('#local-project-kind').value==='${kind}'`);
+      if (kind === 'app') await shot('project-kind-settings.png');
+    }
+    const savedKind = fs.readFileSync(path.join(directories[0],'.gitfinder','project.json'),'utf8');
+    await evaluate("document.querySelector('#local-project-kind').value='web'"); await click('#local-project-cancel-btn');
+    assert.equal(fs.readFileSync(path.join(directories[0],'.gitfinder','project.json'),'utf8'), savedKind);
+    await check('取消形态修改保持原App分类和紧凑标签', "document.querySelector('[data-workspace-kind]').textContent.includes('App 项目')");
+    assert.equal(JSON.stringify((await evaluate('window.gitFinder.projectGroups.list()')).groups), groupsBefore);
+    assert.equal(execFileSync('git', ['-C', changedRepo, 'status', '--porcelain'], { encoding: 'utf8' }), originalGit);
+    assert.equal(execFileSync('git', ['-C', changedRepo, 'rev-parse', 'HEAD'], { encoding: 'utf8' }), originalHead);
+    await check('分类操作未改组成员、仓库文件或Git提交', 'true');
+    for (const width of [1440,1100,900]) {
+      await send('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: false });
+      await check(`${width}px概览无横向溢出，操作和类型标签可见`, "document.documentElement.scrollWidth<=innerWidth+1&&document.querySelector('[data-workspace-kind]').getBoundingClientRect().right<=innerWidth&&document.querySelector('[data-workspace-git=review]').getBoundingClientRect().right<=innerWidth");
+      await shot(`compact-workspace-${width}.png`);
+    }
+    await send('Emulation.clearDeviceMetricsOverride');
+    await evaluate(`App.openWorkspaceRepository(${JSON.stringify(directories[2])})`); await wait("!!document.querySelector('#git-workspace-view')");
+    await check('仓库就是项目时不再重复显示同名归属按钮', `!document.querySelector('#git-workspace-view [data-workspace-project="${ids[2]}"]')`);
+    // A second app process reads the same isolated profile and project manifest.
+    await send('Browser.close').catch(()=>{});
+    for(let i=0;i<100&&child.exitCode===null;i++)await delay(100);
+    assert.notEqual(child.exitCode,null,'The first isolated app must exit normally');socket.close();
+    child=spawn(executable,launchArgs,{cwd:root,env,stdio:['ignore',log,log]});
+    let reopened;
+    for(let i=0;i<150;i++){try{reopened=(await(await fetch(`http://127.0.0.1:${port}/json`)).json()).find(p=>p.type==='page'&&p.url.endsWith('src/renderer/index.html'));if(reopened)break;}catch(_){}await delay(100);}
+    assert.ok(reopened,'Reopened renderer unavailable');socket=new WebSocket(reopened.webSocketDebuggerUrl);
+    await new Promise((r,j)=>{socket.addEventListener('open',r,{once:true});socket.addEventListener('error',j,{once:true});});
+    socket.addEventListener('message',e=>{const reply=JSON.parse(e.data),request=pending.get(reply.id);if(!request)return;pending.delete(reply.id);clearTimeout(request.timer);reply.error?request.reject(Error(JSON.stringify(reply.error))):request.resolve(reply.result);});
+    await wait("typeof App!=='undefined'&&typeof AppState!=='undefined'&&AppState.localProjects.length===3");
+    await check('应用退出重启后仍读取App形态，其他旧项目保持未分类', `AppState.localProjects.find(p=>p.projectId==='${ids[0]}').projectKind==='app'&&AppState.localProjects.find(p=>p.projectId==='${ids[1]}').projectKind==='unclassified'`);
+    await evaluate(`App.openWorkspaceRepository(${JSON.stringify(changedRepo)})`); await wait("!!document.querySelector('#git-workspace-view')");await shot('compact-workspace-reopened.png');
+    fs.writeFileSync(path.join(output, 'results.json'), JSON.stringify({ executable, version: require('../package.json').version, checks: results, passed: results.length, limitations: ['Only temporary fixture projects were edited. Fetch/Pull/Push UI routing used stubs; no remote Git writes or deployment occurred.'] }, null, 2));
     console.log('PASSED', results.length);
   } finally {
     for (const request of pending.values()) clearTimeout(request.timer);

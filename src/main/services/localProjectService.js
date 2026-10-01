@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const configService = require('./configService');
+const ProjectKinds = require('../../shared/projectKinds');
 
 const MANIFEST_DIRECTORY = '.gitfinder';
 const MANIFEST_FILE = 'project.json';
@@ -102,6 +103,7 @@ class LocalProjectService {
       description: this._cleanText(value.description, '', 2000),
       color,
       lifecycle,
+      projectKind: ProjectKinds.normalize(value.projectKind),
       repositories: {
         excluded: this._normalizeExcludedPaths(value.repositories?.excluded || value.excludedRepositories)
       }
@@ -187,6 +189,7 @@ class LocalProjectService {
       description: values.description,
       color: values.color,
       lifecycle: values.lifecycle,
+      projectKind: values.projectKind,
       repositories: { excluded: values.excludedRepositories || values.repositories?.excluded || [] }
     });
     try {
@@ -208,6 +211,7 @@ class LocalProjectService {
       description: Object.hasOwn(values, 'description') ? values.description : current.description,
       color: Object.hasOwn(values, 'color') ? values.color : current.color,
       lifecycle: Object.hasOwn(values, 'lifecycle') ? values.lifecycle : current.lifecycle,
+      projectKind: Object.hasOwn(values, 'projectKind') ? values.projectKind : current.projectKind,
       repositories: {
         excluded: Object.hasOwn(values, 'excludedRepositories')
           ? values.excludedRepositories

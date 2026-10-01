@@ -4863,7 +4863,7 @@ const App = {
             <header>
               ${this.getItemKindIconHtml({ type: 'directory', isProject: true, isGitRepo: project.rootIsGitRepo, project }, 'local-project-icon')}
               <div><h3 title="${this.escapeHtml(project.name)}">${this.escapeHtml(project.name)}</h3><div class="local-project-path" title="${this.escapeHtml(project.path)}">${this.escapeHtml(project.path)}</div></div>
-              ${this.getProjectLifecycleBadgeHtml(projectItem, lifecycle)}
+              <div class="local-project-badges">${project.projectKind && project.projectKind !== 'unclassified' ? `<span class="project-kind-badge">${this.escapeHtml(window.ProjectKinds.label(project.projectKind))}</span>` : ''}${this.getProjectLifecycleBadgeHtml(projectItem, lifecycle)}</div>
             </header>
             <p title="${this.escapeHtml(project.description || '暂无项目简介')}">${this.escapeHtml(project.description || '暂无项目简介')}</p>
             <div class="local-project-repo-heading"><span>内部仓库</span><strong>${Number(project.repositoryCount || 0)}</strong></div>
@@ -6794,6 +6794,7 @@ const App = {
       document.getElementById('local-project-description').value = project.description || '';
       document.getElementById('local-project-color').value = project.color || 'blue';
       document.getElementById('local-project-lifecycle').value = project.lifecycle || 'active';
+      document.getElementById('local-project-kind').value = project.projectKind || 'unclassified';
       document.getElementById('local-project-excluded').value = (project.repositories?.excluded || []).join('\n');
       document.getElementById('local-project-save-btn').textContent = identity.isProject ? '保存设置' : '创建项目';
       feedback.textContent = identity.isProject
@@ -6826,6 +6827,7 @@ const App = {
       description: document.getElementById('local-project-description').value,
       color: document.getElementById('local-project-color').value,
       lifecycle: document.getElementById('local-project-lifecycle').value,
+      projectKind: document.getElementById('local-project-kind').value,
       excludedRepositories: document.getElementById('local-project-excluded').value.split(/\r?\n/).map(value => value.trim()).filter(Boolean)
     };
     saveButton.disabled = true;
@@ -6845,6 +6847,9 @@ const App = {
       }
       await this.loadProjectGroups();
       await window.gitFinder.content.invalidateIndex();
+      const projectIndex = AppState.localProjects.findIndex(project => project.projectId === result.projectId);
+      if (projectIndex >= 0) AppState.localProjects[projectIndex] = { ...AppState.localProjects[projectIndex], ...result };
+      if (AppState.workspaceProject?.projectId === result.projectId) AppState.workspaceProject = { ...AppState.workspaceProject, ...result };
       Promise.resolve(this.projectShortcutsController?.upsertLocalProject?.(result)).catch(error => {
         console.warn('项目快捷入口局部更新失败:', error);
       });

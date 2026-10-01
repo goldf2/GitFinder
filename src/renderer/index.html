@@ -897,8 +897,16 @@
             </select>
           </div>
         </div>
+        <div class="form-group">
+          <label for="local-project-kind">项目形态</label>
+          <select id="local-project-kind" aria-describedby="local-project-kind-hint">
+            <option value="unclassified">未分类</option><option value="app">App 项目</option>
+            <option value="web">Web 项目</option><option value="mixed">App + Web</option>
+          </select>
+          <div class="file-operation-hint" id="local-project-kind-hint">App 用于安装型软件，Web 用于网站或在线服务；只保存分类，不触发构建、部署或发布。</div>
+        </div>
         <div class="form-group" id="local-project-types-section">
-          <label id="local-project-types-label">项目类型</label>
+          <label id="local-project-types-label">项目分组</label>
           <div class="local-project-type-options" id="local-project-types" role="group" aria-labelledby="local-project-types-label"></div>
           <div class="file-operation-hint">勾选加入，取消勾选退出；可以属于多个类型。未设为项目的文件夹会在保存时创建项目身份。</div>
         </div>
@@ -907,7 +915,7 @@
           <textarea id="local-project-excluded" rows="3" spellcheck="false" placeholder="每行一个项目内相对路径，例如 vendor/reference"></textarea>
           <div class="file-operation-hint">仅保存相对路径；嵌套项目会自动从父项目仓库扫描中排除。</div>
         </div>
-        <div class="local-project-boundary-note">项目设置保存在 <code>.gitfinder/project.json</code>，类型归属保存在本机；不会移动文件夹，不会执行 git init、暂存、提交或推送。</div>
+        <div class="local-project-boundary-note">项目设置与 App/Web 形态保存在 <code>.gitfinder/project.json</code>，分组归属保存在本机；不会移动文件夹，不会执行 git init、暂存、提交或推送。</div>
       </div>
       <footer class="modal-footer">
         <span id="local-project-feedback" role="status" aria-live="polite"></span>
@@ -1466,6 +1474,8 @@
   <script src="scripts/projectProgressModel.js"></script>
   <script src="../shared/experimentalFeatures.js"></script>
   <script src="scripts/workspaceToolsController.js"></script>
+  <script src="../shared/projectKinds.js"></script>
+  <script src="scripts/workspacePresentation.js"></script>
   <script src="scripts/workspaceController.js"></script>
   <script src="scripts/app.js"></script>
   <script src="scripts/experimentalFeaturesController.js"></script>
