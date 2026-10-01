@@ -2,18 +2,18 @@
 
 > 自动生成。只编辑 `management/development-tasks.json`，然后执行 `npm run handoff:update`。
 
-更新时间：2026-10-02T04:06:21+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
+更新时间：2026-10-01T20:18:25.991Z。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
 
 核验基线：2.0.0-alpha.193 / `99eef1d2992e389f32a48182a25fda3b9adf1958`；证据：[docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md](LAYOUT_OPTIONS_ALPHA193.md)。
 
-**唯一下一任务：GF-TAGS-226**
+**唯一下一任务：GF-DATA-001**
 
 ## 阶段汇总
 
 | 阶段 | 纳入任务 | 已交付 | 开发中/已验证 | 阻塞/暂缓 |
 | --- | ---: | ---: | ---: | ---: |
 | GF-P0 接续工程 | 2 | 2 | 0 | 0 |
-| GF-P1 桌面稳定 | 30 | 24 | 1 | 1 |
+| GF-P1 桌面稳定 | 30 | 25 | 0 | 1 |
 | GF-P2 可维护与性能 | 8 | 4 | 0 | 0 |
 | GF-P3 可分发 | 7 | 0 | 2 | 3 |
 | GF-P4 全流程事件 | 5 | 0 | 0 | 1 |
@@ -80,7 +80,7 @@
 | GF-PROJECT-223 | P1 | 已交付 | Codex | 统一仓库与项目入口，减少重复层级 |
 | GF-REPO-224 | P1 | 已交付 | Codex | 仓库作为主列表，项目作为文件夹属性 |
 | GF-CATEGORY-225 | P1 | 已交付 | Codex | 仓库分类入口、独立滚动与标签热力图 |
-| GF-TAGS-226 | P1 | 已验证 | Codex | 多维属性标签筛选与APP标签整理 |
+| GF-TAGS-226 | P1 | 已交付 | Codex | 多维属性标签筛选与APP标签整理 |
 
 ## 可执行任务卡
 
@@ -1103,16 +1103,18 @@
 
 ### GF-TAGS-226 · 多维属性标签筛选与APP标签整理
 
-阶段：GF-P1；优先级：P1；状态：**已验证**；负责人：Codex；用户验收：待用户反馈。
+阶段：GF-P1；优先级：P1；状态：**已交付**；负责人：Codex；用户验收：待用户反馈。
 
-更新：2026-10-02T04:06:21+08:00。依赖：无。
+更新：2026-10-01T20:18:25.991Z。依赖：无。
 
 **验收标准**
 1. 现有属性标签按维度展示，多选同时满足并可清除，最近与分类成员同步筛选。
 2. 依据本机源码补APP和平台标签；保留旧关联，安装与重开验证后推送。
 
-**接续动作：** 真实指针17项及1460测试/310JS通过；本机51标签含7APP与平台标注已保存。重打包验证详情标签可见补丁后交付。
+**接续动作：** 已安装并推送，等待用户体验确认；用户新增侧栏排序与高度要求另建任务。
 
 源码/设计入口：[src/renderer/scripts/app.js](../../src/renderer/scripts/app.js)；[src/renderer/scripts/projectShortcutsController.js](../../src/renderer/scripts/projectShortcutsController.js)；[src/renderer/index.html](../../src/renderer/index.html)；[src/renderer/styles/sidebar.css](../../src/renderer/styles/sidebar.css)；[scripts/verify-repository-sidebar.js](../../scripts/verify-repository-sidebar.js)。
 
 证据：[docs/00-handoff/TAG_FILTER_ALPHA226.md](TAG_FILTER_ALPHA226.md)
+
+交付：2.0.0-alpha.226；源码 `c23016d492e54045f21d2af035779ee2c8fa6316`。
