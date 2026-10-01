@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-01T20:30:59.619Z",
+  "updatedAt": "2026-10-01T20:35:48.741Z",
   "scope": "以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。",
   "baseline": {
     "version": "2.0.0-alpha.193",
     "sourceCommit": "99eef1d2992e389f32a48182a25fda3b9adf1958",
     "evidence": "docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md"
   },
-  "nextTaskId": "GF-SIDEBAR-227",
+  "nextTaskId": "GF-DATA-001",
   "milestones": [
     {
       "id": "GF-P0",
@@ -1707,9 +1707,9 @@
       "milestone": "GF-P2",
       "title": "侧栏区域排序、可调高度与自定义分类",
       "priority": "P1",
-      "status": "verified",
+      "status": "delivered",
       "owner": "Codex",
-      "updatedAt": "2026-10-01T20:30:59.619Z",
+      "updatedAt": "2026-10-01T20:35:48.741Z",
       "dependsOn": [
         "GF-TAGS-226"
       ],
@@ -1727,9 +1727,13 @@
       "evidence": [
         "docs/00-handoff/SIDEBAR_LAYOUT_ALPHA227.md"
       ],
-      "nextAction": "1460测试、311JS与25项实际指针/重启验收通过；提交源码并隔离构建，完成安装后推送。",
+      "nextAction": "等待用户布局与自定义分类体验反馈；GF-DATA-001不自动启动。",
       "blocker": "",
-      "userAcceptance": "pending"
+      "userAcceptance": "pending",
+      "delivery": {
+        "version": "2.0.0-alpha.227",
+        "sourceCommit": "831a43c7a9e28ed6874942237a2f5e1df8778e87"
+      }
     }
   ]
 }
