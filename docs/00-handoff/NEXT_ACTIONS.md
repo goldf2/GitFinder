@@ -1,7 +1,11 @@
 # GitFinder 2 下一步
 
 <!-- BEGIN NEXT_ACTIONS -->
-GF-WORKSPACE-221：先实现并验证类型持久化、仓库概览和不改变Git状态；GF-DATA-001本轮不启动。
+## alpha.221 已交付 / 下一任务 GF-DATA-001
+
+等待用户确认仓库概览简化和App/Web项目形态。
+分类可从仓库名旁标签或项目设置进入，默认未分类；本轮没有CI/CD执行或真实项目批量修改。
+本机App、源码与验收记录已交付，保留原主目录未提交工作；后续读取WORKSPACE_KIND_ALPHA221.md，不将旧alpha.220作为当前安装版本。
 <!-- END NEXT_ACTIONS -->
 
 ## 历史兼容记录（以下旧下一步已被顶部接续块取代）

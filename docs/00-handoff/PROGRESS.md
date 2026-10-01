@@ -2,18 +2,18 @@
 
 > 自动生成。只编辑 `management/development-tasks.json`，然后执行 `npm run handoff:update`。
 
-更新时间：2026-10-01T06:10:17+00:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
+更新时间：2026-10-01T06:22:41+00:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
 
 核验基线：2.0.0-alpha.193 / `99eef1d2992e389f32a48182a25fda3b9adf1958`；证据：[docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md](LAYOUT_OPTIONS_ALPHA193.md)。
 
-**唯一下一任务：GF-WORKSPACE-221**
+**唯一下一任务：GF-DATA-001**
 
 ## 阶段汇总
 
 | 阶段 | 纳入任务 | 已交付 | 开发中/已验证 | 阻塞/暂缓 |
 | --- | ---: | ---: | ---: | ---: |
 | GF-P0 接续工程 | 2 | 2 | 0 | 0 |
-| GF-P1 桌面稳定 | 29 | 23 | 1 | 1 |
+| GF-P1 桌面稳定 | 29 | 24 | 0 | 1 |
 | GF-P2 可维护与性能 | 4 | 0 | 0 | 0 |
 | GF-P3 可分发 | 7 | 0 | 2 | 3 |
 | GF-P4 全流程事件 | 5 | 0 | 0 | 1 |
@@ -75,7 +75,7 @@
 | GF-WORKSPACE-218 | P1 | 已交付 | Codex | 统一工作区导航与Git仓库三视图联动 |
 | GF-SIDEBAR-219 | P1 | 已交付 | Codex | 类别导航保持未选中分组的展开内容 |
 | GF-SIDEBAR-220 | P1 | 已交付 | Codex | 独立仓库条目黑框与选中样式修复 |
-| GF-WORKSPACE-221 | P1 | 已验证 | ChatGPT / tsk_66c229cd7c352efd | App/Web项目形态与精简仓库工作区 |
+| GF-WORKSPACE-221 | P1 | 已交付 | ChatGPT / tsk_66c229cd7c352efd | App/Web项目形态与精简仓库工作区 |
 
 ## 可执行任务卡
 
@@ -999,17 +999,19 @@
 
 ### GF-WORKSPACE-221 · App/Web项目形态与精简仓库工作区
 
-阶段：GF-P1；优先级：P1；状态：**已验证**；负责人：ChatGPT / tsk_66c229cd7c352efd；用户验收：待用户反馈。
+阶段：GF-P1；优先级：P1；状态：**已交付**；负责人：ChatGPT / tsk_66c229cd7c352efd；用户验收：待用户反馈。
 
-更新：2026-10-01T06:10:17+00:00。依赖：无。
+更新：2026-10-01T06:22:41+00:00。依赖：无。
 
 **验收标准**
 1. App/Web分类在项目设置保存并持久化；原分组、项目身份和Git状态保持不变
 2. 仓库概览减少重复标题/零值信息和常驻操作；变更、Diff、Git操作与完整近期记录仍可用
 3. 在隔离profile完成类型保存/重启及精简UI回归，可恢复安装后推送
 
-**接续动作：** 完成候选alpha.221最终检查、可追溯打包、可恢复安装及安装版49项复验，再推送
+**接续动作：** alpha.221已安装并正常启动，源码已推送；等待用户确认App/Web分类和精简仓库概览，不自动启动CI/CD或批量分类
 
 源码/设计入口：[src/main/services/localProjectService.js](../../src/main/services/localProjectService.js)；[src/renderer/scripts/app.js](../../src/renderer/scripts/app.js)；[src/renderer/scripts/workspaceController.js](../../src/renderer/scripts/workspaceController.js)；[src/renderer/index.html](../../src/renderer/index.html)；[src/renderer/styles/sidebar.css](../../src/renderer/styles/sidebar.css)；[src/shared/projectKinds.js](../../src/shared/projectKinds.js)；[src/renderer/scripts/workspacePresentation.js](../../src/renderer/scripts/workspacePresentation.js)；[scripts/verify-unified-workspace.js](../../scripts/verify-unified-workspace.js)；[test/local-project-kind.test.js](../../test/local-project-kind.test.js)；[test/workspace-presentation.test.js](../../test/workspace-presentation.test.js)。
 
 证据：[docs/00-handoff/WORKSPACE_KIND_ALPHA221.md](WORKSPACE_KIND_ALPHA221.md)
+
+交付：2.0.0-alpha.221；源码 `1801f8e6cce671b9c4ec11dfe3d874c5fefaf7fe`。

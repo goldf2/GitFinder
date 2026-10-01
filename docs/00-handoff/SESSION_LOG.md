@@ -639,3 +639,16 @@ alpha.220源码1fbfc525ad6ffac41acc074c8703a37982ed3f31已推送。
 ## 2026-10-01T06:10:17+00:00 · 源码窗口验证完成
 
 完整1447测试与306个JS检查通过；8项新增专项通过。最终实际Electron源码回归49项全部通过，含两次真实进程启动、App/Web/混合/未分类保存恢复、取消不写入、分组成员与Git状态不变、菜单路由、Diff及900/1100/1440px无溢出。证据目录dist/workspace-ui-S1G5UC，早期失败保留在dist/project-kind-verification/ui-diagnostics.log。候选alpha.221准备最终检查和打包；当前安装alpha.220尚未替换。
+
+## 2026-10-01T06:22:41+00:00 · alpha.221 交付核验完成
+
+- 源码与构建提交：`1801f8e6cce671b9c4ec11dfe3d874c5fefaf7fe`，已普通推送到origin/main。
+- 完整检查：1447/1447测试通过、306个JavaScript文件检查通过，renderer构建通过。
+- macOS ARM64：DMG/ZIP及App生成完成，development源码与制品门禁通过；只使用ad-hoc签名，未做Developer ID公证或正式发行。
+- 现安装路径：`/Applications/GitFinder 2.app`；安装版ASAR SHA-256：`8fe2be1809a412ea69251276bf0dc28c89d8f883bf225c0f4e6eb616aa6b4c66`，与构建收据一致。
+- 旧alpha.220完整备份：`/Users/tefulong/.agentdock/backups/gitfinder-20261001-alpha220-before221/GitFinder 2.app`；旧App正常退出后才替换，没有强制杀死真实用户实例。
+- 安装版实际Electron测试49项通过，使用独立profile，两次真实进程启动验证项目形态持久化；证据`dist/workspace-ui-gXrD2Q/results.json`及对应截图。
+- 结束后普通open恢复用户实例，核对主进程和安装版本alpha.221。系统Accessibility权限不可用，因此未声称原生辅助点击验收；以上功能交互通过安装版受控CDP窗口验证。
+- 原主工作区12项既有未提交文件SHA-256全部未变；未改真实项目的App/Web类型、分组、源码或Git状态。
+- 远端CI结论本轮尚未核验；Windows包、公开GitHub Release、商城发布与CI/CD模块均未执行。
+- 用户效果确认仍pending，后续任务GF-DATA-001本轮不启动。最终文档提交只收口此版事实，不声明生成新安装产物。

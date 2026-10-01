@@ -1,9 +1,12 @@
 # GitFinder 2 当前状态
 
 <!-- BEGIN CURRENT_STATE -->
-## GF-WORKSPACE-221 / alpha.221 候选已验证
+## GF-WORKSPACE-221 / alpha.221 已交付
 
-App/Web项目形态与精简仓库概览已实现。1447源码测试、306JS、49项实际Electron交互与重启通过。当前安装alpha.220仍未替换；下一步可追溯打包、可恢复安装和安装版复验后推送。范围及证据见WORKSPACE_KIND_ALPHA221.md。
+新增项目形态（App、Web、App+Web、未分类）及精简仓库概览：重复标题/零值移除，更多菜单、紧凑文件行和5条提交摘要。
+源码`1801f8e6cce671b9c4ec11dfe3d874c5fefaf7fe`已推送，1447测试/306JS、源码49项和安装版49项交互及真实重启通过。
+已安装至`/Applications/GitFinder 2.app`并恢复正常启动，旧alpha.220有完整备份。
+原主目录12项dirty文件哈希未变，不批量设置真实项目类型。详见WORKSPACE_KIND_ALPHA221.md；用户验收pending。下一任务GF-DATA-001不自动启动。
 <!-- END CURRENT_STATE -->
 
 ## 历史兼容记录（以下不再表示当前状态）
