@@ -2,11 +2,11 @@
 
 > 自动生成。只编辑 `management/development-tasks.json`，然后执行 `npm run handoff:update`。
 
-更新时间：2026-10-01T15:26:42+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
+更新时间：2026-10-01T15:33:23+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
 
 核验基线：2.0.0-alpha.193 / `99eef1d2992e389f32a48182a25fda3b9adf1958`；证据：[docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md](LAYOUT_OPTIONS_ALPHA193.md)。
 
-**唯一下一任务：GF-PROJECT-223**
+**唯一下一任务：GF-DATA-001**
 
 ## 阶段汇总
 
@@ -14,7 +14,7 @@
 | --- | ---: | ---: | ---: | ---: |
 | GF-P0 接续工程 | 2 | 2 | 0 | 0 |
 | GF-P1 桌面稳定 | 29 | 24 | 0 | 1 |
-| GF-P2 可维护与性能 | 6 | 1 | 1 | 0 |
+| GF-P2 可维护与性能 | 6 | 2 | 0 | 0 |
 | GF-P3 可分发 | 7 | 0 | 2 | 3 |
 | GF-P4 全流程事件 | 5 | 0 | 0 | 1 |
 | GF-P5 Web与同步（需授权） | 4 | 0 | 0 | 4 |
@@ -77,7 +77,7 @@
 | GF-SIDEBAR-220 | P1 | 已交付 | Codex | 独立仓库条目黑框与选中样式修复 |
 | GF-WORKSPACE-221 | P1 | 已交付 | ChatGPT / tsk_66c229cd7c352efd | App/Web项目形态与精简仓库工作区 |
 | GF-CHAT-001 | P1 | 已交付 | Codex conversation-link agent | 项目关联 Codex 与 ChatGPT 会话入口 |
-| GF-PROJECT-223 | P1 | 开发中 | Codex | 统一仓库与项目入口，减少重复层级 |
+| GF-PROJECT-223 | P1 | 已交付 | Codex | 统一仓库与项目入口，减少重复层级 |
 
 ## 可执行任务卡
 
@@ -1040,9 +1040,9 @@
 
 ### GF-PROJECT-223 · 统一仓库与项目入口，减少重复层级
 
-阶段：GF-P2；优先级：P1；状态：**开发中**；负责人：Codex；用户验收：待用户反馈。
+阶段：GF-P2；优先级：P1；状态：**已交付**；负责人：Codex；用户验收：待用户反馈。
 
-更新：2026-10-01T15:26:42+08:00。依赖：无。
+更新：2026-10-01T15:33:23+08:00。依赖：无。
 
 **验收标准**
 1. Git仓库自动展示为项目，原项目ID及会话关联保留，不批量改写仓库文件。
@@ -1050,8 +1050,10 @@
 3. 项目内可访问代码、文件、任务、会话及发布和接续记录入口。
 4. 源码、安装版与重开验证通过，保护已有未提交修改。
 
-**接续动作：** 从本轮提交打包alpha223，备份旧应用并完成安装版及重开验收后推送。
+**接续动作：** alpha223已安装、普通启动与9项重开验证通过且源码已推送；等待用户体验反馈，不自动启动后续模型重构。
 
 源码/设计入口：[src/main/services/localProjectService.js](../../src/main/services/localProjectService.js)；[src/renderer/scripts/workspaceController.js](../../src/renderer/scripts/workspaceController.js)；[src/renderer/scripts/projectShortcutsController.js](../../src/renderer/scripts/projectShortcutsController.js)。
 
 证据：[docs/00-handoff/PROJECT_UNIFICATION_ALPHA223.md](PROJECT_UNIFICATION_ALPHA223.md)
+
+交付：2.0.0-alpha.223；源码 `882268b5c2583a3ed9706354a7305a4e3254885c`。
