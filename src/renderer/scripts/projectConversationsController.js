@@ -138,6 +138,11 @@
         return;
       }
       if (action === 'open-repository') { await this.bridge.openRepository(button.dataset.chatProject, button.dataset.chatRepository, button.dataset.chatView); return; }
+      if (action === 'open-context' && this.app.workspaceController?.state.workspaceRepository) {
+        this.app.workspaceController.state.workspaceRepository.view = 'records';
+        await this.app.renderContent();
+        return;
+      }
       if (action === 'open-context') {
         const workspace = this.workspaces.get(button.dataset.chatProject) || await this.loadWorkspace(button.dataset.chatProject);
         await this.files.openFile(`${workspace.projectPath}/docs/ai-context/INDEX.md`);
@@ -148,9 +153,11 @@
         const workspace = this.workspaces.get(button.dataset.chatProject) || await this.loadWorkspace(button.dataset.chatProject);
         const task = workspace.tasks.find(item => item.taskId === button.dataset.chatTaskId);
         if (!task) throw new Error('该任务已不在项目台账中');
-        const body = this.element('project-chat-task-body');
+        const inline = this.document.querySelector('[data-workspace-task-detail]');
+        const body = inline || this.element('project-chat-task-body');
         body.innerHTML = this.app.getRepositoryTaskDetailHtml(task);
         this.app.bindProjectTaskEvents(body);
+        if (inline) { inline.scrollIntoView({block:'start'}); return; }
         this.element('project-chat-task-modal').style.display = 'flex';
         this.element('project-chat-task-modal').querySelector('[data-chat-action=close-task]').focus();
         return;

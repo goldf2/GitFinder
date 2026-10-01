@@ -143,6 +143,7 @@
     }
 
     goBack() {
+      if (this.state.workspaceRepository && (this.state.workspaceRepository.view !== 'files' || pathsEqual(this.state.currentPath, this.state.workspaceRepository.path, this.platform))) return this.app.workspaceController.returnToList();
       if (this._navigationBlocked()) return false;
       const targetIndex = this._historyTargetIndex(-1);
       if (targetIndex < 0) return false;
@@ -279,7 +280,7 @@
       if (!back || !forward || !up) return;
       const previousIndex = this._historyTargetIndex(-1);
       const nextIndex = this._historyTargetIndex(1);
-      back.disabled = blockedMode || previousIndex < 0;
+      back.disabled = !this.state.workspaceRepository && (blockedMode || previousIndex < 0);
       forward.disabled = blockedMode || nextIndex < 0;
       const rawParentPath = this.getParentPath(this.state.currentPath);
       const parentPath = this._managedParentPath(this.state.currentPath);

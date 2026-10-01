@@ -958,3 +958,15 @@
   text-align: center; border: 2px solid var(--swatch); background: var(--bg-primary);
 }
 .finder-menu .sidebar-tag-color-option.active { box-shadow: 0 0 0 2px var(--text-primary); }
+
+/* Repository workspaces own their content; the inspector remains available in Files. */
+.workspace-overview-active #detail-panel,
+.workspace-overview-active #resize-handle-right { display: none !important; }
+.workspace-reader-layout { display:grid; grid-template-columns:minmax(160px, 220px) minmax(0, 1fr); gap:24px; margin:16px 0; }
+.workspace-reader-layout nav { display:flex; flex-direction:column; gap:6px; max-height:65vh; overflow:auto; }
+.workspace-reader-layout nav .btn { text-align:left; white-space:normal; overflow-wrap:anywhere; }
+.workspace-reader-layout nav [aria-pressed=true] { background:var(--accent-color, #3478f6); color:white; }
+[data-workspace-reader] { min-width:0; overflow-wrap:anywhere; }
+[data-workspace-reader] pre { white-space:pre-wrap; }
+.workspace-summary-stats { display:flex; flex-wrap:wrap; gap:24px; padding:16px 0; border-bottom:1px solid var(--border-color); }
+@media(max-width:900px) { .workspace-reader-layout { grid-template-columns:1fr; } .workspace-reader-layout nav { max-height:160px; } }

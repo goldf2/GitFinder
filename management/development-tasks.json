@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-02T05:15:59+08:00",
+  "updatedAt": "2026-10-02T05:27:09+08:00",
   "scope": "以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。",
   "baseline": {
     "version": "2.0.0-alpha.193",
@@ -1801,6 +1801,33 @@
         "version": "2.0.0-alpha.229",
         "sourceCommit": "be510ef9fd3767b8b8931767728d07cb4d51d445"
       }
+    },
+    {
+      "id": "GF-WORKSPACE-230",
+      "milestone": "GF-P2",
+      "title": "仓库工作区返回与内置内容阅读",
+      "priority": "P1",
+      "status": "verified",
+      "owner": "Codex",
+      "updatedAt": "2026-10-02T05:27:09+08:00",
+      "dependsOn": [],
+      "sourcePaths": [
+        "src/renderer/scripts/workspaceController.js",
+        "src/renderer/scripts/projectConversationsController.js",
+        "src/renderer/scripts/directoryNavigationController.js",
+        "src/renderer/styles/sidebar.css"
+      ],
+      "acceptance": [
+        "返回进入仓库前的筛选列表。",
+        "记录、会话存档、任务详情在主区阅读。",
+        "概览减少重复属性，版本页展示已有记录并明确外部入口。"
+      ],
+      "evidence": [
+        "docs/00-handoff/WORKSPACE_ALPHA230.md"
+      ],
+      "nextAction": "源码1460测试、311JS及10项隔离界面检查通过，待干净构建、安装及实际用户界面验收。",
+      "blocker": "",
+      "userAcceptance": "pending"
     }
   ]
 }
