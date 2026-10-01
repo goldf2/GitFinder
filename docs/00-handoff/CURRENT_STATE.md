@@ -1,7 +1,13 @@
 # GitFinder 2 当前状态
 
 <!-- BEGIN CURRENT_STATE -->
-GF-SIDEBAR-220 开发中：复现并修复独立仓库黑框；基线 alpha.219，原有未提交内容保留。
+## GF-SIDEBAR-220 / alpha.220 已交付
+
+独立仓库统一按钮样式，修复默认黑框并同步选中高亮。
+源码1fbfc525ad6ffac41acc074c8703a37982ed3f31已推送；
+1439测试/302JS、安装版27项交互与真实两个独立仓库截图核验通过。
+已恢复正常启动，详见SIDEBAR_BORDER_ALPHA220.md。
+用户验收pending；下一任务GF-DATA-001，本轮不启动。
 <!-- END CURRENT_STATE -->
 
 ## 历史兼容记录（以下不再表示当前状态）
