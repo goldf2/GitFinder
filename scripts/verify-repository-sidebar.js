@@ -73,8 +73,7 @@ async function main() {
   const manifest = fs.readFileSync(path.join(explicit, '.gitfinder/project.json'), 'utf8');
   const checks = []; let app;
   const check = async (name, expr) => { assert.equal(await app.evaluate(expr), true, name); checks.push(name); console.log('PASS', name); };
-  // DOM clicks dispatch actual application handlers without relying on prior panel geometry.
-  const click = selector => app.evaluate(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});if(!e||e.disabled)throw Error('Missing '+${JSON.stringify(selector)});e.scrollIntoView({block:'center'});e.click()})()`);
+  const click = selector => app.click(selector);
   console.log('Evidence:', output);
   try {
     app = await start(profile, output);
@@ -113,6 +112,7 @@ async function main() {
     await check('清除标签恢复完整列表', "AppState.selectedTags.length===0&&document.querySelector('#sidebar-tag-clear').disabled");
     await app.evaluate(`App.openWorkspaceRepository(${JSON.stringify(automatic)})`);
     await app.wait("!!document.querySelector('#git-workspace-view')");
+    await check('仓库详情保留可见标签入口', "getComputedStyle(document.querySelector('#tags-sidebar-section')).display!=='none'");
     await app.evaluate("AppState.filterEnabled.tag=false");
     await click('[data-tag-id=tag-1]');
     await app.wait("!AppState.workspaceRepository&&document.querySelectorAll('.repo-card').length===1");

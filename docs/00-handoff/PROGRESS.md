@@ -2,7 +2,7 @@
 
 > 自动生成。只编辑 `management/development-tasks.json`，然后执行 `npm run handoff:update`。
 
-更新时间：2026-10-02T04:02:31+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
+更新时间：2026-10-02T04:06:21+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
 
 核验基线：2.0.0-alpha.193 / `99eef1d2992e389f32a48182a25fda3b9adf1958`；证据：[docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md](LAYOUT_OPTIONS_ALPHA193.md)。
 
@@ -1105,13 +1105,13 @@
 
 阶段：GF-P1；优先级：P1；状态：**已验证**；负责人：Codex；用户验收：待用户反馈。
 
-更新：2026-10-02T04:02:31+08:00。依赖：无。
+更新：2026-10-02T04:06:21+08:00。依赖：无。
 
 **验收标准**
 1. 现有属性标签按维度展示，多选同时满足并可清除，最近与分类成员同步筛选。
 2. 依据本机源码补APP和平台标签；保留旧关联，安装与重开验证后推送。
 
-**接续动作：** 1460测试/310JS与16项窗口验证通过，准备alpha.226安装及标签整理。
+**接续动作：** 真实指针17项及1460测试/310JS通过；本机51标签含7APP与平台标注已保存。重打包验证详情标签可见补丁后交付。
 
 源码/设计入口：[src/renderer/scripts/app.js](../../src/renderer/scripts/app.js)；[src/renderer/scripts/projectShortcutsController.js](../../src/renderer/scripts/projectShortcutsController.js)；[src/renderer/index.html](../../src/renderer/index.html)；[src/renderer/styles/sidebar.css](../../src/renderer/styles/sidebar.css)；[scripts/verify-repository-sidebar.js](../../scripts/verify-repository-sidebar.js)。
 

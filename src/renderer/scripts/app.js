@@ -3917,7 +3917,8 @@ const App = {
       AppState.currentMode
     );
     const tagsSection = document.getElementById('tags-sidebar-section');
-    if (tagsSection) tagsSection.style.display = repositoryMetadataContext ? '' : 'none';
+    if (tagsSection) tagsSection.style.display = repositoryMetadataContext
+      || (AppState.currentMode === 'tree' && AppState.workspaceRepository) ? '' : 'none';
     const categoryFilter = document.getElementById('repository-category-filter');
     if (categoryFilter) categoryFilter.style.display = repositoryMetadataContext ? '' : 'none';
     document.querySelector('.main-container')?.classList.toggle('tasks-mode', tasksMode);

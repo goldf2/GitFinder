@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-02T04:02:31+08:00",
+  "updatedAt": "2026-10-02T04:06:21+08:00",
   "scope": "以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。",
   "baseline": {
     "version": "2.0.0-alpha.193",
@@ -1678,7 +1678,7 @@
       "priority": "P1",
       "status": "verified",
       "owner": "Codex",
-      "updatedAt": "2026-10-02T04:02:31+08:00",
+      "updatedAt": "2026-10-02T04:06:21+08:00",
       "dependsOn": [],
       "sourcePaths": [
         "src/renderer/scripts/app.js",
@@ -1694,7 +1694,7 @@
       "evidence": [
         "docs/00-handoff/TAG_FILTER_ALPHA226.md"
       ],
-      "nextAction": "1460测试/310JS与16项窗口验证通过，准备alpha.226安装及标签整理。",
+      "nextAction": "真实指针17项及1460测试/310JS通过；本机51标签含7APP与平台标注已保存。重打包验证详情标签可见补丁后交付。",
       "blocker": "",
       "userAcceptance": "pending"
     }

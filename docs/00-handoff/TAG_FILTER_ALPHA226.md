@@ -8,3 +8,10 @@
 证据dist/tag-filter-alpha226/source-check-final.log、source-ui-final.log。最初窗口维度断言把已有技术标签误写为自定义，修正测试期望后通过。旧工具栏测试标题同步为属性标签。
 
 安装与本机标签整理待完成，用户验收pending。
+
+## 安装中补充验证
+
+实际鼠标验收补充发现详情页标签入口被隐藏，已保持可见；验证脚本改用真实指针点击，17项通过。最终完整检查1460/1460、310JS通过。
+本机标签通过现有ConfigService追加，43→51个标签，新增102条关联，7个APP；旧标签定义与58仓库原标签集合逐项保持。内部注册表读取会为无稳定Git身份项更换ID，最初按旧ID断言停止；改用路径核对后继续。未扩大注册表实现。
+原标签与注册表备份dist/tag-filter-alpha226/user-tag-backup，逐仓库依据见本任务outputs/GitFinder-标签整理.json，结果见GitFinder-标签整理完成.json。
+最终安装与推送待完成。
