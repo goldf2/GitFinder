@@ -656,3 +656,7 @@ alpha.220源码1fbfc525ad6ffac41acc074c8703a37982ed3f31已推送。
 ## 2026-10-01T14:58:17+08:00 · GF-CHAT-001 / alpha.222 源码验收
 
 沿用alpha.221现有项目/仓库，新增按来源独立主会话、本机合并导入、既有台账和GitHub Issue/PR双向关联及项目接续入口。完整1457测试、310JS、renderer构建和隔离实际Electron14项交互/重启通过。只读GitHub真实列表与Codex协议打开验证；本项目开放Issue/PR为空。私人会话记录只留本地并排除提交/安装包，原工作树修改保留。当前安装alpha.221，正在准备本任务提交与alpha.222开发包，安装与真实导入验收由集成人串行完成后再推送；详见PROJECT_CONVERSATIONS_ALPHA222.md。
+
+## 2026-10-01T15:06:21+08:00 · GF-CHAT-001 / alpha.222 安装交付
+
+源码与构建提交cb6c7644219375a9a46a3b5eddef946796f332b9，1457测试/310JS、源码14项、development包门禁通过。集成人正常退出旧App后安装alpha.222，应用服务先备份会话键并合并导入真实26项目52关联；安装5项与正常重开5项均通过，GitFinder双来源主会话及GF-CHAT-001任务关联保留。最后恢复无调试参数普通启动并核对可见窗口/调试端口关闭；原用户dirty及私人本地记录保留，详见PROJECT_CONVERSATIONS_ALPHA222.md。用户效果确认pending，后续GF-DATA-001不自动启动。

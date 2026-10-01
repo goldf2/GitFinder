@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-01T14:58:17+08:00",
+  "updatedAt": "2026-10-01T15:06:21+08:00",
   "scope": "以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。",
   "baseline": {
     "version": "2.0.0-alpha.193",
     "sourceCommit": "99eef1d2992e389f32a48182a25fda3b9adf1958",
     "evidence": "docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md"
   },
-  "nextTaskId": "GF-CHAT-001",
+  "nextTaskId": "GF-DATA-001",
   "milestones": [
     {
       "id": "GF-P0",
@@ -1546,9 +1546,9 @@
       "milestone": "GF-P2",
       "title": "项目关联 Codex 与 ChatGPT 会话入口",
       "priority": "P1",
-      "status": "verified",
+      "status": "delivered",
       "owner": "Codex conversation-link agent",
-      "updatedAt": "2026-10-01T14:58:17+08:00",
+      "updatedAt": "2026-10-01T15:06:21+08:00",
       "dependsOn": [],
       "sourcePaths": [
         "src/main/services/projectConversationService.js",
@@ -1564,9 +1564,13 @@
       "evidence": [
         "docs/00-handoff/PROJECT_CONVERSATIONS_ALPHA222.md"
       ],
-      "nextAction": "源码与隔离实际窗口专项通过；从本任务提交打包alpha.222，由集成人安装、正常服务合并导入并重开验证，通过后推送。",
+      "nextAction": "alpha.222安装、真实26项目52关联IPC导入、可见入口与正常退出重开已通过；等待用户使用反馈，后续GF-DATA-001不自动启动。",
       "blocker": "",
-      "userAcceptance": "pending"
+      "userAcceptance": "pending",
+      "delivery": {
+        "version": "2.0.0-alpha.222",
+        "sourceCommit": "cb6c7644219375a9a46a3b5eddef946796f332b9"
+      }
     }
   ]
 }

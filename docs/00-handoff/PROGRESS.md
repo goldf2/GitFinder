@@ -2,11 +2,11 @@
 
 > 自动生成。只编辑 `management/development-tasks.json`，然后执行 `npm run handoff:update`。
 
-更新时间：2026-10-01T14:58:17+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
+更新时间：2026-10-01T15:06:21+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
 
 核验基线：2.0.0-alpha.193 / `99eef1d2992e389f32a48182a25fda3b9adf1958`；证据：[docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md](LAYOUT_OPTIONS_ALPHA193.md)。
 
-**唯一下一任务：GF-CHAT-001**
+**唯一下一任务：GF-DATA-001**
 
 ## 阶段汇总
 
@@ -14,7 +14,7 @@
 | --- | ---: | ---: | ---: | ---: |
 | GF-P0 接续工程 | 2 | 2 | 0 | 0 |
 | GF-P1 桌面稳定 | 29 | 24 | 0 | 1 |
-| GF-P2 可维护与性能 | 5 | 0 | 1 | 0 |
+| GF-P2 可维护与性能 | 5 | 1 | 0 | 0 |
 | GF-P3 可分发 | 7 | 0 | 2 | 3 |
 | GF-P4 全流程事件 | 5 | 0 | 0 | 1 |
 | GF-P5 Web与同步（需授权） | 4 | 0 | 0 | 4 |
@@ -76,7 +76,7 @@
 | GF-SIDEBAR-219 | P1 | 已交付 | Codex | 类别导航保持未选中分组的展开内容 |
 | GF-SIDEBAR-220 | P1 | 已交付 | Codex | 独立仓库条目黑框与选中样式修复 |
 | GF-WORKSPACE-221 | P1 | 已交付 | ChatGPT / tsk_66c229cd7c352efd | App/Web项目形态与精简仓库工作区 |
-| GF-CHAT-001 | P1 | 已验证 | Codex conversation-link agent | 项目关联 Codex 与 ChatGPT 会话入口 |
+| GF-CHAT-001 | P1 | 已交付 | Codex conversation-link agent | 项目关联 Codex 与 ChatGPT 会话入口 |
 
 ## 可执行任务卡
 
@@ -1019,9 +1019,9 @@
 
 ### GF-CHAT-001 · 项目关联 Codex 与 ChatGPT 会话入口
 
-阶段：GF-P2；优先级：P1；状态：**已验证**；负责人：Codex conversation-link agent；用户验收：待用户反馈。
+阶段：GF-P2；优先级：P1；状态：**已交付**；负责人：Codex conversation-link agent；用户验收：待用户反馈。
 
-更新：2026-10-01T14:58:17+08:00。依赖：无。
+更新：2026-10-01T15:06:21+08:00。依赖：无。
 
 **验收标准**
 1. 按稳定 projectId 保存本机会话关联，Codex 与 ChatGPT 分组，各来源独立主会话。
@@ -1029,8 +1029,10 @@
 3. 隔离真实 Electron 窗口验证保存、重开与来源分离。
 4. 沿用项目与仓库展示 GitHub Issue/PR，可将任务与会话双向关联打开，来源分离。
 
-**接续动作：** 源码与隔离实际窗口专项通过；从本任务提交打包alpha.222，由集成人安装、正常服务合并导入并重开验证，通过后推送。
+**接续动作：** alpha.222安装、真实26项目52关联IPC导入、可见入口与正常退出重开已通过；等待用户使用反馈，后续GF-DATA-001不自动启动。
 
 源码/设计入口：[src/main/services/projectConversationService.js](../../src/main/services/projectConversationService.js)；[src/main/ipc/projectConversations.js](../../src/main/ipc/projectConversations.js)；[src/renderer/scripts/projectConversationsController.js](../../src/renderer/scripts/projectConversationsController.js)。
 
 证据：[docs/00-handoff/PROJECT_CONVERSATIONS_ALPHA222.md](PROJECT_CONVERSATIONS_ALPHA222.md)
+
+交付：2.0.0-alpha.222；源码 `cb6c7644219375a9a46a3b5eddef946796f332b9`。
