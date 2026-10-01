@@ -2,7 +2,7 @@
 
 > 自动生成。只编辑 `management/development-tasks.json`，然后执行 `npm run handoff:update`。
 
-更新时间：2026-10-02T05:27:09+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
+更新时间：2026-10-02T05:33:03+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
 
 核验基线：2.0.0-alpha.193 / `99eef1d2992e389f32a48182a25fda3b9adf1958`；证据：[docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md](LAYOUT_OPTIONS_ALPHA193.md)。
 
@@ -14,7 +14,7 @@
 | --- | ---: | ---: | ---: | ---: |
 | GF-P0 接续工程 | 2 | 2 | 0 | 0 |
 | GF-P1 桌面稳定 | 30 | 25 | 0 | 1 |
-| GF-P2 可维护与性能 | 12 | 7 | 1 | 0 |
+| GF-P2 可维护与性能 | 12 | 8 | 0 | 0 |
 | GF-P3 可分发 | 7 | 0 | 2 | 3 |
 | GF-P4 全流程事件 | 5 | 0 | 0 | 1 |
 | GF-P5 Web与同步（需授权） | 4 | 0 | 0 | 4 |
@@ -84,7 +84,7 @@
 | GF-SIDEBAR-227 | P1 | 已交付 | Codex | 侧栏区域排序、可调高度与自定义分类 |
 | GF-TAG-228 | P1 | 已交付 | Codex | 标签热力图开关、选中高亮及分类手动展开 |
 | GF-TAG-COUNT-229 | P1 | 已交付 | Codex | 标签计数与当前仓库筛选同步 |
-| GF-WORKSPACE-230 | P1 | 已验证 | Codex | 仓库工作区返回与内置内容阅读 |
+| GF-WORKSPACE-230 | P1 | 已交付 | Codex | 仓库工作区返回与内置内容阅读 |
 
 ## 可执行任务卡
 
@@ -1182,17 +1182,19 @@
 
 ### GF-WORKSPACE-230 · 仓库工作区返回与内置内容阅读
 
-阶段：GF-P2；优先级：P1；状态：**已验证**；负责人：Codex；用户验收：待用户反馈。
+阶段：GF-P2；优先级：P1；状态：**已交付**；负责人：Codex；用户验收：待用户反馈。
 
-更新：2026-10-02T05:27:09+08:00。依赖：无。
+更新：2026-10-02T05:33:03+08:00。依赖：无。
 
 **验收标准**
 1. 返回进入仓库前的筛选列表。
 2. 记录、会话存档、任务详情在主区阅读。
 3. 概览减少重复属性，版本页展示已有记录并明确外部入口。
 
-**接续动作：** 源码1460测试、311JS及10项隔离界面检查通过，待干净构建、安装及实际用户界面验收。
+**接续动作：** alpha230已安装，源码已推送；收集主区体验反馈，用户验收pending。
 
 源码/设计入口：[src/renderer/scripts/workspaceController.js](../../src/renderer/scripts/workspaceController.js)；[src/renderer/scripts/projectConversationsController.js](../../src/renderer/scripts/projectConversationsController.js)；[src/renderer/scripts/directoryNavigationController.js](../../src/renderer/scripts/directoryNavigationController.js)；[src/renderer/styles/sidebar.css](../../src/renderer/styles/sidebar.css)。
 
 证据：[docs/00-handoff/WORKSPACE_ALPHA230.md](WORKSPACE_ALPHA230.md)
+
+交付：2.0.0-alpha.230；源码 `619448c09bb65fe9daf44d905dcd14abd736ce72`。

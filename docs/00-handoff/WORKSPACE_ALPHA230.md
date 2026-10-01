@@ -18,4 +18,12 @@
 
 ## 交付状态
 
-待干净构建、安装及实际用户界面验收；用户验收pending。
+已安装alpha.230，运行源码619448c09bb65fe9daf44d905dcd14abd736ce72已推送origin/main；用户验收pending。
+
+- 干净构建1460测试、311JS通过，产物门禁issues=[]，签名为本机development/ad-hoc。
+- 源码、打包版和/Applications安装版各10项实际Electron交互通过；没有执行远端发布或仓库写操作。
+- CUA原用户界面：版本alpha230；常熟厂房企业地图工具11个变更，记录可切换到CURRENT_STATE正文；会话页显示4份本地存档及明确的外部继续入口；版本页显示发布正文/最近提交/GitHub外部入口；返回列表后58个仓库恢复。
+- 旧应用备份：/Volumes/project/制品与备份/GitFinder/2026-10-02-alpha229-before-workspace230/GitFinder 2.app，签名验证通过。
+- 干净构建目录：/Volumes/project/临时文件/gitfinder-workspace-alpha230。
+- 证据：dist/workspace-alpha230/{clean-check.log,build.log,packaged-ui.log,installed-ui.log,preservation.json}。9个非共享脏路径字节不变，共享接续文档只提交本轮顶部块和追加日志。
+- 验收中测试夹具缺少台账必填字段，补齐后通过；两个隔离实例重叠造成一次读取旧fixture，退出后串行重验通过。跨卷rename备份首次失败，旧应用保持原位；改用跨卷移动并验证备份后安装。最终安装版完整专项通过。
