@@ -18,4 +18,15 @@
 
 源码1472测试、317JS通过；9项新增读写服务检查覆盖新文档无副作用读取、冲突保护、路径/链接边界、分类、本地任务、字段保留、首次建账、无效与重复台账、依赖循环。新增3项跨项目任务队列/依赖/筛选模型测试；工作台隔离Electron UI25项通过（列表预览/显式进入/返回、按需资料栏、共享任务往返、内部新建保存、文档/任务跨页草稿、外部修改冲突、会话正文、文件兼容、800px布局）；标题工具条10项通过。日志 dist/workbench-alpha232/{source-check.log,targeted-check.log,source-ui.log,toolbar-ui.log}。
 
-待干净构建、可恢复安装、真实应用验收和推送。源码/隔离样例通过不等于已安装。用户验收pending。
+已完成干净构建、可恢复安装、实际应用验收与源码推送。用户验收仍为pending。
+
+
+## 本机交付证据
+
+- 运行源码 `141f5a6a68b04c7c95447673b5dfe82a6689622d` 已推送并核对远端 main。alpha231标题/工具条一并交付，无需安装旧暂存包。
+- 干净构建 `/Volumes/project/临时文件/gitfinder-workbench-alpha232`；1472测试/317JS通过；dist/release-verification.json issues为空。生成macOS arm64 DMG/ZIP；仅ad-hoc开发签名，未公证、未正式分发。
+- 安装 `/Applications/GitFinder 2.app`，codesign --verify --deep --strict通过，版本2.0.0-alpha.232。正常退出旧应用后安装，未强退。
+- 旧包 `/Volumes/project/制品与备份/GitFinder/2026-10-02-alpha230-before-workbench232/GitFinder 2.app` 可恢复。
+- 打包版和已安装版均各通过25项工作台与10项标题栏隔离交互；安装版证据 `dist/workspace-ui-ygitIV`、`dist/workspace-ui-Kb4p5L`；汇总日志 `dist/workbench-alpha232/installed-ui.log`、`installed-toolbar.log`。
+- CUA在真实用户配置验证：正常启动alpha232，搜索gitfinder出现两个仓库；单击gitfinder-2保留卡片列表且右侧预览；点击进入工作区显示分区代码页，右侧栏默认收起；开发任务读取真实management台账并显示GF-WORKBENCH-232；返回列表恢复gitfinder搜索与选中及右侧预览。实际用户文件未在UI中编辑。全局功能启用与保存往返在隔离配置测试，真实配置保持原测试开关。
+- 原有12项未提交路径保留，9项非共享文件字节不变，3项共享交接文档只提交本轮顶部有效块/日志追加。未访问AL02、未执行生产部署或发布操作。

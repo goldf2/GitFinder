@@ -1,11 +1,11 @@
 # GitFinder 2 下一步
 
 <!-- BEGIN NEXT_ACTIONS -->
-GF-WORKBENCH-232 alpha232 已完成工作流页面、本地文档/任务编辑、会话/代码结构，以及单击预览、显式进入、按需右栏和返回恢复。全局总览/全部项目任务共享原台账，用户通过测试入口明确开启。文档结构审阅稿已存档，详见 [WORKBENCH_ALPHA232.md](WORKBENCH_ALPHA232.md)。源码1472测试/317JS、工作台25项与标题栏10项隔离UI通过。
+GF-WORKBENCH-232 与 GF-TOOLBAR-231 已随 alpha232 完成本机交付。安装 /Applications/GitFinder 2.app，运行源码 141f5a6a68b04c7c95447673b5dfe82a6689622d 已推送 origin/main。分级浏览、工作流文档/任务编辑、会话与代码结构、全局同源进度和标题/工具条分离均已验证。设计审阅稿及PDF已存档。
 
-当前 verified，尚待干净构建、可恢复安装、实际应用验收与推送。安装仍alpha230，alpha231暂存包未安装。原12项未提交内容保留；用户验收pending；GF-DATA-001继续排队。
+干净源码1472测试/317JS通过；产物门禁0问题；打包版和安装版各通过工作台25项、标题工具条10项隔离交互。实际用户配置已正常启动，界面显示alpha232，单击预览、显式进入、默认收起右栏、真实台账加载及返回恢复gitfinder搜索/选中均通过。详见 [WORKBENCH_ALPHA232.md](WORKBENCH_ALPHA232.md)。
 
-唯一下一任务 GF-WORKBENCH-232：从本轮提交构建并安装验收，不执行远端生产发布。
+旧alpha230可恢复备份保留；原12项未提交内容保留。仅本机ad-hoc开发包，未做正式公证发行/Windows验收或远端生产发布。用户验收pending；下一步等待本轮体验反馈，GF-DATA-001继续排队不自动启动。
 <!-- END NEXT_ACTIONS -->
 
 ## 历史兼容记录（以下旧下一步已被顶部接续块取代）

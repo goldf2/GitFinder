@@ -2,11 +2,11 @@
 
 > 自动生成。只编辑 `management/development-tasks.json`，然后执行 `npm run handoff:update`。
 
-更新时间：2026-10-02T07:27:18+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
+更新时间：2026-10-02T07:34:19+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
 
 核验基线：2.0.0-alpha.193 / `99eef1d2992e389f32a48182a25fda3b9adf1958`；证据：[docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md](LAYOUT_OPTIONS_ALPHA193.md)。
 
-**唯一下一任务：GF-WORKBENCH-232**
+**唯一下一任务：GF-DATA-001**
 
 ## 阶段汇总
 
@@ -14,7 +14,7 @@
 | --- | ---: | ---: | ---: | ---: |
 | GF-P0 接续工程 | 2 | 2 | 0 | 0 |
 | GF-P1 桌面稳定 | 30 | 25 | 0 | 1 |
-| GF-P2 可维护与性能 | 14 | 8 | 2 | 0 |
+| GF-P2 可维护与性能 | 14 | 10 | 0 | 0 |
 | GF-P3 可分发 | 7 | 0 | 2 | 3 |
 | GF-P4 全流程事件 | 5 | 0 | 0 | 1 |
 | GF-P5 Web与同步（需授权） | 4 | 0 | 0 | 4 |
@@ -85,8 +85,8 @@
 | GF-TAG-228 | P1 | 已交付 | Codex | 标签热力图开关、选中高亮及分类手动展开 |
 | GF-TAG-COUNT-229 | P1 | 已交付 | Codex | 标签计数与当前仓库筛选同步 |
 | GF-WORKSPACE-230 | P1 | 已交付 | Codex | 仓库工作区返回与内置内容阅读 |
-| GF-TOOLBAR-231 | P1 | 已验证 | Codex | 分离标题栏与常用工具条 |
-| GF-WORKBENCH-232 | P1 | 已验证 | Codex | 统一项目工作流、全局总览与任务进度 |
+| GF-TOOLBAR-231 | P1 | 已交付 | Codex | 分离标题栏与常用工具条 |
+| GF-WORKBENCH-232 | P1 | 已交付 | Codex | 统一项目工作流、全局总览与任务进度 |
 
 ## 可执行任务卡
 
@@ -1203,26 +1203,28 @@
 
 ### GF-TOOLBAR-231 · 分离标题栏与常用工具条
 
-阶段：GF-P2；优先级：P1；状态：**已验证**；负责人：Codex；用户验收：待用户反馈。
+阶段：GF-P2；优先级：P1；状态：**已交付**；负责人：Codex；用户验收：待用户反馈。
 
-更新：2026-10-02T06:38:11+08:00。依赖：无。
+更新：2026-10-02T07:34:19+08:00。依赖：无。
 
 **验收标准**
 1. 标题栏只保留应用名称和当前位置。
 2. 常用导航、搜索及显示操作迁至标题栏下方独立工具条。
 3. 窄窗口无重叠，原按钮和菜单仍可使用。
 
-**接续动作：** 源码和打包版10项UI验证均通过。等待用户退出当前GitFinder后安装alpha231并验收；CUA连续提示用户操作中断，未强制终止旧版。
+**接续动作：** alpha232已安装并推送；等待用户确认实际体验。确认后按规则归档修复报告，不自动启动其他排队任务。
 
 源码/设计入口：[src/renderer/index.html](../../src/renderer/index.html)；[src/renderer/styles/main.css](../../src/renderer/styles/main.css)；[src/renderer/styles/apple-ui/app-shell.css](../../src/renderer/styles/apple-ui/app-shell.css)；[src/renderer/styles/relationships.css](../../src/renderer/styles/relationships.css)。
 
-证据：[docs/00-handoff/TOOLBAR_ALPHA231.md](TOOLBAR_ALPHA231.md)
+证据：[docs/00-handoff/TOOLBAR_ALPHA231.md](TOOLBAR_ALPHA231.md)；[docs/00-handoff/WORKBENCH_ALPHA232.md](WORKBENCH_ALPHA232.md)
+
+交付：2.0.0-alpha.232；源码 `141f5a6a68b04c7c95447673b5dfe82a6689622d`。
 
 ### GF-WORKBENCH-232 · 统一项目工作流、全局总览与任务进度
 
-阶段：GF-P2；优先级：P1；状态：**已验证**；负责人：Codex；用户验收：待用户反馈。
+阶段：GF-P2；优先级：P1；状态：**已交付**；负责人：Codex；用户验收：待用户反馈。
 
-更新：2026-10-02T07:27:18+08:00。依赖：无。
+更新：2026-10-02T07:34:19+08:00。依赖：无。
 
 **验收标准**
 1. 单击仓库/项目只选中预览，显式按钮或双击进入工作区；工作区辅助栏默认收起、可手动开启，返回恢复筛选与选中。
@@ -1231,8 +1233,10 @@
 4. 项目本地文档与任务修改具有冲突检查，不执行远程发布。
 5. 项目任务保存后，全局仪表板和进度页读取同一事实，并可进入指定任务再返回原全局视角。
 
-**接续动作：** 源码1472测试/317JS、工作台25项与标题栏10项隔离UI通过。从提交构建alpha232、可恢复安装、实际应用验收后推送。
+**接续动作：** alpha232已安装并推送；等待用户确认实际体验。确认后按规则归档修复报告，不自动启动其他排队任务。
 
 源码/设计入口：[src/renderer/scripts/workspaceController.js](../../src/renderer/scripts/workspaceController.js)；[src/main/services/workspaceRecordService.js](../../src/main/services/workspaceRecordService.js)；[src/renderer/styles/sidebar.css](../../src/renderer/styles/sidebar.css)；[src/renderer/scripts/workspaceFlowController.js](../../src/renderer/scripts/workspaceFlowController.js)；[src/renderer/scripts/workspacePresentation.js](../../src/renderer/scripts/workspacePresentation.js)；[test/workspace-record-service.test.js](../../test/workspace-record-service.test.js)；[scripts/verify-workbench-flow.js](../../scripts/verify-workbench-flow.js)；[src/renderer/scripts/workbenchPortfolioModel.js](../../src/renderer/scripts/workbenchPortfolioModel.js)；[src/renderer/scripts/workbenchPortfolioController.js](../../src/renderer/scripts/workbenchPortfolioController.js)；[src/renderer/scripts/directorySelectionController.js](../../src/renderer/scripts/directorySelectionController.js)；[src/renderer/scripts/app.js](../../src/renderer/scripts/app.js)；[test/workbench-portfolio-model.test.js](../../test/workbench-portfolio-model.test.js)。
 
 证据：[docs/00-handoff/WORKBENCH_ALPHA232.md](WORKBENCH_ALPHA232.md)；[docs/product/development-documentation-standard-v0.1.md](../product/development-documentation-standard-v0.1.md)
+
+交付：2.0.0-alpha.232；源码 `141f5a6a68b04c7c95447673b5dfe82a6689622d`。

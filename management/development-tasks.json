@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-02T07:27:18+08:00",
+  "updatedAt": "2026-10-02T07:34:19+08:00",
   "scope": "以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。",
   "baseline": {
     "version": "2.0.0-alpha.193",
     "sourceCommit": "99eef1d2992e389f32a48182a25fda3b9adf1958",
     "evidence": "docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md"
   },
-  "nextTaskId": "GF-WORKBENCH-232",
+  "nextTaskId": "GF-DATA-001",
   "milestones": [
     {
       "id": "GF-P0",
@@ -1838,9 +1838,9 @@
       "milestone": "GF-P2",
       "title": "分离标题栏与常用工具条",
       "priority": "P1",
-      "status": "verified",
+      "status": "delivered",
       "owner": "Codex",
-      "updatedAt": "2026-10-02T06:38:11+08:00",
+      "updatedAt": "2026-10-02T07:34:19+08:00",
       "dependsOn": [],
       "sourcePaths": [
         "src/renderer/index.html",
@@ -1854,20 +1854,25 @@
         "窄窗口无重叠，原按钮和菜单仍可使用。"
       ],
       "evidence": [
-        "docs/00-handoff/TOOLBAR_ALPHA231.md"
+        "docs/00-handoff/TOOLBAR_ALPHA231.md",
+        "docs/00-handoff/WORKBENCH_ALPHA232.md"
       ],
-      "nextAction": "源码和打包版10项UI验证均通过。等待用户退出当前GitFinder后安装alpha231并验收；CUA连续提示用户操作中断，未强制终止旧版。",
+      "nextAction": "alpha232已安装并推送；等待用户确认实际体验。确认后按规则归档修复报告，不自动启动其他排队任务。",
       "blocker": "",
-      "userAcceptance": "pending"
+      "userAcceptance": "pending",
+      "delivery": {
+        "version": "2.0.0-alpha.232",
+        "sourceCommit": "141f5a6a68b04c7c95447673b5dfe82a6689622d"
+      }
     },
     {
       "id": "GF-WORKBENCH-232",
       "milestone": "GF-P2",
       "title": "统一项目工作流、全局总览与任务进度",
       "priority": "P1",
-      "status": "verified",
+      "status": "delivered",
       "owner": "Codex",
-      "updatedAt": "2026-10-02T07:27:18+08:00",
+      "updatedAt": "2026-10-02T07:34:19+08:00",
       "dependsOn": [],
       "sourcePaths": [
         "src/renderer/scripts/workspaceController.js",
@@ -1894,9 +1899,13 @@
         "docs/00-handoff/WORKBENCH_ALPHA232.md",
         "docs/product/development-documentation-standard-v0.1.md"
       ],
-      "nextAction": "源码1472测试/317JS、工作台25项与标题栏10项隔离UI通过。从提交构建alpha232、可恢复安装、实际应用验收后推送。",
+      "nextAction": "alpha232已安装并推送；等待用户确认实际体验。确认后按规则归档修复报告，不自动启动其他排队任务。",
       "blocker": "",
-      "userAcceptance": "pending"
+      "userAcceptance": "pending",
+      "delivery": {
+        "version": "2.0.0-alpha.232",
+        "sourceCommit": "141f5a6a68b04c7c95447673b5dfe82a6689622d"
+      }
     }
   ]
 }
