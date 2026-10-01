@@ -174,6 +174,7 @@ const App = {
       document,
       terminal: typeof Terminal !== 'undefined' ? Terminal : null
     }));
+    this.workbenchPortfolioController = new window.WorkbenchPortfolioController.Controller(this, AppState, window.gitFinder);
     this.workspaceController = new window.WorkspaceController.Controller(this, AppState, window.gitFinder);
     this.updaterController = new window.UpdateController.Controller({
       bridge: window.gitFinder,
@@ -540,6 +541,7 @@ const App = {
       if (action === 'collection-repositories') this.setContentQuery({ ...window.ContentQuery.queryForPreset('all-repositories'), projectType: event.target.closest('[data-collection-id]').dataset.collectionId });
       if (action === 'new-project-collection') this.openProjectGroupDialog('', 'collection');
       if (action === 'browse-directories') this.projectShortcutsController.setNavigationMode('directories');
+      if (action === 'open-repository-workspace') this.openWorkspaceRepository(event.target.closest('[data-repository-path]').dataset.repositoryPath);
       if (action === 'open-local-project') { const path = event.target.closest('[data-project-path]')?.dataset.projectPath; const project = AppState.localProjects.find(p=>p.path===path); if(project)this.openWorkspaceProject(project); }
       if (action === 'reveal-local-project') window.gitFinder.fs.showInFinder(event.target.closest('[data-project-path]')?.dataset.projectPath).catch(error => this._showStatusMessage(error.message, 'error'));
       if (action === 'edit-local-project') this.openLocalProjectDialog(event.target.closest('[data-project-path]')?.dataset.projectPath);
@@ -1744,7 +1746,7 @@ const App = {
   },
 
   updateToolbarMenuState() {
-    const viewLabels = { tree: '文件浏览', dashboard: '仪表盘', tasks: '开发任务', relationships: '关系白板', panel: '应用面板', settings: '设置' };
+    const viewLabels = { tree: '文件浏览', dashboard: '全局总览', tasks: '全部项目任务', relationships: '关系白板', panel: '应用面板', settings: '设置' };
     const viewLabel = document.getElementById('view-menu-label');
     if (viewLabel) viewLabel.textContent = AppState.currentMode === 'tree' && AppState.sidebarNavigationMode === 'projects' ? (AppState.workspaceRepository ? '仓库工作区' : 'Git 仓库') : viewLabels[AppState.currentMode] || '文件浏览';
     const activeWorkspaceView = AppState.currentMode;
@@ -2422,6 +2424,8 @@ const App = {
   updateSearchScopeUI() {
     const button = document.getElementById('search-scope-btn');
     const input = document.getElementById('search-input');
+    document.body.classList.toggle('portfolio-active',['tasks','dashboard'].includes(AppState.currentMode));
+    document.querySelector('.main-container')?.classList.toggle('portfolio-shell', ['tasks','dashboard'].includes(AppState.currentMode));
     const tasksMode = AppState.currentMode === 'tasks';
     const collectionKind = this.contentCollectionKind();
     const collectionMode = Boolean(collectionKind);
@@ -2926,6 +2930,14 @@ const App = {
     window.gitFinder.config.set('sidebarCollapsedSections', arr);
   },
 
+  isWorkspaceInspectorContext() {
+    return AppState.currentMode === 'tree' && Boolean(AppState.workspaceRepository && AppState.workspaceRepository.view !== 'files');
+  },
+
+  isDetailPanelHidden() {
+    return this.isWorkspaceInspectorContext() ? this._workspaceInspectorHidden !== false : this._detailPanelHidden === true;
+  },
+
   // 三栏宽度拖拽调整
   setupColumnResize() {
     const leftHandle = document.getElementById('resize-handle-left');
@@ -2943,7 +2955,7 @@ const App = {
         document.querySelector('.main-container')?.clientWidth || window.innerWidth,
         preferred.sidebarWidth,
         preferred.detailWidth,
-        { sidebarHidden: this._sidebarHidden, detailPanelHidden: this._detailPanelHidden }
+        { sidebarHidden: this._sidebarHidden, detailPanelHidden: this.isDetailPanelHidden() }
       );
       sidebar.style.width = `${constrained.sidebarWidth}px`;
       detailPanel.style.width = `${constrained.detailWidth}px`;
@@ -2952,8 +2964,8 @@ const App = {
     const applyVisibility = () => {
       const container = document.querySelector('.main-container');
       container.classList.toggle('sidebar-hidden', this._sidebarHidden === true);
-      container.classList.toggle('detail-panel-hidden', this._detailPanelHidden === true);
-      for (const [id, hidden] of [['toggle-sidebar', this._sidebarHidden], ['toggle-detail-panel', this._detailPanelHidden]]) {
+      container.classList.toggle('detail-panel-hidden', this.isDetailPanelHidden());
+      for (const [id, hidden] of [['toggle-sidebar', this._sidebarHidden], ['toggle-detail-panel', this.isDetailPanelHidden()]]) {
         const button = document.getElementById(id);
         button.setAttribute('aria-expanded', String(!hidden));
         button.title = `${hidden ? '展开' : '收起'}${id === 'toggle-sidebar' ? '左侧栏' : '详情栏'}`;
@@ -2963,6 +2975,11 @@ const App = {
     this._applyPanelVisibility = applyVisibility;
     for (const [id, field, key] of [['toggle-sidebar', '_sidebarHidden', 'sidebarHidden'], ['toggle-detail-panel', '_detailPanelHidden', 'detailPanelHidden']]) {
       document.getElementById(id)?.addEventListener('click', () => {
+        if (id === 'toggle-detail-panel' && this.isWorkspaceInspectorContext()) {
+          this._workspaceInspectorHidden = !this.isDetailPanelHidden();
+          applyVisibility();
+          return;
+        }
         this[field] = !this[field];
         applyVisibility();
         window.gitFinder.config.set(key, this[field]);
@@ -3011,7 +3028,7 @@ const App = {
         // 保存宽度
         this._preferredColumnWidths = {
           sidebarWidth: this._sidebarHidden ? this._preferredColumnWidths.sidebarWidth : sidebar.offsetWidth,
-          detailWidth: this._detailPanelHidden ? this._preferredColumnWidths.detailWidth : detailPanel.offsetWidth
+          detailWidth: this.isDetailPanelHidden() ? this._preferredColumnWidths.detailWidth : detailPanel.offsetWidth
         };
         window.gitFinder.config.set('sidebarWidth', this._preferredColumnWidths.sidebarWidth);
         window.gitFinder.config.set('detailPanelWidth', this._preferredColumnWidths.detailWidth);
@@ -3919,6 +3936,8 @@ const App = {
       item.classList.toggle('active', item.dataset.mode === AppState.currentMode);
     });
 
+    document.body.classList.toggle('portfolio-active',['tasks','dashboard'].includes(AppState.currentMode));
+    document.querySelector('.main-container')?.classList.toggle('portfolio-shell', ['tasks','dashboard'].includes(AppState.currentMode));
     const tasksMode = AppState.currentMode === 'tasks';
     const relationshipsMode = AppState.currentMode === 'relationships';
     const panelMode = AppState.currentMode === 'panel';
@@ -4965,7 +4984,7 @@ const App = {
               <button class="btn btn-small" data-app-action="edit-local-project" type="button">项目设置</button>
               <button class="btn btn-small" data-app-action="show-relationship-resource" data-relationship-kind="project" data-relationship-ref="${this.escapeHtml(project.projectId)}" data-relationship-path="${this.escapeHtml(project.path)}" type="button">关系白板</button>
               <button class="btn btn-small" data-app-action="reveal-local-project" title="在访达中显示" aria-label="在访达中显示">访达</button>
-              <button class="btn btn-small btn-primary" data-app-action="open-local-project" type="button">打开项目</button>
+              <button class="btn btn-small btn-primary" data-app-action="open-local-project" type="button">进入工作区</button>
             </footer>
           </article>`;
       }).join('')}</div>`;
@@ -4998,7 +5017,7 @@ const App = {
       <p title="${escape(project.description)}">${escape(project.description || project.memberProjects.map(member => member.name).join('、'))}</p>
       <div class="local-project-repo-heading"><span>关联仓库</span><strong>${project.repositoryCount}</strong></div>
       <ul class="local-project-repositories">${project.memberProjects.slice(0, 2).map(member => `<li title="${escape(member.path)}">${escape(member.name)}</li>`).join('')}${project.memberProjects.length > 2 ? `<li>另有 ${project.memberProjects.length - 2} 个成员…</li>` : ''}${project.missingMemberCount ? `<li>${project.missingMemberCount} 个成员位置暂不可用</li>` : ''}</ul>
-      <footer><button class="btn btn-small" data-app-action="edit-project-collection">项目设置</button><button class="btn btn-small" data-app-action="collection-repositories">查看仓库</button><button class="btn btn-small btn-primary" data-app-action="open-project-collection">打开项目</button></footer>
+      <footer><button class="btn btn-small" data-app-action="edit-project-collection">项目设置</button><button class="btn btn-small" data-app-action="collection-repositories">查看仓库</button><button class="btn btn-small btn-primary" data-app-action="open-project-collection">进入工作区</button></footer>
     </article>`;
   },
 
@@ -5036,9 +5055,11 @@ const App = {
       contentArea.innerHTML = this.getCardsHtml(filtered);
       this.bindCardEvents(contentArea);
     }
+    this.syncFileSelectionUI();
   },
 
   async openDashboard(forceRefresh = false) {
+    if(this.workbenchPortfolioController) return this.workbenchPortfolioController.render('dashboard', true);
     if (this.isExperimentalViewEnabled?.('dashboard') === false) return;
     const contentArea = document.getElementById('content-area');
     const emptyState = document.getElementById('empty-state');
@@ -5080,6 +5101,7 @@ const App = {
   },
 
   async renderDashboardContent(displayRepos, contentArea, options = {}) {
+    if(this.workbenchPortfolioController) return this.workbenchPortfolioController.render('dashboard', Boolean(options.forceRefresh), options.portfolio);
     if (this.isExperimentalViewEnabled?.('dashboard') === false || AppState.currentMode !== 'dashboard') return;
     const readEpoch = this._progressReadEpoch || 0;
     const portfolio = options.portfolio || await this.readProjectProgressPortfolio(Boolean(options.forceRefresh));
@@ -5921,6 +5943,11 @@ const App = {
     return `<span class="${safeClassName} file-kind-icon file-kind-${kind}"${projectStyle} aria-hidden="true">${glyph}${repositoryBadge}</span>`;
   },
 
+  repositoryWorkspaceButton(item) {
+    return item.isGitRepo && this.contentCollectionKind() === 'repositories'
+      ? `<button class="btn btn-small repository-enter" data-app-action="open-repository-workspace" data-repository-path="${this.escapeHtml(item.path)}">进入工作区</button>` : '';
+  },
+
   getCardHtml(item) {
     const status = item.gitStatus || {};
     const rawStatus = status.overallStatus || (item.isGitRepo ? 'clean' : 'none');
@@ -5976,6 +6003,7 @@ const App = {
             <span class="commit-message">${this.escapeHtml(status.lastCommit.message)}</span>
           </div>
         ` : ''}
+        ${this.repositoryWorkspaceButton(item)}
       </div>
     `;
   },
@@ -6386,7 +6414,7 @@ const App = {
         <span class="list-item-type">${this.escapeHtml(typeLabel)}</span>
         <span class="list-item-modified">${this.escapeHtml(this.formatItemDate(item.modifiedTime))}</span>
         <span class="list-item-size">${item.type === 'file' ? this.escapeHtml(this.formatFileSize(item.size)) : '—'}</span>
-        <span class="list-item-git" title="${this.escapeHtml(gitLabel)}">${this.escapeHtml(gitLabel)}</span>
+        <span class="list-item-git" title="${this.escapeHtml(gitLabel)}">${this.escapeHtml(gitLabel)} ${this.repositoryWorkspaceButton(item)}</span>
       </div>
     `;
   },
@@ -8114,6 +8142,11 @@ const App = {
       rightText = AppState.globalSearchLoading
         ? '正在搜索…'
         : `${Number(meta.totalMatches || 0)} 个匹配 · 已索引 ${Number(meta.indexedCount || 0)} 项`;
+    } else if (this.workbenchPortfolioController && ['dashboard','tasks'].includes(AppState.currentMode)) {
+      const view=this.workbenchPortfolioController;
+      const scope=window.WorkbenchPortfolioModel.scope(view.portfolio||{}, {...view.filters,query:AppState.searchQuery||view.filters.query});
+      leftText=AppState.currentMode==='dashboard'?'全局总览':'全部项目任务';
+      rightText=`当前队列 ${scope.tasks.length} 项 · 搜索范围 ${scope.counts.all} 项 · 在项目原台账维护`;
     } else if (AppState.currentMode === 'tasks') {
       leftText = `开发任务：${AppState.taskPortfolio?.projects?.length || 0} 个项目`;
       if (AppState.taskViewMode === 'timeline') {

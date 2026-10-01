@@ -68,10 +68,10 @@
               <span class="finder-menu-check" aria-hidden="true">✓</span><span>文件浏览</span><small>目录与内容筛选</small>
             </button>
             <button class="view-btn finder-menu-item" id="btn-dashboard" hidden aria-hidden="true" data-view="dashboard" role="menuitemradio" aria-checked="false" type="button">
-              <span class="finder-menu-check" aria-hidden="true">✓</span><span>仪表盘</span><small>项目总体统计</small>
+              <span class="finder-menu-check" aria-hidden="true">✓</span><span>全局总览</span><small>跨项目安排下一步</small>
             </button>
             <button class="view-btn finder-menu-item" id="btn-project-tasks" hidden aria-hidden="true" data-view="tasks" role="menuitemradio" aria-checked="false" type="button">
-              <span class="finder-menu-check" aria-hidden="true">✓</span><span>开发任务</span><small>Local Project Manager</small>
+              <span class="finder-menu-check" aria-hidden="true">✓</span><span>全部项目任务</span><small>原台账、阻塞与验收</small>
             </button>
             <button class="view-btn finder-menu-item" id="btn-relationships" data-view="relationships" role="menuitemradio" aria-checked="false" type="button">
               <span class="finder-menu-check" aria-hidden="true">✓</span><span>关系白板</span><small>项目、部署与服务器拓扑</small>
@@ -360,6 +360,7 @@
       <div class="resize-handle resize-handle-right" id="resize-handle-right"></div>
 
       <aside class="detail-panel" id="detail-panel">
+        <div id="workspace-inspector" aria-label="工作区辅助资料"></div>
         <div id="detail-identity-tabs" class="detail-identity-tabs" role="tablist" aria-label="目录详情类型" hidden>
           <button id="detail-project-tab" type="button" role="tab" aria-controls="detail-empty">资料</button>
           <button id="detail-repository-tab" type="button" role="tab" aria-controls="detail-content">代码</button>
@@ -1514,6 +1515,9 @@
   <script src="scripts/workspaceToolsController.js"></script>
   <script src="../shared/projectKinds.js"></script>
   <script src="scripts/workspacePresentation.js"></script>
+  <script src="scripts/workbenchPortfolioModel.js"></script>
+  <script src="scripts/workbenchPortfolioController.js"></script>
+  <script src="scripts/workspaceFlowController.js"></script>
   <script src="scripts/workspaceController.js"></script>
   <script src="scripts/sidebarLayoutController.js"></script>
   <script src="scripts/app.js"></script>

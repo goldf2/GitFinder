@@ -36,7 +36,7 @@
           </details>
         </div>
       </div>
-      <section class="workspace-section" aria-labelledby="workspace-changes-title">
+      <div class="workspace-code-columns"><section class="workspace-section" aria-labelledby="workspace-changes-title">
         <h3 id="workspace-changes-title">文件变更 <span>${count(review.totalCount)}</span></h3>
         ${files.length ? `<div class="workspace-change-list">${files.slice(0, 8).map(changeRow).join('')}</div>${files.length > 8 ? `<details class="workspace-extra-files"><summary>展开其余 ${files.length - 8} 个文件</summary><div class="workspace-change-list">${files.slice(8).map((file, index) => changeRow(file, index + 8)).join('')}</div></details>` : ''}` : '<p class="workspace-empty-hint">没有待提交的文件变更。</p>'}
         ${review.limited ? '<p class="workspace-empty-hint">文件较多，仅显示服务返回的部分结果；请打开“审查与提交”查看详情。</p>' : ''}
@@ -49,7 +49,7 @@
         <h3 id="workspace-history-title">最近提交</h3>
         <div class="workspace-commit-list">${commits.slice(0, 5).map(commitRow).join('') || '<p class="workspace-empty-hint">暂无提交记录。</p>'}</div>
         ${commits.length > 5 ? `<details class="workspace-history-more"><summary>展开其余 ${commits.length - 5} 条最近提交</summary><div class="workspace-commit-list">${commits.slice(5).map(commitRow).join('')}</div></details>` : ''}
-      </section>
+      </section></div>
     </section>`;
   }
   return Object.freeze({ gitOverview });

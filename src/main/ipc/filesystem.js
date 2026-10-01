@@ -1,6 +1,7 @@
 const { dialog, shell } = require('electron');
 const { registerTrustedHandler } = require('./security');
 const fileService = require('../services/fileService');
+const records = new (require('../services/workspaceRecordService').WorkspaceRecordService)();
 const configService = require('../services/configService');
 const directoryGrantService = require('../services/directoryGrantService');
 const { DirectoryWatchService } = require('../services/directoryWatchService');
@@ -64,6 +65,11 @@ function registerDirectorySizeOwner(sender) {
 }
 
 function registerFilesystemIPC() {
+  ipcMain.handle('workspaceRecords:list', (_event, root) => records.documents(root));
+  ipcMain.handle('workspaceRecords:read', (_event, root, relative) => records.read(root, relative));
+  ipcMain.handle('workspaceRecords:save', (_event, root, relative, content, revision) => records.write(root, relative, content, revision));
+  ipcMain.handle('workspaceRecords:tasks', (_event, root) => records.tasks(root));
+  ipcMain.handle('workspaceRecords:saveTask', (_event, root, request) => records.saveTask(root, request));
   ipcMain.handle('fs:listDirectory', async (event, candidatePath, options) => {
     const safePath = assertManagedWorkspacePath(candidatePath, ['directory']);
     return fileService.listDirectory(safePath, options);

@@ -56,6 +56,13 @@ contextBridge.exposeInMainWorld('gitFinder', {
     }
   },
 
+  workspaceRecords: {
+    list: root => ipcRenderer.invoke('workspaceRecords:list', root),
+    read: (root, relative) => ipcRenderer.invoke('workspaceRecords:read', root, relative),
+    save: (root, relative, content, revision) => ipcRenderer.invoke('workspaceRecords:save', root, relative, content, revision),
+    tasks: root => ipcRenderer.invoke('workspaceRecords:tasks', root),
+    saveTask: (root, request) => ipcRenderer.invoke('workspaceRecords:saveTask', root, request)
+  },
   fileOps: {
     getHistory: (limit) => ipcRenderer.invoke('fileOps:getHistory', limit),
     getRecoveryStatus: () => ipcRenderer.invoke('fileOps:getRecoveryStatus'),

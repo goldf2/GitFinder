@@ -1,11 +1,11 @@
 # GitFinder 2 当前状态
 
 <!-- BEGIN CURRENT_STATE -->
-GF-TOOLBAR-231已完成alpha.231源码和打包验证：标题栏仅保留应用名称与当前位置，下方工具条放常用操作；源码64b2ad4。干净构建1460测试、311JS、源码和打包版各10项宽窄窗口交互通过。
+GF-WORKBENCH-232 alpha232 已完成工作流页面、本地文档/任务编辑、会话/代码结构，以及单击预览、显式进入、按需右栏和返回恢复。全局总览/全部项目任务共享原台账，用户通过测试入口明确开启。文档结构审阅稿已存档，详见 [WORKBENCH_ALPHA232.md](WORKBENCH_ALPHA232.md)。源码1472测试/317JS、工作台25项与标题栏10项隔离UI通过。
 
-待安装：CUA连续提示用户操作中断，当前alpha230仍运行，已请用户退出或选择稍后安装。新包暂存/Applications/GitFinder 2 alpha231 staged.app，签名已验；尚未替换、尚未推送alpha231。详见[TOOLBAR_ALPHA231.md](TOOLBAR_ALPHA231.md)。
+当前 verified，尚待干净构建、可恢复安装、实际应用验收与推送。安装仍alpha230，alpha231暂存包未安装。原12项未提交内容保留；用户验收pending；GF-DATA-001继续排队。
 
-下一步在旧版退出后备份替换、正常启动并验收，再推送。用户验收pending；原12项未提交路径保持，GF-DATA-001保留排队，不自动启动。
+唯一下一任务 GF-WORKBENCH-232：从本轮提交构建并安装验收，不执行远端生产发布。
 <!-- END CURRENT_STATE -->
 
 ## 历史兼容记录（以下不再表示当前状态）

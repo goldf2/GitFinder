@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-02T06:38:11+08:00",
+  "updatedAt": "2026-10-02T07:27:18+08:00",
   "scope": "以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。",
   "baseline": {
     "version": "2.0.0-alpha.193",
     "sourceCommit": "99eef1d2992e389f32a48182a25fda3b9adf1958",
     "evidence": "docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md"
   },
-  "nextTaskId": "GF-DATA-001",
+  "nextTaskId": "GF-WORKBENCH-232",
   "milestones": [
     {
       "id": "GF-P0",
@@ -1857,6 +1857,44 @@
         "docs/00-handoff/TOOLBAR_ALPHA231.md"
       ],
       "nextAction": "源码和打包版10项UI验证均通过。等待用户退出当前GitFinder后安装alpha231并验收；CUA连续提示用户操作中断，未强制终止旧版。",
+      "blocker": "",
+      "userAcceptance": "pending"
+    },
+    {
+      "id": "GF-WORKBENCH-232",
+      "milestone": "GF-P2",
+      "title": "统一项目工作流、全局总览与任务进度",
+      "priority": "P1",
+      "status": "verified",
+      "owner": "Codex",
+      "updatedAt": "2026-10-02T07:27:18+08:00",
+      "dependsOn": [],
+      "sourcePaths": [
+        "src/renderer/scripts/workspaceController.js",
+        "src/main/services/workspaceRecordService.js",
+        "src/renderer/styles/sidebar.css",
+        "src/renderer/scripts/workspaceFlowController.js",
+        "src/renderer/scripts/workspacePresentation.js",
+        "test/workspace-record-service.test.js",
+        "scripts/verify-workbench-flow.js",
+        "src/renderer/scripts/workbenchPortfolioModel.js",
+        "src/renderer/scripts/workbenchPortfolioController.js",
+        "src/renderer/scripts/directorySelectionController.js",
+        "src/renderer/scripts/app.js",
+        "test/workbench-portfolio-model.test.js"
+      ],
+      "acceptance": [
+        "单击仓库/项目只选中预览，显式按钮或双击进入工作区；工作区辅助栏默认收起、可手动开启，返回恢复筛选与选中。",
+        "概览有重点，记录分类显示标题且可编辑需求规划和日志。",
+        "会话列表与详情分栏，任务本地读取有明确结果和进度筛选。",
+        "项目本地文档与任务修改具有冲突检查，不执行远程发布。",
+        "项目任务保存后，全局仪表板和进度页读取同一事实，并可进入指定任务再返回原全局视角。"
+      ],
+      "evidence": [
+        "docs/00-handoff/WORKBENCH_ALPHA232.md",
+        "docs/product/development-documentation-standard-v0.1.md"
+      ],
+      "nextAction": "源码1472测试/317JS、工作台25项与标题栏10项隔离UI通过。从提交构建alpha232、可恢复安装、实际应用验收后推送。",
       "blocker": "",
       "userAcceptance": "pending"
     }

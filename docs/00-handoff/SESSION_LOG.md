@@ -754,3 +754,26 @@ GF-TOOLBAR-231已完成alpha.231源码和打包验证：标题栏仅保留应用
 待安装：CUA连续提示用户操作中断，当前alpha230仍运行，已请用户退出或选择稍后安装。新包暂存/Applications/GitFinder 2 alpha231 staged.app，签名已验；尚未替换、尚未推送alpha231。详见[TOOLBAR_ALPHA231.md](TOOLBAR_ALPHA231.md)。
 
 下一步在旧版退出后备份替换、正常启动并验收，再推送。用户验收pending；原12项未提交路径保持，GF-DATA-001保留排队，不自动启动。
+
+
+## 2026-10-02T06:55:52+08:00 · GF-WORKBENCH-232 文档方案优先
+
+用户要求先形成标准文档构成和使用教程，供人和 AI 遵循。已存档 docs/product/development-documentation-standard-v0.1.md，并输出 14 页 PDF；页数、文字提取与全页渲染已检查。PDF 位于 docs/product/development-documentation-standard-v0.1.pdf。本轮仅方案交付，未更改安装版、未提交推送；代码草稿仍未集成验证。下一步围绕文档角色映射与最小结构推进，不强制迁移现有文档。
+
+
+## 2026-10-02T07:08:17+08:00 · GF-WORKBENCH-232 源码验证
+
+GF-WORKBENCH-232 已完成 alpha232 工作流页面、本地文档与任务编辑、右侧资料栏和会话/代码结构，合并 alpha231 标题栏。文档结构方案已存档，详见 [WORKBENCH_ALPHA232.md](WORKBENCH_ALPHA232.md)。源码1469测试/314JS、工作台16项与标题栏10项隔离UI通过。
+
+当前仅 verified，尚待干净构建、可恢复安装、真实应用验收与推送。当前安装仍 alpha230；alpha231暂存包未安装。原12项未提交内容保留。用户验收pending；GF-DATA-001继续排队，不自动启动。
+
+唯一下一任务 GF-WORKBENCH-232：先从本轮提交构建，再完成安装验收。远端生产发布不自动执行。
+
+
+## 2026-10-02T07:27:18+08:00 · GF-WORKBENCH-232 分级浏览与全局进度验证
+
+GF-WORKBENCH-232 alpha232 已完成工作流页面、本地文档/任务编辑、会话/代码结构，以及单击预览、显式进入、按需右栏和返回恢复。全局总览/全部项目任务共享原台账，用户通过测试入口明确开启。文档结构审阅稿已存档，详见 [WORKBENCH_ALPHA232.md](WORKBENCH_ALPHA232.md)。源码1472测试/317JS、工作台25项与标题栏10项隔离UI通过。
+
+当前 verified，尚待干净构建、可恢复安装、实际应用验收与推送。安装仍alpha230，alpha231暂存包未安装。原12项未提交内容保留；用户验收pending；GF-DATA-001继续排队。
+
+唯一下一任务 GF-WORKBENCH-232：从本轮提交构建并安装验收，不执行远端生产发布。

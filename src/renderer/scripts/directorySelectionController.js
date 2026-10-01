@@ -68,7 +68,6 @@
           const path = element.dataset.path;
           const isGit = element.dataset.isGit === 'true';
           if (this.app.isFileBrowsingContext() || element.classList.contains('local-project-card')) {
-            if (element.classList.contains('local-project-card') && this.app.openWorkspaceProject && !event.metaKey && !event.ctrlKey && !event.shiftKey) { const project = this.state.localProjects.find(p=>p.path===path); if(project)this.app.openWorkspaceProject(project); return; }
             this.handleFileSelectionClick(event, element);
             this.state.fileKeyboardFocusPath = path;
             element.focus({ preventScroll: true });
@@ -76,10 +75,12 @@
             if (isGit && !element.classList.contains('local-project-card') && selectedItems.length === 1 && selectedItems[0].path === path) this.app.selectRepo(path);
             else this.app.showFileSelectionDetail(selectedItems);
           } else {
-            this.document.querySelectorAll('.repo-card.selected, .repo-list-item.selected')
-              .forEach(item => item.classList.remove('selected'));
-            element.classList.add('selected');
-            if (isGit) this.app.openWorkspaceRepository ? this.app.openWorkspaceRepository(path) : this.app.selectRepo(path);
+            this.state.selectedPaths = new Set([path]);
+            this.state.selectionAnchorPath = path;
+            this.state.fileKeyboardFocusPath = path;
+            this.syncFileSelectionUI();
+            element.focus({ preventScroll: true });
+            if (isGit) this.app.selectRepo(path);
           }
         });
 
@@ -97,23 +98,30 @@
         });
 
         element.addEventListener('keydown', event => {
-          if (!element.classList.contains('local-project-card') || event.target !== element) return;
+          if (event.target !== element || (!element.classList.contains('local-project-card') && this.app.isFileBrowsingContext())) return;
           if (event.key === ' ' || event.key === 'Enter') {
             event.preventDefault();
-            if (event.key === 'Enter') this.app.openLocalProject(element.dataset.path);
+            if (event.key === 'Enter') { event.stopPropagation(); this.enterWorkspace(element); }
             else element.click();
           }
         });
         element.addEventListener('dblclick', event => {
           if (event.target?.closest?.('button, input, select, textarea, a')) return;
           if (element.classList.contains('local-project-card')) {
-            this.app.openLocalProject(element.dataset.path);
+            this.enterWorkspace(element);
             return;
           }
-          if (!this.app.isFileBrowsingContext()) return;
+          if (!this.app.isFileBrowsingContext()) { this.enterWorkspace(element); return; }
           this.app.activateFileItem({ path: element.dataset.path, type: element.dataset.type });
         });
       });
+    }
+
+    enterWorkspace(element) {
+      const path = element.dataset.path;
+      const project = this.state.localProjects.find(item => item.path === path);
+      if (element.classList.contains('local-project-card') && project) this.app.openWorkspaceProject(project);
+      else if (element.dataset.isGit === 'true') this.app.openWorkspaceRepository(path);
     }
 
     handleVirtualizedListKeyboardNavigation(event) {
@@ -252,7 +260,7 @@
 
     syncFileItemElement(element) {
       const projectCard = element.classList.contains('local-project-card');
-      const selected = (this.app.isFileBrowsingContext() || projectCard) && this.state.selectedPaths.has(element.dataset.path);
+      const selected = this.state.selectedPaths.has(element.dataset.path);
       element.classList.toggle('selected', selected);
       element.setAttribute('aria-selected', selected ? 'true' : 'false');
       element.tabIndex = projectCard || element.dataset.path === this.state.fileKeyboardFocusPath ? 0 : -1;

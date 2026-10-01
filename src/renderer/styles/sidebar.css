@@ -959,9 +959,10 @@
 }
 .finder-menu .sidebar-tag-color-option.active { box-shadow: 0 0 0 2px var(--text-primary); }
 
-/* Repository workspaces own their content; the inspector remains available in Files. */
-.workspace-overview-active #detail-panel,
-.workspace-overview-active #resize-handle-right { display: none !important; }
+/* The same resizable inspector stays available throughout the repository workflow. */
+#workspace-inspector { display:none; }
+.workspace-flow-active #workspace-inspector { display:block; }
+.workspace-flow-active #detail-panel > :not(#workspace-inspector) { display:none !important; }
 .workspace-reader-layout { display:grid; grid-template-columns:minmax(160px, 220px) minmax(0, 1fr); gap:24px; margin:16px 0; }
 .workspace-reader-layout nav { display:flex; flex-direction:column; gap:6px; max-height:65vh; overflow:auto; }
 .workspace-reader-layout nav .btn { text-align:left; white-space:normal; overflow-wrap:anywhere; }
@@ -970,3 +971,84 @@
 [data-workspace-reader] pre { white-space:pre-wrap; }
 .workspace-summary-stats { display:flex; flex-wrap:wrap; gap:24px; padding:16px 0; border-bottom:1px solid var(--border-color); }
 @media(max-width:900px) { .workspace-reader-layout { grid-template-columns:1fr; } .workspace-reader-layout nav { max-height:160px; } }
+
+/* Development workflow: stable navigation, independently scrolling list and editor. */
+.repository-workspace-tabs [role=tablist] { flex-wrap:wrap; flex:1 1 100%; margin-left:0; }
+.workflow-page { padding:20px; min-width:0; height:100%; display:flex; flex-direction:column; box-sizing:border-box; gap:16px; }
+.workflow-page h2,.workflow-page h3,.workflow-page h4 { margin:0 0 8px; }
+.workflow-page p { margin:0 0 10px; line-height:1.6; }
+.workflow-heading,.workflow-document-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+.workflow-heading h2 { font-size:18px; }
+.workflow-heading p,.workflow-notice { color:var(--text-secondary); font-size:12px; }
+.workflow-actions { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
+.workflow-split { display:grid; grid-template-columns:minmax(160px, 27%) minmax(0,1fr); flex:1; min-height:320px; gap:0; border:1px solid var(--border-color); border-radius:10px; overflow:hidden; background:var(--bg-primary); }
+.workflow-list { padding:12px; overflow:auto; max-height:calc(100vh - 270px); min-height:200px; border-right:1px solid var(--border-color); }
+.workflow-list h3 { font-size:12px; color:var(--text-secondary); margin:18px 0 8px; }
+.workflow-list input,.workflow-list select { width:100%; box-sizing:border-box; margin-bottom:8px; }
+.workflow-page input,.workflow-page select,.workflow-page textarea { padding:8px 10px; color:var(--text-primary); background:var(--bg-secondary); border:1px solid var(--border-color); border-radius:6px; font:inherit; }
+.workflow-list-item { display:block; width:100%; border:1px solid transparent; border-radius:7px; padding:10px; margin:3px 0; text-align:left; background:transparent; color:var(--text-primary); font:inherit; cursor:pointer; }
+.workflow-list-item[hidden] { display:none; }
+.workflow-list-item strong,.workflow-list-item small { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.workflow-list-item small { color:var(--text-secondary); margin-top:5px; font-size:11px; }
+.workflow-list-item:hover { background:var(--bg-secondary); }
+.workflow-list-item[aria-current=true] { background:var(--bg-secondary); border-color:var(--accent-color,#3478f6); box-shadow:inset 3px 0 var(--accent-color,#3478f6); }
+.workflow-list-item:focus-visible { outline:2px solid var(--accent-color,#3478f6); outline-offset:1px; }
+.workflow-reader { padding:20px; overflow:auto; max-height:calc(100vh - 270px); min-width:0; overflow-wrap:anywhere; }
+.workflow-reader textarea { width:100%; box-sizing:border-box; resize:vertical; line-height:1.65; }
+[data-flow-editor] > textarea { min-height:350px; font-family:ui-monospace,monospace; font-size:13px; margin:8px 0 12px; }
+.workflow-document-heading small { color:var(--text-secondary); }
+.workflow-reader .markdown-preview { overflow-wrap:anywhere; }
+.workflow-form-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+[data-flow-task-form] label { display:flex; flex-direction:column; gap:6px; margin-bottom:14px; font-size:12px; }
+.workflow-metrics { display:flex; gap:16px; flex-wrap:wrap; font-size:12px; color:var(--text-secondary); }
+.workflow-metrics b { color:var(--text-primary); margin-left:4px; }
+.workflow-stages { display:grid; grid-template-columns:repeat(auto-fit,minmax(135px,1fr)); gap:8px; }
+.workflow-stages button { text-align:left; padding:14px; border:1px solid var(--border-color); border-radius:8px; color:var(--text-primary); background:var(--bg-secondary); cursor:pointer; }
+.workflow-stages strong,.workflow-stages span { display:block; }
+.workflow-stages span { color:var(--text-secondary); margin-top:8px; font-size:12px; line-height:1.5; }
+.workflow-overview-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+.workflow-card { padding:18px; background:var(--bg-primary); border:1px solid var(--border-color); border-radius:10px; overflow-wrap:anywhere; }
+#workspace-inspector header,#workspace-inspector section { padding:18px; border-bottom:1px solid var(--border-color); overflow-wrap:anywhere; }
+#workspace-inspector h3 { font-size:15px; margin:8px 0; }
+#workspace-inspector h4 { font-size:12px; margin:0 0 10px; }
+#workspace-inspector p,#workspace-inspector small { font-size:12px; color:var(--text-secondary); line-height:1.6; }
+.workflow-tags { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; }
+.workflow-tags span { padding:3px 7px; border:1px solid var(--border-color); border-radius:5px; font-size:11px; }
+@media(max-width:1100px) {
+ .workflow-page { padding:12px; }
+ .workflow-split { grid-template-columns:minmax(125px,32%) minmax(0,1fr); }
+ .workflow-list,.workflow-reader { padding:10px; }
+ .workflow-overview-grid,.workflow-form-row { grid-template-columns:1fr; }
+}
+.workspace-flow-active #content-area { container-type:inline-size; }
+.workflow-help { font-size:12px; color:var(--text-secondary); line-height:1.7; border:1px solid var(--border-color); border-radius:8px; padding:10px 12px; }
+.workflow-help summary { cursor:pointer; color:var(--text-primary); }
+.workflow-remote { border-top:1px solid var(--border-color); padding-top:14px; font-size:12px; }
+.workspace-code-columns { display:grid; grid-template-columns:minmax(0,1.35fr) minmax(0,1fr); gap:20px; }
+.workspace-code-columns > .workspace-section { min-width:0; padding:14px; border:1px solid var(--border-color); border-radius:10px; background:var(--bg-primary); }
+.workspace-code-columns h3 { margin-top:0; }
+.workspace-code-columns .workspace-commit-list { max-height:55vh; overflow:auto; }
+.workspace-change-row[aria-current=true] { box-shadow:inset 3px 0 var(--accent-color,#3478f6); background:var(--bg-secondary); }
+@container (max-width:540px) {
+ .workflow-split { grid-template-columns:minmax(0,1fr); }
+ .workflow-list { max-height:160px; min-height:0; border-right:0; border-bottom:1px solid var(--border-color); }
+ .workflow-reader { max-height:60vh; }
+ .workflow-stages { grid-template-columns:1fr; }
+ .workspace-code-columns { grid-template-columns:minmax(0,1fr); }
+}
+.workflow-task-section { border-top:1px solid var(--border-color); margin:12px 0; padding-top:12px; }
+.workflow-task-section summary { cursor:pointer; font-size:13px; font-weight:600; margin-bottom:12px; }
+.portfolio-active #workspace-inspector { display:block; }
+.portfolio-active #detail-panel > :not(#workspace-inspector) { display:none !important; }
+.portfolio-project-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:14px; }
+.portfolio-project-grid .btn { margin:8px 8px 0 0; }
+.portfolio-queues { padding:8px 0; }
+.portfolio-page [data-portfolio-body] { flex:1; min-height:0; }
+.portfolio-page { height:auto; min-height:100%; }
+.portfolio-page .workflow-split { min-height:360px; }
+.portfolio-active #content-area { container-type:inline-size; }
+
+/* Collection selection previews; workspace entry is an explicit action. */
+.repo-card:has(> .repository-enter) { display: flex; flex-direction: column; }
+.repo-card > .repository-enter { align-self: flex-end; margin-top: auto; }
+.list-item-git:has(.repository-enter) { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }

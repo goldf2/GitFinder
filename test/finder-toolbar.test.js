@@ -49,8 +49,8 @@ test('工作区视图在主指针按下时立即切换，并统一使用文件�
 test('顶层工作区只保留结构不同的页面，项目与仓库筛选明确标注范围', () => {
   const viewMenu = html.match(/<div class="finder-menu" id="view-menu"[\s\S]*?<\/div>\s*<\/div>/)?.[0] || '';
   assert.match(viewMenu, /data-view="tree"[\s\S]*?>文件浏览</);
-  assert.match(viewMenu, /data-view="dashboard"[\s\S]*?>仪表盘</);
-  assert.match(viewMenu, /data-view="tasks"[\s\S]*?>开发任务</);
+  assert.match(viewMenu, /data-view="dashboard"[\s\S]*?>全局总览</);
+  assert.match(viewMenu, /data-view="tasks"[\s\S]*?>全部项目任务</);
   assert.doesNotMatch(viewMenu, /data-view="projects"|data-view="grid"/);
   assert.match(html, /class="finder-menu-heading" id="directory-filter-scope-heading">当前目录<\/div>/);
   assert.match(html, /class="finder-menu-heading">属性（可组合）<\/div>/);

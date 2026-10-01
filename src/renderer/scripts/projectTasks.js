@@ -1,5 +1,6 @@
 Object.assign(App, {
   async renderProjectTasks(forceRefresh = false) {
+    if(this.workbenchPortfolioController) return this.workbenchPortfolioController.render('tasks', true);
     if (this.isExperimentalViewEnabled?.('tasks') === false) return;
     const readEpoch = this._progressReadEpoch || 0;
     const contentArea = document.getElementById('content-area');
@@ -113,6 +114,7 @@ Object.assign(App, {
   },
 
   renderProjectTasksView() {
+    if(this.workbenchPortfolioController) return this.workbenchPortfolioController.render('tasks', false, AppState.taskPortfolio);
     const contentArea = document.getElementById('content-area');
     const portfolio = AppState.taskPortfolio || {};
     if (!contentArea) return;

@@ -1904,8 +1904,8 @@ body.file-drag-active.file-drag-copy {
 
 /* ============ Local Project Manager 只读任务投影 ============ */
 
-.main-container.tasks-mode #resize-handle-right,
-.main-container.tasks-mode #detail-panel {
+.main-container.tasks-mode:not(.portfolio-shell) #resize-handle-right,
+.main-container.tasks-mode:not(.portfolio-shell) #detail-panel {
   display: none;
 }
 
