@@ -892,6 +892,10 @@
 .sidebar-tag-tools { display: grid; gap: 5px; padding: 3px 12px 5px; }
 #sidebar-tag-search { width: 100%; min-width: 0; box-sizing: border-box; font: inherit; font-size: 12px; padding: 5px 8px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-primary); color: var(--text-primary); }
 .sidebar-tag-legend { font-size: 10px; color: var(--text-secondary); }
+.sidebar-tag-selection { display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 11px; color: var(--text-secondary); }
+#sidebar-tag-clear { border: 0; background: transparent; color: var(--accent-primary); font: inherit; padding: 2px 4px; cursor: pointer; }
+#sidebar-tag-clear:disabled { color: var(--text-tertiary); cursor: default; }
+.sidebar-tag-dimension { grid-column: 1 / -1; margin: 4px 0 0; font-size: 11px; font-weight: 600; color: var(--text-secondary); }
 #tags-filter-list .sidebar-tag-item {
   --heat: 5%; position: relative; margin: 0; padding: 4px 5px;
   display: grid; grid-template-columns: 7px minmax(0, 1fr) auto; gap: 4px;

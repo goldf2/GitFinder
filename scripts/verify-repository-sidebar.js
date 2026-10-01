@@ -13,7 +13,9 @@ async function start(profile, output) {
   const port = server.address().port; await new Promise(r => server.close(r));
   const env = { ...process.env }; delete env.ELECTRON_RUN_AS_NODE;
   const log = fs.openSync(path.join(output, 'electron.log'), 'a');
-  const child = spawn(require('electron'), [root, `--user-data-dir=${profile}`, `--remote-debugging-port=${port}`, '--remote-debugging-address=127.0.0.1'], { cwd: root, env, stdio: ['ignore', log, log] });
+  const appIndex = process.argv.indexOf('--app');
+  const executable = appIndex < 0 ? require('electron') : process.argv[appIndex + 1];
+  const child = spawn(executable, [...(appIndex < 0 ? [root] : []), `--user-data-dir=${profile}`, `--remote-debugging-port=${port}`, '--remote-debugging-address=127.0.0.1'], { cwd: root, env, stdio: ['ignore', log, log] });
   let socket, sequence = 0; const pending = new Map();
   const close = async () => {
     socket?.close();
@@ -101,6 +103,24 @@ async function main() {
     await app.evaluate("document.querySelector('[data-tag-id=tag-0]').focus();document.querySelector('[data-tag-id=tag-0]').dispatchEvent(new KeyboardEvent('keydown',{key:' ',bubbles:true}))");
     await app.wait("document.querySelectorAll('.repo-card').length===2");
     await check('键盘选择标签筛选仓库并显示选中状态', "AppState.selectedTags.includes('tag-0')&&document.querySelector('[data-tag-id=tag-0]').getAttribute('aria-pressed')==='true'");
+    await app.evaluate(`App.projectShortcutsController.recentRepositoryPaths=[${JSON.stringify(explicit)},${JSON.stringify(automatic)}];App.projectShortcutsController.render()`);
+    await click('[data-tag-id=tag-1]');
+    await app.wait("document.querySelectorAll('.repo-card').length===1");
+    await check('多标签同时满足且最近仓库和分类成员同步', `AppState.selectedTags.length===2&&document.querySelector('.repo-card').dataset.path===${JSON.stringify(explicit)}&&[...document.querySelectorAll('#repository-shortcuts-list [data-repository-shortcut-path]')].every(e=>e.dataset.repositoryShortcutPath===${JSON.stringify(explicit)})`);
+    await check('显示多选规则及清除入口', "document.querySelector('#sidebar-tag-selection-summary').textContent==='已选 2 项 · 同时满足'&&!document.querySelector('#sidebar-tag-clear').disabled");
+    await click('#sidebar-tag-clear');
+    await app.wait("document.querySelectorAll('.repo-card').length===37");
+    await check('清除标签恢复完整列表', "AppState.selectedTags.length===0&&document.querySelector('#sidebar-tag-clear').disabled");
+    await app.evaluate(`App.openWorkspaceRepository(${JSON.stringify(automatic)})`);
+    await app.wait("!!document.querySelector('#git-workspace-view')");
+    await app.evaluate("AppState.filterEnabled.tag=false");
+    await click('[data-tag-id=tag-1]');
+    await app.wait("!AppState.workspaceRepository&&document.querySelectorAll('.repo-card').length===1");
+    await check('仓库详情点击标签直接进入有效筛选列表', `AppState.filterEnabled.tag&&document.querySelector('.repo-card').dataset.path===${JSON.stringify(explicit)}`);
+    await click('#sidebar-tag-clear');
+    await app.evaluate("(async()=>{await gitFinder.tags.update('tag-0',{name:'形态:APP'});await gitFinder.tags.update('tag-1',{name:'平台:macOS'});await App.loadTags()})()");
+    await check('现有标签按形态平台等维度分区', "[...document.querySelectorAll('.sidebar-tag-dimension')].map(e=>e.textContent).join(',')==='形态,平台,技术'");
+    await click('[data-tag-id=tag-0]');
     await click('[data-tag-id=tag-0]');
     await app.evaluate("const s=document.querySelector('#sidebar-tag-search');s.value='标签79';s.dispatchEvent(new Event('input',{bubbles:true}))");
     await check('大量标签可搜索定位', "document.querySelectorAll('.sidebar-tag-item').length===1&&document.querySelector('.sidebar-tag-item').dataset.tagId==='tag-79'");

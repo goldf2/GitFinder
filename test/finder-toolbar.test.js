@@ -66,7 +66,7 @@ test('仓库分类移入内容筛选下拉，左侧只保留访达式标签', ()
   assert.match(html, /id="category-filter-dropdown"[^>]+role="menu"[^>]+hidden/);
   assert.match(html, /id="groups-list"/);
   assert.match(html, /id="add-group-bottom-btn"[^>]+role="menuitem"/);
-  assert.match(html, /id="tags-sidebar-section"[\s\S]*?<span class="sidebar-title-text">仓库标签<\/span>/);
+  assert.match(html, /id="tags-sidebar-section"[\s\S]*?<span class="sidebar-title-text">属性标签<\/span>/);
   assert.doesNotMatch(html, /<span class="sidebar-title-text">项目分类<\/span>/);
   assert.match(appSource, /ContentQuery\.showsRepositoryMetadata\(/);
   assert.match(appSource, /setActiveRepositoryCategory\(category\)/);

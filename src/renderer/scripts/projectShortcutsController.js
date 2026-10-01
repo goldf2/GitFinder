@@ -525,7 +525,7 @@
       const allRepos = this.state.allRepos || [];
       const preferences = ProjectShortcuts.normalizePreferences(this.state.projectShortcutPreferences);
       const showRecent = preferences.visible && preferences.showRecent;
-      const recent = this.recentRepositoryPaths.map(path => allRepos.find(repo => pathsEqual(repo.path, path))).filter(Boolean).slice(0, preferences.recentLimit);
+      const recent = this.recentRepositoryPaths.map(path => repositories.find(repo => pathsEqual(repo.path, path))).filter(Boolean).slice(0, preferences.recentLimit);
       const groups = [...(this.state.projectGroups || []).filter(group => group.kind !== 'collection'), { groupId: 'unclassified', name: '未分类', color: 'gray' }];
       const inGroup = (repo, group) => {
         const project = ProjectShortcuts.findProjectForPath(this.state.localProjects || [], repo.path, this.platform);

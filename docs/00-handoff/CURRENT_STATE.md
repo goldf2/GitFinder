@@ -1,9 +1,7 @@
 # GitFinder 2 当前状态
 
 <!-- BEGIN CURRENT_STATE -->
-## GF-CATEGORY-225 / alpha.225 已交付
-
-仓库分类新建编辑入口恢复；仓库与标签独立滚动，43个真实标签以可搜索热力图显示并支持筛选。1460全量、310 JS、隔离11项、安装11项及重开12项通过。原52会话、分类分组、标签定义与关联集合保持；重开按仓库路径核对标签关联一致。已安装正常启动，源码d8d10ca721948b044e79eaae9d83daa1dff9cf08已推送。用户体验验收pending。下一任务GF-DATA-001不自动启动。详见REPOSITORY_SIDEBAR_ALPHA225.md。
+GF-TAGS-226 开发中：多维属性标签筛选与APP标签整理；原有工作树保留。
 <!-- END CURRENT_STATE -->
 
 ## 历史兼容记录（以下不再表示当前状态）

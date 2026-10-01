@@ -211,11 +211,12 @@
         <div class="sidebar-section" id="tags-sidebar-section" data-section-id="tags">
           <div class="sidebar-title">
             <span class="sidebar-drag-handle" title="拖拽排序">⋮⋮</span>
-            <span class="sidebar-title-text">仓库标签</span>
+            <span class="sidebar-title-text">属性标签</span>
             <span class="sidebar-toggle" title="折叠/展开">▼</span>
           </div>
           <div class="sidebar-tag-tools">
             <input id="sidebar-tag-search" type="search" placeholder="查找标签…" aria-label="查找仓库标签">
+            <div class="sidebar-tag-selection"><span id="sidebar-tag-selection-summary">可多选，需同时满足</span><button type="button" id="sidebar-tag-clear" disabled>清除</button></div>
             <span class="sidebar-tag-legend">浅 → 深：关联仓库少 → 多</span>
           </div>
           <div id="tags-filter-list" aria-label="仓库标签热力图"></div>
@@ -1221,7 +1222,7 @@
       <div class="modal-body">
         <div class="form-group">
           <label>标签名称</label>
-          <input type="text" id="new-tag-name" placeholder="输入标签名称">
+          <input type="text" id="new-tag-name" placeholder="例如 形态:APP、平台:macOS、用途:业务系统">
         </div>
         <div class="form-group">
           <label>颜色</label>

@@ -3355,10 +3355,41 @@ const App = {
     input.addEventListener('blur', () => finish(true));
   },
 
+  applySidebarTagFilter() {
+    AppState.filterEnabled.tag = true;
+    const checkbox = document.getElementById('filter-tag-check');
+    if (checkbox) checkbox.checked = true;
+    this.updateSidebarTagSelection();
+    this.updateFilterBar();
+    if (this.contentCollectionKind() !== 'repositories' || AppState.workspaceRepository) {
+      this.applyContentPreset('all-repositories');
+    } else {
+      this.renderContent();
+    }
+  },
+
+  updateSidebarTagSelection() {
+    const count = AppState.selectedTags.length;
+    const summary = document.getElementById('sidebar-tag-selection-summary');
+    if (summary) summary.textContent = count ? `已选 ${count} 项 · 同时满足` : '可多选，需同时满足';
+    const clear = document.getElementById('sidebar-tag-clear');
+    if (clear) clear.disabled = count === 0;
+  },
+
   renderSidebarTags() {
     const container = document.getElementById('tags-filter-list');
     const section = document.getElementById('tags-sidebar-section');
     const search = document.getElementById('sidebar-tag-search');
+    const clear = document.getElementById('sidebar-tag-clear');
+    if (clear && !clear.dataset.bound) {
+      clear.dataset.bound = 'true';
+      clear.addEventListener('click', () => {
+        AppState.selectedTags = [];
+        this.renderSidebarTags();
+        this.applySidebarTagFilter();
+      });
+    }
+    this.updateSidebarTagSelection();
     if (search && !search.dataset.bound) {
       search.dataset.bound = 'true';
       search.addEventListener('input', () => this.renderSidebarTags());
@@ -3369,8 +3400,12 @@ const App = {
       for (const id of new Set(ids)) counts.set(id, (counts.get(id) || 0) + 1);
     }
     const maxCount = Math.max(1, ...counts.values());
+    const dimensions = ['形态', '平台', '分类', '领域', '用途', '技术', '部署', '市场', '状态'];
+    const dimension = tag => tag.name.match(/^([^:：]+)[:：]/u)?.[1] || '自定义';
+    const rank = tag => { const index = dimensions.indexOf(dimension(tag)); return index < 0 ? dimensions.length : index; };
     const tags = [...AppState.tags.tags].filter(tag => tag.name.toLocaleLowerCase().includes(query))
-      .sort((a, b) => (counts.get(b.id) || 0) - (counts.get(a.id) || 0) || a.name.localeCompare(b.name, 'zh-CN'));
+      .sort((a, b) => rank(a) - rank(b) || dimension(a).localeCompare(dimension(b), 'zh-CN')
+        || (counts.get(b.id) || 0) - (counts.get(a.id) || 0) || a.name.localeCompare(b.name, 'zh-CN'));
 
     if (tags.length === 0) {
       // 空状态保留标题、搜索和添加入口
@@ -3384,13 +3419,14 @@ const App = {
     const title = section?.querySelector('.sidebar-title');
     if (title) title.style.display = '';
 
-    container.innerHTML = tags.map(tag => {
+    container.innerHTML = tags.map((tag, index) => {
       const count = counts.get(tag.id) || 0;
       const heat = count === 0 ? 0 : Math.max(1, Math.ceil(count / maxCount * 5));
       const selected = AppState.selectedTags.includes(tag.id);
       const tagId = this.escapeHtml(tag.id);
       const tagColor = this.safeColor(tag.color);
       return `
+        ${index === 0 || dimension(tags[index - 1]) !== dimension(tag) ? `<h4 class="sidebar-tag-dimension">${this.escapeHtml(dimension(tag))}</h4>` : ''}
         <div class="sidebar-tag-item ${selected ? 'selected' : ''}" data-tag-id="${tagId}" data-heat="${heat}" role="button" tabindex="0" aria-pressed="${selected}" aria-label="${this.escapeHtml(tag.name)}，${count} 个仓库" title="${this.escapeHtml(tag.name)} · ${count} 个仓库；双击名称重命名">
           <span class="sidebar-tag-dot" style="background:${tagColor}"></span>
           <span class="sidebar-item-name" style="flex:1;" title="双击重命名">${this.escapeHtml(tag.name)}</span>
@@ -3409,8 +3445,7 @@ const App = {
         const selected = idx < 0;
         item.classList.toggle('selected', selected);
         item.setAttribute('aria-pressed', String(selected));
-        this.updateFilterBar();
-        this.renderContent();
+        this.applySidebarTagFilter();
       };
       item.addEventListener('click', event => {
         if (event.target.closest('button,input')) return;
@@ -3583,7 +3618,7 @@ const App = {
           </span>
         `;
       }).join('');
-      parts.push(`<span class="filter-chip-group">标签: ${tagChips}</span>`);
+      parts.push(`<span class="filter-chip-group">标签（同时满足）: ${tagChips}</span>`);
     }
 
     // 状态摘要
