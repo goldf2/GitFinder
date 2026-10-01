@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-02T05:10:59+08:00",
+  "updatedAt": "2026-10-02T05:15:59+08:00",
   "scope": "以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。",
   "baseline": {
     "version": "2.0.0-alpha.193",
     "sourceCommit": "99eef1d2992e389f32a48182a25fda3b9adf1958",
     "evidence": "docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md"
   },
-  "nextTaskId": "GF-TAG-COUNT-229",
+  "nextTaskId": "GF-DATA-001",
   "milestones": [
     {
       "id": "GF-P0",
@@ -1773,9 +1773,9 @@
       "milestone": "GF-P2",
       "title": "标签计数与当前仓库筛选同步",
       "priority": "P1",
-      "status": "verified",
+      "status": "delivered",
       "owner": "Codex",
-      "updatedAt": "2026-10-02T05:10:59+08:00",
+      "updatedAt": "2026-10-02T05:15:59+08:00",
       "dependsOn": [
         "GF-TAG-228"
       ],
@@ -1794,9 +1794,13 @@
       "evidence": [
         "docs/00-handoff/TAG_COUNTS_ALPHA229.md"
       ],
-      "nextAction": "1460测试、311JS与46项源码交互通过；继续干净构建和安装版真实计数核对。",
+      "nextAction": "已安装alpha229：Web应用26对26，叠加macOS为2对2，清除恢复；源码已推送。等待用户体验确认，不自动启动GF-DATA-001。",
       "blocker": "",
-      "userAcceptance": "pending"
+      "userAcceptance": "pending",
+      "delivery": {
+        "version": "2.0.0-alpha.229",
+        "sourceCommit": "be510ef9fd3767b8b8931767728d07cb4d51d445"
+      }
     }
   ]
 }

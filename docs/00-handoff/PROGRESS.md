@@ -2,11 +2,11 @@
 
 > 自动生成。只编辑 `management/development-tasks.json`，然后执行 `npm run handoff:update`。
 
-更新时间：2026-10-02T05:10:59+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
+更新时间：2026-10-02T05:15:59+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
 
 核验基线：2.0.0-alpha.193 / `99eef1d2992e389f32a48182a25fda3b9adf1958`；证据：[docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md](LAYOUT_OPTIONS_ALPHA193.md)。
 
-**唯一下一任务：GF-TAG-COUNT-229**
+**唯一下一任务：GF-DATA-001**
 
 ## 阶段汇总
 
@@ -14,7 +14,7 @@
 | --- | ---: | ---: | ---: | ---: |
 | GF-P0 接续工程 | 2 | 2 | 0 | 0 |
 | GF-P1 桌面稳定 | 30 | 25 | 0 | 1 |
-| GF-P2 可维护与性能 | 11 | 6 | 1 | 0 |
+| GF-P2 可维护与性能 | 11 | 7 | 0 | 0 |
 | GF-P3 可分发 | 7 | 0 | 2 | 3 |
 | GF-P4 全流程事件 | 5 | 0 | 0 | 1 |
 | GF-P5 Web与同步（需授权） | 4 | 0 | 0 | 4 |
@@ -83,7 +83,7 @@
 | GF-TAGS-226 | P1 | 已交付 | Codex | 多维属性标签筛选与APP标签整理 |
 | GF-SIDEBAR-227 | P1 | 已交付 | Codex | 侧栏区域排序、可调高度与自定义分类 |
 | GF-TAG-228 | P1 | 已交付 | Codex | 标签热力图开关、选中高亮及分类手动展开 |
-| GF-TAG-COUNT-229 | P1 | 已验证 | Codex | 标签计数与当前仓库筛选同步 |
+| GF-TAG-COUNT-229 | P1 | 已交付 | Codex | 标签计数与当前仓库筛选同步 |
 
 ## 可执行任务卡
 
@@ -1162,17 +1162,19 @@
 
 ### GF-TAG-COUNT-229 · 标签计数与当前仓库筛选同步
 
-阶段：GF-P2；优先级：P1；状态：**已验证**；负责人：Codex；用户验收：待用户反馈。
+阶段：GF-P2；优先级：P1；状态：**已交付**；负责人：Codex；用户验收：待用户反馈。
 
-更新：2026-10-02T05:10:59+08:00。依赖：GF-TAG-228。
+更新：2026-10-02T05:15:59+08:00。依赖：GF-TAG-228。
 
 **验收标准**
 1. 只统计当前仓库列表中的有效标签，普通目录和范围外关联不计入。
 2. 标签数量及热力深浅随分类、搜索、多选及清除筛选同步，并保持标签位置和焦点。
 3. 实际安装验证Web应用数量与右侧一致，原标签关联保持。
 
-**接续动作：** 1460测试、311JS与46项源码交互通过；继续干净构建和安装版真实计数核对。
+**接续动作：** 已安装alpha229：Web应用26对26，叠加macOS为2对2，清除恢复；源码已推送。等待用户体验确认，不自动启动GF-DATA-001。
 
 源码/设计入口：[src/renderer/scripts/app.js](../../src/renderer/scripts/app.js)；[src/renderer/scripts/repositoryDetailController.js](../../src/renderer/scripts/repositoryDetailController.js)；[src/renderer/scripts/workspaceToolsController.js](../../src/renderer/scripts/workspaceToolsController.js)；[src/renderer/index.html](../../src/renderer/index.html)；[scripts/verify-repository-sidebar.js](../../scripts/verify-repository-sidebar.js)。
 
 证据：[docs/00-handoff/TAG_COUNTS_ALPHA229.md](TAG_COUNTS_ALPHA229.md)
+
+交付：2.0.0-alpha.229；源码 `be510ef9fd3767b8b8931767728d07cb4d51d445`。
