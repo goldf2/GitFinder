@@ -19,3 +19,11 @@
 ## 交付状态
 
 源码验证通过；安装与推送待完成。仅本机macOS开发包，用户验收pending，不自动启动GF-DATA-001。
+
+## 最终交付
+
+运行源码`644f6ede62f1da1df8a07a7c3e6926ff2d25c935`已推送并核对origin/main。干净构建1460/1460测试、311JS检查及macOS开发包门禁通过；`/Applications/GitFinder 2.app`已安装alpha.228，36项安装交互和重启检查通过。原用户界面实测APP标签的橙/紫选中、关闭热力保留计数、分类名称只筛选和三角独立展开收起。验收后恢复所有仓库，无标签筛选，默认热力开启和橙色边框；用户原侧栏顺序与高度保持。
+
+115条注册仓库（当前受管位置显示58个）的原标签关联按路径核对无丢失，用户新增标签1保留。原9个非共享文件字节不变，共享3个交接文档仅提交本轮块/追加。用户验收pending，未扩大其他任务。
+
+证据：`dist/tag-selection-alpha228/clean-check.log`、`build.log`、`installed-ui.log`、`tag-persistence.json`；安装截图`dist/sidebar225-ui-wHh7V6`。构建及门禁报告位于`/Volumes/project/临时文件/gitfinder-tag-selection-alpha228/dist`。旧alpha227备份：`/Volumes/project/制品与备份/GitFinder/2026-10-02-alpha227-before-tags228/GitFinder 2.app`。仅macOS arm64本机ad-hoc开发包，不代表公开发行或Windows验收。

@@ -2,11 +2,11 @@
 
 > 自动生成。只编辑 `management/development-tasks.json`，然后执行 `npm run handoff:update`。
 
-更新时间：2026-10-02T04:53:58+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
+更新时间：2026-10-02T05:00:22+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
 
 核验基线：2.0.0-alpha.193 / `99eef1d2992e389f32a48182a25fda3b9adf1958`；证据：[docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md](LAYOUT_OPTIONS_ALPHA193.md)。
 
-**唯一下一任务：GF-TAG-228**
+**唯一下一任务：GF-DATA-001**
 
 ## 阶段汇总
 
@@ -14,7 +14,7 @@
 | --- | ---: | ---: | ---: | ---: |
 | GF-P0 接续工程 | 2 | 2 | 0 | 0 |
 | GF-P1 桌面稳定 | 30 | 25 | 0 | 1 |
-| GF-P2 可维护与性能 | 10 | 5 | 1 | 0 |
+| GF-P2 可维护与性能 | 10 | 6 | 0 | 0 |
 | GF-P3 可分发 | 7 | 0 | 2 | 3 |
 | GF-P4 全流程事件 | 5 | 0 | 0 | 1 |
 | GF-P5 Web与同步（需授权） | 4 | 0 | 0 | 4 |
@@ -82,7 +82,7 @@
 | GF-CATEGORY-225 | P1 | 已交付 | Codex | 仓库分类入口、独立滚动与标签热力图 |
 | GF-TAGS-226 | P1 | 已交付 | Codex | 多维属性标签筛选与APP标签整理 |
 | GF-SIDEBAR-227 | P1 | 已交付 | Codex | 侧栏区域排序、可调高度与自定义分类 |
-| GF-TAG-228 | P1 | 已验证 | Codex | 标签热力图开关、选中高亮及分类手动展开 |
+| GF-TAG-228 | P1 | 已交付 | Codex | 标签热力图开关、选中高亮及分类手动展开 |
 
 ## 可执行任务卡
 
@@ -1142,17 +1142,19 @@
 
 ### GF-TAG-228 · 标签热力图开关、选中高亮及分类手动展开
 
-阶段：GF-P2；优先级：P1；状态：**已验证**；负责人：Codex；用户验收：待用户反馈。
+阶段：GF-P2；优先级：P1；状态：**已交付**；负责人：Codex；用户验收：待用户反馈。
 
-更新：2026-10-02T04:53:58+08:00。依赖：GF-SIDEBAR-227。
+更新：2026-10-02T05:00:22+08:00。依赖：GF-SIDEBAR-227。
 
 **验收标准**
 1. 显示控制提供标签热力图开关、选中边框颜色并保存到本机，选中状态不只依赖颜色。
 2. 分类名称仅选中筛选，小三角独立展开收起，不自动展开；原分类和标签保持。
 3. 验证浅深主题、多选、重启偏好及安装交互后推送。
 
-**接续动作：** 源码1460测试、311JS与36项界面检查通过；继续干净构建、可恢复安装及实际界面验收。
+**接续动作：** 已安装alpha228并验证原用户界面、36项安装交互及重启偏好；源码已推送，等待用户确认体验，GF-DATA-001不自动启动。
 
 源码/设计入口：[src/renderer/scripts/app.js](../../src/renderer/scripts/app.js)；[src/renderer/scripts/projectShortcutsController.js](../../src/renderer/scripts/projectShortcutsController.js)；[src/renderer/styles/sidebar.css](../../src/renderer/styles/sidebar.css)；[src/renderer/index.html](../../src/renderer/index.html)。
 
 证据：[docs/00-handoff/TAG_SELECTION_ALPHA228.md](TAG_SELECTION_ALPHA228.md)
+
+交付：2.0.0-alpha.228；源码 `644f6ede62f1da1df8a07a7c3e6926ff2d25c935`。
