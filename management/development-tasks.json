@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-01T16:16:45+08:00",
+  "updatedAt": "2026-10-01T16:21:12+08:00",
   "scope": "以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。",
   "baseline": {
     "version": "2.0.0-alpha.193",
     "sourceCommit": "99eef1d2992e389f32a48182a25fda3b9adf1958",
     "evidence": "docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md"
   },
-  "nextTaskId": "GF-REPO-224",
+  "nextTaskId": "GF-DATA-001",
   "milestones": [
     {
       "id": "GF-P0",
@@ -1608,9 +1608,9 @@
       "milestone": "GF-P2",
       "title": "仓库作为主列表，项目作为文件夹属性",
       "priority": "P1",
-      "status": "verified",
+      "status": "delivered",
       "owner": "Codex",
-      "updatedAt": "2026-10-01T16:16:45+08:00",
+      "updatedAt": "2026-10-01T16:21:12+08:00",
       "dependsOn": [
         "GF-PROJECT-223"
       ],
@@ -1627,9 +1627,13 @@
       "evidence": [
         "docs/00-handoff/REPOSITORY_ATTRIBUTES_ALPHA224.md"
       ],
-      "nextAction": "提交源码，打包安装，核验真实会话和重开后推送",
+      "nextAction": "等待用户体验确认；GF-DATA-001不自动启动",
       "blocker": "",
-      "userAcceptance": "pending"
+      "userAcceptance": "pending",
+      "delivery": {
+        "version": "2.0.0-alpha.224",
+        "sourceCommit": "85eb6f19d5ed754d7bc482105fd7573665674484"
+      }
     }
   ]
 }
