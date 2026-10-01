@@ -17,15 +17,28 @@ body {
   height: 100vh;
 }
 
+.window-titlebar {
+  height: 44px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 20px 0 88px;
+  -webkit-app-region: drag;
+}
+.window-app-name { font-size: 12px; font-weight: 600; flex-shrink: 0; }
+.window-title-separator { color: var(--text-tertiary); }
+.window-titlebar .current-path { margin-left: 0; font-size: 12px; }
+.window-titlebar .crumb-link { -webkit-app-region: no-drag; }
+
 .toolbar {
-  height: 52px;
+  height: 44px;
   border-bottom: 1px solid var(--border-color);
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 16px;
-  padding-left: 72px;
-  -webkit-app-region: drag;
+  -webkit-app-region: no-drag;
   flex-shrink: 0;
   z-index: 100;
 }
@@ -1876,3 +1889,13 @@ body {
 @media (max-width: 900px) { #sort-menu-label { display: none; } }
 
 @media (max-width: 900px) { .toolbar-left { min-width: 230px; } }
+
+/* The title is separate from actions; give search the remaining tool-row space. */
+.toolbar { gap: 12px; }
+.toolbar-left { flex: 0 0 auto; min-width: 0; }
+.toolbar-center { flex: 1 1 240px; min-width: 130px; max-width: 420px; margin-left: auto; }
+.toolbar-center .search-box { width: 100%; min-width: 0; }
+@media (max-width: 900px) {
+  .toolbar { padding-inline: 12px; gap: 8px; }
+  .toolbar-right { gap: 6px; }
+}

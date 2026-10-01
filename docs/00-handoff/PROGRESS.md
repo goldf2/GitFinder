@@ -2,7 +2,7 @@
 
 > 自动生成。只编辑 `management/development-tasks.json`，然后执行 `npm run handoff:update`。
 
-更新时间：2026-10-02T05:33:03+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
+更新时间：2026-10-02T06:33:51+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
 
 核验基线：2.0.0-alpha.193 / `99eef1d2992e389f32a48182a25fda3b9adf1958`；证据：[docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md](LAYOUT_OPTIONS_ALPHA193.md)。
 
@@ -14,7 +14,7 @@
 | --- | ---: | ---: | ---: | ---: |
 | GF-P0 接续工程 | 2 | 2 | 0 | 0 |
 | GF-P1 桌面稳定 | 30 | 25 | 0 | 1 |
-| GF-P2 可维护与性能 | 12 | 8 | 0 | 0 |
+| GF-P2 可维护与性能 | 13 | 8 | 1 | 0 |
 | GF-P3 可分发 | 7 | 0 | 2 | 3 |
 | GF-P4 全流程事件 | 5 | 0 | 0 | 1 |
 | GF-P5 Web与同步（需授权） | 4 | 0 | 0 | 4 |
@@ -85,6 +85,7 @@
 | GF-TAG-228 | P1 | 已交付 | Codex | 标签热力图开关、选中高亮及分类手动展开 |
 | GF-TAG-COUNT-229 | P1 | 已交付 | Codex | 标签计数与当前仓库筛选同步 |
 | GF-WORKSPACE-230 | P1 | 已交付 | Codex | 仓库工作区返回与内置内容阅读 |
+| GF-TOOLBAR-231 | P1 | 已验证 | Codex | 分离标题栏与常用工具条 |
 
 ## 可执行任务卡
 
@@ -1198,3 +1199,20 @@
 证据：[docs/00-handoff/WORKSPACE_ALPHA230.md](WORKSPACE_ALPHA230.md)
 
 交付：2.0.0-alpha.230；源码 `619448c09bb65fe9daf44d905dcd14abd736ce72`。
+
+### GF-TOOLBAR-231 · 分离标题栏与常用工具条
+
+阶段：GF-P2；优先级：P1；状态：**已验证**；负责人：Codex；用户验收：待用户反馈。
+
+更新：2026-10-02T06:33:51+08:00。依赖：无。
+
+**验收标准**
+1. 标题栏只保留应用名称和当前位置。
+2. 常用导航、搜索及显示操作迁至标题栏下方独立工具条。
+3. 窄窗口无重叠，原按钮和菜单仍可使用。
+
+**接续动作：** 1460测试、311JS和宽窄窗口10项UI检查通过，待干净构建及安装验收。
+
+源码/设计入口：[src/renderer/index.html](../../src/renderer/index.html)；[src/renderer/styles/main.css](../../src/renderer/styles/main.css)；[src/renderer/styles/apple-ui/app-shell.css](../../src/renderer/styles/apple-ui/app-shell.css)；[src/renderer/styles/relationships.css](../../src/renderer/styles/relationships.css)。
+
+证据：[docs/00-handoff/TOOLBAR_ALPHA231.md](TOOLBAR_ALPHA231.md)

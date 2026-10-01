@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-02T05:33:03+08:00",
+  "updatedAt": "2026-10-02T06:33:51+08:00",
   "scope": "以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。",
   "baseline": {
     "version": "2.0.0-alpha.193",
@@ -1832,6 +1832,33 @@
         "version": "2.0.0-alpha.230",
         "sourceCommit": "619448c09bb65fe9daf44d905dcd14abd736ce72"
       }
+    },
+    {
+      "id": "GF-TOOLBAR-231",
+      "milestone": "GF-P2",
+      "title": "分离标题栏与常用工具条",
+      "priority": "P1",
+      "status": "verified",
+      "owner": "Codex",
+      "updatedAt": "2026-10-02T06:33:51+08:00",
+      "dependsOn": [],
+      "sourcePaths": [
+        "src/renderer/index.html",
+        "src/renderer/styles/main.css",
+        "src/renderer/styles/apple-ui/app-shell.css",
+        "src/renderer/styles/relationships.css"
+      ],
+      "acceptance": [
+        "标题栏只保留应用名称和当前位置。",
+        "常用导航、搜索及显示操作迁至标题栏下方独立工具条。",
+        "窄窗口无重叠，原按钮和菜单仍可使用。"
+      ],
+      "evidence": [
+        "docs/00-handoff/TOOLBAR_ALPHA231.md"
+      ],
+      "nextAction": "1460测试、311JS和宽窄窗口10项UI检查通过，待干净构建及安装验收。",
+      "blocker": "",
+      "userAcceptance": "pending"
     }
   ]
 }

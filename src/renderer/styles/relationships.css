@@ -58,6 +58,7 @@
 }
 
 /* Electron drag hit regions can survive outside the fullscreen top layer. */
+body:has(.relationship-workspace:fullscreen) .window-titlebar,
 body:has(.relationship-workspace:fullscreen) .toolbar,
 body:has(.relationship-workspace:fullscreen) .workspace-tab-strip,
 .relationship-workspace:fullscreen * {

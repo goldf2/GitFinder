@@ -141,3 +141,5 @@
     background: var(--bg-primary);
   }
 }
+
+.window-titlebar { background: var(--ui-material-toolbar); border-bottom: 1px solid var(--ui-divider); }

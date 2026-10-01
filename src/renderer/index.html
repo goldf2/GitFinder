@@ -21,7 +21,12 @@
 </head>
 <body>
   <div id="app">
-    <header class="toolbar">
+    <header class="window-titlebar" aria-label="窗口标题栏">
+      <strong class="window-app-name">GitFinder</strong>
+      <span class="window-title-separator" aria-hidden="true">/</span>
+      <div class="current-path" id="current-path" aria-label="当前位置"></div>
+    </header>
+    <div class="toolbar" role="toolbar" aria-label="常用工具">
       <div class="toolbar-left">
         <div class="finder-nav-group" role="group" aria-label="位置导航">
           <button class="nav-btn" id="btn-back" aria-label="返回上一位置" title="后退 (⌘[)" type="button">
@@ -76,7 +81,6 @@
             </button>
           </div>
         </div>
-        <div class="current-path" id="current-path"></div>
       </div>
       <div class="toolbar-center">
         <div class="search-box">
@@ -155,7 +159,7 @@
           </svg>
         </button>
       </div>
-    </header>
+    </div>
 
     <nav class="workspace-tab-strip" aria-label="浏览标签页">
       <button class="workspace-tab-overflow" id="workspace-tabs-left" type="button" aria-label="向左浏览标签页" title="向左浏览标签页" aria-controls="workspace-tabs" hidden>‹</button>
