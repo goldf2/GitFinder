@@ -72,7 +72,7 @@ test('仓库分类移入内容筛选下拉，左侧只保留访达式标签', ()
   assert.match(appSource, /setActiveRepositoryCategory\(category\)/);
   assert.match(appSource, /repositoryCategory:\s*normalized/);
   assert.match(appSource, /event\.key === 'ArrowDown' \|\| event\.key === 'ArrowUp'/);
-  assert.match(appSource, /tagsSection\.style\.display\s*=\s*repositoryMetadataContext \? '' : 'none'/);
+  assert.match(appSource, /tagsSection\.style\.display\s*=\s*repositoryMetadataContext\s*\|\| \(AppState\.currentMode === 'tree' && AppState\.workspaceRepository\) \? '' : 'none'/);
 });
 
 test('全局内容筛选可保存为本机智能集合并从侧栏恢复', () => {
