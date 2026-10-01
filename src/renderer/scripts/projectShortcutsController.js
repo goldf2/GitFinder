@@ -18,7 +18,7 @@
       this.localProjectsListPromise = null;
       this.expandedProjectIds = new Set();
       this.projectTypesExpanded = true;
-      this.expandedTypeIds = new Set(['projects:unclassified', 'repositories:unclassified']);
+      this.expandedTypeIds = new Set(['projects:unclassified']);
       this.collapsedRecent = new Set();
       this.recentRepositoryPaths = [];
       this.bound = false;
@@ -112,7 +112,6 @@
         if (this.handleSectionToggle(event, 'repositories')) return;
         const type = event.target.closest?.('[data-repository-type]');
         if (type) {
-          this.expandedTypeIds.add(`repositories:${type.dataset.repositoryType}`);
           this.applyRepositoryType(type.dataset.repositoryType);
           return;
         }
@@ -137,11 +136,7 @@
       if (mode === 'projects') { const key = `collapsed:${type.dataset.typeToggle}`; this.expandedTypeIds.has(key) ? this.expandedTypeIds.delete(key) : this.expandedTypeIds.add(key); this.render(); return true; }
       const key = `${mode}:${type.dataset.typeToggle}`;
       if (this.expandedTypeIds.has(key)) this.expandedTypeIds.delete(key);
-      else {
-        this.expandedTypeIds.add(key);
-        if (mode === 'projects') { /* The arrow only expands the navigation tree. */ }
-        else this.applyRepositoryType(type.dataset.typeToggle);
-      }
+      else this.expandedTypeIds.add(key);
       this.render();
       return true;
     }

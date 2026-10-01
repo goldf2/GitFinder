@@ -57,6 +57,7 @@ const AppState = {
   groups: { groups: [], ungrouped: [] },
   tags: { tags: [], repoTags: {} },
   selectedTags: [],
+  sidebarTagAppearance: { heatmap: true, selectionColor: '#d97706' },
   selectedStatuses: [], // 状态筛选:dirty|ahead|behind|clean
   selectedCategory: 'all', // 'all' | 'ungrouped' | groupId
   groupOrder: null, // 分类拖拽顺序(null=默认,存储 group.id 数组)
@@ -194,6 +195,12 @@ const App = {
       Terminal.init();
     }
     await this.loadTheme();
+    const tagAppearance = await window.gitFinder.config.get('sidebarTagAppearance').catch(() => null);
+    AppState.sidebarTagAppearance = {
+      heatmap: tagAppearance?.heatmap !== false,
+      selectionColor: /^#[0-9a-f]{6}$/i.test(tagAppearance?.selectionColor || '') ? tagAppearance.selectionColor : '#d97706'
+    };
+    this.applySidebarTagAppearance();
     const savedCardStyle = await window.gitFinder.config.get('cardStyle').catch(() => null);
     if (['card', 'list', 'column', 'gallery'].includes(savedCardStyle)) AppState.cardStyle = savedCardStyle;
     AppState.defaultCardStyle = AppState.cardStyle;
@@ -1628,6 +1635,12 @@ const App = {
   setupToolbarMenus() {
     if (this._toolbarMenusBound) return;
     this._toolbarMenusBound = true;
+    document.getElementById('sidebar-tag-heatmap-toggle')?.addEventListener('click', () => {
+      this.setSidebarTagAppearance({ heatmap: !AppState.sidebarTagAppearance.heatmap });
+    });
+    document.querySelectorAll('[data-tag-selection-color]').forEach(button => {
+      button.addEventListener('click', () => this.setSidebarTagAppearance({ selectionColor: button.dataset.tagSelectionColor }));
+    });
     document.querySelectorAll('[data-project-card-size]').forEach(button => {
       button.addEventListener('click', () => {
         AppState.projectCardSize = button.dataset.projectCardSize;
@@ -3327,7 +3340,34 @@ const App = {
     if (clear) clear.disabled = count === 0;
   },
 
+  setSidebarTagAppearance(changes) {
+    AppState.sidebarTagAppearance = { ...AppState.sidebarTagAppearance, ...changes };
+    this.applySidebarTagAppearance();
+    window.gitFinder.config.set('sidebarTagAppearance', AppState.sidebarTagAppearance)
+      .catch(() => this._showStatusMessage('标签显示偏好未能保存', 'warning'));
+  },
+
+  applySidebarTagAppearance() {
+    const { heatmap, selectionColor } = AppState.sidebarTagAppearance;
+    const container = document.getElementById('tags-filter-list');
+    if (container) {
+      container.dataset.heatmap = String(heatmap);
+      container.style.setProperty('--tag-selection-color', selectionColor);
+    }
+    const legend = document.querySelector('.sidebar-tag-legend');
+    if (legend) legend.hidden = !heatmap;
+    const toggle = document.getElementById('sidebar-tag-heatmap-toggle');
+    toggle?.setAttribute('aria-checked', String(heatmap));
+    toggle?.classList.toggle('active', heatmap);
+    document.querySelectorAll('[data-tag-selection-color]').forEach(button => {
+      const active = button.dataset.tagSelectionColor === selectionColor;
+      button.setAttribute('aria-checked', String(active));
+      button.classList.toggle('active', active);
+    });
+  },
+
   renderSidebarTags() {
+    this.applySidebarTagAppearance();
     const container = document.getElementById('tags-filter-list');
     const section = document.getElementById('tags-sidebar-section');
     const search = document.getElementById('sidebar-tag-search');
@@ -3379,7 +3419,7 @@ const App = {
       return `
         ${index === 0 || dimension(tags[index - 1]) !== dimension(tag) ? `<h4 class="sidebar-tag-dimension">${this.escapeHtml(dimension(tag))}</h4>` : ''}
         <div class="sidebar-tag-item ${selected ? 'selected' : ''}" data-tag-id="${tagId}" data-heat="${heat}" role="button" tabindex="0" aria-pressed="${selected}" aria-label="${this.escapeHtml(tag.name)}，${count} 个仓库" title="${this.escapeHtml(tag.name)} · ${count} 个仓库；双击名称重命名">
-          <span class="sidebar-tag-dot" style="background:${tagColor}"></span>
+          <span class="sidebar-tag-mark" aria-hidden="true"><span class="sidebar-tag-dot" style="background:${tagColor}"></span><span class="sidebar-tag-check">✓</span></span>
           <span class="sidebar-item-name" style="flex:1;" title="${this.escapeHtml(tag.name)}；双击重命名">${this.escapeHtml(tag.name.replace(/^[^:：]+[:：]/u, '').trim() || tag.name)}</span>
           <span class="sidebar-tag-count">${count}</span>
           <button type="button" class="sidebar-item-remove" data-tag-id="${tagId}" title="删除标签" aria-label="删除标签 ${this.escapeHtml(tag.name)}">×</button>

@@ -94,6 +94,17 @@
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3" fill="var(--bg-secondary)"/><circle cx="15" cy="17" r="3" fill="var(--bg-secondary)"/></svg><span id="sort-menu-label">显示控制</span> <span class="finder-menu-chevron" aria-hidden="true">⌄</span>
             </button>
             <div class="finder-menu finder-menu-wide finder-menu-align-end" id="sort-menu" role="menu" hidden aria-label="排列与显示选项">
+              <div class="finder-menu-heading">属性标签</div>
+              <button class="finder-menu-item" id="sidebar-tag-heatmap-toggle" role="menuitemcheckbox" aria-checked="true" type="button"><span class="finder-menu-check" aria-hidden="true">✓</span><span>热力图：按仓库数量显示深浅</span></button>
+              <div class="finder-menu-heading" id="sidebar-tag-color-label">选中边框颜色</div>
+              <div class="sidebar-tag-color-options" role="group" aria-labelledby="sidebar-tag-color-label">
+                <button class="finder-menu-item sidebar-tag-color-option" type="button" role="menuitemradio" aria-checked="true" aria-label="橙色选中边框" title="橙色" data-tag-selection-color="#d97706" style="--swatch:#d97706">橙</button>
+                <button class="finder-menu-item sidebar-tag-color-option" type="button" role="menuitemradio" aria-checked="false" aria-label="紫色选中边框" title="紫色" data-tag-selection-color="#9333ea" style="--swatch:#9333ea">紫</button>
+                <button class="finder-menu-item sidebar-tag-color-option" type="button" role="menuitemradio" aria-checked="false" aria-label="红色选中边框" title="红色" data-tag-selection-color="#dc2626" style="--swatch:#dc2626">红</button>
+                <button class="finder-menu-item sidebar-tag-color-option" type="button" role="menuitemradio" aria-checked="false" aria-label="绿色选中边框" title="绿色" data-tag-selection-color="#15803d" style="--swatch:#15803d">绿</button>
+                <button class="finder-menu-item sidebar-tag-color-option" type="button" role="menuitemradio" aria-checked="false" aria-label="蓝色选中边框" title="蓝色" data-tag-selection-color="#2563eb" style="--swatch:#2563eb">蓝</button>
+              </div>
+              <div class="finder-menu-separator" role="separator"></div>
               <div id="project-display-options" hidden><div class="finder-menu-heading">项目卡片大小</div><button class="finder-menu-item" data-project-card-size="small" role="menuitemradio" aria-checked="false" type="button"><span class="finder-menu-check" aria-hidden="true">✓</span><span>小</span></button><button class="finder-menu-item" data-project-card-size="medium" role="menuitemradio" aria-checked="false" type="button"><span class="finder-menu-check" aria-hidden="true">✓</span><span>中</span></button><button class="finder-menu-item" data-project-card-size="large" role="menuitemradio" aria-checked="false" type="button"><span class="finder-menu-check" aria-hidden="true">✓</span><span>大</span></button></div>
               <div id="directory-display-options"><div class="finder-menu-heading">排列</div>
               <button class="sort-btn finder-menu-item active" data-sort="name" type="button" role="menuitemradio" aria-checked="true"><span class="finder-menu-check" aria-hidden="true">✓</span><span>名称</span></button>

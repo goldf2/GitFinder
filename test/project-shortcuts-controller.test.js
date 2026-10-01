@@ -228,6 +228,7 @@ test('项目目录和仓库列表采用主内容区的筛选，固定/最近记�
   assert.doesNotMatch(directory, /data-project-shortcut-path="\/workspace\/alpha"/);
   controller.app._prepareDisplayRepos = () => [{ path: '/workspace/one', name: 'One' }, { path: '/workspace/two', name: 'Two' }];
   controller.app._filterByCategory = repos => repos.filter(repo => repo.name === 'Two');
+  controller.expandedTypeIds.add('repositories:unclassified');
   controller.render();
   const repositoryContainer = controller.document.getElementById('repository-shortcuts-list');
   assert.match(repositoryContainer.innerHTML, /Two/);

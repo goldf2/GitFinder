@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-01T20:35:48.741Z",
+  "updatedAt": "2026-10-02T04:53:58+08:00",
   "scope": "以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。",
   "baseline": {
     "version": "2.0.0-alpha.193",
     "sourceCommit": "99eef1d2992e389f32a48182a25fda3b9adf1958",
     "evidence": "docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md"
   },
-  "nextTaskId": "GF-DATA-001",
+  "nextTaskId": "GF-TAG-228",
   "milestones": [
     {
       "id": "GF-P0",
@@ -1734,6 +1734,35 @@
         "version": "2.0.0-alpha.227",
         "sourceCommit": "831a43c7a9e28ed6874942237a2f5e1df8778e87"
       }
+    },
+    {
+      "id": "GF-TAG-228",
+      "milestone": "GF-P2",
+      "title": "标签热力图开关、选中高亮及分类手动展开",
+      "priority": "P1",
+      "status": "verified",
+      "owner": "Codex",
+      "updatedAt": "2026-10-02T04:53:58+08:00",
+      "dependsOn": [
+        "GF-SIDEBAR-227"
+      ],
+      "sourcePaths": [
+        "src/renderer/scripts/app.js",
+        "src/renderer/scripts/projectShortcutsController.js",
+        "src/renderer/styles/sidebar.css",
+        "src/renderer/index.html"
+      ],
+      "acceptance": [
+        "显示控制提供标签热力图开关、选中边框颜色并保存到本机，选中状态不只依赖颜色。",
+        "分类名称仅选中筛选，小三角独立展开收起，不自动展开；原分类和标签保持。",
+        "验证浅深主题、多选、重启偏好及安装交互后推送。"
+      ],
+      "evidence": [
+        "docs/00-handoff/TAG_SELECTION_ALPHA228.md"
+      ],
+      "nextAction": "源码1460测试、311JS与36项界面检查通过；继续干净构建、可恢复安装及实际界面验收。",
+      "blocker": "",
+      "userAcceptance": "pending"
     }
   ]
 }

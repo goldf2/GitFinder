@@ -28,6 +28,7 @@ const RENDERER_PREFERENCE_KEYS = new Set([
   'searchScope',
   'sidebarSectionOrder',
   'sidebarSectionSizes',
+  'sidebarTagAppearance',
   'sidebarCollapsedSections',
   'sidebarNavigationMode',
   'smartCollections',

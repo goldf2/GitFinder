@@ -96,6 +96,7 @@ async function main() {
     await click(`[data-repository-type="${groupId}"]`);
     await app.wait("document.querySelectorAll('.repo-card').length===1");
     await check('新分类筛选立即显示选择的仓库', `document.querySelector('.repo-card').dataset.path===${JSON.stringify(automatic)}`);
+    await check('点击分类名称只筛选，不自动展开', `document.querySelector('#repository-shortcuts-list [data-type-toggle="${groupId}"]').getAttribute('aria-expanded')==='false'&&!document.querySelector('#repository-shortcuts-list [data-type-members="${groupId}"]')`);
     await click(`[data-repository-category-edit="${groupId}"]`);
     await app.wait("!document.querySelector('#project-group-save-btn').disabled");
     await app.evaluate(`document.querySelector('#project-group-name').value='研发更新';document.querySelector('#project-group-projects').value='${explicitId}'`);
@@ -103,6 +104,14 @@ async function main() {
     await app.wait(`document.querySelector('.repo-card')?.dataset.path===${JSON.stringify(explicit)}`);
     await check('编辑分类后当前筛选即时更新', `document.querySelector('[data-repository-type="${groupId}"]').textContent.includes('研发更新')`);
     await app.evaluate("App.applyContentPreset('all-repositories')");
+    await click(`#repository-shortcuts-list [data-type-toggle="${groupId}"]`);
+    await check('手动点三角展开分类，不改变右侧筛选', `document.querySelector('#repository-shortcuts-list [data-type-toggle="${groupId}"]').getAttribute('aria-expanded')==='true'&&document.querySelectorAll('.repo-card').length===37`);
+    await click(`[data-repository-type="${groupId}"]`);
+    await check('点分类名称保持手动展开状态', `document.querySelector('#repository-shortcuts-list [data-type-toggle="${groupId}"]').getAttribute('aria-expanded')==='true'&&document.querySelectorAll('.repo-card').length===1`);
+    await click(`#repository-shortcuts-list [data-type-toggle="${groupId}"]`);
+    await check('手动收起分类，选中和右侧内容保持', `document.querySelector('#repository-shortcuts-list [data-type-toggle="${groupId}"]').getAttribute('aria-expanded')==='false'&&document.querySelector('[data-repository-type="${groupId}"]').classList.contains('active')&&document.querySelectorAll('.repo-card').length===1`);
+    await app.evaluate("App.applyContentPreset('all-repositories')");
+    await click('#repository-shortcuts-list [data-type-toggle=unclassified]');
     await app.evaluate(`(async()=>{await gitFinder.tags.addRepo('tag-0',${JSON.stringify(explicit)});await gitFinder.tags.addRepo('tag-0',${JSON.stringify(automatic)});await gitFinder.tags.addRepo('tag-1',${JSON.stringify(explicit)});await App.loadTags();await App._enrichReposAsync(true);})()`);
     await app.wait("document.querySelectorAll('.sidebar-tag-item').length===80");
     await check('热力图显示真实仓库计数及不同深浅', "document.querySelector('[data-tag-id=tag-0]').dataset.heat==='5'&&document.querySelector('[data-tag-id=tag-1]').dataset.heat==='3'&&document.querySelector('[data-tag-id=tag-2]').dataset.heat==='0'&&document.querySelector('[data-tag-id=tag-0] .sidebar-tag-count').textContent==='2'");
@@ -114,6 +123,25 @@ async function main() {
     await app.wait("document.querySelectorAll('.repo-card').length===1");
     await check('多标签同时满足且最近仓库和分类成员同步', `AppState.selectedTags.length===2&&document.querySelector('.repo-card').dataset.path===${JSON.stringify(explicit)}&&[...document.querySelectorAll('#repository-shortcuts-list [data-repository-shortcut-path]')].every(e=>e.dataset.repositoryShortcutPath===${JSON.stringify(explicit)})`);
     await check('显示多选规则及清除入口', "document.querySelector('#sidebar-tag-selection-summary').textContent==='已选 2 项 · 同时满足'&&!document.querySelector('#sidebar-tag-clear').disabled");
+    await check('选中标签显示勾选和橙色粗边框', "(()=>{const e=document.querySelector('[data-tag-id=tag-0]');const s=getComputedStyle(e);return getComputedStyle(e.querySelector('.sidebar-tag-check')).display!=='none'&&getComputedStyle(e.querySelector('.sidebar-tag-dot')).display==='none'&&s.borderColor==='rgb(217, 119, 6)'&&s.boxShadow!=='none'})()");
+    await click('#sort-menu-trigger');
+    await app.shot('tag-display-controls.png');
+    await click('#sidebar-tag-heatmap-toggle');
+    await check('显示控制关闭热力图，数量与筛选保持', "document.querySelector('#tags-filter-list').dataset.heatmap==='false'&&getComputedStyle(document.querySelector('[data-tag-id=tag-0]')).backgroundColor===getComputedStyle(document.querySelector('[data-tag-id=tag-2]')).backgroundColor&&document.querySelector('.sidebar-tag-legend').hidden&&AppState.selectedTags.length===2&&document.querySelectorAll('.repo-card').length===1");
+    await click('#sort-menu-trigger');
+    await click('[data-tag-selection-color="#9333ea"]');
+    await check('关闭热力图也能选择边框颜色', "getComputedStyle(document.querySelector('[data-tag-id=tag-0]')).borderColor==='rgb(147, 51, 234)'&&document.querySelector('[data-tag-selection-color=\"#9333ea\"]').getAttribute('aria-checked')==='true'");
+    await app.shot('tag-selection-light.png');
+    await app.evaluate("document.documentElement.dataset.mode='dark';document.documentElement.dataset.effectiveMode='dark'");
+    await check('深色主题保留独立选中标记', "getComputedStyle(document.querySelector('[data-tag-id=tag-0] .sidebar-tag-check')).display!=='none'&&getComputedStyle(document.querySelector('[data-tag-id=tag-0]')).borderColor==='rgb(147, 51, 234)'");
+    await app.shot('tag-selection-dark.png');
+    await app.evaluate("document.documentElement.dataset.mode='light';document.documentElement.dataset.effectiveMode='light'");
+    await click('#sort-menu-trigger');
+    await click('#sidebar-tag-heatmap-toggle');
+    await check('重新启用热力图仍明确显示选中状态', "document.querySelector('#tags-filter-list').dataset.heatmap==='true'&&!document.querySelector('.sidebar-tag-legend').hidden&&getComputedStyle(document.querySelector('[data-tag-id=tag-0] .sidebar-tag-check')).display!=='none'");
+    await click('#sort-menu-trigger');
+    await click('#sidebar-tag-heatmap-toggle');
+    await app.wait("(async()=>{const p=await gitFinder.config.get('sidebarTagAppearance');return p?.heatmap===false&&p?.selectionColor==='#9333ea'})()");
     await click('#sidebar-tag-clear');
     await app.wait("document.querySelectorAll('.repo-card').length===37");
     await check('清除标签恢复完整列表', "AppState.selectedTags.length===0&&document.querySelector('#sidebar-tag-clear').disabled");
@@ -174,6 +202,8 @@ async function main() {
     await app.wait("!!App.sidebarLayoutController");
     await check('重开保留分类修改和原始标签', `AppState.projectGroups.find(g=>g.groupId==='${groupId}').name==='研发更新'&&AppState.tags.tags.length===80`);
     await check('重开保留侧栏顺序和高度偏好', `App.sidebarLayoutController.visibleSections()[0].dataset.sectionId==='tags'&&Object.entries(${savedSizes}).every(([id,size])=>App.sidebarLayoutController.sizes[id]===size)`);
+    await check('重开恢复热力图开关和选中边框颜色', "AppState.sidebarTagAppearance.heatmap===false&&AppState.sidebarTagAppearance.selectionColor==='#9333ea'&&document.querySelector('#sidebar-tag-heatmap-toggle').getAttribute('aria-checked')==='false'&&document.querySelector('[data-tag-selection-color=\"#9333ea\"]').getAttribute('aria-checked')==='true'");
+    await check('重开后分类默认收起', "[...document.querySelectorAll('#repository-shortcuts-list [data-type-toggle]')].every(e=>e.getAttribute('aria-expanded')==='false')");
     fs.writeFileSync(path.join(output,'results.json'),JSON.stringify({version:require('../package.json').version,checks,passed:checks.length},null,2));
     console.log('PASSED',checks.length);
   } catch(error) { if(app)await app.shot('failure.png').catch(()=>{}); throw error; }
