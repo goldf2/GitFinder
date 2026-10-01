@@ -131,21 +131,14 @@ class LocalProjectService {
     return this._normalizeManifest(directory, parsed);
   }
 
-  // Unregistered Git repositories use local metadata; browsing never writes into a checkout.
+  // Project metadata is optional and belongs to a directory. Keep alpha.223 local IDs.
   _readProject(directory, { required = false } = {}) {
     const manifest = this._readManifest(directory);
     if (manifest) return manifest;
-    if (this._hasGitMetadata(directory)) {
-      const key = fs.realpathSync.native(directory);
-      const records = this.configService.get('repositoryProjects') || {};
-      if (records[key]) return this._normalizeManifest(directory, records[key]);
-      const project = this._normalizeManifest(directory, {
-        projectId: `project_${crypto.randomUUID()}`, name: path.basename(directory)
-      });
-      this.configService.set('repositoryProjects', { ...records, [key]: project });
-      return project;
-    }
-    if (required) throw new Error('此文件夹尚未设为 GitFinder 项目');
+    const key = fs.realpathSync.native(directory);
+    const records = this.configService.get('repositoryProjects') || {};
+    if (records[key]) return this._normalizeManifest(directory, records[key]);
+    if (required) throw new Error('此文件夹尚未添加项目属性');
     return null;
   }
 

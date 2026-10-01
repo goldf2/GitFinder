@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-01T15:33:23+08:00",
+  "updatedAt": "2026-10-01T16:16:45+08:00",
   "scope": "以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。",
   "baseline": {
     "version": "2.0.0-alpha.193",
     "sourceCommit": "99eef1d2992e389f32a48182a25fda3b9adf1958",
     "evidence": "docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md"
   },
-  "nextTaskId": "GF-DATA-001",
+  "nextTaskId": "GF-REPO-224",
   "milestones": [
     {
       "id": "GF-P0",
@@ -1602,6 +1602,34 @@
         "version": "2.0.0-alpha.223",
         "sourceCommit": "882268b5c2583a3ed9706354a7305a4e3254885c"
       }
+    },
+    {
+      "id": "GF-REPO-224",
+      "milestone": "GF-P2",
+      "title": "仓库作为主列表，项目作为文件夹属性",
+      "priority": "P1",
+      "status": "verified",
+      "owner": "Codex",
+      "updatedAt": "2026-10-01T16:16:45+08:00",
+      "dependsOn": [
+        "GF-PROJECT-223"
+      ],
+      "sourcePaths": [
+        "src/renderer/scripts/projectShortcutsController.js",
+        "src/renderer/scripts/workspaceController.js",
+        "src/main/services/localProjectService.js"
+      ],
+      "acceptance": [
+        "主列表只显示 Git 仓库，普通文件夹从文件浏览进入",
+        "仓库无需项目属性也能打开代码和文件",
+        "已有属性身份、会话和分组保持，按目录编辑属性"
+      ],
+      "evidence": [
+        "docs/00-handoff/REPOSITORY_ATTRIBUTES_ALPHA224.md"
+      ],
+      "nextAction": "提交源码，打包安装，核验真实会话和重开后推送",
+      "blocker": "",
+      "userAcceptance": "pending"
     }
   ]
 }

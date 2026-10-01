@@ -68,11 +68,11 @@
       el.hidden = !repo || this.state.currentMode !== 'tree';
       if (el.hidden) return;
       const e = text => this.app.escapeHtml(text || '');
-      const owner = root.ProjectShortcuts.findProjectForPath(this.state.localProjects, repo.path, this.bridge.platform);
+      const owner = this.state.localProjects.find(p => p.path === repo.path);
       const kindPath = owner?.path || repo.path;
-      const kindTitle = owner ? `设置项目“${owner.name}”的形态` : '项目设置';
+      const kindTitle = owner ? `编辑“${owner.name}”的项目属性` : '添加项目属性';
       const views = [['project','概览'], ...(owner?.rootIsGitRepo === false ? [] : [['git','代码']]), ['files','文件'], ['tasks','任务'], ['chats','会话'], ['release','发布'], ['records','记录']];
-      el.innerHTML = `<strong id="repository-workspace-name" title="${e(repo.path)}">⑂ ${e(owner?.name || repo.path.split(/[\\/]/).pop())}</strong><button type="button" class="project-kind-badge project-kind-control" data-workspace-kind="${e(kindPath)}" title="${e(kindTitle)}">${e(root.ProjectKinds.label(owner?.projectKind))} ▾</button><div role="tablist" aria-label="项目工作视图">${views.map(([id,label]) => `<button class="btn btn-small ${repo.view===id?'btn-primary':''}" role="tab" aria-selected="${repo.view===id}" data-workspace-view="${id}">${label}</button>`).join('')}</div>`;
+      el.innerHTML = `<strong id="repository-workspace-name" title="${e(repo.path)}">⑂ ${e(owner?.name || repo.path.split(/[\\/]/).pop())}</strong><button type="button" class="project-kind-badge project-kind-control" data-workspace-kind="${e(kindPath)}" title="${e(kindTitle)}">${e(owner ? root.ProjectKinds.label(owner.projectKind) : '项目属性')} ▾</button><div role="tablist" aria-label="工作区视图">${views.map(([id,label]) => `<button class="btn btn-small ${repo.view===id?'btn-primary':''}" role="tab" aria-selected="${repo.view===id}" data-workspace-view="${id}">${label}</button>`).join('')}</div>`;
     }
 
     projectContext(path) {
@@ -110,7 +110,10 @@
           container.innerHTML = `<section class="workspace-overview"><h2>${e(project.name)}</h2><p>${e(project.description)}</p><button class="btn" data-workspace-folder="${e(project.path)}">浏览项目文件</button><h3>子项目</h3>${children.map(projectButton).join('') || '<p>暂无子项目</p>'}<h3>Git 仓库</h3>${repos.map(r => `<button class="workspace-member" data-workspace-repository="${e(r.path)}">⑂ ${e(r.relativePath === '.' ? project.name : r.relativePath || r.name)}</button>`).join('') || '<p>暂无 Git 仓库</p>'}<h3>目录</h3>${dirs.map(d => `<button class="workspace-member" data-workspace-folder="${e(d.path)}">📁 ${e(d.name)}</button>`).join('') || '<p>暂无子目录</p>'}</section>`;
         } else if (['project', 'tasks', 'chats', 'release', 'records'].includes(repo.view)) {
           const owner = this.state.localProjects.find(p => p.path === repo.path);
-          if (!owner) throw Error('项目正在扫描，请刷新后重试');
+          if (!owner) {
+            container.innerHTML = `<section class="workspace-overview"><h2>${e(repo.path.split(/[\\/]/).pop())}</h2><p>${e(repo.path)}</p><p>可为这个文件夹添加项目属性，关联任务、会话和记录。</p><button class="btn" data-app-action="file-project-settings" data-project-path="${e(repo.path)}">添加项目属性</button></section>`;
+            return true;
+          }
           const chats = this.app.projectConversationsController;
           if (repo.view === 'chats') {
             container.innerHTML = `<section class="workspace-overview project-workspace-content">${chats.detailMarkup(owner.projectId, { includeTasks: false })}</section>`;
@@ -132,7 +135,7 @@
           } else {
             const chains = this.projectContext(repo.path).map(chain => chain.filter(p => p.projectId !== owner.projectId));
             const children = root.ProjectShortcuts.projectChildren(this.state.localProjects, owner.projectId, this.bridge.platform);
-            container.innerHTML = `<section class="workspace-overview"><h2>${e(owner.name)}</h2><p>${e(owner.description || '可在项目设置中补充简介。')}</p><p>${e(owner.path)}</p><button class="btn" data-app-action="file-project-settings" data-project-path="${e(owner.path)}">项目设置</button>${chains.some(c=>c.length) ? `<h3>分组</h3>${chains.map(chain=>chain.map(projectButton).join(' / ')).join(' · ')}` : ''}${children.length ? `<h3>相关项目</h3>${children.map(projectButton).join('')}` : ''}</section>`;
+            container.innerHTML = `<section class="workspace-overview"><h2>${e(owner.name)}</h2><p>${e(owner.description || '可在项目属性中补充简介。')}</p><p>${e(owner.path)}</p><button class="btn" data-app-action="file-project-settings" data-project-path="${e(owner.path)}">项目属性</button>${chains.some(c=>c.length) ? `<h3>分组</h3>${chains.map(chain=>chain.map(projectButton).join(' / ')).join(' · ')}` : ''}${children.length ? `<h3>相关文件夹</h3>${children.map(projectButton).join('')}` : ''}</section>`;
           }
 
         } else {

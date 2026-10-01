@@ -1000,7 +1000,7 @@ const App = {
     };
     const semanticColors = window.SemanticColors.normalizeProfile(AppState.semanticColorProfile);
     const projectShortcutPreferences = window.ProjectShortcuts.normalizePreferences(AppState.projectShortcutPreferences);
-    const recentProjectCount = window.ProjectShortcuts.normalizeStore(AppState.projectShortcuts).recent.length;
+    const recentProjectCount = this.projectShortcutsController.recentRepositoryPaths.length;
     const panelConnections = await window.gitFinder.panel.getConnections().catch(error => ([{
       configured: false,
       error: error?.message || String(error)
@@ -1108,25 +1108,25 @@ const App = {
         <section class="app-settings-section" id="settings-sidebar" role="tabpanel" aria-labelledby="settings-navigation-sidebar">
           <div class="app-settings-section-heading">
             <h2 id="settings-sidebar-title">侧边栏</h2>
-            <p>项目区是快捷导航，不是独立的项目视图。</p>
+            <p>Git 仓库是主导航，普通文件夹通过文件浏览进入。</p>
           </div>
           <div class="app-settings-controls">
             <label class="app-settings-row" for="settings-show-project-shortcuts">
-              <span><strong>显示项目快捷入口</strong><small>在“项目”导航中显示已固定和最近项目；“所有项目”入口始终保留</small></span>
+              <span><strong>显示仓库快捷记录</strong><small>在 Git 仓库导航中显示最近访问记录；所有 Git 仓库入口始终保留</small></span>
               <input class="app-settings-toggle" id="settings-show-project-shortcuts" type="checkbox"${projectShortcutPreferences.visible ? ' checked' : ''}>
             </label>
             <label class="app-settings-row" for="settings-show-recent-projects">
-              <span><strong>显示最近项目</strong><small>只影响侧边栏显示，不删除项目身份或任何文件</small></span>
+              <span><strong>显示最近仓库</strong><small>只影响侧边栏显示，不删除项目属性或任何文件</small></span>
               <input class="app-settings-toggle" id="settings-show-recent-projects" type="checkbox"${projectShortcutPreferences.showRecent ? ' checked' : ''}>
             </label>
             <label class="app-settings-row" for="settings-recent-project-limit">
-              <span><strong>最近项目数量</strong><small>已固定项目不计入这个数量</small></span>
+              <span><strong>最近仓库数量</strong><small>限制侧边栏显示的最近仓库数量</small></span>
               <select id="settings-recent-project-limit">
                 ${window.ProjectShortcuts.RECENT_LIMIT_OPTIONS.map(limit => `<option value="${limit}"${selected(projectShortcutPreferences.recentLimit, limit)}>${limit} 个</option>`).join('')}
               </select>
             </label>
             <div class="app-settings-row">
-              <span><strong>最近项目记录</strong><small>已记录 ${recentProjectCount} 个；清除后会在下次打开项目时重新生成</small></span>
+              <span><strong>最近仓库记录</strong><small>已记录 ${recentProjectCount} 个；清除后会在下次打开仓库时重新生成</small></span>
               <button class="btn" data-app-action="clear-recent-projects" type="button"${recentProjectCount ? '' : ' disabled'}>清除记录…</button>
             </div>
           </div>
@@ -1213,7 +1213,7 @@ const App = {
         <section class="app-settings-section" id="settings-projects" role="tabpanel" aria-labelledby="settings-navigation-projects">
           <div class="app-settings-section-heading">
             <h2 id="settings-projects-title">项目身份</h2>
-            <p>项目设置属于具体文件夹，不属于全局应用偏好。</p>
+            <p>项目属性属于具体文件夹，不属于全局应用偏好。</p>
           </div>
           <div class="app-settings-controls">
             <div class="app-settings-row">
@@ -1581,12 +1581,14 @@ const App = {
   },
 
   async clearRecentProjects() {
-    const count = window.ProjectShortcuts.normalizeStore(AppState.projectShortcuts).recent.length;
+    const count = this.projectShortcutsController.recentRepositoryPaths.length;
     if (!count) return;
-    if (!confirm(`清除 ${count} 个最近项目记录？已固定项目会保留。`)) return;
-    await this.projectShortcutsController.clearRecent();
+    if (!confirm(`清除 ${count} 个最近仓库记录？文件和项目属性会保留。`)) return;
+    this.projectShortcutsController.recentRepositoryPaths = [];
+    await window.gitFinder.config.set('recentRepositoryPaths', []);
+    this.projectShortcutsController.render();
     await this.renderSettingsView();
-    this._showStatusMessage('已清除最近项目记录', 'success');
+    this._showStatusMessage('已清除最近仓库记录', 'success');
   },
 
   saveDeveloperToolSettings() {
@@ -1729,7 +1731,7 @@ const App = {
   updateToolbarMenuState() {
     const viewLabels = { tree: '文件浏览', dashboard: '仪表盘', tasks: '开发任务', relationships: '关系白板', panel: '应用面板', settings: '设置' };
     const viewLabel = document.getElementById('view-menu-label');
-    if (viewLabel) viewLabel.textContent = AppState.currentMode === 'tree' && AppState.sidebarNavigationMode === 'projects' ? (AppState.workspaceRepository ? '项目工作区' : '工作区') : viewLabels[AppState.currentMode] || '文件浏览';
+    if (viewLabel) viewLabel.textContent = AppState.currentMode === 'tree' && AppState.sidebarNavigationMode === 'projects' ? (AppState.workspaceRepository ? '仓库工作区' : 'Git 仓库') : viewLabels[AppState.currentMode] || '文件浏览';
     const activeWorkspaceView = AppState.currentMode;
     document.querySelectorAll('.view-btn[data-view]').forEach(button => {
       const active = button.dataset.view === activeWorkspaceView;
@@ -2042,7 +2044,7 @@ const App = {
     const onlyOne = session.tabs.length === 1;
     container.innerHTML = session.tabs.map(tab => {
       const active = tab.id === session.activeTabId;
-      const collectionKind = window.ContentQuery.collectionKind(tab.contentQuery);
+      const collectionKind = window.ContentQuery.collectionKind(this.normalizeWorkspaceQuery(tab.contentQuery));
       const icon = tab.mode === 'panel' ? '▦' : tab.mode === 'tasks'
         ? '✓'
         : (tab.mode === 'dashboard' ? '▦' : (collectionKind === 'projects'
@@ -2275,7 +2277,7 @@ const App = {
     AppState.selectionAnchorPath = null;
     AppState.currentPath = tab.path || '';
     AppState.currentMode = this.isExperimentalViewEnabled?.(tab.mode) === false ? 'tree' : (tab.mode || 'tree');
-    AppState.contentQuery = window.ContentQuery.normalize(tab.contentQuery);
+    AppState.contentQuery = this.normalizeWorkspaceQuery(tab.contentQuery);
     this.applyDirectoryViewPreference(AppState.currentPath, AppState.currentMode);
     AppState.history = Array.isArray(tab.history) ? [...tab.history] : (tab.path ? [tab.path] : []);
     AppState.historyIndex = Math.max(0, Math.min(Number(tab.historyIndex) || 0, Math.max(0, AppState.history.length - 1)));
@@ -3797,12 +3799,22 @@ const App = {
     this.setContentQuery(window.ContentQuery.toggleCurrentAttribute(AppState.contentQuery, attribute));
   },
 
+  normalizeWorkspaceQuery(query) {
+    const normalized = window.ContentQuery.normalize(query);
+    // Migrate saved all-project tabs to the repository list; retain attribute filters in folders.
+    if (normalized.scope === 'all' && normalized.projectOnly) {
+      normalized.projectOnly = false;
+      normalized.repositoryOnly = true;
+    }
+    return normalized;
+  },
+
   setContentQuery(query) {
     this.workspaceController?.clear();
     this.closeQuickLook();
     this.clearFileSelection();
     AppState.currentMode = 'tree';
-    AppState.contentQuery = window.ContentQuery.normalize(query);
+    AppState.contentQuery = this.normalizeWorkspaceQuery(query);
     AppState.searchScope = 'current';
     AppState.globalSearchLoading = false;
     AppState.globalSearchResults = [];
@@ -6662,7 +6674,7 @@ const App = {
       const items = this._fileContextUsesDirectItem ? [contextItem] : this.getSelectedFileItems();
       const singleDirectory = items.length === 1 && items[0].type === 'directory';
       const projectLabel = document.getElementById('file-context-project-label');
-      if (projectLabel) projectLabel.textContent = singleDirectory && items[0].isProject ? '项目设置…' : '设为项目…';
+      if (projectLabel) projectLabel.textContent = singleDirectory && items[0].isProject ? '项目属性…' : '添加项目属性…';
       const relationshipButton = menu.querySelector('[data-context-action="relationship"]');
       if (relationshipButton) relationshipButton.hidden = items.length !== 1 || (!items[0].isProject && !items[0].isGitRepo);
       const pinButton = menu.querySelector('[data-context-action="toggle-pin"]');
@@ -6788,7 +6800,7 @@ const App = {
       typeOptions.innerHTML = typeStore.groups.length
         ? typeStore.groups.filter(group => group.kind !== 'collection').map(group => `<label><input type="checkbox" data-local-project-type="${this.escapeHtml(group.groupId)}"${group.projectIds.includes(project.projectId) ? ' checked' : ''}><span>${this.escapeHtml(group.name)}</span></label>`).join('')
         : '<span class="file-operation-hint">暂无项目类型，可在左侧“项目类型”中新建。</span>';
-      document.getElementById('local-project-title').textContent = identity.isProject ? '项目设置' : '设为项目';
+      document.getElementById('local-project-title').textContent = identity.isProject ? '项目属性' : '添加项目属性';
       document.getElementById('local-project-path').textContent = projectPath;
       document.getElementById('local-project-name').value = project.name || fallbackName;
       document.getElementById('local-project-description').value = project.description || '';
@@ -6796,7 +6808,7 @@ const App = {
       document.getElementById('local-project-lifecycle').value = project.lifecycle || 'active';
       document.getElementById('local-project-kind').value = project.projectKind || 'unclassified';
       document.getElementById('local-project-excluded').value = (project.repositories?.excluded || []).join('\n');
-      document.getElementById('local-project-save-btn').textContent = identity.isProject ? '保存设置' : '创建项目';
+      document.getElementById('local-project-save-btn').textContent = identity.isProject ? '保存属性' : '添加属性';
       feedback.textContent = identity.isProject
         ? `项目 ID：${project.projectId}`
         : '尚未写入；不会初始化或修改 Git';
@@ -6831,7 +6843,7 @@ const App = {
       excludedRepositories: document.getElementById('local-project-excluded').value.split(/\r?\n/).map(value => value.trim()).filter(Boolean)
     };
     saveButton.disabled = true;
-    feedback.textContent = '正在保存便携项目清单…';
+    feedback.textContent = '正在保存文件夹的项目属性…';
     try {
       const result = dialogState.existing
         ? await window.gitFinder.localProjects.update(dialogState.path, values)
@@ -6859,7 +6871,7 @@ const App = {
       this.closeLocalProjectDialog();
       if (['projects', 'project-repositories'].includes(this.contentCollectionKind())) await this.renderProjectsView(false);
       else await this.renderContent();
-      this._showStatusMessage(`已保存项目“${result.name}”；未执行任何 Git 写操作`, 'success');
+      this._showStatusMessage(`已保存“${result.name}”的项目属性；未执行任何 Git 写操作`, 'success');
       void backgroundProjectRefresh;
     } catch (error) {
       feedback.textContent = error?.message || String(error);
@@ -8049,7 +8061,7 @@ const App = {
         : this.projectEntries();
       const totalRepositories = AppState.localProjects.reduce((total, project) => total + Number(project.repositoryCount || 0), 0);
       leftText = `所有位置 · ${visibleProjects.length} 个本地项目`;
-      rightText = `${totalRepositories} 个 Git 项目`;
+      rightText = `${totalRepositories} 个 Git 仓库`;
     } else if (this.contentCollectionKind() === 'repositories') {
       const statusRepos = AppState.enrichedRepos.length ? AppState.enrichedRepos : AppState.allRepos;
       const total = statusRepos.length;

@@ -161,7 +161,7 @@
     <div class="main-container">
       <aside class="sidebar" id="sidebar">
         <div class="sidebar-navigation" id="sidebar-navigation" role="tablist" aria-label="侧栏导航">
-          <button type="button" role="tab" id="sidebar-navigation-projects" data-sidebar-navigation="projects" aria-controls="project-shortcuts-sidebar-section" aria-selected="false" tabindex="-1">工作区</button>
+          <button type="button" role="tab" id="sidebar-navigation-projects" data-sidebar-navigation="projects" aria-controls="repository-shortcuts-sidebar-section" aria-selected="false" tabindex="-1">Git 仓库</button>
           <button type="button" role="tab" id="sidebar-navigation-directories" data-sidebar-navigation="directories" aria-controls="locations-sidebar-section" aria-selected="true" tabindex="0">文件浏览</button>
         </div>
         <div class="sidebar-section" id="project-shortcuts-sidebar-section" data-section-id="projects" role="tabpanel" aria-labelledby="sidebar-navigation-projects" hidden>
@@ -173,7 +173,7 @@
           <div id="project-shortcuts-list"></div>
         </div>
 
-        <div class="sidebar-section" id="repository-shortcuts-sidebar-section" data-section-id="repositories" role="tabpanel" aria-labelledby="sidebar-navigation-repositories" hidden>
+        <div class="sidebar-section" id="repository-shortcuts-sidebar-section" data-section-id="repositories" role="tabpanel" aria-labelledby="sidebar-navigation-projects" hidden>
           <div class="sidebar-title">
             <span class="sidebar-drag-handle" title="拖拽排序">⋮⋮</span>
             <span class="sidebar-title-text">Git 仓库</span>
@@ -281,7 +281,7 @@
               <button class="finder-menu-item finder-menu-command" id="file-move" type="button" role="menuitem" disabled><span>移动到…</span></button>
               <button class="finder-menu-item finder-menu-command" id="file-open-terminal" type="button" role="menuitem"><span>在终端中打开</span></button>
               <button class="finder-menu-item finder-menu-command" id="file-open-editor" type="button" role="menuitem" disabled><span>在代码编辑器中打开</span></button>
-              <button class="finder-menu-item finder-menu-command" id="file-project-settings" type="button" role="menuitem" disabled><span>设为项目…</span></button>
+              <button class="finder-menu-item finder-menu-command" id="file-project-settings" type="button" role="menuitem" disabled><span>添加项目属性…</span></button>
               <button class="finder-menu-item finder-menu-command finder-menu-danger" id="file-trash" type="button" role="menuitem" disabled><span>移到废纸篓</span><kbd>⌘⌫</kbd></button>
               <div class="finder-menu-separator" role="separator"></div>
               <button class="finder-menu-item finder-menu-command" id="file-undo" type="button" role="menuitem" disabled><span>撤销上一步文件操作</span><kbd>⌘Z</kbd></button>
@@ -319,7 +319,7 @@
               <button class="finder-menu-item finder-menu-command" id="content-filter-save-collection" type="button" role="menuitem" disabled><span>存为智能集合…</span><small>所有位置筛选</small></button>
               <div class="finder-menu-separator" role="separator"></div>
               <div class="finder-menu-heading">所有受管位置</div>
-              <button class="content-preset-btn finder-menu-item" data-content-preset="all-projects" type="button" role="menuitemradio" aria-checked="false"><span class="finder-menu-check" aria-hidden="true">✓</span><span>所有项目</span></button>
+              <button class="content-preset-btn finder-menu-item" data-content-preset="all-repositories" type="button" role="menuitemradio" aria-checked="false"><span class="finder-menu-check" aria-hidden="true">✓</span><span>所有 Git 仓库</span></button>
             </div>
           </div>
 
@@ -358,7 +358,7 @@
             <div class="detail-header-toolbar">
               <button class="btn btn-tiny" id="toggle-assignments-btn" title="隐藏/显示未选中的分类和标签气泡">隐藏未选</button>
               <button class="btn btn-tiny" id="detail-repository-tools" type="button">仓库工具</button>
-              <button class="btn btn-tiny" id="detail-project-settings" type="button" style="display:none;">项目设置</button>
+              <button class="btn btn-tiny" id="detail-project-settings" type="button" style="display:none;">项目属性</button>
               <button class="btn btn-tiny" id="detail-relationship-board" type="button" style="display:none;">关系白板</button>
               <button class="btn btn-tiny" id="detail-architecture" type="button" style="display:none;">代码架构</button>
             </div>
@@ -513,7 +513,7 @@
     <button class="finder-menu-item finder-menu-command" data-context-action="open-terminal" type="button" role="menuitem"><span>在终端中打开</span></button>
     <button class="finder-menu-item finder-menu-command" data-context-action="open-editor" type="button" role="menuitem"><span>在代码编辑器中打开</span></button>
     <div class="finder-menu-separator" role="separator"></div>
-    <button class="finder-menu-item finder-menu-command" data-context-action="project" type="button" role="menuitem"><span id="file-context-project-label">设为项目…</span></button>
+    <button class="finder-menu-item finder-menu-command" data-context-action="project" type="button" role="menuitem"><span id="file-context-project-label">添加项目属性…</span></button>
     <button class="finder-menu-item finder-menu-command" data-context-action="location-name" type="button" role="menuitem" hidden><span>修改位置显示名称…</span></button>
     <button class="finder-menu-item finder-menu-command" data-context-action="reveal" type="button" role="menuitem"><span>在访达中显示</span></button>
     <button class="finder-menu-item finder-menu-command" data-context-action="repository-tools" type="button" role="menuitem"><span>仓库工具…</span></button>
@@ -882,10 +882,10 @@
     <section class="modal local-project-modal" role="dialog" aria-modal="true" aria-labelledby="local-project-title">
       <header class="modal-header">
         <div>
-          <h3 id="local-project-title">设为项目</h3>
+          <h3 id="local-project-title">添加项目属性</h3>
           <div class="external-import-description" id="local-project-path"></div>
         </div>
-        <button class="modal-close" id="local-project-close-btn" type="button" aria-label="关闭项目设置">×</button>
+        <button class="modal-close" id="local-project-close-btn" type="button" aria-label="关闭项目属性">×</button>
       </header>
       <div class="modal-body local-project-form">
         <div class="form-group">
@@ -925,20 +925,20 @@
         <div class="form-group" id="local-project-types-section">
           <label id="local-project-types-label">项目分组</label>
           <div class="local-project-type-options" id="local-project-types" role="group" aria-labelledby="local-project-types-label"></div>
-          <div class="file-operation-hint">勾选加入，取消勾选退出；可以属于多个类型。未设为项目的文件夹会在保存时创建项目身份。</div>
+          <div class="file-operation-hint">勾选加入，取消勾选退出；可以属于多个类型。属性始终保存在所选文件夹上。</div>
         </div>
         <div class="form-group">
           <label for="local-project-excluded">排除的仓库目录</label>
           <textarea id="local-project-excluded" rows="3" spellcheck="false" placeholder="每行一个项目内相对路径，例如 vendor/reference"></textarea>
           <div class="file-operation-hint">仅保存相对路径；嵌套项目会自动从父项目仓库扫描中排除。</div>
         </div>
-        <div class="local-project-boundary-note">项目设置与 App/Web 形态保存在 <code>.gitfinder/project.json</code>，分组归属保存在本机；不会移动文件夹，不会执行 git init、暂存、提交或推送。</div>
+        <div class="local-project-boundary-note">项目属性与 App/Web 形态保存在文件夹的 <code>.gitfinder/project.json</code> 或已有本机记录中，分组归属保存在本机；不会移动文件夹，不会执行 git init、暂存、提交或推送。</div>
       </div>
       <footer class="modal-footer">
         <span id="local-project-feedback" role="status" aria-live="polite"></span>
         <div>
           <button class="btn" id="local-project-cancel-btn" type="button">取消</button>
-          <button class="btn btn-primary" id="local-project-save-btn" type="button">创建项目</button>
+          <button class="btn btn-primary" id="local-project-save-btn" type="button">添加属性</button>
         </div>
       </footer>
     </section>

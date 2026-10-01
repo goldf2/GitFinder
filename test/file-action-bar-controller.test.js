@@ -75,7 +75,7 @@ test('没有选择时保持新建和历史入口，禁用需要选择或剪贴�
   assert.equal(element('file-actions-menu-trigger').disabled, false);
 });
 
-test('单个项目文件夹同步项目设置和单项动作', () => {
+test('单个项目文件夹同步项目属性和单项动作', () => {
   const harness = createHarness();
   const item = { path: '/workspace/favorite', type: 'directory', isProject: true };
   harness.selectedItems.push(item);
@@ -87,7 +87,7 @@ test('单个项目文件夹同步项目设置和单项动作', () => {
   assert.equal(element('file-copy-path').disabled, false);
   assert.equal(element('file-get-info').disabled, false);
   assert.equal(element('file-open-terminal').disabled, false);
-  assert.equal(element('file-project-settings').label.textContent, '项目设置…');
+  assert.equal(element('file-project-settings').label.textContent, '项目属性…');
   assert.equal(element('file-rename').label.textContent, '重命名');
 });
 

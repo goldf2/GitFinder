@@ -118,26 +118,41 @@ test('嵌套 project.json 建立独立子项目并截断父项目仓库扫描', 
 
   assert.deepEqual(parent.repositories.map(repo => repo.relativePath), ['packages/one']);
   assert.deepEqual(child.repositories.map(repo => repo.relativePath), ['.']);
-  assert.ok(projects.some(project => project.path === childRepo && project.rootIsGitRepo));
+  assert.equal(projects.some(project => project.path === childRepo), false);
   assert.equal(projects.filter(project => [parentRoot, childRoot].includes(project.path)).length, 2);
 });
 
-test('Git仓库自动成为项目，身份和设置重开保留且不改写仓库文件', async t => {
+test('扫描 Git 仓库不自动创建项目属性，显式添加后身份稳定', async t => {
   const { managedRoot, service } = createFixture(t);
   const repo = path.join(managedRoot, 'clone'); createRepo(repo);
-  const first = service.describeDirectory(repo);
-  assert.equal(first.isProject, true);
-  assert.match(first.project.projectId, /^project_[0-9a-f-]{36}$/);
-  service.updateProject(repo, { name: '产品', color: 'orange', projectKind: 'app' });
+  assert.equal(service.describeDirectory(repo).isProject, false);
+  assert.deepEqual(await service.listProjects(), []);
+  assert.equal(service.configService.get('repositoryProjects'), undefined);
+  assert.deepEqual(fs.readdirSync(repo), ['.git']);
+  const first = service.initializeProject(repo, { name: '产品', projectKind: 'app' }).project;
   const restarted = new LocalProjectService({ configService: service.configService });
   const projects = await restarted.listProjects();
   assert.equal(projects.length, 1);
-  assert.equal(projects[0].projectId, first.project.projectId);
+  assert.equal(projects[0].projectId, first.projectId);
   assert.equal(projects[0].name, '产品');
-  assert.equal(projects[0].color, 'orange');
   assert.equal(projects[0].projectKind, 'app');
   assert.equal(projects[0].rootIsGitRepo, true);
-  assert.deepEqual(fs.readdirSync(repo), ['.git']);
+});
+
+test('alpha223 本机属性保留稳定身份，Git 移除后仍依附原文件夹', async t => {
+  const { managedRoot, service } = createFixture(t);
+  const repo = path.join(managedRoot, 'existing-local'); createRepo(repo);
+  const projectId = 'project_11111111-1111-4111-8111-111111111111';
+  service.configService.set('repositoryProjects', { [fs.realpathSync.native(repo)]: { projectId, name: '已有属性' } });
+  assert.equal(service.describeDirectory(repo).project.projectId, projectId);
+  fs.rmSync(path.join(repo, '.git'), { recursive: true });
+  service.updateProject(repo, { name: '保留属性' });
+  const restarted = new LocalProjectService({ configService: service.configService });
+  const projects = await restarted.listProjects();
+  assert.equal(projects[0].projectId, projectId);
+  assert.equal(projects[0].name, '保留属性');
+  assert.equal(projects[0].rootIsGitRepo, false);
+  assert.deepEqual(fs.readdirSync(repo), []);
 });
 
 test('已有Git项目的清单ID优先，扫描不会覆盖旧会话和分组的身份', async t => {

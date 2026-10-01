@@ -77,7 +77,7 @@
       if (projectSettings) {
         projectSettings.disabled = busy || !singleDirectory;
         const isProject = singleDirectory && selectedItems[0].isProject;
-        this._setLabel(projectSettings, isProject ? '项目设置…' : '设为项目…');
+        this._setLabel(projectSettings, isProject ? '项目属性…' : '添加项目属性…');
       }
 
       const createDisabled = busy

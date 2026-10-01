@@ -91,7 +91,7 @@ test('项目快捷控制器加载本机偏好并按设置隐藏侧边栏', async
   await controller.load();
 
   assert.equal(state.projectShortcutPreferences.visible, false);
-  assert.equal(section.hidden, false);
+  assert.equal(section.hidden, true);
   assert.match(container.innerHTML, /所有项目/);
   assert.doesNotMatch(container.innerHTML, /project-shortcut-heading">最近/);
   assert.match(container.innerHTML, /Alpha/);
@@ -164,8 +164,8 @@ test('修改项目区偏好立即更新侧边栏，清除最近记录保留其�
 
   await controller.savePreferences({ visible: true, showRecent: true, recentLimit: 3 });
   await controller.setNavigationMode('projects');
-  assert.equal(controller.app.lastPreset, 'all-projects');
-  assert.equal(section.hidden, false);
+  assert.equal(controller.app.lastPreset, 'all-repositories');
+  assert.equal(section.hidden, true);
   assert.match(container.innerHTML, /所有项目/);
   assert.match(container.innerHTML, /最近/);
   assert.match(container.innerHTML, /Alpha/);
@@ -191,15 +191,15 @@ test('保存项目后可先局部更新侧边栏，不必等待全量项目扫�
   assert.match(container.innerHTML, /Alpha 更新/);
 });
 
-test('工作区与文件浏览切换，旧仓库偏好合并到工作区', async () => {
+test('仓库与文件浏览切换，旧工作区偏好保持且项目列表隐藏', async () => {
   const { controller, state, section, repositories, locations, tabs, container, writes } = createHarness();
   await controller.load();
   assert.equal(state.sidebarNavigationMode, 'projects');
-  assert.equal(section.hidden, false);
+  assert.equal(section.hidden, true);
   await controller.setNavigationMode('repositories');
-  assert.equal(controller.app.lastPreset, 'all-projects');
-  assert.equal(section.hidden, false);
-  assert.equal(repositories.hidden, true);
+  assert.equal(controller.app.lastPreset, 'all-repositories');
+  assert.equal(section.hidden, true);
+  assert.equal(repositories.hidden, false);
   assert.equal(locations.hidden, true);
   assert.equal(tabs.projects.attributes['aria-selected'], 'true');
   assert.doesNotMatch(container.innerHTML, /所有 Git 仓库/);

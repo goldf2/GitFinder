@@ -190,7 +190,7 @@
       const projectSettingsButton = this._element('detail-project-settings');
       if (projectSettingsButton) {
         projectSettingsButton.style.display = '';
-        projectSettingsButton.textContent = repo.localProject?.isProject ? '项目设置' : '设为项目…';
+        projectSettingsButton.textContent = repo.localProject?.isProject ? '项目属性' : '添加项目属性…';
       }
       const relationshipButton = this._element('detail-relationship-board');
       if (relationshipButton) {

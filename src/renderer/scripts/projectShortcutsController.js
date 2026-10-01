@@ -184,7 +184,7 @@
       if (!NAVIGATION_MODES.includes(mode)) return;
       this.state.sidebarNavigationMode = mode;
       this.app.workspaceController?.clear();
-      if (mode === 'projects') this.app.applyContentPreset('all-projects');
+      if (mode === 'projects') this.app.applyContentPreset('all-repositories');
       else if (mode === 'repositories') this.app.applyContentPreset('all-repositories');
       else this.app.applyCurrentContentPreset('current-all');
       this.render();
@@ -202,8 +202,8 @@
       const projects = this.element('project-shortcuts-sidebar-section');
       const repositories = this.element('repository-shortcuts-sidebar-section');
       const locations = this.element('locations-sidebar-section');
-      if (projects) projects.hidden = mode !== 'projects';
-      if (repositories) repositories.hidden = true;
+      if (projects) projects.hidden = true;
+      if (repositories) repositories.hidden = mode !== 'projects';
       if (locations) locations.hidden = mode !== 'directories';
       this.element('sidebar-navigation')?.querySelectorAll('[data-sidebar-navigation]').forEach(button => {
         const selected = button.dataset.sidebarNavigation === mode;
@@ -520,7 +520,9 @@
         return `<button class="sidebar-item sidebar-shortcut-open repository-shortcut-open ${active ? 'active' : ''}" data-repository-shortcut-path="${this.app.escapeHtml(repository.path)}" type="button" title="${this.app.escapeHtml(repository.path)}">${this.app.getItemKindIconHtml({ type: 'directory', isGitRepo: true }, 'sidebar-kind-icon')}<span class="sidebar-item-name">${this.app.escapeHtml(repository.name || repository.path)}</span></button>`;
       };
       const allRepos = this.state.allRepos || [];
-      const recent = this.recentRepositoryPaths.map(path => allRepos.find(repo => pathsEqual(repo.path, path))).filter(Boolean).slice(0, 8);
+      const preferences = ProjectShortcuts.normalizePreferences(this.state.projectShortcutPreferences);
+      const showRecent = preferences.visible && preferences.showRecent;
+      const recent = this.recentRepositoryPaths.map(path => allRepos.find(repo => pathsEqual(repo.path, path))).filter(Boolean).slice(0, preferences.recentLimit);
       const groups = [...(this.state.projectGroups || []).filter(group => group.kind !== 'collection'), { groupId: 'unclassified', name: '未分类', color: 'gray' }];
       const inGroup = (repo, group) => {
         const project = ProjectShortcuts.findProjectForPath(this.state.localProjects || [], repo.path, this.platform);
@@ -530,7 +532,7 @@
           : group.projectIds?.includes(project?.projectId);
       };
       container.innerHTML = `<button class="sidebar-item sidebar-shortcut-all repository-shortcut-all" data-repository-shortcut-all type="button"><span class="sidebar-icon sidebar-shortcut-all-icon" aria-hidden="true">⑂</span><span class="sidebar-item-name">所有 Git 仓库</span><span class="badge">${allRepos.length}</span></button>
-        ${this.recentHeading('repositories')}${this.collapsedRecent.has('repositories') ? '' : recent.map(renderRepository).join('') || '<div class="sidebar-shortcut-empty">尚无最近仓库</div>'}
+        ${showRecent ? this.recentHeading('repositories') + (this.collapsedRecent.has('repositories') ? '' : recent.map(renderRepository).join('') || '<div class="sidebar-shortcut-empty">尚无最近仓库</div>') : ''}
         <div class="sidebar-shortcut-heading">按类型</div>
         ${groups.map(group => {
           const id = this.app.escapeHtml(group.groupId);

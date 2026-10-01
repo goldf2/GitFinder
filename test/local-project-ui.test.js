@@ -15,7 +15,7 @@ test('项目与仓库作为内容筛选而不是顶层工作区入口', () => {
   assert.doesNotMatch(html, /class="view-btn[^>]+data-view="projects"/);
   assert.doesNotMatch(html, /class="view-btn[^>]+data-view="grid"/);
   assert.match(html, /class="finder-menu-heading">属性（可组合）<\/div>[\s\S]*?data-content-attribute="project"[\s\S]*?data-content-attribute="repository"/);
-  assert.match(html, /class="finder-menu-heading">所有受管位置<\/div>[\s\S]*?data-content-preset="all-projects"/);
+  assert.match(html, /class="finder-menu-heading">所有受管位置<\/div>[\s\S]*?data-content-preset="all-repositories"/);
   assert.ok(html.indexOf('scripts/contentQuery.js') < html.indexOf('scripts/workspaceTabs.js'));
   assert.match(appSource, /applyContentPreset\(preset\)/);
   assert.match(appSource, /toggleCurrentContentAttribute\(attribute\)/);

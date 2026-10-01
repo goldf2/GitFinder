@@ -81,7 +81,7 @@
         <div class="detail-empty-path">${this.app.escapeHtml(item.path)}</div>
         <div class="detail-empty-subtext">${this.app.escapeHtml(lifecycle ? `${lifecycle} · ${summary}` : summary)}</div>
         ${item.type === 'directory' ? `<div class="detail-empty-actions">
-          <button class="btn btn-small" data-app-action="file-project-settings" data-project-path="${this.app.escapeHtml(item.path)}">${item.isProject ? '项目设置' : '设为项目…'}</button>
+          <button class="btn btn-small" data-app-action="file-project-settings" data-project-path="${this.app.escapeHtml(item.path)}">${item.isProject ? '项目属性' : '添加项目属性…'}</button>
           ${item.isProject || item.isGitRepo ? `<button class="btn btn-small" data-detail-action="show-relationship-resource" data-relationship-kind="${item.isProject ? 'project' : 'repository'}" data-relationship-ref="${this.app.escapeHtml(item.isProject ? item.project?.projectId || '' : '')}" data-relationship-path="${this.app.escapeHtml(item.path)}">关系白板</button>` : ''}
         </div>` : ''}
       `;
@@ -117,10 +117,10 @@
         <div class="detail-path">${escape(item.path)}</div>
         <div class="detail-status"><span class="detail-status-badge">${escape(lifecycle ? `${lifecycle} · ${summary}` : summary)}</span></div>
         <div class="detail-header-toolbar">
-          <button class="btn btn-small" data-app-action="file-project-settings" data-project-path="${escape(item.path)}">项目设置</button>
+          <button class="btn btn-small" data-app-action="file-project-settings" data-project-path="${escape(item.path)}">项目属性</button>
           <button class="btn btn-small" data-detail-action="show-relationship-resource" data-relationship-kind="project" data-relationship-ref="${escape(project.projectId)}" data-relationship-path="${escape(item.path)}">关系白板</button>
         </div></header>
-        <section class="project-detail-section"><h4>项目简介</h4><p>${escape(project.description || '暂无项目简介，可在“项目设置”中补充。')}</p></section>
+        <section class="project-detail-section"><h4>项目简介</h4><p>${escape(project.description || '暂无项目简介，可在“项目属性”中补充。')}</p></section>
         ${this.app.projectConversationsController?.detailMarkup(project.projectId) || ''}
         ${children.length ? `<section class="project-detail-section"><h4>相关项目（${children.length}）</h4><div class="project-detail-links">${children.map(child => `<button class="btn btn-small" data-detail-child-path="${escape(child.path)}">${escape(child.name)}</button>`).join('')}</div></section>` : ''}`;
     }

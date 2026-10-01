@@ -248,7 +248,7 @@ test('仓库详情渲染保留项目和 Git 状态语义，并转义外部文本
 
   assert.equal(await controller.render(), true);
   assert.equal(elements.get('detail-name').textContent, 'Repo <unsafe>');
-  assert.equal(elements.get('detail-project-settings').textContent, '项目设置');
+  assert.equal(elements.get('detail-project-settings').textContent, '项目属性');
   assert.equal(elements.get('detail-relationship-board').dataset.relationshipKind, 'project');
   assert.equal(elements.get('detail-relationship-board').dataset.relationshipRef, 'project_1');
   assert.match(elements.get('detail-status').innerHTML, /detail-status-badge dirty/);

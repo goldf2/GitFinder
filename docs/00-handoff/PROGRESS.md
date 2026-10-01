@@ -2,11 +2,11 @@
 
 > 自动生成。只编辑 `management/development-tasks.json`，然后执行 `npm run handoff:update`。
 
-更新时间：2026-10-01T15:33:23+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
+更新时间：2026-10-01T16:16:45+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
 
 核验基线：2.0.0-alpha.193 / `99eef1d2992e389f32a48182a25fda3b9adf1958`；证据：[docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md](LAYOUT_OPTIONS_ALPHA193.md)。
 
-**唯一下一任务：GF-DATA-001**
+**唯一下一任务：GF-REPO-224**
 
 ## 阶段汇总
 
@@ -14,7 +14,7 @@
 | --- | ---: | ---: | ---: | ---: |
 | GF-P0 接续工程 | 2 | 2 | 0 | 0 |
 | GF-P1 桌面稳定 | 29 | 24 | 0 | 1 |
-| GF-P2 可维护与性能 | 6 | 2 | 0 | 0 |
+| GF-P2 可维护与性能 | 7 | 2 | 1 | 0 |
 | GF-P3 可分发 | 7 | 0 | 2 | 3 |
 | GF-P4 全流程事件 | 5 | 0 | 0 | 1 |
 | GF-P5 Web与同步（需授权） | 4 | 0 | 0 | 4 |
@@ -78,6 +78,7 @@
 | GF-WORKSPACE-221 | P1 | 已交付 | ChatGPT / tsk_66c229cd7c352efd | App/Web项目形态与精简仓库工作区 |
 | GF-CHAT-001 | P1 | 已交付 | Codex conversation-link agent | 项目关联 Codex 与 ChatGPT 会话入口 |
 | GF-PROJECT-223 | P1 | 已交付 | Codex | 统一仓库与项目入口，减少重复层级 |
+| GF-REPO-224 | P1 | 已验证 | Codex | 仓库作为主列表，项目作为文件夹属性 |
 
 ## 可执行任务卡
 
@@ -1057,3 +1058,20 @@
 证据：[docs/00-handoff/PROJECT_UNIFICATION_ALPHA223.md](PROJECT_UNIFICATION_ALPHA223.md)
 
 交付：2.0.0-alpha.223；源码 `882268b5c2583a3ed9706354a7305a4e3254885c`。
+
+### GF-REPO-224 · 仓库作为主列表，项目作为文件夹属性
+
+阶段：GF-P2；优先级：P1；状态：**已验证**；负责人：Codex；用户验收：待用户反馈。
+
+更新：2026-10-01T16:16:45+08:00。依赖：GF-PROJECT-223。
+
+**验收标准**
+1. 主列表只显示 Git 仓库，普通文件夹从文件浏览进入
+2. 仓库无需项目属性也能打开代码和文件
+3. 已有属性身份、会话和分组保持，按目录编辑属性
+
+**接续动作：** 提交源码，打包安装，核验真实会话和重开后推送
+
+源码/设计入口：[src/renderer/scripts/projectShortcutsController.js](../../src/renderer/scripts/projectShortcutsController.js)；[src/renderer/scripts/workspaceController.js](../../src/renderer/scripts/workspaceController.js)；[src/main/services/localProjectService.js](../../src/main/services/localProjectService.js)。
+
+证据：[docs/00-handoff/REPOSITORY_ATTRIBUTES_ALPHA224.md](REPOSITORY_ATTRIBUTES_ALPHA224.md)

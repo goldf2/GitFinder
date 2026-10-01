@@ -133,7 +133,7 @@ test('单项简介复用统一语义图标并保留项目、Git 和生命周期�
   assert.match(harness.empty.innerHTML, /&lt;project&gt;/);
   assert.match(harness.empty.innerHTML, /进行中 · 多仓库项目/);
   assert.doesNotMatch(harness.empty.innerHTML, /收藏夹|toggle-favorite/);
-  assert.match(harness.empty.innerHTML, /项目设置/);
+  assert.match(harness.empty.innerHTML, /项目属性/);
   assert.match(harness.empty.innerHTML, /关系白板/);
   assert.doesNotMatch(harness.empty.innerHTML, /📁|📄/);
 });
@@ -149,7 +149,7 @@ test('普通文件使用同一文件类型图标且不显示文件夹动作', ()
   }]);
   assert.match(harness.empty.innerHTML, /data-kind="file"/);
   assert.match(harness.empty.innerHTML, /12 KB/);
-  assert.doesNotMatch(harness.empty.innerHTML, /添加到收藏夹|设为项目|关系白板/);
+  assert.doesNotMatch(harness.empty.innerHTML, /添加到收藏夹|添加项目属性|关系白板/);
 });
 
 test('项目详情使用顶部内容布局、真实简介和最近层级子项目；空选择恢复空状态', () => {
@@ -180,7 +180,7 @@ test('左右页签共享分段控件样式，详情页不再单独使用蓝色�
   assert.doesNotMatch(detail, /\.detail-identity-tabs button\[aria-selected="true"\]/);
 });
 
-test('目录详情中的设为项目按钮会打开对应路径的项目对话框', () => {
+test('目录详情中的添加项目属性按钮会打开对应路径的项目对话框', () => {
   const harness = createHarness();
   harness.controller.show([{
     path: '/workspace/project',
