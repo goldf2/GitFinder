@@ -13,6 +13,12 @@
 
 - 全量测试 1458/1458，JavaScript 检查 310 项；后续文案/CSS精简相关23项通过。临时目录位于仓库外，避免Git向上查找父仓库影响已有架构快照测试。日志 `dist/project223-tests.log`、`dist/project223-navigation-tests.log`。
 - 实际隔离 Electron 窗口13项：3种项目统一发现、单一入口、项目导航、任务/会话保存与双向打开、GitHub发布入口、真实记录文件、文件浏览、普通项目、退出重开保留身份与关联、原清单和仓库文件未改写。运行脚本 `scripts/verify-project-unification.js`，日志 `dist/project223-ui-final.log`。
-- 当前处于源码验收阶段。安装、正常启动、真实项目关联与重开验证随后记录。
+- 已安装至 `/Applications/GitFinder 2.app`，安装版9项与正常退出重开9项通过；原26项目52条会话及原分组逐项相同。已恢复无调试参数的普通启动。安装截图与结果见本机交付收据。
 
 仅macOS本机开发包；GitHub/商店公开发行不是本次入口简化步骤。
+
+## 交付
+
+构建/源码提交 `882268b5c2583a3ed9706354a7305a4e3254885c` 已推送 origin/main；development App/DMG/ZIP及签名门禁通过。原alpha222备份：`/Volumes/project/制品与备份/GitFinder/2026-10-01-alpha222-before-unified223/GitFinder 2.app`。本机测试结果位于 `fe/work/project-unification/installed-first.json` 与 `installed-reopened.json`。私有会话仍只在本机，原12项未提交修改保留。
+
+一次退出后立即启动遇到LaunchServices -600，稍后普通open重试成功，随后9项重开检查通过；未修改应用代码规避启动流程。

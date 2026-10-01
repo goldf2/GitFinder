@@ -1,9 +1,9 @@
 # GitFinder 2 当前状态
 
 <!-- BEGIN CURRENT_STATE -->
-## GF-PROJECT-223 / alpha.223 源码已验证
+## GF-PROJECT-223 / alpha.223 已交付
 
-统一项目入口与项目内工作视图；Git仓库自动列为项目，原ID和会话关联保留。全量1458测试通过，实际隔离窗口13项与重开通过。正在准备可追溯macOS包与安装验收，尚未推送。详见PROJECT_UNIFICATION_ALPHA223.md。
+统一为“所有项目”，Git仓库自动成为项目；项目内提供概览、代码、文件、任务、会话、发布和记录入口。已安装至`/Applications/GitFinder 2.app`，1458全量测试、隔离13项、安装9项与重开9项通过。原26项目52会话及分组保持不变，源码`882268b5c2583a3ed9706354a7305a4e3254885c`已推送。保留原未提交修改，用户体验验收pending。详见PROJECT_UNIFICATION_ALPHA223.md。
 <!-- END CURRENT_STATE -->
 
 ## 历史兼容记录（以下不再表示当前状态）

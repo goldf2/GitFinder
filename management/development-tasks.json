@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-01T15:26:42+08:00",
+  "updatedAt": "2026-10-01T15:33:23+08:00",
   "scope": "以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。",
   "baseline": {
     "version": "2.0.0-alpha.193",
     "sourceCommit": "99eef1d2992e389f32a48182a25fda3b9adf1958",
     "evidence": "docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md"
   },
-  "nextTaskId": "GF-PROJECT-223",
+  "nextTaskId": "GF-DATA-001",
   "milestones": [
     {
       "id": "GF-P0",
@@ -1577,9 +1577,9 @@
       "milestone": "GF-P2",
       "title": "统一仓库与项目入口，减少重复层级",
       "priority": "P1",
-      "status": "in_progress",
+      "status": "delivered",
       "owner": "Codex",
-      "updatedAt": "2026-10-01T15:26:42+08:00",
+      "updatedAt": "2026-10-01T15:33:23+08:00",
       "dependsOn": [],
       "sourcePaths": [
         "src/main/services/localProjectService.js",
@@ -1595,8 +1595,13 @@
       "evidence": [
         "docs/00-handoff/PROJECT_UNIFICATION_ALPHA223.md"
       ],
-      "nextAction": "从本轮提交打包alpha223，备份旧应用并完成安装版及重开验收后推送。",
-      "userAcceptance": "pending"
+      "nextAction": "alpha223已安装、普通启动与9项重开验证通过且源码已推送；等待用户体验反馈，不自动启动后续模型重构。",
+      "userAcceptance": "pending",
+      "blocker": "",
+      "delivery": {
+        "version": "2.0.0-alpha.223",
+        "sourceCommit": "882268b5c2583a3ed9706354a7305a4e3254885c"
+      }
     }
   ]
 }
