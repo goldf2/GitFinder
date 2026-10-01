@@ -882,6 +882,7 @@ const App = {
           await window.gitFinder.tags.addRepo(newTag.id, AppState.selectedRepo.path);
           AppState.tags = await window.gitFinder.tags.get();
           AppState.selectedRepo.tags = await window.gitFinder.tags.getRepoTags(AppState.selectedRepo.path);
+          this._syncRepoTagsInState(AppState.selectedRepo.path, AppState.selectedRepo.tags);
         }
         this.updateDetailPanel();
       }
@@ -3366,6 +3367,31 @@ const App = {
     });
   },
 
+  sidebarTagCounts(repos) {
+    const counts = new Map();
+    for (const repo of repos) {
+      for (const id of new Set((repo.tags || []).map(tag => tag.id))) {
+        counts.set(id, (counts.get(id) || 0) + 1);
+      }
+    }
+    return counts;
+  },
+
+  updateSidebarTagCounts(repos = this._filterByCategory(this._prepareDisplayRepos())) {
+    const counts = this.sidebarTagCounts(repos);
+    const maxCount = Math.max(1, ...counts.values());
+    const tags = new Map(AppState.tags.tags.map(tag => [tag.id, tag]));
+    // Update in place so filtering does not move tags, scroll, or keyboard focus.
+    document.querySelectorAll('#tags-filter-list .sidebar-tag-item').forEach(item => {
+      const count = counts.get(item.dataset.tagId) || 0;
+      const name = tags.get(item.dataset.tagId)?.name || '';
+      item.querySelector('.sidebar-tag-count').textContent = count;
+      item.dataset.heat = count === 0 ? 0 : Math.max(1, Math.ceil(count / maxCount * 5));
+      item.setAttribute('aria-label', `${name}，当前结果 ${count} 个仓库`);
+      item.title = `${name} · 当前筛选结果中 ${count} 个仓库；双击名称重命名`;
+    });
+  },
+
   renderSidebarTags() {
     this.applySidebarTagAppearance();
     const container = document.getElementById('tags-filter-list');
@@ -3386,10 +3412,7 @@ const App = {
       search.addEventListener('input', () => this.renderSidebarTags());
     }
     const query = (search?.value || '').trim().toLocaleLowerCase();
-    const counts = new Map();
-    for (const ids of Object.values(AppState.tags.repoTags || {})) {
-      for (const id of new Set(ids)) counts.set(id, (counts.get(id) || 0) + 1);
-    }
+    const counts = this.sidebarTagCounts(this._filterByCategory(this._prepareDisplayRepos()));
     const maxCount = Math.max(1, ...counts.values());
     const dimensions = ['形态', '平台', '分类', '领域', '用途', '技术', '部署', '市场', '状态'];
     const dimension = tag => tag.name.match(/^([^:：]+)[:：]/u)?.[1] || '自定义';
@@ -3418,7 +3441,7 @@ const App = {
       const tagColor = this.safeColor(tag.color);
       return `
         ${index === 0 || dimension(tags[index - 1]) !== dimension(tag) ? `<h4 class="sidebar-tag-dimension">${this.escapeHtml(dimension(tag))}</h4>` : ''}
-        <div class="sidebar-tag-item ${selected ? 'selected' : ''}" data-tag-id="${tagId}" data-heat="${heat}" role="button" tabindex="0" aria-pressed="${selected}" aria-label="${this.escapeHtml(tag.name)}，${count} 个仓库" title="${this.escapeHtml(tag.name)} · ${count} 个仓库；双击名称重命名">
+        <div class="sidebar-tag-item ${selected ? 'selected' : ''}" data-tag-id="${tagId}" data-heat="${heat}" role="button" tabindex="0" aria-pressed="${selected}" aria-label="${this.escapeHtml(tag.name)}，当前结果 ${count} 个仓库" title="${this.escapeHtml(tag.name)} · 当前筛选结果中 ${count} 个仓库；双击名称重命名">
           <span class="sidebar-tag-mark" aria-hidden="true"><span class="sidebar-tag-dot" style="background:${tagColor}"></span><span class="sidebar-tag-check">✓</span></span>
           <span class="sidebar-item-name" style="flex:1;" title="${this.escapeHtml(tag.name)}；双击重命名">${this.escapeHtml(tag.name.replace(/^[^:：]+[:：]/u, '').trim() || tag.name)}</span>
           <span class="sidebar-tag-count">${count}</span>
@@ -4686,6 +4709,7 @@ const App = {
     }
 
     if (!AppState.allRepos.length) {
+      this.updateSidebarTagCounts([]);
       contentArea.innerHTML = `
         <div style="text-align:center;padding:60px;color:#86868b;">
           <div style="font-size:48px;margin-bottom:12px;opacity:0.4;">📂</div>
@@ -5002,6 +5026,7 @@ const App = {
     // 按选中分类过滤
     const filtered = this._filterByCategory(displayRepos);
     AppState.visibleItems = filtered;
+    this.updateSidebarTagCounts(filtered);
     this.projectShortcutsController.render();
 
     // 主区平铺筛选后的仓库，与侧栏类型成员共享筛选结果。
@@ -5442,6 +5467,7 @@ const App = {
     AppState.repoEnrichmentComplete = !summary.cancelled && summary.completed === summary.total;
     AppState.enrichedRepos = state.items;
     this.renderRepoStatusWork(state.progress, requestId);
+    this.updateSidebarTagCounts();
 
     if (this.contentCollectionKind() === 'repositories') {
       const hasFilter = window.ContentQuery.normalize(AppState.contentQuery).gitStatuses.length > 0 ||
@@ -5566,6 +5592,14 @@ const App = {
       </div>
     `;
     readmeEl.before(meta);
+  },
+
+  _syncRepoTagsInState(repoPath, tags) {
+    const update = repo => repo.path === repoPath ? { ...repo, tags } : repo;
+    AppState.allRepos = AppState.allRepos.map(update);
+    AppState.enrichedRepos = AppState.enrichedRepos.map(update);
+    if (this._repoEnrichmentState) this._repoEnrichmentState.items = this._repoEnrichmentState.items.map(update);
+    if (AppState.selectedRepo?.path === repoPath) AppState.selectedRepo.tags = tags;
   },
 
   _syncRepoGroupsInState(repoPath, groups) {

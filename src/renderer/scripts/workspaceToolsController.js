@@ -257,8 +257,10 @@
             if (!store.tags.some(item => item.id === tag.id)) store.tags.push(tag);
             await this.bridge.tags.addRepo(tag.id, this.repoPath);
           }
+          this.app._syncRepoTagsInState(this.repoPath, await this.bridge.tags.getRepoTags(this.repoPath));
           await this.app.loadTags();
           await this.refreshRepository();
+          await this.app.renderContent();
         }, `已加入${names.length}个标签`);
       }
       if (action === 'restore') {

@@ -355,6 +355,7 @@
           else await this.bridge.tags.addRepo(tagId, repo.path);
           this.state.tags = await this.bridge.tags.get();
           repo.tags = await this.bridge.tags.getRepoTags(repo.path);
+          this.app._syncRepoTagsInState(repo.path, repo.tags);
           await this.render();
           this.app.renderSidebarTags();
           this.app.renderContent();
