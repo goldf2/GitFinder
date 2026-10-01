@@ -500,7 +500,7 @@
           <button class="sidebar-item sidebar-shortcut-open" data-project-type-edit="" type="button">＋ 新建项目类型</button>
           ${(() => {
             const repos = (this.app._filterByCategory && this.app._prepareDisplayRepos ? this.app._filterByCategory(this.app._prepareDisplayRepos()) : this.state.allRepos || []).filter(repo => !ProjectShortcuts.findProjectForPath(this.state.localProjects, repo.path, this.platform));
-            return repos.length ? `<div class="sidebar-shortcut-heading">独立仓库</div>${repos.map(repo => `<button class="sidebar-item project-tree-repository" data-project-repository-path="${this.app.escapeHtml(repo.path)}">${this.app.getItemKindIconHtml({type:'directory',isGitRepo:true}, 'sidebar-kind-icon')}<span class="sidebar-item-name">${this.app.escapeHtml(repo.name || repo.path)}</span></button>`).join('')}` : '';
+            return repos.length ? `<div class="sidebar-shortcut-heading">独立仓库</div>${repos.map(repo => `<button class="sidebar-item sidebar-shortcut-open project-tree-repository ${this.state.workspaceRepository?.path === repo.path ? 'active' : ''}" data-project-repository-path="${this.app.escapeHtml(repo.path)}" type="button" title="${this.app.escapeHtml(repo.path)}">${this.app.getItemKindIconHtml({type:'directory',isGitRepo:true}, 'sidebar-kind-icon')}<span class="sidebar-item-name">${this.app.escapeHtml(repo.name || repo.path)}</span></button>`).join('')}` : '';
           })()}
         </div>
         ${this.state.localProjects.length ? '' : '<div class="sidebar-shortcut-empty">尚未识别到本地项目</div>'}`;

@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-30T21:23:25+08:00",
+  "updatedAt": "2026-10-01T13:09:23+08:00",
   "scope": "以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。",
   "baseline": {
     "version": "2.0.0-alpha.193",
     "sourceCommit": "99eef1d2992e389f32a48182a25fda3b9adf1958",
     "evidence": "docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md"
   },
-  "nextTaskId": "GF-DATA-001",
+  "nextTaskId": "GF-SIDEBAR-220",
   "milestones": [
     {
       "id": "GF-P0",
@@ -1475,6 +1475,30 @@
         "version": "2.0.0-alpha.219",
         "sourceCommit": "542297961aaa482a2f7102a40a7ba9b35d40727d"
       }
+    },
+    {
+      "id": "GF-SIDEBAR-220",
+      "milestone": "GF-P1",
+      "title": "独立仓库条目黑框与选中样式修复",
+      "priority": "P1",
+      "status": "verified",
+      "owner": "Codex",
+      "updatedAt": "2026-10-01T13:09:23+08:00",
+      "dependsOn": [],
+      "sourcePaths": [
+        "src/renderer/scripts/projectShortcutsController.js",
+        "scripts/verify-unified-workspace.js"
+      ],
+      "acceptance": [
+        "独立仓库与其它仓库共享无边框侧栏样式，悬停、选中、键盘焦点可辨识。",
+        "安装版本通过真实窗口专项验收后推送。"
+      ],
+      "evidence": [
+        "docs/00-handoff/SIDEBAR_BORDER_ALPHA220.md"
+      ],
+      "nextAction": "源码与27项窗口验收通过，提交并构建alpha.220安装包。",
+      "blocker": "",
+      "userAcceptance": "pending"
     }
   ]
 }

@@ -1,9 +1,7 @@
 # GitFinder 2 当前状态
 
 <!-- BEGIN CURRENT_STATE -->
-## GF-SIDEBAR-219 / alpha.219 已交付
-
-类别选择仅过滤主区，左树其他类别的成员与手动折叠保持；连续刷新不再停在加载提示。最终源码542297961aaa482a2f7102a40a7ba9b35d40727d，1439测试/302JS、23项安装交互及真实研发工具23成员跨类别保留通过，正常启动与推送完成，现有归属不变。详见SIDEBAR_CATEGORY_ALPHA219.md。用户验收pending；下一任务GF-DATA-001，本轮不启动。
+GF-SIDEBAR-220 开发中：复现并修复独立仓库黑框；基线 alpha.219，原有未提交内容保留。
 <!-- END CURRENT_STATE -->
 
 ## 历史兼容记录（以下不再表示当前状态）
