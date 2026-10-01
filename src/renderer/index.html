@@ -214,7 +214,11 @@
             <span class="sidebar-title-text">仓库标签</span>
             <span class="sidebar-toggle" title="折叠/展开">▼</span>
           </div>
-          <div id="tags-filter-list"></div>
+          <div class="sidebar-tag-tools">
+            <input id="sidebar-tag-search" type="search" placeholder="查找标签…" aria-label="查找仓库标签">
+            <span class="sidebar-tag-legend">浅 → 深：关联仓库少 → 多</span>
+          </div>
+          <div id="tags-filter-list" aria-label="仓库标签热力图"></div>
           <button class="sidebar-add-btn" id="add-tag-bottom-btn">+ 添加标签</button>
         </div>
       </aside>
@@ -517,7 +521,7 @@
     <button class="finder-menu-item finder-menu-command" data-context-action="location-name" type="button" role="menuitem" hidden><span>修改位置显示名称…</span></button>
     <button class="finder-menu-item finder-menu-command" data-context-action="reveal" type="button" role="menuitem"><span>在访达中显示</span></button>
     <button class="finder-menu-item finder-menu-command" data-context-action="repository-tools" type="button" role="menuitem"><span>仓库工具…</span></button>
-    <button class="finder-menu-item finder-menu-command" data-context-action="project-types" type="button" role="menuitem"><span>项目类型…</span></button>
+    <button class="finder-menu-item finder-menu-command" data-context-action="project-types" type="button" role="menuitem"><span>分类…</span></button>
     <button class="finder-menu-item finder-menu-command" data-context-action="relationship" type="button" role="menuitem"><span>关系白板</span></button>
     <button class="finder-menu-item finder-menu-command" data-context-action="toggle-pin" type="button" role="menuitem" hidden><span id="file-context-pin-label">固定到项目区</span></button>
     <button class="finder-menu-item finder-menu-command finder-menu-danger" data-context-action="trash" type="button" role="menuitem"><span>移到废纸篓</span><kbd>⌘⌫</kbd></button>
@@ -925,7 +929,7 @@
         <div class="form-group" id="local-project-types-section">
           <label id="local-project-types-label">项目分组</label>
           <div class="local-project-type-options" id="local-project-types" role="group" aria-labelledby="local-project-types-label"></div>
-          <div class="file-operation-hint">勾选加入，取消勾选退出；可以属于多个类型。属性始终保存在所选文件夹上。</div>
+          <div class="file-operation-hint">勾选加入，取消勾选退出；可以属于多个分类。属性始终保存在所选文件夹上。</div>
         </div>
         <div class="form-group">
           <label for="local-project-excluded">排除的仓库目录</label>
@@ -948,15 +952,15 @@
     <section class="modal project-group-modal" role="dialog" aria-modal="true" aria-labelledby="project-group-title">
       <header class="modal-header">
         <div>
-          <h3 id="project-group-title">新建项目类型</h3>
-          <div class="external-import-description" id="project-group-explanation">项目类型用于分类筛选。</div>
+          <h3 id="project-group-title">新建分类</h3>
+          <div class="external-import-description" id="project-group-explanation">分类用于组织和筛选仓库。</div>
         </div>
-        <button class="modal-close" id="project-group-close-btn" type="button" aria-label="关闭项目类型设置">×</button>
+        <button class="modal-close" id="project-group-close-btn" type="button" aria-label="关闭分类设置">×</button>
       </header>
       <div class="modal-body project-group-form">
         <div class="form-group" id="project-collection-category-field" hidden><label for="project-collection-category">项目类别</label><select id="project-collection-category"></select></div>
         <div class="form-group">
-          <label for="project-group-name" id="project-group-name-label">项目类型名称</label>
+          <label for="project-group-name" id="project-group-name-label">分类名称</label>
           <input type="text" id="project-group-name" maxlength="160" autocomplete="off" placeholder="例如：AI 工具链">
         </div>
         <div class="form-group">
@@ -972,17 +976,17 @@
           </select>
         </div>
         <div class="form-group">
-          <label for="project-group-projects">选择此类型包含的项目</label>
+          <label for="project-group-projects">选择文件夹或仓库</label>
           <select id="project-group-projects" multiple size="8" aria-describedby="project-group-projects-hint"></select>
-          <div class="file-operation-hint" id="project-group-projects-hint">按住 ⌘（Windows/Linux 使用 Ctrl）可多选；同一个项目可以属于多个类型，这不是父子项目关系。</div>
+          <div class="file-operation-hint" id="project-group-projects-hint">按住 ⌘（Windows/Linux 使用 Ctrl）可多选；同一个文件夹或仓库可以属于多个分类。</div>
         </div>
       </div>
       <footer class="modal-footer">
         <span id="project-group-feedback" role="status" aria-live="polite"></span>
         <div>
           <button class="btn" id="project-group-cancel-btn" type="button">取消</button>
-          <button class="btn" id="project-type-delete-btn" type="button" hidden>删除类型</button>
-          <button class="btn btn-primary" id="project-group-save-btn" type="button">创建项目类型</button>
+          <button class="btn" id="project-type-delete-btn" type="button" hidden>删除分类</button>
+          <button class="btn btn-primary" id="project-group-save-btn" type="button">创建分类</button>
         </div>
       </footer>
     </section>

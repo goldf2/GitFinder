@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-01T16:21:12+08:00",
+  "updatedAt": "2026-10-01T17:26:38+08:00",
   "scope": "以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。",
   "baseline": {
     "version": "2.0.0-alpha.193",
     "sourceCommit": "99eef1d2992e389f32a48182a25fda3b9adf1958",
     "evidence": "docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md"
   },
-  "nextTaskId": "GF-DATA-001",
+  "nextTaskId": "GF-CATEGORY-225",
   "milestones": [
     {
       "id": "GF-P0",
@@ -1634,6 +1634,38 @@
         "version": "2.0.0-alpha.224",
         "sourceCommit": "85eb6f19d5ed754d7bc482105fd7573665674484"
       }
+    },
+    {
+      "id": "GF-CATEGORY-225",
+      "milestone": "GF-P2",
+      "title": "仓库分类入口、独立滚动与标签热力图",
+      "priority": "P1",
+      "status": "verified",
+      "owner": "Codex",
+      "updatedAt": "2026-10-01T17:26:38+08:00",
+      "dependsOn": [
+        "GF-REPO-224"
+      ],
+      "sourcePaths": [
+        "src/renderer/scripts/projectShortcutsController.js",
+        "src/renderer/scripts/app.js",
+        "src/shared/projectGroups.js",
+        "src/renderer/styles/sidebar.css",
+        "src/renderer/index.html"
+      ],
+      "acceptance": [
+        "从仓库侧栏新建及编辑分类",
+        "分类可选择未添加属性的仓库，保存后筛选立即更新",
+        "原分类与会话保持；多分类与已有分组兼容",
+        "仓库和标签区域独立滚动，滚动条可见",
+        "大量标签使用紧凑热力图，支持查找、数量和键盘筛选"
+      ],
+      "evidence": [
+        "docs/00-handoff/REPOSITORY_SIDEBAR_ALPHA225.md"
+      ],
+      "nextAction": "提交、打包安装并核验真实标签/分类/会话后推送",
+      "blocker": "",
+      "userAcceptance": "pending"
     }
   ]
 }

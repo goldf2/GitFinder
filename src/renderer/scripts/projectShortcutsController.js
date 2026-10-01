@@ -106,6 +106,9 @@
         if (projectButton) this.open(projectButton.dataset.projectShortcutId);
       });
       this.element('repository-shortcuts-list')?.addEventListener('click', event => {
+        if (event.target.closest?.('[data-new-repository-category]')) { this.app.openProjectGroupDialog(); return; }
+        const edit = event.target.closest?.('[data-repository-category-edit]');
+        if (edit) { this.app.openProjectGroupDialog(edit.dataset.repositoryCategoryEdit); return; }
         if (this.handleSectionToggle(event, 'repositories')) return;
         const type = event.target.closest?.('[data-repository-type]');
         if (type) {
@@ -533,14 +536,14 @@
       };
       container.innerHTML = `<button class="sidebar-item sidebar-shortcut-all repository-shortcut-all" data-repository-shortcut-all type="button"><span class="sidebar-icon sidebar-shortcut-all-icon" aria-hidden="true">⑂</span><span class="sidebar-item-name">所有 Git 仓库</span><span class="badge">${allRepos.length}</span></button>
         ${showRecent ? this.recentHeading('repositories') + (this.collapsedRecent.has('repositories') ? '' : recent.map(renderRepository).join('') || '<div class="sidebar-shortcut-empty">尚无最近仓库</div>') : ''}
-        <div class="sidebar-shortcut-heading">按类型</div>
+        <div class="sidebar-shortcut-heading">分类 <button class="project-type-edit" type="button" data-new-repository-category aria-label="新建分类" title="新建分类">＋</button></div>
         ${groups.map(group => {
           const id = this.app.escapeHtml(group.groupId);
           const expanded = this.expandedTypeIds.has(`repositories:${group.groupId}`);
           const members = repositories.filter(repo => inGroup(repo, group));
           const count = allRepos.filter(repo => inGroup(repo, group)).length;
           const active = this.state.contentQuery?.projectType === group.groupId && this.app.contentCollectionKind() === 'repositories';
-          return `<div class="project-type-row"><button class="tree-node-toggle" data-type-toggle="${id}" type="button" aria-expanded="${expanded}" aria-label="${expanded ? '折叠' : '展开'} ${this.app.escapeHtml(group.name)}">${expanded ? '▼' : '▶'}</button><button class="sidebar-item sidebar-shortcut-open ${active ? 'active' : ''}" data-repository-type="${id}" type="button"><span class="sidebar-item-name">${this.app.escapeHtml(group.name)}</span><span class="badge">${count}</span></button></div>${expanded ? `<div class="sidebar-type-members" data-type-members="${id}">${members.map(renderRepository).join('') || '<div class="sidebar-shortcut-empty">没有匹配的仓库</div>'}</div>` : ''}`;
+          return `<div class="project-type-row"><button class="tree-node-toggle" data-type-toggle="${id}" type="button" aria-expanded="${expanded}" aria-label="${expanded ? '折叠' : '展开'} ${this.app.escapeHtml(group.name)}">${expanded ? '▼' : '▶'}</button><button class="sidebar-item sidebar-shortcut-open ${active ? 'active' : ''}" data-repository-type="${id}" type="button"><span class="sidebar-item-name">${this.app.escapeHtml(group.name)}</span><span class="badge">${count}</span></button>${group.groupId !== 'unclassified' ? `<button class="project-type-edit" type="button" data-repository-category-edit="${id}" aria-label="编辑分类 ${this.app.escapeHtml(group.name)}" title="编辑分类">⋯</button>` : ''}</div>${expanded ? `<div class="sidebar-type-members" data-type-members="${id}">${members.map(renderRepository).join('') || '<div class="sidebar-shortcut-empty">没有匹配的仓库</div>'}</div>` : ''}`;
         }).join('')}`;
     }
   }

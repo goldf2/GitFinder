@@ -161,7 +161,11 @@
     if (selected?.kind === 'collection') return !!project && descendantProjectIds(selected, groups).includes(project.projectId);
     const nested = new Set(groups.flatMap(group => group.collectionIds || []));
     const owners = groups.filter(group => group.kind === 'collection' && !nested.has(group.groupId) && descendantProjectIds(group, groups).includes(project?.projectId));
-    if (owners.length) return owners.some(group => matchesCategory({ isProjectCollection: true, categoryId: group.categoryId }, groups, type));
+    if (owners.length) {
+      const directlyAssigned = project && matchesCategory(project, groups, type);
+      const inherited = owners.some(group => matchesCategory({ isProjectCollection: true, categoryId: group.categoryId }, groups, type));
+      return type === 'unclassified' ? Boolean(directlyAssigned && owners.every(group => matchesCategory({ isProjectCollection: true, categoryId: group.categoryId }, groups, type))) : Boolean(directlyAssigned || inherited);
+    }
     return project ? matchesCategory(project, groups, type) : type === 'unclassified' || !type;
   }
 

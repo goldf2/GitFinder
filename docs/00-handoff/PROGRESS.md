@@ -2,11 +2,11 @@
 
 > 自动生成。只编辑 `management/development-tasks.json`，然后执行 `npm run handoff:update`。
 
-更新时间：2026-10-01T16:21:12+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
+更新时间：2026-10-01T17:26:38+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
 
 核验基线：2.0.0-alpha.193 / `99eef1d2992e389f32a48182a25fda3b9adf1958`；证据：[docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md](LAYOUT_OPTIONS_ALPHA193.md)。
 
-**唯一下一任务：GF-DATA-001**
+**唯一下一任务：GF-CATEGORY-225**
 
 ## 阶段汇总
 
@@ -14,7 +14,7 @@
 | --- | ---: | ---: | ---: | ---: |
 | GF-P0 接续工程 | 2 | 2 | 0 | 0 |
 | GF-P1 桌面稳定 | 29 | 24 | 0 | 1 |
-| GF-P2 可维护与性能 | 7 | 3 | 0 | 0 |
+| GF-P2 可维护与性能 | 8 | 3 | 1 | 0 |
 | GF-P3 可分发 | 7 | 0 | 2 | 3 |
 | GF-P4 全流程事件 | 5 | 0 | 0 | 1 |
 | GF-P5 Web与同步（需授权） | 4 | 0 | 0 | 4 |
@@ -79,6 +79,7 @@
 | GF-CHAT-001 | P1 | 已交付 | Codex conversation-link agent | 项目关联 Codex 与 ChatGPT 会话入口 |
 | GF-PROJECT-223 | P1 | 已交付 | Codex | 统一仓库与项目入口，减少重复层级 |
 | GF-REPO-224 | P1 | 已交付 | Codex | 仓库作为主列表，项目作为文件夹属性 |
+| GF-CATEGORY-225 | P1 | 已验证 | Codex | 仓库分类入口、独立滚动与标签热力图 |
 
 ## 可执行任务卡
 
@@ -1077,3 +1078,22 @@
 证据：[docs/00-handoff/REPOSITORY_ATTRIBUTES_ALPHA224.md](REPOSITORY_ATTRIBUTES_ALPHA224.md)
 
 交付：2.0.0-alpha.224；源码 `85eb6f19d5ed754d7bc482105fd7573665674484`。
+
+### GF-CATEGORY-225 · 仓库分类入口、独立滚动与标签热力图
+
+阶段：GF-P2；优先级：P1；状态：**已验证**；负责人：Codex；用户验收：待用户反馈。
+
+更新：2026-10-01T17:26:38+08:00。依赖：GF-REPO-224。
+
+**验收标准**
+1. 从仓库侧栏新建及编辑分类
+2. 分类可选择未添加属性的仓库，保存后筛选立即更新
+3. 原分类与会话保持；多分类与已有分组兼容
+4. 仓库和标签区域独立滚动，滚动条可见
+5. 大量标签使用紧凑热力图，支持查找、数量和键盘筛选
+
+**接续动作：** 提交、打包安装并核验真实标签/分类/会话后推送
+
+源码/设计入口：[src/renderer/scripts/projectShortcutsController.js](../../src/renderer/scripts/projectShortcutsController.js)；[src/renderer/scripts/app.js](../../src/renderer/scripts/app.js)；[src/shared/projectGroups.js](../../src/shared/projectGroups.js)；[src/renderer/styles/sidebar.css](../../src/renderer/styles/sidebar.css)；[src/renderer/index.html](../../src/renderer/index.html)。
+
+证据：[docs/00-handoff/REPOSITORY_SIDEBAR_ALPHA225.md](REPOSITORY_SIDEBAR_ALPHA225.md)

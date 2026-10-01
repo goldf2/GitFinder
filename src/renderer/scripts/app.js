@@ -3358,13 +3358,25 @@ const App = {
   renderSidebarTags() {
     const container = document.getElementById('tags-filter-list');
     const section = document.getElementById('tags-sidebar-section');
-    const tags = AppState.tags.tags;
+    const search = document.getElementById('sidebar-tag-search');
+    if (search && !search.dataset.bound) {
+      search.dataset.bound = 'true';
+      search.addEventListener('input', () => this.renderSidebarTags());
+    }
+    const query = (search?.value || '').trim().toLocaleLowerCase();
+    const counts = new Map();
+    for (const ids of Object.values(AppState.tags.repoTags || {})) {
+      for (const id of new Set(ids)) counts.set(id, (counts.get(id) || 0) + 1);
+    }
+    const maxCount = Math.max(1, ...counts.values());
+    const tags = [...AppState.tags.tags].filter(tag => tag.name.toLocaleLowerCase().includes(query))
+      .sort((a, b) => (counts.get(b.id) || 0) - (counts.get(a.id) || 0) || a.name.localeCompare(b.name, 'zh-CN'));
 
     if (tags.length === 0) {
-      // 没有标签时隐藏标题,保留添加按钮
+      // 空状态保留标题、搜索和添加入口
       const title = section?.querySelector('.sidebar-title');
-      if (title) title.style.display = 'none';
-      container.innerHTML = '';
+      if (title) title.style.display = '';
+      container.innerHTML = `<div class="sidebar-tag-empty">${query ? '没有匹配的标签' : '暂无标签'}</div>`;
       return;
     }
 
@@ -3373,34 +3385,41 @@ const App = {
     if (title) title.style.display = '';
 
     container.innerHTML = tags.map(tag => {
-      const count = Object.values(AppState.tags.repoTags || {}).filter(ids => ids.includes(tag.id)).length;
+      const count = counts.get(tag.id) || 0;
+      const heat = count === 0 ? 0 : Math.max(1, Math.ceil(count / maxCount * 5));
       const selected = AppState.selectedTags.includes(tag.id);
       const tagId = this.escapeHtml(tag.id);
       const tagColor = this.safeColor(tag.color);
       return `
-        <div class="sidebar-tag-item ${selected ? 'selected' : ''}" data-tag-id="${tagId}">
+        <div class="sidebar-tag-item ${selected ? 'selected' : ''}" data-tag-id="${tagId}" data-heat="${heat}" role="button" tabindex="0" aria-pressed="${selected}" aria-label="${this.escapeHtml(tag.name)}，${count} 个仓库" title="${this.escapeHtml(tag.name)} · ${count} 个仓库；双击名称重命名">
           <span class="sidebar-tag-dot" style="background:${tagColor}"></span>
           <span class="sidebar-item-name" style="flex:1;" title="双击重命名">${this.escapeHtml(tag.name)}</span>
           <span class="sidebar-tag-count">${count}</span>
-          <span class="sidebar-item-remove" data-tag-id="${tagId}" title="删除标签">×</span>
+          <button type="button" class="sidebar-item-remove" data-tag-id="${tagId}" title="删除标签" aria-label="删除标签 ${this.escapeHtml(tag.name)}">×</button>
         </div>
       `;
     }).join('');
 
     container.querySelectorAll('.sidebar-tag-item').forEach(item => {
-      item.addEventListener('click', (e) => {
-        // 点击删除按钮不触发选中
-        if (e.target.classList.contains('sidebar-item-remove')) return;
+      const toggle = () => {
         const tagId = item.dataset.tagId;
         const idx = AppState.selectedTags.indexOf(tagId);
-        if (idx >= 0) {
-          AppState.selectedTags.splice(idx, 1);
-        } else {
-          AppState.selectedTags.push(tagId);
-        }
-        this.renderSidebarTags();
+        if (idx >= 0) AppState.selectedTags.splice(idx, 1);
+        else AppState.selectedTags.push(tagId);
+        const selected = idx < 0;
+        item.classList.toggle('selected', selected);
+        item.setAttribute('aria-pressed', String(selected));
         this.updateFilterBar();
         this.renderContent();
+      };
+      item.addEventListener('click', event => {
+        if (event.target.closest('button,input')) return;
+        toggle();
+      });
+      item.addEventListener('keydown', event => {
+        if (event.target !== item || !['Enter', ' '].includes(event.key)) return;
+        event.preventDefault();
+        toggle();
       });
 
       // 双击名称重命名
@@ -4698,26 +4717,29 @@ const App = {
       .sort((left, right) => String(left.name || left.path).localeCompare(String(right.name || right.path), 'zh-CN'));
     const selected = new Set([...(group?.projectIds || []), ...(group?.collectionIds || [])]);
     if (isCollection) projects.unshift(...AppState.projectGroups.filter(item => item.kind === 'collection' && item.groupId !== groupId).map(item => ({projectId: item.groupId, name: `▦ ${item.name}`, path: '子项目集合'})));
-    if (isCollection) for (const id of selected) { if (!projects.some(project => project.projectId === id)) projects.push({projectId:id,name:'暂不可用的成员',path:id}); }
+    if (!isCollection) for (const repo of AppState.allRepos || []) {
+      if (!projects.some(project => project.path === repo.path)) projects.push({ projectId: `repository:${repo.path}`, name: repo.name, path: repo.path });
+    }
+    for (const id of selected) { if (!projects.some(project => project.projectId === id)) projects.push({projectId:id,name:'暂不可用的成员',path:id}); }
     select.innerHTML = projects.length
       ? projects.map(project => `<option value="${this.escapeHtml(project.projectId)}"${selected.has(project.projectId) ? ' selected' : ''}>${this.escapeHtml(project.name)} · ${this.escapeHtml(project.path)}</option>`).join('')
-      : '<option disabled>暂无可加入的本地项目</option>';
-    document.getElementById('project-group-title').textContent = isCollection ? (group ? '分组设置' : '新建分组') : (group ? '项目类型设置' : '新建项目类型');
-    document.getElementById('project-group-name-label').textContent = isCollection ? '项目名称' : '项目类型名称';
-    document.getElementById('project-group-explanation').textContent = isCollection ? '将不同目录的项目收拢为一个分组，成员保留原路径及 Git 历史。' : '项目类型用于分类筛选。';
+      : '<option disabled>暂无可加入的文件夹或仓库</option>';
+    document.getElementById('project-group-title').textContent = isCollection ? (group ? '分组设置' : '新建分组') : (group ? '分类设置' : '新建分类');
+    document.getElementById('project-group-name-label').textContent = isCollection ? '分组名称' : '分类名称';
+    document.getElementById('project-group-explanation').textContent = isCollection ? '将不同目录的项目收拢为一个分组，成员保留原路径及 Git 历史。' : '分类用于组织和筛选仓库。';
     const categorySelect = document.getElementById('project-collection-category');
     document.getElementById('project-collection-category-field').hidden = !isCollection;
     categorySelect.innerHTML = '<option value="">暂不分类</option>' + AppState.projectGroups.filter(item => item.kind !== 'collection').map(item => `<option value="${this.escapeHtml(item.groupId)}">${this.escapeHtml(item.name)}</option>`).join('');
     categorySelect.value = group?.categoryId || '';
-    document.getElementById('project-type-delete-btn').textContent = isCollection ? '解除合并' : '删除类型';
+    document.getElementById('project-type-delete-btn').textContent = isCollection ? '解除合并' : '删除分类';
     document.getElementById('project-type-delete-btn').hidden = !group;
     document.getElementById('project-group-name').value = group?.name || '';
     document.getElementById('project-group-description').value = group?.description || '';
     document.getElementById('project-group-color').value = group?.color || 'purple';
     document.getElementById('project-group-feedback').textContent = isCollection ? '选择要合并显示的成员；子项目可继续包含子项目；解除合并后成员回到上一级。' : group
-      ? '编辑此类型包含的项目，不改变目录层级'
-      : '项目类型只用于分类筛选，不移动文件夹';
-    document.getElementById('project-group-save-btn').textContent = group ? '保存设置' : (isCollection ? '创建分组' : '创建项目类型');
+      ? '选择此分类包含的文件夹和仓库，不改变目录层级'
+      : '分类用于筛选，不移动文件夹';
+    document.getElementById('project-group-save-btn').textContent = group ? '保存设置' : (isCollection ? '创建分组' : '创建分类');
     AppState.projectGroupDialog = { groupId: group?.groupId || '', kind: isCollection ? 'collection' : '' };
     modal.style.display = 'flex';
     requestAnimationFrame(() => document.getElementById('project-group-name')?.focus());
@@ -4752,6 +4774,14 @@ const App = {
     if (saveButton) saveButton.disabled = true;
     if (feedback) feedback.textContent = '正在保存…';
     try {
+      // A selected bare repository gains directory-bound attributes only when saved.
+      values.projectIds = await Promise.all(values.projectIds.map(async id => {
+        if (!id.startsWith('repository:')) return id;
+        const repoPath = id.slice('repository:'.length);
+        const project = (await window.gitFinder.localProjects.initialize(repoPath, {})).project;
+        await this.projectShortcutsController.upsertLocalProject(project);
+        return project.projectId;
+      }));
       const result = dialogState.groupId
         ? await window.gitFinder.projectGroups.update(dialogState.groupId, values)
         : await window.gitFinder.projectGroups.create(values);
@@ -4761,8 +4791,8 @@ const App = {
         : [...AppState.projectGroups, result];
       this.projectShortcutsController?.render();
       this.closeProjectGroupDialog();
-      if (this.contentCollectionKind() === 'projects') await this.renderProjectsView(false);
-      this._showStatusMessage(`已保存${result.kind === 'collection' ? '分组' : '项目类型'}“${result.name}”`, 'success');
+      if (this.isContentCollection()) await this.renderContent();
+      this._showStatusMessage(`已保存${result.kind === 'collection' ? '分组' : '分类'}“${result.name}”`, 'success');
     } catch (error) {
       if (feedback) feedback.textContent = error?.message || String(error);
     } finally {
@@ -4772,17 +4802,17 @@ const App = {
 
   async deleteProjectGroup(groupId) {
     const group = (AppState.projectGroups || []).find(item => item?.groupId === groupId);
-    if (!group || !confirm(group.kind === 'collection' ? `解除“${group.name}”的合并？成员会恢复独立显示，文件保持原位。` : `删除项目类型“${group.name}”？不会删除其中的项目或文件。`)) return;
+    if (!group || !confirm(group.kind === 'collection' ? `解除“${group.name}”的合并？成员会恢复独立显示，文件保持原位。` : `删除分类“${group.name}”？文件夹、仓库和会话都会保留。`)) return;
     try {
       await window.gitFinder.projectGroups.delete(groupId);
       await this.loadProjectGroups();
       this.closeProjectGroupDialog();
       if (AppState.contentQuery.projectType === groupId) this.applyContentPreset('all-projects');
       this.projectShortcutsController?.render();
-      if (this.contentCollectionKind() === 'projects') await this.renderProjectsView(false);
-      this._showStatusMessage(`已${group.kind === 'collection' ? '解除合并' : '删除项目类型'}“${group.name}”`, 'success');
+      if (this.isContentCollection()) await this.renderContent();
+      this._showStatusMessage(`已${group.kind === 'collection' ? '解除合并' : '删除分类'}“${group.name}”`, 'success');
     } catch (error) {
-      this._showStatusMessage(`删除项目类型失败：${error?.message || String(error)}`, 'error');
+      this._showStatusMessage(`删除分类失败：${error?.message || String(error)}`, 'error');
     }
   },
 
@@ -6779,7 +6809,7 @@ const App = {
     const typeOptions = document.getElementById('local-project-types');
     AppState.projectDialog = null;
     saveButton.disabled = true;
-    typeOptions.textContent = '正在读取项目类型…';
+    typeOptions.textContent = '正在读取分类…';
     feedback.textContent = '正在读取项目身份…';
     modal.style.display = 'flex';
     try {
@@ -6799,7 +6829,7 @@ const App = {
       AppState.projectDialog = { path: projectPath, existing: identity.isProject };
       typeOptions.innerHTML = typeStore.groups.length
         ? typeStore.groups.filter(group => group.kind !== 'collection').map(group => `<label><input type="checkbox" data-local-project-type="${this.escapeHtml(group.groupId)}"${group.projectIds.includes(project.projectId) ? ' checked' : ''}><span>${this.escapeHtml(group.name)}</span></label>`).join('')
-        : '<span class="file-operation-hint">暂无项目类型，可在左侧“项目类型”中新建。</span>';
+        : '<span class="file-operation-hint">暂无分类，可通过仓库侧栏“分类”旁的 ＋ 新建。</span>';
       document.getElementById('local-project-title').textContent = identity.isProject ? '项目属性' : '添加项目属性';
       document.getElementById('local-project-path').textContent = projectPath;
       document.getElementById('local-project-name').value = project.name || fallbackName;

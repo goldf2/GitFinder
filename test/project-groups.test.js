@@ -117,3 +117,17 @@ test('暂不可用成员保留引用与提示，不把其它目录强制纳入�
   assert.equal(entries[0].memberProjects[0].missingMemberCount,1);
   assert.deepEqual(ProjectGroups.projectEntries([],[]),[]);
 });
+
+
+test('仓库直接分类与分组继承分类并存，不被旧分组覆盖', () => {
+  const groups = collectionFixture().groups;
+  const directId = 'project_group_66666666-6666-4666-8666-666666666666';
+  groups.push({ groupId: directId, name: '研发工具', projectIds: [projectA] });
+  assert.equal(ProjectGroups.repositoryMatchesType(physicalProjects[0], groups, directId), true);
+  assert.equal(ProjectGroups.repositoryMatchesType(physicalProjects[0], groups, categoryId), true);
+  assert.equal(ProjectGroups.repositoryMatchesType(physicalProjects[0], groups, 'unclassified'), false);
+  groups.find(group => group.groupId === parentId).categoryId = '';
+  assert.equal(ProjectGroups.repositoryMatchesType(physicalProjects[0], groups, 'unclassified'), false);
+  groups.find(group => group.groupId === directId).projectIds = [];
+  assert.equal(ProjectGroups.repositoryMatchesType(physicalProjects[0], groups, 'unclassified'), true);
+});
