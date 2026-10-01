@@ -3429,7 +3429,7 @@ const App = {
         ${index === 0 || dimension(tags[index - 1]) !== dimension(tag) ? `<h4 class="sidebar-tag-dimension">${this.escapeHtml(dimension(tag))}</h4>` : ''}
         <div class="sidebar-tag-item ${selected ? 'selected' : ''}" data-tag-id="${tagId}" data-heat="${heat}" role="button" tabindex="0" aria-pressed="${selected}" aria-label="${this.escapeHtml(tag.name)}，${count} 个仓库" title="${this.escapeHtml(tag.name)} · ${count} 个仓库；双击名称重命名">
           <span class="sidebar-tag-dot" style="background:${tagColor}"></span>
-          <span class="sidebar-item-name" style="flex:1;" title="双击重命名">${this.escapeHtml(tag.name)}</span>
+          <span class="sidebar-item-name" style="flex:1;" title="${this.escapeHtml(tag.name)}；双击重命名">${this.escapeHtml(tag.name.replace(/^[^:：]+[:：]/u, '').trim() || tag.name)}</span>
           <span class="sidebar-tag-count">${count}</span>
           <button type="button" class="sidebar-item-remove" data-tag-id="${tagId}" title="删除标签" aria-label="删除标签 ${this.escapeHtml(tag.name)}">×</button>
         </div>
@@ -3618,7 +3618,7 @@ const App = {
           </span>
         `;
       }).join('');
-      parts.push(`<span class="filter-chip-group">标签（同时满足）: ${tagChips}</span>`);
+      parts.push(`<span class="filter-chip-group">标签: ${tagChips}</span>`);
     }
 
     // 状态摘要
