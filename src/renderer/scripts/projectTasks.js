@@ -562,6 +562,7 @@ Object.assign(App, {
           <div><span>后继任务</span><strong>${successors.length}</strong></div>
           <div class="${acceptancePassed < acceptanceTotal ? 'pending' : 'complete'}"><span>验收条件</span><strong>${acceptancePassed}/${acceptanceTotal}</strong></div>
         </div>
+        ${this.projectConversationsController?.taskMarkup(task) || ''}
 
         <section class="task-detail-section task-relation-section">
           <div class="task-section-heading"><h3>前置门禁</h3><span>${predecessors.length}</span></div>
@@ -793,6 +794,7 @@ Object.assign(App, {
           <button class="btn" type="button" data-task-create-child="${this.escapeHtml(task.key)}">新建子任务</button>
         </div>
 
+        ${this.projectConversationsController?.taskMarkup(task) || ''}
         <dl class="task-facts-grid">
           <div><dt>阶段</dt><dd>${this.escapeHtml(task.stageName || '未分阶段')}</dd></div>
           <div><dt>优先级</dt><dd>${this.escapeHtml(task.priority || '未设置')}</dd></div>

@@ -1,12 +1,12 @@
 # GitFinder 2 当前状态
 
 <!-- BEGIN CURRENT_STATE -->
-## GF-WORKSPACE-221 / alpha.221 已交付
+## GF-CHAT-001 / alpha.222 源码与窗口已验证
 
-新增项目形态（App、Web、App+Web、未分类）及精简仓库概览：重复标题/零值移除，更多菜单、紧凑文件行和5条提交摘要。
-源码`1801f8e6cce671b9c4ec11dfe3d874c5fefaf7fe`已推送，1447测试/306JS、源码49项和安装版49项交互及真实重启通过。
-已安装至`/Applications/GitFinder 2.app`并恢复正常启动，旧alpha.220有完整备份。
-原主目录12项dirty文件哈希未变，不批量设置真实项目类型。详见WORKSPACE_KIND_ALPHA221.md；用户验收pending。下一任务GF-DATA-001不自动启动。
+项目协作入口分开 Codex 与 ChatGPT 各自主会话，支持本机编辑/合并导入、既有台账与 GitHub Issue/PR 双向关联，接续记录按需读取。
+保留 alpha.221 项目形态及仓库概览；完整1457测试、310JS、renderer构建和真实Electron14项交互/重启通过。
+当前安装仍为alpha.221；下一步从本任务提交打包alpha.222，由集成人安装并通过正常服务导入、重开验收后推送。私人会话原文与索引只留本地。
+详见PROJECT_CONVERSATIONS_ALPHA222.md；用户验收pending，未执行远程任务写入或公开发布。
 <!-- END CURRENT_STATE -->
 
 ## 历史兼容记录（以下不再表示当前状态）

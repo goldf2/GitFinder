@@ -86,6 +86,7 @@
         </div>` : ''}
       `;
       if (item.isProject) empty.innerHTML = this.projectMarkup(item, lifecycle, summary);
+      if (item.isProject) this.app.projectConversationsController?.loadWorkspace(item.project?.projectId).catch(error => this.app._showStatusMessage(error.message, 'error'));
       empty.querySelector('[data-app-action="file-project-settings"]')?.addEventListener('click', event => {
         const button = event.currentTarget;
         this.app.openLocalProjectDialog(button.dataset.projectPath || item.path);
@@ -121,6 +122,7 @@
           <button class="btn btn-small" data-detail-action="show-relationship-resource" data-relationship-kind="project" data-relationship-ref="${escape(project.projectId)}" data-relationship-path="${escape(item.path)}">关系白板</button>
         </div></header>
         <section class="project-detail-section"><h4>项目简介</h4><p>${escape(project.description || '暂无项目简介，可在“项目设置”中补充。')}</p></section>
+        ${this.app.projectConversationsController?.detailMarkup(project.projectId) || ''}
         <section class="project-detail-section"><h4>内部仓库（${repositories.length}）</h4><div class="project-detail-links">${repositories.length ? repositories.map(repo => `<button class="btn btn-small" data-detail-repo-path="${escape(repo.path)}">⑂ ${escape(repo.relativePath === '.' ? '项目根目录' : repo.relativePath || repo.path)}</button>`).join('') : '<p>尚未发现 Git 仓库</p>'}</div></section>
         <section class="project-detail-section"><h4>子项目（${children.length}）</h4><div class="project-detail-links">${children.length ? children.map(child => `<button class="btn btn-small" data-detail-child-path="${escape(child.path)}">${escape(child.name)}</button>`).join('') : '<p>暂无子项目</p>'}</div></section>`;
     }

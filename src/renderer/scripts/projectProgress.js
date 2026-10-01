@@ -102,6 +102,7 @@ Object.assign(App, {
       <h2>${this.escapeHtml(task.title)}</h2>
       <div class="task-detail-status task-tone-${this.escapeHtml(task.statusTone || 'info')}">${this.escapeHtml(task.status)} · 原始状态 ${this.escapeHtml(task.sourceStatus)}</div>
       <div class="task-detail-actions"><button class="btn" type="button" data-task-open-path="${this.escapeHtml(task.projectRoot)}">进入项目目录</button><button class="btn" type="button" data-task-terminal-path="${this.escapeHtml(task.projectRoot)}">打开终端</button></div>
+      ${this.projectConversationsController?.taskMarkup(task) || ''}
       <dl class="task-facts-grid">
         <div><dt>阶段</dt><dd>${this.escapeHtml(task.stageName)}</dd></div><div><dt>负责人</dt><dd>${this.escapeHtml(task.owner)}</dd></div>
         <div><dt>优先级 / 类型</dt><dd>${this.escapeHtml(task.priority)} / ${this.escapeHtml(task.kind)}</dd></div><div><dt>更新时间</dt><dd>${this.escapeHtml(this.formatTaskTimestamp(task.updatedAt))}</dd></div>

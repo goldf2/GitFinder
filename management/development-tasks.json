@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-01T06:22:41+00:00",
+  "updatedAt": "2026-10-01T14:58:17+08:00",
   "scope": "以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。",
   "baseline": {
     "version": "2.0.0-alpha.193",
     "sourceCommit": "99eef1d2992e389f32a48182a25fda3b9adf1958",
     "evidence": "docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md"
   },
-  "nextTaskId": "GF-DATA-001",
+  "nextTaskId": "GF-CHAT-001",
   "milestones": [
     {
       "id": "GF-P0",
@@ -1540,6 +1540,33 @@
         "version": "2.0.0-alpha.221",
         "sourceCommit": "1801f8e6cce671b9c4ec11dfe3d874c5fefaf7fe"
       }
+    },
+    {
+      "id": "GF-CHAT-001",
+      "milestone": "GF-P2",
+      "title": "项目关联 Codex 与 ChatGPT 会话入口",
+      "priority": "P1",
+      "status": "verified",
+      "owner": "Codex conversation-link agent",
+      "updatedAt": "2026-10-01T14:58:17+08:00",
+      "dependsOn": [],
+      "sourcePaths": [
+        "src/main/services/projectConversationService.js",
+        "src/main/ipc/projectConversations.js",
+        "src/renderer/scripts/projectConversationsController.js"
+      ],
+      "acceptance": [
+        "按稳定 projectId 保存本机会话关联，Codex 与 ChatGPT 分组，各来源独立主会话。",
+        "已有会话跳转只打开已登记的可信链接；可编辑与合并导入清单。",
+        "隔离真实 Electron 窗口验证保存、重开与来源分离。",
+        "沿用项目与仓库展示 GitHub Issue/PR，可将任务与会话双向关联打开，来源分离。"
+      ],
+      "evidence": [
+        "docs/00-handoff/PROJECT_CONVERSATIONS_ALPHA222.md"
+      ],
+      "nextAction": "源码与隔离实际窗口专项通过；从本任务提交打包alpha.222，由集成人安装、正常服务合并导入并重开验证，通过后推送。",
+      "blocker": "",
+      "userAcceptance": "pending"
     }
   ]
 }

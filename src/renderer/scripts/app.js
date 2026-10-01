@@ -185,6 +185,8 @@ const App = {
       onStatusMessage: (message, tone) => this._showStatusMessage(message, tone),
     });
     this.workspaceToolsController = new window.WorkspaceToolsController.Controller({ app: this, state: AppState, bridge: window.gitFinder, document });
+    this.projectConversationsController = new window.ProjectConversationsController.Controller({ app: this, bridge: window.gitFinder, document });
+    await this.projectConversationsController.init();
     document.getElementById('detail-repository-tools')?.addEventListener('click', () => { if (AppState.selectedRepo) this.workspaceToolsController.openRepository(AppState.selectedRepo.path); });
     this.setupEventListeners();
     // 初始化内嵌终端
@@ -4868,6 +4870,10 @@ const App = {
             <p title="${this.escapeHtml(project.description || '暂无项目简介')}">${this.escapeHtml(project.description || '暂无项目简介')}</p>
             <div class="local-project-repo-heading"><span>内部仓库</span><strong>${Number(project.repositoryCount || 0)}</strong></div>
             <ul class="local-project-repositories">${repositoryRows}${hiddenCount ? `<li>另有 ${hiddenCount} 个仓库…</li>` : ''}</ul>
+            <div class="project-chat-row-actions">
+              <button class="btn btn-small" data-chat-action="edit" data-chat-project="${this.escapeHtml(project.projectId)}" type="button">会话</button>
+              ${this.projectConversationsController.conversations(project.projectId).filter(item => item.role === 'primary').map(item => `<button class="btn btn-small" data-chat-action="open" data-chat-project="${this.escapeHtml(project.projectId)}" data-chat-source="${item.source}" type="button">${item.source === 'codex' ? 'Codex' : 'ChatGPT'} 主会话</button>`).join('')}
+            </div>
             <footer>
               <button class="btn btn-small" data-app-action="edit-local-project" type="button">项目设置</button>
               <button class="btn btn-small" data-app-action="show-relationship-resource" data-relationship-kind="project" data-relationship-ref="${this.escapeHtml(project.projectId)}" data-relationship-path="${this.escapeHtml(project.path)}" type="button">关系白板</button>

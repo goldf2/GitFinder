@@ -861,6 +861,24 @@
     </section>
   </div>
 
+  <div class="modal-overlay" id="project-chat-task-modal" style="display:none;">
+    <section class="modal local-project-modal" role="dialog" aria-modal="true" aria-labelledby="project-chat-task-title">
+      <header class="modal-header"><h3 id="project-chat-task-title">项目任务</h3><button class="modal-close" data-chat-action="close-task" type="button" aria-label="关闭项目任务">×</button></header>
+      <div class="modal-body" id="project-chat-task-body"></div>
+    </section>
+  </div>
+  <div class="modal-overlay" id="project-chat-modal" style="display:none;">
+    <section class="modal local-project-modal" role="dialog" aria-modal="true" aria-labelledby="project-chat-title">
+      <header class="modal-header"><h3 id="project-chat-title">项目会话</h3><button class="modal-close" data-chat-action="close" type="button" aria-label="关闭项目会话">×</button></header>
+      <div class="modal-body local-project-form">
+        <p>关联已有的 Codex 或 ChatGPT 对话。两种来源分别选择主会话，其余保留为历史会话。</p>
+        <div id="project-chat-rows"></div>
+        <div class="project-chat-row-actions"><button class="btn" id="project-chat-add" data-chat-action="add" type="button">添加会话</button><button class="btn" data-chat-action="import" type="button">导入项目会话清单</button><input type="file" id="project-chat-import" accept="application/json,.json" hidden></div>
+        <p class="file-operation-hint">关联保存在本机。导入会合并历史会话，主会话按清单更新。</p>
+      </div>
+      <footer class="modal-footer"><span id="project-chat-feedback" role="status" aria-live="polite"></span><div><button class="btn" data-chat-action="close" type="button">取消</button><button class="btn btn-primary" data-chat-action="save" type="button">保存关联</button></div></footer>
+    </section>
+  </div>
   <div class="modal-overlay" id="local-project-modal" style="display:none;">
     <section class="modal local-project-modal" role="dialog" aria-modal="true" aria-labelledby="local-project-title">
       <header class="modal-header">
@@ -1419,6 +1437,7 @@
   <script src="scripts/contentFilterController.js"></script>
   <script src="scripts/smartCollectionsController.js"></script>
   <script src="scripts/projectShortcutsController.js"></script>
+  <script src="scripts/projectConversationsController.js"></script>
   <script src="scripts/directoryViewPreferences.js"></script>
   <script src="scripts/settingsNavigation.js"></script>
   <script src="scripts/accountController.js"></script>

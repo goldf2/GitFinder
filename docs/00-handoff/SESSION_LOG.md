@@ -652,3 +652,7 @@ alpha.220源码1fbfc525ad6ffac41acc074c8703a37982ed3f31已推送。
 - 原主工作区12项既有未提交文件SHA-256全部未变；未改真实项目的App/Web类型、分组、源码或Git状态。
 - 远端CI结论本轮尚未核验；Windows包、公开GitHub Release、商城发布与CI/CD模块均未执行。
 - 用户效果确认仍pending，后续任务GF-DATA-001本轮不启动。最终文档提交只收口此版事实，不声明生成新安装产物。
+
+## 2026-10-01T14:58:17+08:00 · GF-CHAT-001 / alpha.222 源码验收
+
+沿用alpha.221现有项目/仓库，新增按来源独立主会话、本机合并导入、既有台账和GitHub Issue/PR双向关联及项目接续入口。完整1457测试、310JS、renderer构建和隔离实际Electron14项交互/重启通过。只读GitHub真实列表与Codex协议打开验证；本项目开放Issue/PR为空。私人会话记录只留本地并排除提交/安装包，原工作树修改保留。当前安装alpha.221，正在准备本任务提交与alpha.222开发包，安装与真实导入验收由集成人串行完成后再推送；详见PROJECT_CONVERSATIONS_ALPHA222.md。

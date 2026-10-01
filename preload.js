@@ -107,6 +107,15 @@ contextBridge.exposeInMainWorld('gitFinder', {
     applyMilestoneUpdate: (milestoneKey, request) => ipcRenderer.invoke('projectTasks:applyMilestoneUpdate', milestoneKey, request)
   },
 
+  projectConversations: {
+    list: () => ipcRenderer.invoke('projectConversations:list'),
+    save: (projectId, conversations) => ipcRenderer.invoke('projectConversations:save', projectId, conversations),
+    import: (values) => ipcRenderer.invoke('projectConversations:import', values),
+    open: (projectId, source, threadId) => ipcRenderer.invoke('projectConversations:open', projectId, source, threadId),
+    workspace: (projectId, options) => ipcRenderer.invoke('projectConversations:workspace', projectId, options),
+    openRepository: (projectId, repository, view) => ipcRenderer.invoke('projectConversations:openRepository', projectId, repository, view),
+    openGithubTask: (projectId, url) => ipcRenderer.invoke('projectConversations:openGithubTask', projectId, url)
+  },
   localProjects: {
     describe: (directoryPath) => ipcRenderer.invoke('localProjects:describe', directoryPath),
     get: (directoryPath) => ipcRenderer.invoke('localProjects:get', directoryPath),
