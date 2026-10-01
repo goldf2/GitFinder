@@ -39,8 +39,15 @@ async function start(profile, output) {
     const click = async selector => { const point = await evaluate(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});if(!e||e.disabled)throw Error('Control missing');e.scrollIntoView({block:'center'});const r=e.getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2};})()`); for (const type of ['mousePressed', 'mouseReleased']) await send('Input.dispatchMouseEvent', { type, button: 'left', clickCount: 1, ...point }); };
     const fill = async (selector, value) => { const field = `#project-chat-modal ${selector}`; await click(field); await evaluate(`document.querySelector(${JSON.stringify(field)}).select()`); await send('Input.insertText', { text: value }); };
     const shot = async name => { const result = await send('Page.captureScreenshot', { format: 'png' }); fs.writeFileSync(path.join(output, name), Buffer.from(result.data, 'base64')); };
+    const drag = async (selector, destination) => {
+      const from = await evaluate(`(()=>{const r=document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2}})()`);
+      await send('Input.dispatchMouseEvent', { type:'mouseMoved', ...from });
+      await send('Input.dispatchMouseEvent', { type:'mousePressed', button:'left', buttons:1, clickCount:1, ...from });
+      for(let i=1;i<=12;i++) { await send('Input.dispatchMouseEvent', { type:'mouseMoved', button:'left', buttons:1, x:from.x+(destination.x-from.x)*i/12, y:from.y+(destination.y-from.y)*i/12 }); await delay(16); }
+      await send('Input.dispatchMouseEvent', { type:'mouseReleased', button:'left', clickCount:1, ...destination });
+    };
     await wait("typeof App!=='undefined'&&App.projectConversationsController&&AppState.localProjects.length>=2");
-    return { close, evaluate, wait, click, fill, shot };
+    return { close, evaluate, wait, click, fill, shot, drag, send };
   } catch (error) { await close(); throw error; }
 }
 
@@ -120,6 +127,7 @@ async function main() {
     await click('#sidebar-tag-clear');
     await app.evaluate("(async()=>{await gitFinder.tags.update('tag-0',{name:'形态:APP'});await gitFinder.tags.update('tag-1',{name:'平台:macOS'});await App.loadTags()})()");
     await check('现有标签按形态平台等维度分区', "[...document.querySelectorAll('.sidebar-tag-dimension')].map(e=>e.textContent).join(',')==='形态,平台,技术'");
+    await check('维度分组下标签不重复前缀', "document.querySelector('[data-tag-id=tag-0] .sidebar-item-name').textContent==='APP'&&document.querySelector('[data-tag-id=tag-1] .sidebar-item-name').textContent==='macOS'");
     await click('[data-tag-id=tag-0]');
     await click('[data-tag-id=tag-0]');
     await app.evaluate("const s=document.querySelector('#sidebar-tag-search');s.value='标签79';s.dispatchEvent(new Event('input',{bubbles:true}))");
@@ -136,9 +144,36 @@ async function main() {
     await click('#tags-sidebar-section .sidebar-title');
     await check('折叠标签区释放空间，展开恢复网格', "getComputedStyle(document.querySelector('#tags-filter-list')).display==='none'");
     await click('#tags-sidebar-section .sidebar-title');
+    await app.wait("document.querySelector('.sidebar-section-resize')!==null");
+    const beforeResize = await app.evaluate("document.querySelector('#tags-sidebar-section').getBoundingClientRect().height");
+    const resizeTo = await app.evaluate("(()=>{const r=document.querySelector('.sidebar-section-resize').getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2-60}})()");
+    await app.drag('.sidebar-section-resize',resizeTo);
+    await app.wait("!!App.sidebarLayoutController.sizes.tags");
+    await check('分隔线真实拖动调整两个区域高度', `document.querySelector('#tags-sidebar-section').getBoundingClientRect().height>${beforeResize+50}&&document.querySelector('#repository-shortcuts-list').clientHeight>40`);
+    const moveTo = await app.evaluate("(()=>{const r=document.querySelector('#repository-shortcuts-sidebar-section .sidebar-title').getBoundingClientRect();return{x:r.x+20,y:r.y+3}})()");
+    await app.drag('#tags-sidebar-section .sidebar-drag-handle',moveTo);
+    await check('标题手柄真实拖动将属性标签移到仓库上方', "App.sidebarLayoutController.visibleSections()[0].dataset.sectionId==='tags'&&document.querySelectorAll('.sidebar-section-resize').length===1");
+    await click('.sidebar-section-resize');
+    await app.send('Input.dispatchKeyEvent',{type:'keyDown',key:'ArrowDown',code:'ArrowDown',windowsVirtualKeyCode:40});
+    await app.send('Input.dispatchKeyEvent',{type:'keyUp',key:'ArrowDown',code:'ArrowDown',windowsVirtualKeyCode:40});
+    await check('调整后上下区域及添加按钮保持可达', "document.querySelector('#repository-shortcuts-list').clientHeight>40&&document.querySelector('#tags-filter-list').clientHeight>60&&document.querySelector('#add-tag-bottom-btn').getBoundingClientRect().bottom<document.querySelector('#repository-shortcuts-sidebar-section').getBoundingClientRect().top");
+    const savedSizes=await app.evaluate("JSON.stringify(App.sidebarLayoutController.sizes)");
+    await app.wait(`(async()=>JSON.stringify(await gitFinder.config.get('sidebarSectionSizes'))===${JSON.stringify(savedSizes)})()`);
+    await click('#tags-sidebar-section .sidebar-title-text');
+    await check('自定高度后折叠标签，仓库填满剩余空间', "document.querySelector('#sidebar').getBoundingClientRect().bottom-document.querySelector('#repository-shortcuts-sidebar-section').getBoundingClientRect().bottom<25");
+    await click('#tags-sidebar-section .sidebar-title-text');
+    await click('#sidebar-navigation-directories');
+    await app.wait("AppState.sidebarNavigationMode==='directories'");
+    await check('切换文件浏览不显示隐藏区域的分隔线', "document.querySelectorAll('.sidebar-section-resize').length===0&&!document.querySelector('#locations-sidebar-section').hidden");
+    await click('#sidebar-navigation-projects');
+    await app.wait("document.querySelectorAll('.sidebar-section-resize').length===1");
+    await check('回到仓库恢复自定顺序与高度偏好', `App.sidebarLayoutController.visibleSections()[0].dataset.sectionId==='tags'&&JSON.stringify(App.sidebarLayoutController.sizes)===${JSON.stringify(savedSizes)}`);
+    await app.shot('sidebar-custom-layout.png');
     await app.close();app=null;
     app=await start(profile,output);
+    await app.wait("!!App.sidebarLayoutController");
     await check('重开保留分类修改和原始标签', `AppState.projectGroups.find(g=>g.groupId==='${groupId}').name==='研发更新'&&AppState.tags.tags.length===80`);
+    await check('重开保留侧栏顺序和高度偏好', `App.sidebarLayoutController.visibleSections()[0].dataset.sectionId==='tags'&&Object.entries(${savedSizes}).every(([id,size])=>App.sidebarLayoutController.sizes[id]===size)`);
     fs.writeFileSync(path.join(output,'results.json'),JSON.stringify({version:require('../package.json').version,checks,passed:checks.length},null,2));
     console.log('PASSED',checks.length);
   } catch(error) { if(app)await app.shot('failure.png').catch(()=>{}); throw error; }

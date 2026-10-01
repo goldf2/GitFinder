@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-01T20:18:25.991Z",
+  "updatedAt": "2026-10-01T20:30:59.619Z",
   "scope": "以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。",
   "baseline": {
     "version": "2.0.0-alpha.193",
     "sourceCommit": "99eef1d2992e389f32a48182a25fda3b9adf1958",
     "evidence": "docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md"
   },
-  "nextTaskId": "GF-DATA-001",
+  "nextTaskId": "GF-SIDEBAR-227",
   "milestones": [
     {
       "id": "GF-P0",
@@ -1701,6 +1701,35 @@
         "version": "2.0.0-alpha.226",
         "sourceCommit": "c23016d492e54045f21d2af035779ee2c8fa6316"
       }
+    },
+    {
+      "id": "GF-SIDEBAR-227",
+      "milestone": "GF-P2",
+      "title": "侧栏区域排序、可调高度与自定义分类",
+      "priority": "P1",
+      "status": "verified",
+      "owner": "Codex",
+      "updatedAt": "2026-10-01T20:30:59.619Z",
+      "dependsOn": [
+        "GF-TAGS-226"
+      ],
+      "sourcePaths": [
+        "src/renderer/scripts/app.js",
+        "src/renderer/styles/sidebar.css",
+        "src/renderer/index.html",
+        "src/renderer/scripts/sidebarLayoutController.js"
+      ],
+      "acceptance": [
+        "Git仓库和属性标签可拖动排序、调整高度，并在重启后保持。",
+        "折叠、切换导航及短窗口下两区域可达，不影响多维标签筛选。",
+        "属性标签维度内不重复前缀；现有分类保留作为客户等自定义维度。"
+      ],
+      "evidence": [
+        "docs/00-handoff/SIDEBAR_LAYOUT_ALPHA227.md"
+      ],
+      "nextAction": "1460测试、311JS与25项实际指针/重启验收通过；提交源码并隔离构建，完成安装后推送。",
+      "blocker": "",
+      "userAcceptance": "pending"
     }
   ]
 }

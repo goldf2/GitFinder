@@ -536,7 +536,7 @@
       };
       container.innerHTML = `<button class="sidebar-item sidebar-shortcut-all repository-shortcut-all" data-repository-shortcut-all type="button"><span class="sidebar-icon sidebar-shortcut-all-icon" aria-hidden="true">⑂</span><span class="sidebar-item-name">所有 Git 仓库</span><span class="badge">${allRepos.length}</span></button>
         ${showRecent ? this.recentHeading('repositories') + (this.collapsedRecent.has('repositories') ? '' : recent.map(renderRepository).join('') || '<div class="sidebar-shortcut-empty">尚无最近仓库</div>') : ''}
-        <div class="sidebar-shortcut-heading">分类 <button class="project-type-edit" type="button" data-new-repository-category aria-label="新建分类" title="新建分类">＋</button></div>
+        <div class="sidebar-shortcut-heading" title="按客户、专题等自定义分类，可与属性标签组合筛选">自定义分类 <button class="project-type-edit" type="button" data-new-repository-category aria-label="新建分类" title="新建分类">＋</button></div>
         ${groups.map(group => {
           const id = this.app.escapeHtml(group.groupId);
           const expanded = this.expandedTypeIds.has(`repositories:${group.groupId}`);

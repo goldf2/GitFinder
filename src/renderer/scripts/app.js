@@ -246,7 +246,6 @@ const App = {
     // 加载保存的侧栏 section 顺序
     AppState.sidebarSectionOrder = await window.gitFinder.config.get('sidebarSectionOrder');
     this.applySidebarSectionOrder();
-    this.setupSidebarSectionDrag();
     // 加载并应用侧栏 section 折叠状态
     const collapsedSections = await window.gitFinder.config.get('sidebarCollapsedSections');
     if (Array.isArray(collapsedSections)) {
@@ -254,6 +253,8 @@ const App = {
       this.applySidebarCollapse();
     }
     this.setupSidebarCollapse();
+    this.sidebarLayoutController = new window.SidebarLayoutController(this, document.getElementById('sidebar'),
+      await window.gitFinder.config.get('sidebarSectionSizes'));
     // 加载保存的列宽
     await this.loadColumnWidths();
 
@@ -2858,56 +2859,6 @@ const App = {
     }
   },
 
-  // 侧栏 section 拖拽排序
-  setupSidebarSectionDrag() {
-    const sidebar = document.getElementById('sidebar');
-    if (!sidebar || sidebar.dataset.sectionDragInit) return;
-    sidebar.dataset.sectionDragInit = '1';
-
-    let draggedSection = null;
-
-    sidebar.addEventListener('mousedown', (e) => {
-      if (!e.target.classList.contains('sidebar-drag-handle')) return;
-      const section = e.target.closest('.sidebar-section[data-section-id]');
-      if (!section) return;
-      // 启用 draggable
-      section.setAttribute('draggable', 'true');
-    });
-
-    sidebar.addEventListener('dragstart', (e) => {
-      const section = e.target.closest('.sidebar-section[data-section-id]');
-      if (!section || section.getAttribute('draggable') !== 'true') return;
-      draggedSection = section;
-      section.classList.add('sidebar-section-dragging');
-      e.dataTransfer.effectAllowed = 'move';
-      e.dataTransfer.setData('text/plain', section.dataset.sectionId);
-    });
-
-    sidebar.addEventListener('dragend', (e) => {
-      const section = e.target.closest('.sidebar-section[data-section-id]');
-      if (section) {
-        section.classList.remove('sidebar-section-dragging');
-        section.removeAttribute('draggable');
-      }
-      draggedSection = null;
-      this.saveSidebarSectionOrder();
-    });
-
-    sidebar.addEventListener('dragover', (e) => {
-      if (!draggedSection) return;
-      const target = e.target.closest('.sidebar-section[data-section-id]');
-      if (!target || target === draggedSection) return;
-      e.preventDefault();
-      const rect = target.getBoundingClientRect();
-      const midpoint = rect.top + rect.height / 2;
-      if (e.clientY < midpoint) {
-        sidebar.insertBefore(draggedSection, target);
-      } else {
-        sidebar.insertBefore(draggedSection, target.nextSibling);
-      }
-    });
-  },
-
   // 保存侧栏 section 顺序到配置
   saveSidebarSectionOrder() {
     const sidebar = document.getElementById('sidebar');
@@ -2915,7 +2866,7 @@ const App = {
     const order = Array.from(sidebar.querySelectorAll('.sidebar-section[data-section-id]'))
       .map(el => el.dataset.sectionId);
     AppState.sidebarSectionOrder = order;
-    window.gitFinder.config.set('sidebarSectionOrder', order);
+    window.gitFinder.config.set('sidebarSectionOrder', order).catch(() => this._showStatusMessage?.('侧栏顺序未能保存', 'warning'));
   },
 
   // 应用侧栏 section 折叠状态
