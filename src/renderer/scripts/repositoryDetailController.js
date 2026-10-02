@@ -15,10 +15,15 @@
 
     cancel() {
       this.selectionRequestId += 1;
+      const preview = this._element('repository-preview');
+      if (preview) preview.hidden = true;
     }
 
     async select(repoPath) {
       const requestId = ++this.selectionRequestId;
+      const preview = this._element('repository-preview');
+      if (preview) preview.hidden = true;
+      const previewOnly = this.app.contentCollectionKind?.() === 'repositories' && !this.state.workspaceRepository;
       const project = this.state.localProjects?.find(item => item.path === repoPath);
       this.app.fileSelectionDetailController?.setContext({
         path: repoPath, name: project?.name || repoPath.split(/[\\/]/).pop(), type: 'directory',
@@ -39,17 +44,17 @@
           this.bridge.git.getStatus(repoPath, { autoFetch: false }),
           this.bridge.fs.getReadmePreview(repoPath),
           this.bridge.tags.getRepoTags(repoPath),
-          this.bridge.fs.listProjectControlFiles(repoPath),
-          this.bridge.fs.listMarkdownDocuments(repoPath),
-          this.bridge.config.get('projectControlSelections'),
-          this.bridge.config.get('markdownDocumentSelections'),
+          previewOnly ? [] : this.bridge.fs.listProjectControlFiles(repoPath),
+          previewOnly ? [] : this.bridge.fs.listMarkdownDocuments(repoPath),
+          previewOnly ? {} : this.bridge.config.get('projectControlSelections'),
+          previewOnly ? {} : this.bridge.config.get('markdownDocumentSelections'),
           this.bridge.localProjects.describe(repoPath).catch(() => ({ isProject: false, project: null })),
-          this.bridge.architectureSnapshots?.list?.(repoPath).catch(() => []) || Promise.resolve([])
+          previewOnly ? [] : (this.bridge.architectureSnapshots?.list?.(repoPath).catch(() => []) || Promise.resolve([]))
         ]);
         const groups = this.app._findRepoGroups(repoPath);
         const [projectControl, projectDocs] = await Promise.all([
-          this.app.loadProjectControl(repoPath, controlFiles, savedSelections?.[repoPath]),
-          this.app.loadMarkdownDocuments(repoPath, markdownDocs, savedDocSelections?.[repoPath])
+          previewOnly ? null : this.app.loadProjectControl(repoPath, controlFiles, savedSelections?.[repoPath]),
+          previewOnly ? null : this.app.loadMarkdownDocuments(repoPath, markdownDocs, savedDocSelections?.[repoPath])
         ]);
         if (requestId !== this.selectionRequestId) return false;
 
@@ -181,6 +186,12 @@
     async render() {
       const repo = this.state.selectedRepo;
       if (!repo) return false;
+      this.renderPreview(repo);
+      if (this.app.contentCollectionKind?.() === 'repositories' && !this.state.workspaceRepository) {
+        this._element('detail-empty').style.display = 'none';
+        this._element('detail-content').style.display = 'none';
+        return true;
+      }
 
       this._element('detail-empty').style.display = 'none';
       this._element('detail-content').style.display = 'flex';
@@ -290,6 +301,24 @@
       this._renderTags(repo, tags);
       this.app.panelDeploymentController?.showRepository(repo);
       return true;
+    }
+
+    renderPreview(repo) {
+      const panel = this._element('repository-preview');
+      if (!panel) return;
+      const e = value => this.app.escapeHtml(String(value ?? ''));
+      const status = repo.gitStatus || {}, project = repo.localProject?.project;
+      const labels = {clean:'工作区干净',dirty:'工作区有变更',ahead:'有待推送提交',behind:'有待拉取提交'};
+      panel.hidden = false;
+      panel.innerHTML = `<header class="repository-preview-heading"><span class="preview-eyebrow">仓库预览</span><h2>${e(project?.name || repo.name)}</h2><p class="preview-description">${e(project?.description || repo.readme?.description || '还没有项目简介。可在项目属性中添加，方便以后快速辨认。')}</p><div class="preview-primary-actions"><button class="btn btn-primary" data-preview-open="project">进入工作区</button><button class="btn" data-preview-reveal title="在访达中显示此仓库">访达中显示</button></div></header>
+        <section><h3>当前状态</h3><p class="preview-git-state"><span class="status-indicator status-${e(status.overallStatus || 'none')}"></span>${e(status.error ? '状态读取不完整' : labels[status.overallStatus] || '尚未读取状态')}</p><dl class="preview-properties"><dt>分支</dt><dd>${e(status.branch || '尚无提交')}</dd><dt>文件变更</dt><dd>${Number(status.modified)||0} 修改 · ${Number(status.staged)||0} 暂存 · ${Number(status.untracked)||0} 未跟踪</dd><dt>远端同步</dt><dd>↑ ${Number(status.ahead)||0} · ↓ ${Number(status.behind)||0}<small>基于本地远端缓存</small></dd><dt>远程仓库</dt><dd>${status.hasRemote ? '已配置' : '未配置'}</dd></dl></section>
+        <section><h3>最近提交</h3>${status.lastCommit ? `<p class="preview-commit">${e(status.lastCommit.message)}</p><small>${e(status.lastCommit.hash)} · ${e(this.app.formatTime(status.lastCommit.timestamp))}</small>` : '<p class="preview-muted">暂无提交记录</p>'}</section>
+        <section><h3>项目资料</h3><div class="preview-destinations"><button class="btn" data-preview-open="planning">资料与规划</button><button class="btn" data-preview-open="tasks">开发任务</button><button class="btn" data-preview-open="files">浏览文件</button><button class="btn" data-preview-properties>项目属性</button></div></section>
+        <section><h3>属性标签</h3><div class="preview-tags">${(repo.tags||[]).map(tag=>`<span>${e(tag.name)}</span>`).join('')||'<p class="preview-muted">尚未添加标签</p>'}</div></section>
+        <section><h3>所在位置</h3><p class="preview-path">${e(repo.path)}</p></section>`;
+      panel.querySelectorAll('[data-preview-open]').forEach(button => button.addEventListener('click',()=>this.app.workspaceController.openRepository(repo.path,button.dataset.previewOpen)));
+      panel.querySelector('[data-preview-properties]').addEventListener('click',()=>this.app.openLocalProjectDialog(repo.path));
+      panel.querySelector('[data-preview-reveal]').addEventListener('click',()=>this.bridge.fs.showInFinder(repo.path).catch(error=>this.app._showStatusMessage(error.message,'error')));
     }
 
     _renderGroups(repo) {

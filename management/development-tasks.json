@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-02T07:34:19+08:00",
+  "updatedAt": "2026-10-02T08:07:11+08:00",
   "scope": "以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。",
   "baseline": {
     "version": "2.0.0-alpha.193",
     "sourceCommit": "99eef1d2992e389f32a48182a25fda3b9adf1958",
     "evidence": "docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md"
   },
-  "nextTaskId": "GF-DATA-001",
+  "nextTaskId": "GF-INTERFACE-233",
   "milestones": [
     {
       "id": "GF-P0",
@@ -1906,6 +1906,38 @@
         "version": "2.0.0-alpha.232",
         "sourceCommit": "141f5a6a68b04c7c95447673b5dfe82a6689622d"
       }
+    },
+    {
+      "id": "GF-INTERFACE-233",
+      "milestone": "GF-P2",
+      "title": "统一界面规范、布局与分级浏览体验",
+      "priority": "P1",
+      "status": "verified",
+      "owner": "Codex",
+      "updatedAt": "2026-10-02T08:07:11+08:00",
+      "dependsOn": [],
+      "sourcePaths": [
+        "src/renderer/index.html",
+        "src/renderer/scripts/app.js",
+        "src/renderer/scripts/repositoryDetailController.js",
+        "src/renderer/scripts/workspaceFlowController.js",
+        "src/renderer/scripts/workbenchPortfolioController.js",
+        "src/renderer/styles/interface-system.css",
+        "src/renderer/styles/workbench.css"
+      ],
+      "acceptance": [
+        "统一标题/工具条/集合筛选，减少叠层与重复按钮。",
+        "列表预览提供结构化摘要，完整工作区保持专注编辑与一致的主从布局。",
+        "统一字号、间距、控件、色彩/状态与键盘焦点；亮暗模式和800/1280/1440宽度无遮挡。",
+        "保留筛选、双击/显式进入、返回恢复、文档任务保存和文件浏览功能。",
+        "干净构建、可恢复安装、实际应用验收后推送。"
+      ],
+      "evidence": [
+        "docs/00-handoff/INTERFACE_ALPHA233.md"
+      ],
+      "nextAction": "源码1473测试/317JS、界面257、工作台25、工具条10通过；从提交干净构建，再可恢复安装与实际应用验收后推送。",
+      "blocker": "",
+      "userAcceptance": "pending"
     }
   ]
 }

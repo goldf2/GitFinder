@@ -135,7 +135,8 @@ test('全部仓库状态条件写入当前标签查询，仪表盘临时筛选�
   assert.match(appSource, /setActiveRepositoryStatusFilters\(statuses\)/);
   assert.match(appSource, /contentCollectionKind\(\) === 'repositories'[\s\S]*?AppState\.contentQuery = window\.ContentQuery\.normalize/);
   assert.match(appSource, /AppState\.selectedStatuses = normalized/);
-  assert.match(appSource, /ContentQuery\.normalize\(AppState\.contentQuery\)\.gitStatuses\.length > 0/);
+  // Batch completion now refreshes every repository card; filtering is still applied by _prepareDisplayRepos.
+  assert.match(appSource, /this\._renderGridContent\(this\._prepareDisplayRepos\(\), contentArea\)/);
 });
 
 test('隐藏项目显示可从菜单、快捷键和应用设置切换并保持浏览边界', () => {

@@ -18,6 +18,8 @@ test('仓库状态批次只接受当前请求的进度和结果', () => {
     latest: { path: '/repo/a', status: { branch: 'stale' } }
   }), false);
   assert.equal(state.items[0].gitStatus.branch, '');
+  assert.equal(state.items[0].gitStatus.pending, true);
+  assert.equal(state.items[0].gitStatus.overallStatus, 'none');
 
   assert.equal(RepoStatusBatch.applyProgress(state, {
     requestId: 'batch-new',
@@ -26,6 +28,7 @@ test('仓库状态批次只接受当前请求的进度和结果', () => {
     latest: { path: '/repo/a', status: { branch: 'main', overallStatus: 'clean' } }
   }), true);
   assert.equal(state.items[0].gitStatus.branch, 'main');
+  assert.equal(state.items[0].gitStatus.pending, undefined);
   assert.deepEqual(state.progress, { completed: 1, total: 2, running: 0, cancelled: false, done: false });
 });
 

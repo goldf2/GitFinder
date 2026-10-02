@@ -12,7 +12,8 @@
       untracked: 0,
       ahead: 0,
       behind: 0,
-      overallStatus: 'clean'
+      overallStatus: 'none',
+      pending: true
     };
   }
 

@@ -275,3 +275,16 @@ test('仓库详情控制器在 App 之前加载，App 只保留兼容委托', ()
   assert.doesNotMatch(appSource, /updateDetailPanel\(\) \{/);
   assert.doesNotMatch(appSource, /window\.gitFinder\.fs\.getFileInfo\(repoPath\)[\s\S]{0,800}window\.gitFinder\.git\.getStatus\(repoPath/);
 });
+
+test('列表摘要预览不等待文档、任务和架构的完整读取', async () => {
+  const fail = async () => { throw Error('Full workspace read must remain deferred'); };
+  const h = createHarness({
+    app: { contentCollectionKind: () => 'repositories', loadProjectControl: fail, loadMarkdownDocuments: fail },
+    bridge: { fs: { listProjectControlFiles: fail, listMarkdownDocuments: fail }, config: { get: fail } }
+  });
+  assert.equal(await h.controller.select('/repo/a'), true);
+  assert.equal(h.state.selectedRepo.path, '/repo/a');
+  assert.equal(h.state.selectedRepo.projectDocs, null);
+  assert.equal(h.state.selectedRepo.projectControl, null);
+  assert.deepEqual(h.calls, [['cwd', '/repo/a'], ['render', '/repo/a']]);
+});

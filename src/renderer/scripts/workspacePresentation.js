@@ -8,7 +8,7 @@
 
   function gitOverview({ status, review, log, contextHtml = '' }) {
     const files = review.files || [], commits = Array.isArray(log) ? log : [];
-    const changeRow = (file, index) => `<button type="button" class="workspace-change-row" data-workspace-diff="${index}" aria-controls="workspace-diff-panel"><span class="workspace-file-name">${escape(file.path)}</span><small>${file.staged ? '已暂存' : ''}${file.staged && file.unstaged ? ' · ' : ''}${file.unstaged ? '未暂存' : ''}</small></button>`;
+    const changeRow = (file, index) => `<button type="button" class="workspace-change-row" data-workspace-diff="${index}" aria-controls="workspace-diff-panel"><span class="workspace-file-name" title="${escape(file.path)}">${escape(file.path)}</span><small>${file.staged ? '已暂存' : ''}${file.staged && file.unstaged ? ' · ' : ''}${file.unstaged ? '未暂存' : ''}</small></button>`;
     const commitRow = commit => `<div class="workspace-commit" title="${escape(`${commit.message} · ${commit.author || ''}`)}"><code>${escape(commit.hash)}</code><span>${escape(commit.message)}</span><small class="workspace-commit-author">${escape(commit.author)}</small></div>`;
     const ahead = count(status.ahead), behind = count(status.behind);
     const staged = count(review.stagedCount), unstaged = count(review.unstagedCount);

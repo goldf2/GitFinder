@@ -1685,6 +1685,7 @@ const App = {
         if (item && !item.disabled) this.closeToolbarMenus();
       });
       menu.addEventListener('keydown', event => {
+        if (menu.id === 'repository-filter-options') return;
         const items = [...menu.querySelectorAll('.finder-menu-item:not(:disabled)')].filter(item => !item.closest('[hidden]'));
         if (!items.length) return;
         const currentIndex = Math.max(0, items.indexOf(document.activeElement));
@@ -2955,7 +2956,7 @@ const App = {
         document.querySelector('.main-container')?.clientWidth || window.innerWidth,
         preferred.sidebarWidth,
         preferred.detailWidth,
-        { sidebarHidden: this._sidebarHidden, detailPanelHidden: this.isDetailPanelHidden() }
+        { sidebarHidden: this._sidebarHidden, detailPanelHidden: this.isDetailPanelHidden(), minContentWidth: 480, maxSidebarWidth: 320, maxDetailWidth: 380 }
       );
       sidebar.style.width = `${constrained.sidebarWidth}px`;
       detailPanel.style.width = `${constrained.detailWidth}px`;
@@ -3670,17 +3671,13 @@ const App = {
       parts.push(`<span class="filter-chip-group">状态: ${statusChips}</span>`);
     }
 
-    // 名称摘要
-    if (AppState.searchScope === 'current' && AppState.filterEnabled.name && AppState.searchQuery) {
-      parts.push(`<span class="filter-chip">名称: "${this.escapeHtml(AppState.searchQuery)}"</span>`);
+    if (AppState.searchScope === 'current' && AppState.searchQuery && (AppState.filterEnabled.name || AppState.filterEnabled.readme)) {
+      parts.push(`<span class="filter-chip" title="按勾选的名称与 README 搜索">搜索：${this.escapeHtml(AppState.searchQuery)}</span>`);
     }
-
-    // README 摘要
-    if (AppState.searchScope === 'current' && AppState.filterEnabled.readme && AppState.searchQuery) {
-      parts.push(`<span class="filter-chip">README: "${AppState.searchQuery}"</span>`);
-    }
-
-    summary.innerHTML = parts.length > 0 ? parts.join('') : '<span class="filter-empty">未应用筛选</span>';
+    summary.innerHTML = parts.join('');
+    const filterCount = document.getElementById('repository-filter-count');
+    if (filterCount) filterCount.textContent = parts.length ? ` ${parts.length}` : '';
+    document.getElementById('clear-all-filters').hidden = parts.length === 0;
 
     // 标签移除按钮
     summary.querySelectorAll('.filter-chip-remove').forEach(el => {
@@ -3942,6 +3939,7 @@ const App = {
     const relationshipsMode = AppState.currentMode === 'relationships';
     const panelMode = AppState.currentMode === 'panel';
     const collectionKind = this.contentCollectionKind();
+    document.body.classList.toggle('repository-catalog-active', collectionKind === 'repositories' && !AppState.workspaceRepository);
     const projectsMode = ['projects', 'project-repositories'].includes(collectionKind);
     const collectionMode = Boolean(collectionKind);
     const settingsMode = AppState.currentMode === 'settings';
@@ -5031,7 +5029,7 @@ const App = {
   _prepareDisplayRepos() {
     let repos = this.decorateRepositoryProjectMetadata(AppState.enrichedRepos.length ? AppState.enrichedRepos : AppState.allRepos.map(r => ({
       ...r,
-      gitStatus: { isGitRepo: true, branch: '', modified: 0, ahead: 0, behind: 0, overallStatus: 'clean' },
+      gitStatus: { isGitRepo: true, branch: '', modified: 0, ahead: 0, behind: 0, overallStatus: 'none', pending: true },
       tags: [],
       readme: r.readme || null,
       groups: []
@@ -5047,6 +5045,8 @@ const App = {
     AppState.visibleItems = filtered;
     this.updateSidebarTagCounts(filtered);
     this.projectShortcutsController.render();
+    const count = document.getElementById('directory-filter-label');
+    if (count) count.textContent = `${filtered.length} 个仓库 / 共 ${AppState.allRepos.length}`;
 
     // 主区平铺筛选后的仓库，与侧栏类型成员共享筛选结果。
     if (AppState.cardStyle === 'list') {
@@ -5491,15 +5491,14 @@ const App = {
     this.renderRepoStatusWork(state.progress, requestId);
     this.updateSidebarTagCounts();
 
-    if (this.contentCollectionKind() === 'repositories') {
-      const hasFilter = window.ContentQuery.normalize(AppState.contentQuery).gitStatuses.length > 0 ||
-                        (AppState.filterEnabled.tag && AppState.selectedTags.length > 0) ||
-                        (AppState.searchScope === 'current' && AppState.searchQuery && (AppState.filterEnabled.name || AppState.filterEnabled.readme));
-      const statusSensitiveSort = ['status', 'branch'].includes(AppState.sortBy);
-      if (hasFilter || statusSensitiveSort) {
-        const contentArea = document.getElementById('content-area');
-        if (contentArea) this._renderGridContent(this._prepareDisplayRepos(), contentArea);
-      }
+    if (this.contentCollectionKind() === 'repositories' && !AppState.workspaceRepository && !AppState.workspaceProject) {
+      const contentArea = document.getElementById('content-area');
+      const focusedPath = document.activeElement?.closest?.('#content-area [data-path]')?.dataset.path;
+      const scroll = document.getElementById('content-scroll');
+      const scrollTop = scroll?.scrollTop || 0;
+      if (contentArea) this._renderGridContent(this._prepareDisplayRepos(), contentArea);
+      if (scroll) scroll.scrollTop = scrollTop;
+      if (focusedPath) contentArea?.querySelector(`[data-path="${this.cssEscape(focusedPath)}"]`)?.focus({ preventScroll: true });
     }
     this.updateStatusBar();
     return summary;
@@ -5558,10 +5557,10 @@ const App = {
   },
 
   _updateRepoCard(path, status, tags, readme, groups) {
-    const card = document.querySelector(`[data-path="${this.cssEscape(path)}"]`);
+    const card = document.querySelector(`#content-area [data-path="${this.cssEscape(path)}"]`);
     if (!card) return;
 
-    const overallStatus = status.overallStatus || 'clean';
+    const overallStatus = status.pending || status.error ? 'none' : (status.overallStatus || 'none');
     card.className = card.className.replace(/status-\w+/g, '') + ` status-${overallStatus}`;
 
     const statusIndicator = card.querySelector('.status-indicator');
@@ -5573,7 +5572,10 @@ const App = {
     if (branchBadge) {
       const indicator = document.createElement('span');
       indicator.className = `status-indicator status-${overallStatus}`;
-      branchBadge.replaceChildren(indicator, document.createTextNode(status.branch || 'main'));
+      const label = document.createElement('span');
+      label.className = 'repo-status-label';
+      label.textContent = status.pending ? '读取中…' : status.error ? '读取失败' : ({clean:'干净',dirty:'有变更',ahead:'待推送',behind:'待拉取'})[overallStatus] || '状态未知';
+      branchBadge.replaceChildren(indicator, document.createTextNode(status.branch || 'Git'), label);
     }
 
     if (readme && readme.description) {
@@ -5950,10 +5952,13 @@ const App = {
 
   getCardHtml(item) {
     const status = item.gitStatus || {};
-    const rawStatus = status.overallStatus || (item.isGitRepo ? 'clean' : 'none');
+    const rawStatus = status.pending || status.error ? 'none' : status.overallStatus || 'none';
     const overallStatus = ['clean', 'dirty', 'ahead', 'behind', 'none'].includes(rawStatus) ? rawStatus : 'none';
     const readme = item.readme || {};
     const tags = item.tags || [];
+    const compact = this.contentCollectionKind() === 'repositories';
+    const visibleTags = compact ? tags.slice(0, 3) : tags;
+    const stateLabel = status.pending ? '读取中…' : status.error ? '读取失败' : ({clean:'干净',dirty:'有变更',ahead:'待推送',behind:'待拉取'})[overallStatus] || '状态未知';
     const groups = item.groups || [];
     const itemPath = this.escapeHtml(item.path);
     const projectStyle = this.getProjectSemanticStyle(item);
@@ -5965,11 +5970,11 @@ const App = {
         <div class="repo-card-header">
           <div class="repo-name">
             ${this.getItemKindIconHtml(item, 'repo-icon')}
-            ${this.escapeHtml(item.name)}
+            ${this.escapeHtml(item.project?.name || item.name)}
           </div>
           ${item.isGitRepo ? `<div class="repo-branch-badge">
             <span class="status-indicator status-${overallStatus}"></span>
-            ${this.escapeHtml(status.branch || 'main')}
+            ${this.escapeHtml(status.branch || 'Git')}<span class="repo-status-label">${stateLabel}</span>
           </div>` : ''}
         </div>
         <div class="repo-path">${itemPath}</div>
@@ -5977,10 +5982,10 @@ const App = {
         ${projectLifecycle ? `<div>${this.getProjectLifecycleBadgeHtml(item, projectLifecycle)}</div>` : ''}
         ${tags.length > 0 ? `
           <div class="repo-tags">
-            ${tags.map(t => {
+            ${visibleTags.map(t => {
               const color = this.safeColor(t.color);
-              return `<span class="repo-tag" style="background:${color}20;color:${color};border:1px solid ${color}40;">${this.escapeHtml(t.name)}</span>`;
-            }).join('')}
+              return `<span class="repo-tag" style="${compact ? '' : `background:${color}20;color:${color};border:1px solid ${color}40;`}">${this.escapeHtml(t.name)}</span>`;
+            }).join('')}${compact && tags.length > 3 ? `<span class="repo-tag-overflow" title="${this.escapeHtml(tags.slice(3).map(t=>t.name).join(' · '))}">+${tags.length-3}</span>` : ''}
           </div>
         ` : ''}
         ${groups.length > 0 ? `
@@ -6283,7 +6288,7 @@ const App = {
 
   _getGalleryItemHtml(item) {
     const status = item.gitStatus || {};
-    const rawStatus = status.overallStatus || (item.isGitRepo ? 'clean' : 'none');
+    const rawStatus = status.pending || status.error ? 'none' : status.overallStatus || 'none';
     const overallStatus = ['clean', 'dirty', 'ahead', 'behind', 'none'].includes(rawStatus) ? rawStatus : 'none';
     const projectStyle = this.getProjectSemanticStyle(item);
     const lifecycle = window.FileBrowser.projectLifecycleLabel(item);
@@ -6395,7 +6400,7 @@ const App = {
   _getListItemHtml(item) {
     const status = item.gitStatus || {};
     const groups = item.groups || [];
-    const rawStatus = status.overallStatus || (item.isGitRepo ? 'clean' : 'none');
+    const rawStatus = status.pending || status.error ? 'none' : status.overallStatus || 'none';
     const overallStatus = ['clean', 'dirty', 'ahead', 'behind', 'none'].includes(rawStatus) ? rawStatus : 'none';
     const projectStyle = this.getProjectSemanticStyle(item);
     const lifecycle = window.FileBrowser.projectLifecycleLabel(item);
@@ -6403,7 +6408,7 @@ const App = {
       ? '文件'
       : (item.isProject ? `项目文件夹${lifecycle ? ` · ${lifecycle}` : ''}` : '文件夹');
     const gitLabel = item.isGitRepo
-      ? `${status.branch || 'Git'}${(status.modified || 0) > 0 ? ` · ${status.modified} 项修改` : ''}${(status.ahead || 0) > 0 ? ` · ↑${status.ahead}` : ''}${(status.behind || 0) > 0 ? ` · ↓${status.behind}` : ''}`
+      ? status.pending ? '读取中…' : status.error ? '读取失败' : `${status.branch || 'Git'}${(status.modified || 0) > 0 ? ` · ${status.modified} 项修改` : ''}${(status.ahead || 0) > 0 ? ` · ↑${status.ahead}` : ''}${(status.behind || 0) > 0 ? ` · ↓${status.behind}` : ''}`
       : '—';
     const focused = item.path === AppState.fileKeyboardFocusPath;
     return `

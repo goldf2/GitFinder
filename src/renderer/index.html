@@ -15,6 +15,8 @@
   <link rel="stylesheet" href="styles/theme.css">
   <link rel="stylesheet" href="styles/apple-ui.css">
   <link rel="stylesheet" href="styles/project-progress.css">
+  <link rel="stylesheet" href="styles/interface-system.css">
+  <link rel="stylesheet" href="styles/workbench.css">
 <style>[data-view][hidden], [data-mode][hidden], .app-settings-footer[hidden] { display: none !important; }
 #settings-testing .app-settings-row { grid-template-columns: minmax(0, 1fr) auto; gap: 12px; }
 .experimental-settings-note { color: var(--text-secondary); line-height: 1.6; margin: 16px 0; }</style>
@@ -242,35 +244,6 @@
       <div class="resize-handle resize-handle-left" id="resize-handle-left"></div>
 
       <main class="content-area">
-        <div class="filter-bar" id="filter-bar" style="display:none;">
-          <span class="filter-label">筛选方式：</span>
-          <div class="repository-category-filter" id="repository-category-filter">
-            <button class="repository-category-trigger" id="category-filter-btn" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="category-filter-dropdown">
-              <span id="category-filter-label">分类：全部</span><span aria-hidden="true">⌄</span>
-            </button>
-            <div class="repository-category-dropdown" id="category-filter-dropdown" role="menu" hidden>
-              <div id="groups-list"></div>
-              <button class="repository-category-add" id="add-group-bottom-btn" type="button" role="menuitem">＋ 添加分类…</button>
-            </div>
-          </div>
-          <label class="filter-checkbox"><input type="checkbox" id="filter-tag-check" checked> 仓库标签</label>
-          <div class="status-filter-wrapper">
-            <label class="filter-checkbox"><input type="checkbox" id="filter-status-check" checked> 状态</label>
-            <button class="status-filter-btn" id="status-filter-btn" type="button">选择 ▼</button>
-            <div class="status-filter-dropdown" id="status-filter-dropdown">
-              <label class="status-filter-item"><input type="checkbox" value="clean"> 已同步<span class="status-desc">当前读取未发现修改或领先/落后</span></label>
-              <label class="status-filter-item"><input type="checkbox" value="dirty"> 未提交<span class="status-desc">有修改/暂存/未跟踪文件</span></label>
-              <label class="status-filter-item"><input type="checkbox" value="ahead"> 未推送<span class="status-desc">有未推送的提交</span></label>
-              <label class="status-filter-item"><input type="checkbox" value="behind"> 未拉取<span class="status-desc">远程有新提交</span></label>
-              <label class="status-filter-item"><input type="checkbox" value="no-remote"> 未添加远程仓库<span class="status-desc">未配置任何远程仓库</span></label>
-            </div>
-          </div>
-          <label class="filter-checkbox"><input type="checkbox" id="filter-name-check" checked> 名称</label>
-          <label class="filter-checkbox"><input type="checkbox" id="filter-readme-check" checked> README</label>
-          <span class="filter-divider"></span>
-          <div class="filter-summary" id="filter-summary"></div>
-          <button class="clear-filter-btn" id="clear-all-filters">清除全部</button>
-        </div>
         <div id="repository-workspace-tabs" class="repository-workspace-tabs" hidden></div>
         <div class="file-action-bar" id="file-action-bar">
           <div class="finder-menu-host">
@@ -312,15 +285,48 @@
           </div>
         </div>
         <div class="sort-bar" id="sort-bar">
-          <button class="finder-toolbar-button" id="btn-refresh" title="刷新">
+          <button class="finder-toolbar-button" id="btn-refresh" aria-label="刷新当前内容" title="刷新">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="23 4 23 10 17 10"></polyline>
               <polyline points="1 20 1 14 7 14"></polyline>
               <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
             </svg>
-            刷新
+            <span class="refresh-label">刷新</span>
           </button>
-          <span class="sort-divider"></span>
+          <div class="filter-bar" id="filter-bar" style="display:none;">
+            <div class="finder-menu-host repository-filter-host">
+              <button class="finder-toolbar-button" id="repository-filter-trigger" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="repository-filter-options" data-menu-trigger="repository-filter-options">筛选<span id="repository-filter-count"></span><span aria-hidden="true">⌄</span></button>
+              <div class="finder-menu repository-filter-options" id="repository-filter-options" role="dialog" aria-label="仓库筛选选项" hidden>
+                <div class="finder-menu-heading">筛选与搜索范围</div>
+          <div class="repository-category-filter" id="repository-category-filter">
+            <button class="repository-category-trigger" id="category-filter-btn" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="category-filter-dropdown">
+              <span id="category-filter-label">分类：全部</span><span aria-hidden="true">⌄</span>
+            </button>
+            <div class="repository-category-dropdown" id="category-filter-dropdown" role="menu" hidden>
+              <div id="groups-list"></div>
+              <button class="repository-category-add" id="add-group-bottom-btn" type="button" role="menuitem">＋ 添加分类…</button>
+            </div>
+          </div>
+          <label class="filter-checkbox"><input type="checkbox" id="filter-tag-check" checked> 仓库标签</label>
+          <div class="status-filter-wrapper">
+            <label class="filter-checkbox"><input type="checkbox" id="filter-status-check" checked> 状态</label>
+            <button class="status-filter-btn" id="status-filter-btn" type="button">选择 ▼</button>
+            <div class="status-filter-dropdown" id="status-filter-dropdown">
+              <label class="status-filter-item"><input type="checkbox" value="clean"> 已同步<span class="status-desc">当前读取未发现修改或领先/落后</span></label>
+              <label class="status-filter-item"><input type="checkbox" value="dirty"> 未提交<span class="status-desc">有修改/暂存/未跟踪文件</span></label>
+              <label class="status-filter-item"><input type="checkbox" value="ahead"> 未推送<span class="status-desc">有未推送的提交</span></label>
+              <label class="status-filter-item"><input type="checkbox" value="behind"> 未拉取<span class="status-desc">远程有新提交</span></label>
+              <label class="status-filter-item"><input type="checkbox" value="no-remote"> 未添加远程仓库<span class="status-desc">未配置任何远程仓库</span></label>
+            </div>
+          </div>
+          <label class="filter-checkbox"><input type="checkbox" id="filter-name-check" checked> 名称</label>
+          <label class="filter-checkbox"><input type="checkbox" id="filter-readme-check" checked> README</label>
+                <p class="filter-help">属性标签在左侧多选，条件会组合应用。</p>
+              </div>
+            </div>
+            <div class="filter-summary" id="filter-summary"></div>
+            <button class="clear-filter-btn" id="clear-all-filters" title="清除当前筛选">清除</button>
+          </div>
           <div class="finder-menu-host" id="directory-type-filter">
             <button class="sort-btn finder-menu-trigger" id="directory-filter-menu-trigger" aria-haspopup="menu" aria-expanded="false" aria-controls="directory-filter-menu" data-menu-trigger="directory-filter-menu" title="筛选当前目录内容" type="button">
               <svg class="finder-filter-icon" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M2 3h12L9.5 8v4l-3 1V8L2 3Z"/></svg>
@@ -360,6 +366,7 @@
       <div class="resize-handle resize-handle-right" id="resize-handle-right"></div>
 
       <aside class="detail-panel" id="detail-panel">
+        <div id="repository-preview" aria-label="仓库摘要预览" hidden></div>
         <div id="workspace-inspector" aria-label="工作区辅助资料"></div>
         <div id="detail-identity-tabs" class="detail-identity-tabs" role="tablist" aria-label="目录详情类型" hidden>
           <button id="detail-project-tab" type="button" role="tab" aria-controls="detail-empty">资料</button>
