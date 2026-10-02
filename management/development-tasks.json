@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-02T08:07:11+08:00",
+  "updatedAt": "2026-10-02T08:17:10+08:00",
   "scope": "以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。",
   "baseline": {
     "version": "2.0.0-alpha.193",
     "sourceCommit": "99eef1d2992e389f32a48182a25fda3b9adf1958",
     "evidence": "docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md"
   },
-  "nextTaskId": "GF-INTERFACE-233",
+  "nextTaskId": "GF-DATA-001",
   "milestones": [
     {
       "id": "GF-P0",
@@ -1912,9 +1912,9 @@
       "milestone": "GF-P2",
       "title": "统一界面规范、布局与分级浏览体验",
       "priority": "P1",
-      "status": "verified",
+      "status": "delivered",
       "owner": "Codex",
-      "updatedAt": "2026-10-02T08:07:11+08:00",
+      "updatedAt": "2026-10-02T08:17:10+08:00",
       "dependsOn": [],
       "sourcePaths": [
         "src/renderer/index.html",
@@ -1935,9 +1935,13 @@
       "evidence": [
         "docs/00-handoff/INTERFACE_ALPHA233.md"
       ],
-      "nextAction": "源码1473测试/317JS、界面257、工作台25、工具条10通过；从提交干净构建，再可恢复安装与实际应用验收后推送。",
+      "nextAction": "alpha233已安装并完成隔离与实际用户配置交互验收，源码已推送；等待用户体验反馈。GF-DATA-001继续排队，不自动启动；开源协作平台尚未安装或接入。",
       "blocker": "",
-      "userAcceptance": "pending"
+      "userAcceptance": "pending",
+      "delivery": {
+        "version": "2.0.0-alpha.233",
+        "sourceCommit": "200cabb281d6c3b4e41bd34e01a3322ebcb986d1"
+      }
     }
   ]
 }

@@ -2,11 +2,11 @@
 
 > 自动生成。只编辑 `management/development-tasks.json`，然后执行 `npm run handoff:update`。
 
-更新时间：2026-10-02T08:07:11+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
+更新时间：2026-10-02T08:17:10+08:00。以alpha.193为核验基线的近期维护与后续路线；不是全部产品功能或整体完成百分比。
 
 核验基线：2.0.0-alpha.193 / `99eef1d2992e389f32a48182a25fda3b9adf1958`；证据：[docs/00-handoff/LAYOUT_OPTIONS_ALPHA193.md](LAYOUT_OPTIONS_ALPHA193.md)。
 
-**唯一下一任务：GF-INTERFACE-233**
+**唯一下一任务：GF-DATA-001**
 
 ## 阶段汇总
 
@@ -14,7 +14,7 @@
 | --- | ---: | ---: | ---: | ---: |
 | GF-P0 接续工程 | 2 | 2 | 0 | 0 |
 | GF-P1 桌面稳定 | 30 | 25 | 0 | 1 |
-| GF-P2 可维护与性能 | 15 | 10 | 1 | 0 |
+| GF-P2 可维护与性能 | 15 | 11 | 0 | 0 |
 | GF-P3 可分发 | 7 | 0 | 2 | 3 |
 | GF-P4 全流程事件 | 5 | 0 | 0 | 1 |
 | GF-P5 Web与同步（需授权） | 4 | 0 | 0 | 4 |
@@ -87,7 +87,7 @@
 | GF-WORKSPACE-230 | P1 | 已交付 | Codex | 仓库工作区返回与内置内容阅读 |
 | GF-TOOLBAR-231 | P1 | 已交付 | Codex | 分离标题栏与常用工具条 |
 | GF-WORKBENCH-232 | P1 | 已交付 | Codex | 统一项目工作流、全局总览与任务进度 |
-| GF-INTERFACE-233 | P1 | 已验证 | Codex | 统一界面规范、布局与分级浏览体验 |
+| GF-INTERFACE-233 | P1 | 已交付 | Codex | 统一界面规范、布局与分级浏览体验 |
 
 ## 可执行任务卡
 
@@ -1244,9 +1244,9 @@
 
 ### GF-INTERFACE-233 · 统一界面规范、布局与分级浏览体验
 
-阶段：GF-P2；优先级：P1；状态：**已验证**；负责人：Codex；用户验收：待用户反馈。
+阶段：GF-P2；优先级：P1；状态：**已交付**；负责人：Codex；用户验收：待用户反馈。
 
-更新：2026-10-02T08:07:11+08:00。依赖：无。
+更新：2026-10-02T08:17:10+08:00。依赖：无。
 
 **验收标准**
 1. 统一标题/工具条/集合筛选，减少叠层与重复按钮。
@@ -1255,8 +1255,10 @@
 4. 保留筛选、双击/显式进入、返回恢复、文档任务保存和文件浏览功能。
 5. 干净构建、可恢复安装、实际应用验收后推送。
 
-**接续动作：** 源码1473测试/317JS、界面257、工作台25、工具条10通过；从提交干净构建，再可恢复安装与实际应用验收后推送。
+**接续动作：** alpha233已安装并完成隔离与实际用户配置交互验收，源码已推送；等待用户体验反馈。GF-DATA-001继续排队，不自动启动；开源协作平台尚未安装或接入。
 
 源码/设计入口：[src/renderer/index.html](../../src/renderer/index.html)；[src/renderer/scripts/app.js](../../src/renderer/scripts/app.js)；[src/renderer/scripts/repositoryDetailController.js](../../src/renderer/scripts/repositoryDetailController.js)；[src/renderer/scripts/workspaceFlowController.js](../../src/renderer/scripts/workspaceFlowController.js)；[src/renderer/scripts/workbenchPortfolioController.js](../../src/renderer/scripts/workbenchPortfolioController.js)；[src/renderer/styles/interface-system.css](../../src/renderer/styles/interface-system.css)；[src/renderer/styles/workbench.css](../../src/renderer/styles/workbench.css)。
 
 证据：[docs/00-handoff/INTERFACE_ALPHA233.md](INTERFACE_ALPHA233.md)
+
+交付：2.0.0-alpha.233；源码 `200cabb281d6c3b4e41bd34e01a3322ebcb986d1`。
